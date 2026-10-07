@@ -8086,7 +8086,7 @@ function riftWord(role,id,onScreen){const [lo,hi]=RLEN[id]||[4,6],firsts=new Set
  for(const [f,r] of[[1,1],[0,1],[0,0]]){const pool=(Math.random()<.75?RIFTW:GEN).filter(w=>w.length>=lo&&w.length<=hi+hard&&(!f||!firsts.has(w[0]))&&(!r||!ban.has(w)));if(pool.length){const w=pool[Math.random()*pool.length|0];RECENT.push(w);if(RECENT.length>70)RECENT.shift();return w}}return'star'}
 function modeWord(role,id){return S.rift?riftWord(role,id,S.en.map(q=>q.w)):pracWord()}
 function modeInit(e,M){if(S.prac){e.tr=null;e.rg=false;e.el=false;e.role=M.fly?1:0;if(!S.prac.atk)e.at=1e9}}
-function spawnK(){if(S.lib)return 1.12;if(S.rift)return Math.max(RFT.spMin,RFT.sp0-S.rel*RFT.spSlope)*(S.surge>0?.55:1);if(S.prac)return S.prac.rate;return 1}
+function spawnK(){if(S.lib)return [1.1,1.18,1.3,1][Math.max(0,S.lib.room-1)];if(S.rift)return Math.max(RFT.spMin,RFT.sp0-S.rel*RFT.spSlope)*(S.surge>0?.55:1);if(S.prac)return S.prac.rate;return 1}
 function modeTick(dt){
  if(S.rift){if(S.ban)return;S.rel+=dt;S.time-=dt*(1+Math.min(RFT.drCap,S.rel/RFT.drain));
   if(S.surge>0){S.surge-=dt;S.sfx=(S.sfx||0)-dt;if(S.sfx<=0){S.sfx=.035;S.ps.push({x:Math.random()*(W+500),y:-20,vx:-430,vy:640+Math.random()*300,l:1.2,ml:1.2,c:Math.random()<.5?'#ffffff':'#ffd0f8',s:3+Math.random()*3,g:0})}
@@ -11758,9 +11758,9 @@ const LIB_IDS=['libink','libpage','libmimic','libquill','unwritten'];
 const LIBR=[
  {n:'The Ink Hall',sub:'Inklings and Page Wraiths have escaped the reading desks.',cnt:20,d:1,mob:[['libink',6],['libpage',4]],
   say:'Ink seeps from every shelf. Begin where the spill began.',done:'The Ink Hall is restored',dsub:'Loose pages fly home to their shelves.'},
- {n:'The Shifting Stacks',sub:'Book Mimics sprint at you once they get close.',cnt:24,d:4,mob:[['libink',3.5],['libpage',3],['libmimic',3.5]],
+ {n:'The Shifting Stacks',sub:'Book Mimics sprint at you once they get close.',cnt:24,d:3.5,mob:[['libink',3.5],['libpage',3],['libmimic',3.5]],
   say:'The stacks are moving. Mind the books that bite.',done:'The Shifting Stacks stand still',dsub:'The lettering in the vault reconnects.'},
- {n:'The Forbidden Index',sub:'Everything at once. Quill Sentinels are armored: type their word twice.',cnt:26,d:7,mob:[['libink',2.5],['libpage',2.5],['libmimic',2.4],['libquill',2.2]],
+ {n:'The Forbidden Index',sub:'Everything at once. Quill Sentinels are armored: type their word twice.',cnt:26,d:6,mob:[['libink',2.5],['libpage',2.5],['libmimic',2.4],['libquill',2.2]],
   say:'The Index guards forbidden names. Its sentinels wear armor of ink.',done:'The Forbidden Index is sealed',dsub:'Warm light returns to every shelf.'},
  {n:'The Unwritten',sub:'The keeper of the archive rises from its book.',boss:1,d:9,
   say:'Something stirs inside the great book...'}];
@@ -11873,7 +11873,7 @@ function libPauseLabel(){const L=S.lib;if(!L)return'';const R=LIBR[Math.max(0,L.
 /* ---------- end of run: rewards are paid exactly once ---------- */
 function libOver(quit,win){if(S.mode==='over'||!S.lib)return;const L=S.lib;S.mode='over';L.st='results';libExpire();S.pj=[];S.bk=[];S.tgt=null;
  if(L.paid)return;L.paid=1;win=!!win;
- const rooms=L.cleared,mods=1+.1*U('scholar')+.1*(P.pres||0)+(S.xpm||0),xp=Math.round((S.score/18+rooms*30+(win?100:0))*mods),bonus=win?Math.round(90*(S.gm||1)):0;
+ const rooms=L.cleared,mods=1+.1*U('scholar')+.1*(P.pres||0)+(S.xpm||0),xp=Math.round((S.score/24+rooms*30+(win?100:0))*mods),bonus=win?Math.round(90*(S.gm||1)):0;
  const l0=finishRun(),wxm=wxpEnd();P.xp+=xp;if(bonus){P.gold+=bonus;stat('gold',bonus,'add')}
  const R=libRec(),secs=Math.round(L.runT),nb=S.score>R.best;R.runs++;if(win){R.wins++;if(!R.fast||secs<R.fast)R.fast=secs}if(nb)R.best=S.score;R.room=Math.max(R.room,rooms+(win?0:1));
  stat('combo',S.maxCombo,'max');save();jingle(win?'win':'lose');
@@ -12268,7 +12268,7 @@ button.hxm.lib .hpl{--c:#ffcf6a;color:#2a1606}
 .lbex span{display:inline-block;margin:3px 6px 3px 0;padding:3px 9px;border-radius:8px;border:1px solid var(--c);font-size:15px}
 .lbex b,.lbs b{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--c)}
 .lbc ol,.lbc ul{margin:0;padding-left:20px}.lbc li{margin:4px 0}.lbc small{opacity:.85;display:block;margin-top:8px;font-size:14.5px}
-.lbk{opacity:.75;text-align:center;font:italic 17px Georgia,serif;margin:4px 0 0}
+.lbk{opacity:.75;text-align:center;font:italic 17px Georgia,serif;margin:4px auto 0;width:100%;max-width:none;align-self:stretch}
 .lbres{max-width:1100px;margin:auto}
 .lbrow{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:12px 0}
 .lbrow>div{background:rgba(12,10,34,.82);border:1px solid #b48cff55;border-radius:12px;padding:8px 14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-family:Georgia,serif;font-size:16px}

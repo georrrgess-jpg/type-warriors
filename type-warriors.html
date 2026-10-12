@@ -18984,6 +18984,309 @@ document.addEventListener('pointerdown',e=>{const b=e.target&&e.target.closest&&
    even when the tree was complete or every remaining rank cost more points than the player had.
    spNote() returns the unspent points only if at least one rank can be bought with them right now, otherwise 0. */
 function spNote(){try{const sp=spLeft();if(sp<=0)return 0;for(const n of ND){const r=U(n.id);if(r<n.max&&reqOk(n)&&sCost(n,r)<=sp)return sp}return 0}catch(e){return 0}}
+/* ===== LOADOUT LOCKER: three named presets under Gear → Loadouts =====
+   A preset stores a weapon (and with it a class), an armor and a companion. Equipping one applies only what you own and
+   can use right now; anything missing or locked is skipped and the current piece stays. Skill Tree ranks are never
+   touched, so switching presets can never cause a respec. Save data: P.lo = {s:[{n,w,a,p,c}×3], sel, ask}. */
+const LODEF=['Campaign','Endless','Gold Hunt'];
+const LOX={hov:-1,fx:null,ren:-1,arm:-1,armTO:0};
+function loNorm(){let L=P.lo;if(!L||typeof L!=='object'||Array.isArray(L))L=P.lo={};
+ if(!Array.isArray(L.s))L.s=[];
+ for(let i=0;i<3;i++){let s=L.s[i];if(!s||typeof s!=='object')s=L.s[i]={};
+  s.n=String(s.n||LODEF[i]).replace(/[<>]/g,'').trim().slice(0,16)||LODEF[i];
+  s.w=WP[s.w]?s.w:'';s.a=AR[s.a]?s.a:'';s.p=typeof PDEF!=='undefined'&&PDEF[s.p]?s.p:'';s.c=s.w?WP[s.w].p||'knight':(PATHS[s.c]?s.c:'')}
+ L.s.length=3;L.sel=Math.max(0,Math.min(2,L.sel|0));L.ask=L.ask?1:0;return L}
+const loEmpty=s=>!s||(!s.w&&!s.a&&!s.p);
+/* what an equip would actually do, slot by slot */
+function loPlan(s){const R={w:{id:s.w,ok:false,why:''},a:{id:s.a,ok:false,why:''},p:{id:s.p,ok:false,why:''}};
+ if(s.w){const W=WP[s.w],cl=W.p||'knight',Q=PATHS[cl];
+  if(!P.own[s.w])R.w.why='Not owned';else if(!pathOpen(cl))R.w.why=`${Q.n} unlocks at level ${Q.lv}`;else R.w.ok=true}else R.w.why='Empty';
+ if(s.a){if(!P.ownA[s.a])R.a.why='Not owned';else R.a.ok=true}else R.a.why='Empty';
+ if(s.p){if(!petOwned(s.p))R.p.why='Not hatched yet';else R.p.ok=true}else R.p.why='Empty';
+ return R}
+/* the gear you would end up wearing */
+function loResult(s){const R=loPlan(s);return{w:R.w.ok?s.w:P.weapon,a:R.a.ok?s.a:P.armor,p:R.p.ok?s.p:P.pet}}
+function loActive(s){if(loEmpty(s))return false;const R=loPlan(s);
+ return(!s.w||!R.w.ok||P.weapon===s.w)&&(!s.a||!R.a.ok||P.armor===s.a)&&(!s.p||!R.p.ok||P.pet===s.p)&&(R.w.ok||R.a.ok||R.p.ok)}
+function loChanges(s){const R=loPlan(s),c=[];
+ if(R.w.ok&&P.weapon!==s.w)c.push(['w',P.weapon,s.w]);if(R.a.ok&&P.armor!==s.a)c.push(['a',P.armor,s.a]);if(R.p.ok&&P.pet!==s.p)c.push(['p',P.pet,s.p]);return c}
+function loApply(i){const L=loNorm(),s=L.s[i],R=loPlan(s),done=[],skip=[];
+ if(R.w.ok){if(P.weapon!==s.w)setWeapon(s.w);done.push('w')}else if(s.w)skip.push(['w',R.w.why]);
+ if(R.a.ok){P.armor=s.a;done.push('a')}else if(s.a)skip.push(['a',R.a.why]);
+ if(R.p.ok){if(P.pet!==s.p)petEquip(s.p);done.push('p')}else if(s.p)skip.push(['p',R.p.why]);
+ save();return{done,skip}}
+function loStore(i){const L=loNorm(),s=L.s[i];s.w=P.weapon;s.a=P.armor;s.p=P.pet&&petOwned(P.pet)?P.pet:'';s.c=WP[P.weapon].p||P.path;save()}
+
+/* ---------- small pieces of art ---------- */
+const LOI={
+ w:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 2.5l.6 3.4-9.4 9.4-3-3 9.4-9.4z" fill="#e8ecf8" stroke="#12081f" stroke-width="1.2" stroke-linejoin="round"/><path d="M20.5 2.5L10.2 13.8" stroke="#9aa4c8" stroke-width="1.2"/><path d="M5.6 11.6l6.8 6.8-1.8 1.8-6.8-6.8z" fill="#ffc94a" stroke="#12081f" stroke-width="1.2" stroke-linejoin="round"/><path d="M7.6 17.4l-4.3 4.3" stroke="#12081f" stroke-width="4" stroke-linecap="round"/><path d="M7.6 17.4l-4.3 4.3" stroke="#8a5a2c" stroke-width="2" stroke-linecap="round"/></svg>',
+ a:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l7.5 2.7v6c0 4.9-3.2 8.3-7.5 10.3-4.3-2-7.5-5.4-7.5-10.3v-6z" fill="#c8d0ec" stroke="#12081f" stroke-width="1.3"/><path d="M12 2.5l7.5 2.7v6c0 4.9-3.2 8.3-7.5 10.3z" fill="#12081f" opacity=".18"/><path d="M8 7.2c1.2-.6 2.4-1 4-1.4" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>',
+ p:'<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="15.8" rx="5" ry="4.2" fill="#ffb05a" stroke="#12081f" stroke-width="1.1"/><ellipse cx="5.8" cy="9.8" rx="2.1" ry="2.6" fill="#ffb05a" stroke="#12081f" stroke-width="1"/><ellipse cx="9.8" cy="6.2" rx="2.1" ry="2.6" fill="#ffb05a" stroke="#12081f" stroke-width="1"/><ellipse cx="14.2" cy="6.2" rx="2.1" ry="2.6" fill="#ffb05a" stroke="#12081f" stroke-width="1"/><ellipse cx="18.2" cy="9.8" rx="2.1" ry="2.6" fill="#ffb05a" stroke="#12081f" stroke-width="1"/><path d="M12 18.2l-1.9-1.8a1.1 1.1 0 0 1 1.9-1.2 1.1 1.1 0 0 1 1.9 1.2z" fill="#ff5c8a"/></svg>',
+ pen:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-5L16 4l4 4L9 19z" fill="currentColor"/><path d="M14 6l4 4" stroke="#1a1028" stroke-width="1.6"/></svg>',
+ crown:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 3.6L12 4.5l4.5 7.1L21 8l-1.8 10.5H4.8z" fill="currentColor"/><path d="M5 20.5h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+ disk:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h12.5L20 7.5V20H4z" fill="currentColor"/><path d="M7.5 4h8v5h-8z" fill="#1a1440"/><rect x="7" y="13" width="10" height="5.5" rx="1" fill="#1a1440"/></svg>',
+ gear:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5c3.4 0 6 2.4 6 5.6v4.4c0 1.4-.6 2.4-1.6 3.1V20H7.6v-4.4C6.6 14.9 6 13.9 6 12.5V8.1c0-3.2 2.6-5.6 6-5.6z" fill="currentColor"/><path d="M8.5 9.5h7M12 9.5v6" stroke="#1a1440" stroke-width="1.8" stroke-linecap="round"/></svg>',
+ lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 3.5h15v16h-15z" fill="currentColor"/><path d="M6.5 5.5h4.8v12H6.5zM12.7 5.5h4.8v12h-4.8z" fill="#1a1440"/><path d="M10 10.5v2.4M14 10.5v2.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M5.5 19.5v1.5M18.5 19.5v1.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+ book:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 5c3.2-.9 6.4-.6 9.5 1.2v14C8.9 18.4 5.7 18.1 2.5 19z" fill="#ffd45a" stroke="#12081f" stroke-width="1.1"/><path d="M21.5 5c-3.2-.9-6.4-.6-9.5 1.2v14c3.1-1.8 6.3-2.1 9.5-1.2z" fill="#f0b030" stroke="#12081f" stroke-width="1.1"/></svg>',
+ ok:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ warn:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#e8364e"/><path d="M12 6.5v7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1.5" fill="#fff"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>'};
+const LOSN={w:'Weapon',a:'Armor',p:'Companion'};
+const loName=(k,id)=>!id?'':k==='w'?WP[id].n:k==='a'?AR[id].n:petName(id);
+const loCol=(k,id)=>!id?'#8a84a8':k==='p'?((PRAR[PDEF[id].r]||{}).c||'#ffd45a'):(()=>{const it=(k==='w'?WP:AR)[id];return it.col||it.m||'#ffd76a'})();
+const loRar=(k,id)=>!id?'':k==='p'?(PRAR[PDEF[id].r]||{}).n||'':(()=>{const it=(k==='w'?WP:AR)[id];return it.pr?'Prestige '+PRN[it.pr-1]:it.r})();
+function loPaint(c,k,id,t){if(!c)return;try{if(!id){c.getContext('2d').clearRect(0,0,c.width,c.height);return}
+ if(k==='p')petFit(c,id,Object.assign({t:t==null?1.2:t},petOwned(id)?petLook(id):{}));else art(c,k,id,t||0)}catch(e){}}
+
+/* ---------- the locker room behind the stage: painted once per size ---------- */
+const LOBG={};
+function loStageBG(w,h){const key=w+'x'+h;if(LOBG[key])return LOBG[key];const c=cdMk(w,h),g=c.getContext('2d'),fy=h*.8;
+ g.fillStyle=vgr(g,0,h,'#1e1640','#0c0820');g.fillRect(0,0,w,h);
+ /* stone blocks */for(let y=0,r=0;y<fy;y+=36,r++)for(let x=-(r%2)*40;x<w;x+=80){const k=rnd(r*31+x*.07);g.fillStyle=`rgba(${70+k*30|0},${60+k*24|0},${120+k*30|0},.13)`;g.fillRect(x+2,y+2,76,32);g.strokeStyle='#0a061888';g.lineWidth=2;g.strokeRect(x+2,y+2,76,32)}
+ /* the tall window with the moon and a castle beyond */
+ const cx=w/2,ww=w*.34,top=h*.03,wh=h*.56;
+ const arch=()=>{g.beginPath();g.moveTo(cx-ww/2,top+wh);g.lineTo(cx-ww/2,top+ww*.62);g.quadraticCurveTo(cx-ww/2,top+ww*.08,cx,top);g.quadraticCurveTo(cx+ww/2,top+ww*.08,cx+ww/2,top+ww*.62);g.lineTo(cx+ww/2,top+wh);g.closePath()};
+ g.save();arch();g.clip();g.fillStyle=vgr(g,top,top+wh,'#16206a','#4a3aa0');g.fillRect(cx-ww,top,ww*2,wh);
+ for(let i=0;i<22;i++){g.fillStyle=i%3?'#ffffff88':'#ffffffdd';g.fillRect(cx-ww/2+((i*47)%ww),top+20+((i*71)%(wh*.45)),1.6,1.6)}
+ const mx=cx+ww*.12,my=top+wh*.24;glow(g,mx,my,90,'#fff6d055');g.beginPath();g.arc(mx,my,30,0,TAU);g.fillStyle='#fff3c8';g.fill();g.beginPath();g.arc(mx+12,my-6,27,0,TAU);g.fillStyle='#2a2a8a';g.fill();
+ g.fillStyle='#120e3a';for(let i=-4;i<=4;i++){const x=cx+i*ww*.12,th=wh*(.22+((i+4)%3)*.07);g.fillRect(x-7,top+wh-th,14,th);g.beginPath();g.moveTo(x-10,top+wh-th);g.lineTo(x,top+wh-th-22);g.lineTo(x+10,top+wh-th);g.fill()}
+ g.restore();
+ g.lineWidth=12;g.strokeStyle='#2a2250';arch();g.stroke();g.lineWidth=3;g.strokeStyle='#5a4ca0';arch();g.stroke();
+ g.lineWidth=4;g.strokeStyle='#0e0a26';g.beginPath();g.moveTo(cx,top+8);g.lineTo(cx,top+wh);for(const f of[.42,.68])g.moveTo(cx-ww/2,top+wh*f),g.lineTo(cx+ww/2,top+wh*f);g.stroke();
+ /* crowned banners either side of the window */
+ for(const x of[cx-ww*.92,cx+ww*.92]){const bt=h*.08,bb=h*.48,bw=34;g.fillStyle='#c8963a';g.fillRect(x-bw-6,bt-8,bw*2+12,7);
+  g.beginPath();g.moveTo(x-bw,bt);g.lineTo(x+bw,bt);g.lineTo(x+bw,bb);g.lineTo(x,bb-30);g.lineTo(x-bw,bb);g.closePath();g.fillStyle=hgr(g,x-bw,x+bw,'#6a1e5a','#4a1240');g.fill();g.lineWidth=3;g.strokeStyle='#e0b04a';g.stroke();
+  g.fillStyle='#ffc94a';g.strokeStyle='#12081f';g.lineWidth=2;const cy=bt+(bb-bt)*.42;g.beginPath();g.moveTo(x-17,cy+10);g.lineTo(x-17,cy-6);g.lineTo(x-8,cy+1);g.lineTo(x,cy-12);g.lineTo(x+8,cy+1);g.lineTo(x+17,cy-6);g.lineTo(x+17,cy+10);g.closePath();g.fill();g.stroke()}
+ /* weapon racks at the far edges */
+ for(const side of[-1,1]){const rx=side<0?w*.07:w*.93;g.fillStyle='#3a2a20';g.fillRect(rx-34,h*.3,68,8);g.fillRect(rx-34,h*.62,68,8);g.strokeStyle='#12081f';g.lineWidth=2;g.strokeRect(rx-34,h*.3,68,8);g.strokeRect(rx-34,h*.62,68,8);
+  for(let i=0;i<3;i++){const x=rx-20+i*20;g.fillStyle='#8a92b0';g.beginPath();g.moveTo(x,h*.24);g.lineTo(x+4,h*.29);g.lineTo(x+4,h*.6);g.lineTo(x-4,h*.6);g.lineTo(x-4,h*.29);g.closePath();g.fill();g.stroke();g.fillStyle='#c8963a';g.fillRect(x-8,h*.6,16,4);g.fillStyle='#5a3a24';g.fillRect(x-2,h*.62,4,h*.06)}
+  g.beginPath();g.ellipse(rx,h*.72,22,26,0,0,TAU);g.fillStyle=hgr(g,rx-22,rx+22,'#4a3c90','#2a2260');g.fill();g.lineWidth=3;g.strokeStyle='#c8963a';g.stroke();g.beginPath();g.moveTo(rx,h*.72-26);g.lineTo(rx,h*.72+26);g.moveTo(rx-22,h*.72);g.lineTo(rx+22,h*.72);g.lineWidth=2.5;g.strokeStyle='#c8963a99';g.stroke();g.beginPath();g.arc(rx,h*.72,6,0,TAU);g.fillStyle='#ffc94a';g.fill();g.lineWidth=2;g.strokeStyle='#12081f';g.stroke()}
+ /* floor, carpet with a crown and the round dais */
+ g.fillStyle=vgr(g,fy-40,h,'#241c44','#0e0a1e');g.fillRect(0,fy-24,w,h);
+ g.beginPath();g.moveTo(cx-w*.1,fy);g.lineTo(cx+w*.1,fy);g.lineTo(cx+w*.2,h);g.lineTo(cx-w*.2,h);g.closePath();g.fillStyle=vgr(g,fy,h,'#4a2a7a','#2e1a50');g.fill();g.strokeStyle='#c8963a';g.lineWidth=3;g.stroke();
+ g.beginPath();g.ellipse(cx,fy,w*.4,44,0,0,TAU);g.fillStyle=rgr(g,cx,fy,10,w*.4,'#4a3c70','#2c2450');g.fill();g.strokeStyle='#5a4ca0';g.lineWidth=3;g.stroke();
+ g.strokeStyle='#ffd45a55';g.lineWidth=2;g.setLineDash([7,9]);g.beginPath();g.ellipse(cx,fy,w*.32,32,0,0,TAU);g.stroke();g.setLineDash([]);
+ g.fillStyle='#e0b04a99';const ky=h*.95;g.beginPath();g.moveTo(cx-22,ky+8);g.lineTo(cx-22,ky-6);g.lineTo(cx-10,ky+1);g.lineTo(cx,ky-12);g.lineTo(cx+10,ky+1);g.lineTo(cx+22,ky-6);g.lineTo(cx+22,ky+8);g.closePath();g.fill();
+ g.fillStyle=rgr(g,cx,h*.55,h*.3,w*.75,'#00000000','#000000aa');g.fillRect(0,0,w,h);
+ return LOBG[key]={c,fy}}
+
+/* ---------- the stage: your hero wearing the preset you are looking at ---------- */
+function loStage(cv){const g=cv.getContext('2d'),w=cv.width,h=cv.height,B=loStageBG(w,h),fy=B.fy,hx=w*.6,px=w*.27,py=fy+6;
+ const FX=[],RG=[],TX=[];let key='',pop=null,an=null,lt=ptNow();
+ const sig=id=>(typeof PSIG!=='undefined'&&PSIG[id]?PSIG[id][0]:'#ffd45a');
+ LOX.fx={
+  swap(o){const W=WP[o.w]||{};ptBurst(FX,hx,fy-130,14,[W.col||'#ffd45a','#ffffff'],{v:200,g:60,l:.8,s:6});ptBurst(FX,hx,fy,10,'rgba(200,190,240,.35)',{k:'dust',fl:.25,v:130,g:-10,l:.7,s:6,dr:.2});
+   if(o.p)an={pose:'greet',dur:1.3,t:ptNow()};pop={t:ptNow()}},
+  equip(o){const t=ptNow();an={pose:'ability',dur:1.9,t};pop={t};RG.push({x:hx-40,y:fy+4,t:0,c:'#ffd45a',max:w*.42,w:10,d:1},{x:hx-40,y:fy+4,t:-.15,c:'#ffffff',max:w*.34,w:5,d:1});
+   ptBurst(FX,hx-30,fy-120,36,['#ffd45a','#fff2c0',o.p?sig(o.p):'#b47aff','#ffffff'],{v:340,g:240,l:1.5,s:7});TX.push({s:'Loadout equipped!',x:w/2,y:h*.2,a:0,c:'#ffd45a',sz:30,d:1.9})},
+  save(){ptBurst(FX,w/2,h*.4,18,['#c4badf','#ffffff','#8ab4ff'],{v:220,g:80,l:1,s:5});TX.push({s:'Saved!',x:w/2,y:h*.22,a:0,c:'#fff8e8',sz:28,d:1.4})}};
+ return t=>{const now=ptNow(),dt=Math.min(.05,Math.max(0,now-lt)),rm=ptRM(),tt=rm?1.2:t;lt=now;
+  g.setTransform(1,0,0,1,0,0);g.globalCompositeOperation='source-over';g.drawImage(B.c,0,0);
+  /* torches on the wall */
+  g.globalCompositeOperation='lighter';for(const x of[w*.19,w*.81]){const f=.8+.2*Math.sin(tt*11+x)+.08*Math.sin(tt*19+x*2),y=h*.55;cdGlow(g,x,y,110*f,'rgba(255,150,60,.26)');mFl(g,x-3,y+4,30*f,8,tt,x|0,'rgba(255,120,24,.9)','rgba(255,240,170,.9)');mFl(g,x+4,y+4,22*f,6,tt,(x|0)+3,'rgba(255,190,60,.9)','rgba(255,250,200,.9)')}
+  g.globalCompositeOperation='source-over';for(const x of[w*.19,w*.81]){g.fillStyle='#3a2a20';g.strokeStyle='#12081f';g.lineWidth=2;g.beginPath();g.moveTo(x-9,h*.56);g.lineTo(x+9,h*.56);g.lineTo(x+4,h*.62);g.lineTo(x-4,h*.62);g.closePath();g.fill();g.stroke()}
+  if(!rm)for(let i=0;i<7;i++){const a=tt*.35+i*1.9,x=w*(.15+.7*((i*.618)%1))+Math.sin(a)*18,y=h*(.3+.35*((i*.41)%1))+Math.cos(a*1.3)*12,al=Math.max(0,Math.sin(tt*1.1+i));pGlow(g,x,y,7,'#c8b8ff',.45*al)}
+  const L=loNorm(),i=LOX.hov>=0?LOX.hov:L.sel,o=loResult(L.s[i]),k=o.w+'|'+o.a+'|'+o.p;
+  if(k!==key){if(key&&!rm)LOX.fx.swap(o);key=k}
+  let sx=1,sy=1;if(pop){const q=(now-pop.t)/.5;if(q>=1)pop=null;else{const s=.86+.14*ptBack(Math.max(0,q));sx=s;sy=s}}
+  /* rings on the floor */
+  for(let r=RG.length-1;r>=0;r--){const R=RG[r];R.t+=dt;const q=R.t/R.d;if(q>=1){RG.splice(r,1);continue}if(q<0)continue;const rr=R.max*(1-Math.pow(1-q,3));g.save();g.globalCompositeOperation='lighter';g.globalAlpha=1-q;g.strokeStyle=R.c;g.lineWidth=R.w*(1-q*.6);g.beginPath();g.ellipse(R.x,R.y,rr,rr*.22,0,0,TAU);g.stroke();g.restore()}
+  /* hero */
+  const W=WP[o.w]||{};pGlow(g,hx,fy-120,150,(W.col||'#ffd45a').slice(0,7),.16);
+  g.save();g.translate(hx,fy);g.fillStyle='#00000066';g.beginPath();g.ellipse(0,4,74,13,0,0,TAU);g.fill();const ks=2.1;g.scale(ks*sx,ks*sy);try{drawHero(g,{arm:o.a,wp:o.w,col:P.col,t:tt})}catch(e){}g.restore();
+  /* companion */
+  if(o.p&&PDEF[o.p]){const D=PDEF[o.p],ps=D.hover?1.2:1.25;let pose='idle',u=0;if(an){const q=(now-an.t)/an.dur;if(q>=1)an=null;else{pose=an.pose;u=q}}
+   if(!rm){g.save();g.globalCompositeOperation='lighter';const pu=.5+.5*Math.sin(tt*2),bw=(D.box||[0,0,120])[2]*ps*.55+8*pu;g.beginPath();g.ellipse(px,py+2,bw,bw*.22,0,0,TAU);g.strokeStyle=ptHexA(sig(o.p),.16+.12*pu);g.lineWidth=3;g.stroke();g.restore()}
+   g.save();g.translate(px,py);g.scale(ps*sx,ps*sy);try{petDraw(g,o.p,Object.assign({t:tt,pose,u},petOwned(o.p)?petLook(o.p):{}))}catch(e){}g.restore()}
+  ptFxStep(g,FX,dt);
+  for(let r=TX.length-1;r>=0;r--){const T=TX[r];T.a+=dt;const q=T.a/T.d;if(q>=1){TX.splice(r,1);continue}const s=q<.18?.6+.4*ptBack(q/.18):1,al=q>.75?1-(q-.75)/.25:1;
+   g.save();g.globalAlpha=al;g.translate(T.x,T.y-q*24);g.scale(s,s);g.font=`800 ${T.sz}px Poppins,sans-serif`;g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';g.lineWidth=7;g.strokeStyle='#12081f';g.strokeText(T.s,0,0);g.fillStyle=T.c;g.fillText(T.s,0,0);g.restore()}}}
+
+/* ---------- the screen ---------- */
+function loTiles(s,big){return['w','a','p'].map((k,j)=>{const id=s[k],R=loPlan(s)[k],bad=id&&!R.ok;
+ return `<span class="lotile${id?'':' em'}${bad?' bad':''}" style="--c:${loCol(k,id)};--j:${j}" title="${id?esc(loName(k,id))+(bad?' · '+esc(R.why):''):'Empty '+LOSN[k].toLowerCase()+' slot'}">${id?`<canvas width="${big?180:150}" height="${big?180:130}" data-lt="${k}:${id}"></canvas>`:`<i class="loph">${LOI[k]}</i>`}${bad?`<i class="lobad">${LOI.warn}</i>`:''}</span>`}).join('')}
+function loCard(s,i,L){const act=loActive(s),Q=s.c&&PATHS[s.c];
+ return `<div class="locard${i===L.sel?' on':''}${loEmpty(s)?' empty':''}" data-lo="${i}" role="option" tabindex="0" aria-selected="${i===L.sel}" style="--d:${i}">
+  <div class="loch"><b class="lonm" id="lonm${i}">${esc(s.n)}</b>${Q&&!loEmpty(s)?`<span class="locls" style="--c:${Q.c}" title="${Q.n} class">${ARI[s.c]||''}${Q.n}</span>`:''}${act?`<span class="loact">${LOI.ok}Equipped</span>`:''}${loEmpty(s)?'<span class="loemp">Empty</span>':''}<button class="lopen" data-ren="${i}" title="Rename" aria-label="Rename ${esc(s.n)}">${LOI.pen}</button></div>
+  <div class="lotiles">${loTiles(s)}</div></div>`}
+function loDetail(L){const s=L.s[L.sel],R=loPlan(s),em=loEmpty(s),act=loActive(s),ch=loChanges(s),any=R.w.ok||R.a.ok||R.p.ok;
+ const row=(k,j)=>{const id=s[k],r=R[k];let sub='';
+  if(id){const chips=k==='p'?[PDEF[id].ab.n]:aeChips(aeStats((k==='w'?WP:AR)[id])).slice(0,2);sub=`<em style="color:${loCol(k,id)}">${esc(loRar(k,id))}</em>${r.ok?`<span class="lochips">${chips.map(c=>`<i>${esc(c)}</i>`).join('')}</span>`:`<span class="lowhy">${LOI.warn}${esc(r.why)}. Your current ${LOSN[k].toLowerCase()} stays.</span>`}`}
+  else sub='<span class="lowhy em">Not saved in this preset</span>';
+  return `<div class="lorow${id&&!r.ok?' bad':''}" style="--j:${j}"><span class="lolab">${LOI[k]}${LOSN[k]}</span><span class="lotile big${id?'':' em'}" style="--c:${loCol(k,id)}">${id?`<canvas width="180" height="180" data-lt="${k}:${id}" data-big="1"></canvas>`:`<i class="loph">${LOI[k]}</i>`}</span><span class="lort"><b>${id?esc(loName(k,id)):'Empty'}</b>${sub}</span></div>`};
+ const eqTxt=em?'Nothing saved yet':act?'Equipped':!any?'Nothing you can use yet':'Equip preset';
+ return `<div class="lodh"><h3 id="lodn">${esc(s.n)}</h3><button class="lopen big" data-ren="${L.sel}" title="Rename" aria-label="Rename ${esc(s.n)}">${LOI.pen}</button></div>
+ <div class="lorows">${['w','a','p'].map(row).join('')}</div>
+ <p class="lonote">${em?'Save your current weapon, armor and companion into this preset.':act?'You are wearing this loadout right now.':ch.length?`Equipping changes ${ch.map(c=>LOSN[c[0]].toLowerCase()).join(', ').replace(/, ([^,]*)$/,' and $1')}. Only owned gear is applied.`:'Applies owned gear and companion.'}</p>
+ <button class="logo${em||act||!any?' off':''}" id="loeq" ${em||act||!any?'disabled':''}>${act?LOI.ok:LOI.crown}<span>${eqTxt}</span></button>
+ <button class="losv${em?' prim':''}" id="losv">${LOI.disk}<span>Save current loadout</span></button>
+ <label class="loask"><input type="checkbox" id="loask" ${L.ask?'checked':''}><i></i><span>Ask before replacing gear</span></label>`}
+function loadouts(){S.mode='title';S.view='menu';try{petNorm()}catch(e){}const L=loNorm();LOX.hov=-1;LOX.ren=-1;LOX.arm=-1;clearTimeout(LOX.armTO);
+ show(`<div class="lol" id="lol"><header class="lohd"><h2>Loadout Locker</h2><nav class="lobc" aria-label="Breadcrumb"><button class="lobcb" id="lobg">${LOI.gear}<span>Gear</span></button><i>›</i><span class="lobcb on" aria-current="page">${LOI.lock}<span>Loadouts</span></span></nav></header>
+ <section class="lopn lol-l" aria-label="Saved loadouts"><h3>Saved Loadouts</h3><div class="locards" role="listbox" aria-label="Presets">${L.s.map((s,i)=>loCard(s,i,L)).join('')}</div></section>
+ <section class="lostg" aria-label="Preview"><canvas id="locv" width="560" height="620"></canvas><span class="lostn" id="lostn"></span></section>
+ <section class="lopn lol-r" id="lodt" aria-live="polite">${loDetail(L)}</section>
+ <footer class="loft"><span>${LOI.book}Skill Tree choices stay unchanged. Switching presets never costs a respec.</span><span class="lokeys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> pick a preset</span></footer>
+ <div class="lomod" id="lomod" hidden></div><div class="row"><button class="sm" id="b">Back</button></div></div>`,'m');
+ S.back=()=>{const m=$('lomod');if(m&&!m.hidden){loModClose();return}if(LOX.ren>=0){loRenEnd(false);return}title()};$('b').onclick=()=>S.back();
+ $('lobg').onclick=()=>armory();
+ const cv=$('locv');LIVE.push({cv,fn:loStage(cv),slow:2,ph:0,vis:true});
+ loBind();loPaintAll();loCap()}
+function loPaintAll(){ov.querySelectorAll('canvas[data-lt]').forEach(c=>{const [k,id]=c.dataset.lt.split(':');loPaint(c,k,id,c.dataset.big?1.2:1.2)})}
+function loCap(){const L=loNorm(),i=LOX.hov>=0?LOX.hov:L.sel,s=L.s[i],el=$('lostn');if(!el)return;el.textContent=loEmpty(s)?'Your current gear':s.n;el.classList.toggle('cur',loEmpty(s))}
+/* re-render only the parts that change, so nothing flickers */
+function loRefresh(o){o=o||{};const L=loNorm(),box=ov.querySelector('.locards');if(!box)return;
+ box.innerHTML=L.s.map((s,i)=>loCard(s,i,L)).join('');$('lodt').innerHTML=loDetail(L);
+ if(o.anim)$('lodt').classList.remove('swap'),void $('lodt').offsetWidth,$('lodt').classList.add('swap');
+ box.classList.add('re');
+ loBind();loPaintAll();loCap();
+ if(o.pop!=null){const c=box.querySelector(`[data-lo="${o.pop}"]`);if(c){c.classList.add(o.cls||'lojust');c.addEventListener('animationend',e=>{if(e.target===c)c.classList.remove(o.cls||'lojust')})}}}
+function loSelect(i,anim){const L=loNorm();if(i===L.sel)return;L.sel=i;LOX.arm=-1;save();try{beep(600,.04,'triangle',.2)}catch(e){}loRefresh({anim:1,pop:i,cls:'losel'})}
+function loBind(){const L=loNorm();
+ ov.querySelectorAll('.locard').forEach(c=>{const i=+c.dataset.lo;
+  c.onclick=e=>{if(e.target.closest('[data-ren]')||e.target.closest('.loren'))return;loSelect(i)};
+  c.onkeydown=e=>{if(e.target!==c)return;if(e.key==='Enter'||e.key===' '){e.preventDefault();loSelect(i)}else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const n=(i+(e.key==='ArrowDown'?1:2))%3;const t=ov.querySelector(`[data-lo="${n}"]`);if(t)t.focus()}};
+  c.onmouseenter=()=>{if(LOX.ren>=0)return;LOX.hov=i;loCap()};c.onmouseleave=()=>{LOX.hov=-1;loCap()}});
+ ov.querySelectorAll('[data-ren]').forEach(b=>b.onclick=e=>{e.stopPropagation();loRenStart(+b.dataset.ren)});
+ const eq=$('loeq');if(eq)eq.onclick=()=>loEquipAsk();
+ const sv=$('losv');if(sv)sv.onclick=()=>loSave();
+ const ck=$('loask');if(ck)ck.onchange=()=>{L.ask=ck.checked?1:0;save()}}
+/* equip, optionally after a check */
+function loEquipAsk(){const L=loNorm(),s=L.s[L.sel];if(loEmpty(s)||loActive(s))return;const ch=loChanges(s);
+ if(!L.ask||!ch.length)return loEquip();
+ const it=c=>{const [k,a,b]=c;return `<div class="loch2" style="--j:${['w','a','p'].indexOf(k)}"><span class="lolab">${LOI[k]}${LOSN[k]}</span><span class="lotile sm" style="--c:${loCol(k,a)}">${a?`<canvas width="120" height="120" data-lt="${k}:${a}"></canvas>`:''}</span><i class="loarr">›</i><span class="lotile sm" style="--c:${loCol(k,b)}"><canvas width="120" height="120" data-lt="${k}:${b}"></canvas></span><b>${esc(loName(k,b))}</b></div>`};
+ loModOpen(`<h3>Equip ${esc(s.n)}?</h3><p>These will be replaced. Skill Tree choices stay as they are.</p><div class="lochg">${ch.map(it).join('')}</div><div class="lomb"><button class="logo" id="lomy">${LOI.crown}<span>Equip</span></button><button class="losv" id="lomn"><span>Cancel</span></button></div>`);
+ $('lomy').onclick=()=>{loModClose();loEquip()};$('lomn').onclick=loModClose;setTimeout(()=>{const b=$('lomy');if(b)b.focus()},30)}
+function loEquip(){const L=loNorm(),i=L.sel,r=loApply(i);
+ try{beep(660,.09,'triangle',.25);setTimeout(()=>beep(880,.1,'triangle',.22),90);setTimeout(()=>beep(1175,.16,'triangle',.2),190)}catch(e){}
+ loRefresh({pop:i,cls:'loeqd'});if(LOX.fx)LOX.fx.equip(loResult(L.s[i]));
+ if(r.skip.length)loToast(`Skipped ${r.skip.map(([k,why])=>`${LOSN[k].toLowerCase()} (${why.toLowerCase()})`).join(', ')}.`,1);
+ const t=$('loeq');if(t){t.classList.add('lopress');t.addEventListener('animationend',()=>t.classList.remove('lopress'),{once:true})}}
+/* save: overwriting a different preset asks for a second click */
+function loSave(){const L=loNorm(),i=L.sel,s=L.s[i],same=!loEmpty(s)&&s.w===P.weapon&&s.a===P.armor&&(s.p||'')===(P.pet&&petOwned(P.pet)?P.pet:'');
+ if(same){loToast('This preset already matches your current gear.');return}
+ if(!loEmpty(s)&&LOX.arm!==i){LOX.arm=i;const b=$('losv');if(b){b.classList.add('armed');b.querySelector('span').textContent=`Replace ${s.n}? Click again`}clearTimeout(LOX.armTO);LOX.armTO=setTimeout(()=>{LOX.arm=-1;const b=$('losv');if(b){b.classList.remove('armed');b.querySelector('span').textContent='Save current loadout'}},3200);try{beep(440,.05,'triangle',.2)}catch(e){}return}
+ clearTimeout(LOX.armTO);LOX.arm=-1;loStore(i);try{beep(700,.06,'triangle',.22);setTimeout(()=>beep(1050,.12,'triangle',.2),80)}catch(e){}
+ loRefresh({pop:i,cls:'losvd'});if(LOX.fx)LOX.fx.save()}
+/* rename in place */
+function loRenStart(i){if(LOX.ren>=0)loRenEnd(true);const L=loNorm();if(i!==L.sel){L.sel=i;loRefresh({anim:1})}
+ const nm=$('lonm'+i);if(!nm)return;LOX.ren=i;const inp2=document.createElement('input');inp2.className='loren';inp2.maxLength=16;inp2.value=L.s[i].n;inp2.setAttribute('aria-label','Preset name');inp2.spellcheck=false;nm.replaceWith(inp2);
+ const card=inp2.closest('.locard');if(card)card.classList.add('editing');
+ inp2.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();loRenEnd(true)}else if(e.key==='Escape'){e.preventDefault();loRenEnd(false)}};
+ inp2.onblur=()=>setTimeout(()=>{if(LOX.ren===i)loRenEnd(true)},0);inp2.onclick=e=>e.stopPropagation();
+ inp2.focus();inp2.select()}
+function loRenEnd(keep){const i=LOX.ren;if(i<0)return;LOX.ren=-1;const L=loNorm(),el=ov.querySelector('.loren');
+ if(keep&&el){const v=el.value.replace(/[<>]/g,'').replace(/\s+/g,' ').trim().slice(0,16);if(v&&v!==L.s[i].n){L.s[i].n=v;save();try{beep(820,.06,'triangle',.2)}catch(e){}loRefresh({pop:i,cls:'loren-ok'});return}}
+ loRefresh()}
+/* small modal and toast */
+function loModOpen(html){const m=$('lomod');if(!m)return;m.hidden=false;m.innerHTML=`<div class="lomb0" role="dialog" aria-modal="true">${html}</div>`;m.onclick=e=>{if(e.target===m)loModClose()};
+ m.querySelectorAll('canvas[data-lt]').forEach(c=>{const [k,id]=c.dataset.lt.split(':');loPaint(c,k,id,1.2)})}
+function loModClose(){const m=$('lomod');if(m){m.hidden=true;m.innerHTML=''}const b=$('loeq');if(b&&!b.disabled)b.focus()}
+function loToast(txt,warn){const host=$('lol');if(!host)return;const o=host.querySelector('.lotst');if(o)o.remove();const t=document.createElement('div');t.className='lotst'+(warn?' warn':'');t.innerHTML=(warn?LOI.warn:LOI.ok)+`<span>${esc(txt)}</span>`;host.appendChild(t);setTimeout(()=>{t.classList.add('out');setTimeout(()=>t.remove(),400)},warn?3600:2200)}
+/* 1, 2, 3 pick a preset while the locker is open */
+addEventListener('keydown',e=>{if(!$('lol')||S.mode!=='title'||ov.className.indexOf('hide')>=0||e.ctrlKey||e.metaKey||e.altKey)return;const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;const m=$('lomod');if(m&&!m.hidden)return;
+ if(/^[1-3]$/.test(e.key)){e.preventDefault();loSelect(+e.key-1);const c=ov.querySelector(`[data-lo="${+e.key-1}"]`);if(c)c.focus()}});
+
+/* ---------- dock: Gear now has Armory · Loadouts · Skill Tree ---------- */
+DKSUB.gr.splice(1,0,['lo','Loadouts',()=>loadouts()]);DKG.lo='gr';
+{const g0=DKGO.gr;DKGO.gr=()=>DKLAST.gr==='lo'?loadouts():g0()}
+{const d0=dkDetect;dkDetect=function(html){if(/class="lol"/.test(html))return'lo';return d0.apply(this,arguments)}}
+
+/* ---------- styles ---------- */
+{const st=document.createElement('style');st.textContent=`
+.lol{--gold:#ffd45a;--ink:#fff8e8;--mut:#c4badf;--ez:cubic-bezier(.3,1.5,.5,1);--eo:cubic-bezier(.2,.9,.3,1);position:relative;display:grid;grid-template-columns:450px minmax(0,1fr) 470px;grid-template-rows:auto 580px auto;gap:12px 16px;width:100%;max-width:1560px;margin:0 auto;padding:4px 6px 8px;text-align:left;color:var(--ink);font-family:var(--ui)}
+.lol>.row{display:none}
+.lohd{grid-column:1/-1;display:flex;align-items:center;gap:26px;padding-right:180px;min-height:64px;animation:lodn .45s var(--eo) both}
+@keyframes lodn{from{opacity:0;transform:translateY(-10px)}}
+.lohd h2{margin:0;font:400 56px/1 'Pirata One',Georgia,serif;color:var(--gold);text-shadow:0 3px 0 #3a1a00,0 0 22px #ffb02a55;position:relative;padding-bottom:6px}
+.lohd h2::after{content:'';position:absolute;left:4px;right:30%;bottom:-4px;height:2px;background:linear-gradient(90deg,var(--gold),#ffd45a00)}
+.lobc{display:flex;align-items:center;gap:10px}.lobc>i{font-style:normal;color:var(--mut);font-weight:800;font-size:20px}
+.lobcb{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:9px;padding:9px 18px;border-radius:13px;font:700 16px var(--ui);color:var(--ink);background:linear-gradient(180deg,#221c52,#14103a);border:1.5px solid #3a3070;box-shadow:inset 0 1px 0 #ffffff14}
+button.lobcb{cursor:pointer;transition:transform .2s var(--ez),border-color .2s}button.lobcb:hover{transform:translateY(-2px);border-color:#8a7cf0}button.lobcb:active{transform:scale(.94)}
+.lobcb.on{border:2px solid var(--gold);color:var(--gold);box-shadow:0 0 16px #ffb02a33,inset 0 1px 0 #ffffff14}
+.lobcb svg{width:22px;height:22px;display:block}
+.lopn{position:relative;background:linear-gradient(180deg,#1c1446,#0c0822);border:1.5px solid #3a3070;border-radius:20px;box-shadow:inset 0 1px 0 #ffffff1a,0 14px 34px #00000066;padding:16px 16px 14px;min-height:0;display:flex;flex-direction:column}
+.lol-l{animation:loinl .55s var(--eo) .05s both}.lol-r{animation:loinr .55s var(--eo) .1s both}
+@keyframes loinl{from{opacity:0;transform:translateX(-26px)}}@keyframes loinr{from{opacity:0;transform:translateX(26px)}}
+.lopn>h3{margin:0 0 10px 4px;font:400 36px/1 'Pirata One',Georgia,serif;color:var(--gold);text-shadow:0 2px 0 #3a1a00}
+.locards{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0}
+.locard{position:relative;flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:9px;padding:12px 14px;border-radius:18px;cursor:pointer;outline:none;background:linear-gradient(180deg,#1a1442,#100c2c);border:2px solid #2e2660;box-shadow:inset 0 1px 0 #ffffff12;transition:transform .22s var(--ez),border-color .2s;animation:lopop .5s var(--ez) both;animation-delay:calc(.12s + var(--d)*.08s)}
+@keyframes lopop{from{opacity:0;transform:translateY(14px) scale(.96)}}
+.locard:hover{transform:translateY(-3px);border-color:#5a4ca0}.locard:active{transform:scale(.985)}
+.locard:focus-visible{border-color:#8a7cf0;box-shadow:0 0 0 3px #8a7cf066}
+.locard.on{border:3px solid var(--gold);padding:11px 13px;background:linear-gradient(180deg,#241a50,#120c30);box-shadow:0 0 0 1px #ffd45a33,0 0 26px #ffb02a40,inset 0 1px 0 #ffffff1c}
+.locard.losel{animation:losel .45s var(--ez)}@keyframes losel{0%{transform:scale(.96)}60%{transform:scale(1.02)}100%{transform:none}}
+.loch{display:flex;align-items:center;gap:9px;min-height:36px}
+.lonm{font:400 32px/1 'Pirata One',Georgia,serif;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.locard.on .lonm{color:#ffe9a8}
+.locls{display:flex;align-items:center;gap:4px;padding:3px 9px 3px 5px;border-radius:99px;font:700 12px var(--ui);color:var(--c);background:#0a0618;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);white-space:nowrap}.locls svg{width:16px;height:16px}
+.loact{display:flex;align-items:center;gap:4px;padding:3px 9px;border-radius:99px;font:800 11px var(--ui);letter-spacing:.04em;text-transform:uppercase;color:#1a2a10;background:linear-gradient(180deg,#b8f080,#6ac040);white-space:nowrap}.loact svg{width:13px;height:13px}
+.lopen{all:unset;box-sizing:border-box;margin-left:auto;flex:none;width:38px;height:38px;display:grid;place-items:center;border-radius:11px;cursor:pointer;color:var(--ink);background:linear-gradient(180deg,#2a2260,#18124a);border:1.5px solid #4a3e8a;transition:transform .2s var(--ez),border-color .2s,color .2s}
+.lopen svg{width:18px;height:18px}.lopen:hover{transform:translateY(-2px) rotate(-8deg);border-color:var(--gold);color:var(--gold)}.lopen:active{transform:scale(.88)}.lopen:focus-visible{outline:3px solid #8a7cf0;outline-offset:2px}
+.lopen.big{width:44px;height:44px}.lopen.big svg{width:21px;height:21px}
+.loren{all:unset;box-sizing:border-box;flex:1;min-width:0;font:400 30px/1 'Pirata One',Georgia,serif;color:#fff;padding:2px 10px;border-radius:10px;background:#0a0618;border:2px solid var(--gold);box-shadow:0 0 14px #ffb02a44;animation:lopop .25s var(--ez)}
+.lotiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1;min-height:0}
+.lotile{position:relative;display:grid;place-items:center;min-height:0;border-radius:14px;overflow:hidden;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--c) 22%,#1c1846),#0c0a22 75%);border:1.5px solid color-mix(in srgb,var(--c) 45%,#2e2660);box-shadow:inset 0 1px 0 #ffffff14;transition:transform .22s var(--ez)}
+.lotile canvas{width:100%;height:100%;object-fit:contain;display:block}
+.locard .lotile{height:100%}.locard:hover .lotile{transform:translateY(-2px)}.locard:hover .lotile:nth-child(2){transition-delay:.03s}.locard:hover .lotile:nth-child(3){transition-delay:.06s}
+.lotile.em{background:#0e0b26;border:2px dashed #3a3070}.loph{display:grid;place-items:center;opacity:.32;filter:grayscale(1)}.loph svg{width:34px;height:34px}
+.lotile.bad canvas{filter:grayscale(.85) brightness(.7)}.lobad{position:absolute;top:5px;right:5px;width:20px;height:20px}.lobad svg{width:100%;height:100%;display:block}
+.loemp{padding:3px 10px;border-radius:99px;font:700 12px var(--ui);color:var(--mut);background:#0a0618;border:1px dashed #4a3e8a}
+.locard.losvd .lotile,.locard.loeqd .lotile{animation:lotl .55s var(--ez) both;animation-delay:calc(var(--j)*.09s)}
+@keyframes lotl{0%{transform:scale(.6) rotate(-6deg);opacity:.2}60%{transform:scale(1.08)}100%{transform:none}}
+.locard.loeqd{animation:loeqc .7s var(--eo)}
+.locards.re .locard{animation:none}.locards.re .locard.losel{animation:losel .45s var(--ez)}.locards.re .locard.loeqd{animation:loeqc .7s var(--eo)}@keyframes loeqc{0%{box-shadow:0 0 0 0 #ffd45aaa}100%{box-shadow:0 0 0 18px #ffd45a00}}
+.locard.loren-ok .lonm{animation:lonmok .5s var(--ez)}@keyframes lonmok{0%{transform:scale(.8);color:var(--gold)}60%{transform:scale(1.08)}}
+.lostg{position:relative;border-radius:22px;overflow:hidden;border:1.5px solid #3a3070;box-shadow:0 14px 34px #00000077,inset 0 0 0 1px #ffffff10;background:#0c0820;animation:lostg .6s var(--eo) both}
+@keyframes lostg{from{opacity:0;transform:scale(.97)}}
+.lostg canvas{display:block;width:100%;height:100%;object-fit:cover}
+.lostn{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:7px 22px;border-radius:14px;font:400 30px/1.1 'Pirata One',Georgia,serif;color:#fff8e8;background:linear-gradient(180deg,#1e1846ee,#0e0a28ee);border:1.5px solid #5a4ca0;white-space:nowrap;box-shadow:0 6px 18px #00000088;transition:color .2s}
+.lostn.cur{font:700 15px/1.6 var(--ui);color:var(--mut)}
+.lol-r{gap:0}
+.lodh{display:flex;align-items:center;gap:10px;margin-bottom:10px}.lodh h3{margin:0;flex:1;min-width:0;font:400 42px/1.05 'Pirata One',Georgia,serif;color:var(--gold);text-shadow:0 3px 0 #3a1a00;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lorows{display:flex;flex-direction:column;gap:9px;flex:none}.lol-r>*{flex:none}
+.lorow{display:grid;grid-template-columns:116px 78px 1fr;align-items:center;gap:12px;padding:7px 12px;border-radius:16px;background:linear-gradient(180deg,#171240,#0f0b2a);border:1.5px solid #2e2660;box-shadow:inset 0 1px 0 #ffffff10}
+.lol-r.swap .lorow{animation:lorw .45s var(--ez) both;animation-delay:calc(var(--j)*.06s)}.lol-r.swap .lodh{animation:lodn .35s var(--eo) both}
+@keyframes lorw{from{opacity:0;transform:translateX(16px)}}
+.lorow.bad{border-color:#6a2a48}
+.lolab{display:flex;align-items:center;gap:9px;font:700 15px var(--ui);color:var(--ink)}.lolab svg{width:24px;height:24px;flex:none}
+.lotile.big{width:78px;height:78px}
+.lort{display:flex;flex-direction:column;gap:3px;min-width:0}.lort b{font:800 17px/1.2 var(--ui);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lort em{font:italic 600 13px var(--ui)}
+.lochips{display:flex;flex-wrap:nowrap;gap:5px;overflow:hidden;mask-image:linear-gradient(90deg,#000 88%,transparent)}.lochips i{flex:none}.lochips i{font-style:normal;font:700 11px var(--ui);color:#e8e0ff;padding:2px 8px;border-radius:99px;background:#2a2260;border:1px solid #4a3e8a}
+.lowhy{display:flex;align-items:center;gap:5px;font:600 12px/1.3 var(--ui);color:#ff9aa8}.lowhy svg{width:14px;height:14px;flex:none}.lowhy.em{color:var(--mut)}
+.lonote{margin:10px 0 9px;text-align:center;font:500 13px/1.35 var(--ui);color:var(--mut);min-height:35px;display:grid;place-items:center}
+.logo,.losv{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;width:100%;border-radius:14px;font:800 20px var(--ui);transition:transform .2s var(--ez),filter .2s}
+.logo{height:54px;color:#2a1406;background:linear-gradient(180deg,#ffe27a,#f6b830);border:2px solid #fff0b0;box-shadow:0 4px 0 #9a5a10,0 10px 22px #ffb02a33}
+.logo svg{width:26px;height:26px}.logo:hover{transform:translateY(-2px);filter:brightness(1.06)}.logo:active{transform:translateY(3px) scale(.98);box-shadow:0 1px 0 #9a5a10}
+.logo.off{cursor:default;color:#9a94b8;background:linear-gradient(180deg,#2a2456,#1c1842);border-color:#3a3070;box-shadow:inset 0 1px 0 #ffffff12;transform:none;filter:none}
+.logo.lopress{animation:lopr .5s var(--ez)}@keyframes lopr{0%{transform:scale(.92)}60%{transform:scale(1.04)}100%{transform:none}}
+.losv{margin-top:10px;height:48px;font-size:18px;color:var(--ink);background:linear-gradient(180deg,#2c2470,#1a1450);border:1.5px solid #5a4ca0;box-shadow:inset 0 1px 0 #ffffff1c}
+.losv svg{width:22px;height:22px}.losv:hover{transform:translateY(-2px);border-color:#8a7cf0}.losv:active{transform:scale(.97)}
+.losv.prim{color:#2a1406;background:linear-gradient(180deg,#ffe27a,#f6b830);border:2px solid #fff0b0;box-shadow:0 4px 0 #9a5a10}
+.losv.armed{border-color:#e8364e;color:#ffd0d6;background:linear-gradient(180deg,#4a1a3a,#2a0e24);animation:loarm .4s var(--ez)}@keyframes loarm{0%,100%{transform:none}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.logo:focus-visible,.losv:focus-visible{outline:3px solid #8a7cf0;outline-offset:3px}
+.loask{display:flex;align-items:center;justify-content:center;gap:12px;margin:12px 2px 0;cursor:pointer;font:500 15px var(--ui);color:var(--ink);user-select:none}
+.loask input{position:absolute;opacity:0;pointer-events:none}.loask i{flex:none;width:26px;height:26px;border-radius:8px;border:2px solid #5a4ca0;background:#0a0618;display:grid;place-items:center;transition:background .2s,border-color .2s}
+.loask i::after{content:'';width:12px;height:7px;border-left:3px solid #2a1406;border-bottom:3px solid #2a1406;transform:rotate(-45deg) scale(0);margin-top:-3px;transition:transform .25s var(--ez)}
+.loask input:checked+i{background:linear-gradient(180deg,#ffe27a,#f6b830);border-color:#fff0b0}.loask input:checked+i::after{transform:rotate(-45deg) scale(1)}
+.loask input:focus-visible+i{outline:3px solid #8a7cf0;outline-offset:2px}
+.loft{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px 20px;border-radius:14px;background:linear-gradient(180deg,#160f38,#0d0924);border:1.5px solid #2e2660;font:600 15px var(--ui);color:var(--ink);animation:lopop .5s var(--eo) .25s both}
+.loft>span{display:flex;align-items:center;gap:12px}.loft svg{width:26px;height:26px}
+.lokeys{margin-left:auto;font:600 13px var(--ui)!important;color:var(--mut);gap:6px!important}.lokeys kbd{font:700 11px var(--ui);padding:2px 7px;border-radius:6px;background:#2a2260;border:1px solid #4a3e8a;color:#e8e0ff}
+.lomod{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:#06041299}
+.lomod[hidden]{display:none}
+.lomb0{width:min(560px,92vw);padding:24px 26px 22px;border-radius:22px;background:linear-gradient(180deg,#1e1650,#0e0a28);border:2px solid #5a4ca0;box-shadow:0 24px 60px #000a,inset 0 1px 0 #ffffff1c;animation:lomb .4s var(--ez)}
+@keyframes lomb{from{opacity:0;transform:translateY(16px) scale(.92)}}
+.lomb0 h3{margin:0 0 4px;font:400 40px/1.1 'Pirata One',Georgia,serif;color:var(--gold)}.lomb0 p{margin:0 0 14px;font:500 14px var(--ui);color:var(--mut)}
+.lochg{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.loch2{display:grid;grid-template-columns:120px 62px 18px 62px 1fr;align-items:center;gap:10px;padding:6px 10px;border-radius:14px;background:#120e30;border:1.5px solid #2e2660;animation:lorw .4s var(--ez) both;animation-delay:calc(.1s + var(--j)*.07s)}
+.loch2 b{font:800 15px var(--ui);color:var(--ink)}.lotile.sm{width:62px;height:62px}.loarr{font-style:normal;color:var(--gold);font-weight:800;font-size:22px}
+.lomb{display:grid;grid-template-columns:1.4fr 1fr;gap:12px}.lomb .losv{margin:0;height:58px}
+.lotst{position:fixed;left:50%;top:92px;z-index:61;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:11px 20px;border-radius:14px;font:700 15px var(--ui);color:var(--ink);background:linear-gradient(180deg,#221a56,#120e34);border:1.5px solid #6ac040;box-shadow:0 12px 30px #000a;animation:lotst .45s var(--ez) both;max-width:80vw}
+.lotst.warn{border-color:#e8364e}.lotst svg{width:20px;height:20px;flex:none;color:#8ae060}.lotst.out{opacity:0;transform:translate(-50%,-10px);transition:opacity .35s,transform .35s}
+@keyframes lotst{from{opacity:0;transform:translate(-50%,-14px) scale(.9)}}
+@media (prefers-reduced-motion:reduce){.lol *,.lol{animation:none!important;transition:none!important}}
+`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

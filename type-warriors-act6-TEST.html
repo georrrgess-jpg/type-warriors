@@ -18205,6 +18205,25 @@ try{HELP.Basics.splice(4,0,['Shift',"Unleash your companion's power when its ico
   h=h.replace(/(<div class="ptab">[\s\S]*?<small>[\s\S]*?<\/small>)/,`$1${note}`)}catch(e){}return h}}
 {const st=document.createElement('style');st.textContent=`.pthk{display:flex;align-items:center;gap:6px;margin-top:6px;font:700 12px var(--ui);color:#9fffb0}.pthk.auto{color:#c4badf}
 .pthk kbd{font:800 11px var(--ui);padding:1px 7px;border-radius:6px;background:#241b58;border:1.5px solid #6a5ac8;color:#e8e0ff;box-shadow:0 2px 0 #120c30}`;document.head.appendChild(st)}
+/* ===== ROSTER CARD FIX: one animation per card =====
+   Selecting a companion started an idle loop on its card but never stopped the previous card's loop, clicking the
+   same card again stacked another one, and the hover greeting (a loop of its own) kept running after a click.
+   Several loops drawing different poses into one canvas made the card flicker. Now the selected card has exactly one
+   idle loop, every other card is a still frame unless you are hovering it, and the greeting yields to selection. */
+function ptCardWake(card){const c=card.querySelector('canvas[data-pc]');if(!c||card._wk||ptRM()||card.classList.contains('on'))return;const id=c.dataset.pc;if(!petOwned(id))return;card._wk=1;const t0=ptNow();
+ const step=()=>{if(!card.isConnected)return;
+  if(!card._wk||card.classList.contains('on')){if(!card.classList.contains('on'))try{petFit(c,id,Object.assign({t:1.2},petLook(id)))}catch(e){}card._wk=0;return}
+  const k=(ptNow()-t0)/1.5;try{petFit(c,id,Object.assign(k<1?{t:ptNow(),pose:'greet',u:k}:{t:ptNow()},petLook(id)))}catch(e){}requestAnimationFrame(step)};requestAnimationFrame(step)}
+/* keep a single LIVE loop, on the selected card's pet canvas only; cards that lose the selection go back to a still frame.
+   The original picked the card's first canvas, which on a Mythic card is the backdrop, so the loop is rebuilt here. */
+function ptCardTidy(){const g=$('ptrg');if(!g)return;const on=g.querySelector('.ptc.on canvas[data-pc]'),id=on&&on.dataset.pc;
+ for(let i=LIVE.length-1;i>=0;i--){const L=LIVE[i],c=L.cv;if(!c||!c.closest||!c.closest('#ptrg'))continue;
+  if(c.classList.contains('mybg')){if(L.fn===c._fn)continue;LIVE.splice(i,1);try{c._fn(1.2)}catch(e){}continue}
+  if(c===on&&L._pt)continue;LIVE.splice(i,1)}
+ g.querySelectorAll('canvas[data-pc]').forEach(c=>{if(c===on)return;const card=c.closest('.ptc'),pid=c.dataset.pc;if(card&&!card._wk&&petOwned(pid))try{petFit(c,pid,Object.assign({t:1.2},petLook(pid)))}catch(e){}});
+ if(on&&petOwned(id)&&!LIVE.some(L=>L.cv===on)){LIVE.push({cv:on,_pt:1,slow:3,fn:t=>{try{petFit(on,id,Object.assign({t:ptRM()?1.2:t},petLook(id)))}catch(e){}}})}
+ const oc=on&&on.closest('.ptc');if(oc)oc._wk=0}
+{const b0=ptPetsBind;ptPetsBind=function(){const r=b0.apply(this,arguments);try{ptCardTidy();const pth=$('pth');if(pth&&!pth._tidy){pth._tidy=1;pth.addEventListener('click',()=>{ptCardTidy();setTimeout(ptCardTidy,0)})}}catch(e){}return r}}
 /* ===== CONSOLE DOCK: the main menu rebuilt around six permanent destinations =====
    Play · Gear · Pets · Progress · Shop · More. Every old sidebar entry, header tool and corner button keeps its
    real handler; only where it lives has changed. Function declarations here replace the old shell's (title,

@@ -19287,6 +19287,320 @@ button.lobcb{cursor:pointer;transition:transform .2s var(--ez),border-color .2s}
 @keyframes lotst{from{opacity:0;transform:translate(-50%,-14px) scale(.9)}}
 @media (prefers-reduced-motion:reduce){.lol *,.lol{animation:none!important;transition:none!important}}
 `;document.head.appendChild(st)}
+/* ===== LOADOUT LOCKER POLISH: build presets right here, compare before you commit =====
+   The right panel becomes a slot editor: click (or drop onto) a slot to open the gear picker in the left panel,
+   hover to preview on the hero and compare stats against what the preset holds now, then Put it in (click the button,
+   double-click, press Enter or drag it onto the slot). Slots can be cleared, Auto-fill picks the strongest owned gear,
+   and the Armory gains a shortcut here. Save data is unchanged apart from an optional P.lo.so (sort per slot). */
+const LOSO={w:[['rec','Best first','star'],['rar','Rarity','trophy'],['gold','Gold bonus','coin'],['mast','Mastery','up'],['az','Name A–Z','az']],
+ a:[['rec','Best first','star'],['rar','Rarity','trophy'],['gold','Gold bonus','coin'],['az','Name A–Z','az']],
+ p:[['rar','Rarity','trophy'],['bond','Bond level','up'],['az','Name A–Z','az']]};
+const LOSI={star:'<svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z" fill="currentColor"/></svg>',
+ trophy:'<svg viewBox="0 0 24 24"><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v1.5A3.5 3.5 0 0 0 7.5 11M17 6h3v1.5a3.5 3.5 0 0 1-3.5 3.5M12 14v4M8 20h8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+ coin:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2.2" fill="none"/><path d="M12 7.5v9M9.5 9.5h4a1.6 1.6 0 0 1 0 3.2h-3a1.6 1.6 0 0 0 0 3.2h4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>',
+ up:'<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ az:'<svg viewBox="0 0 24 24"><path d="M4 18l3-9 3 9M5 15h4M14 9h6l-6 9h6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ sort:'<svg viewBox="0 0 24 24"><path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ chk:'<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ spark:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.4 6.1 6.1 2.4-6.1 2.4L12 18.5l-2.4-6.1-6.1-2.4 6.1-2.4zM19 15l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z" fill="currentColor"/></svg>',
+ lk:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10.5" rx="2.2" fill="#c4badf" stroke="#12081f" stroke-width="1.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="#c4badf" stroke-width="2.4"/><circle cx="12" cy="15.6" r="1.6" fill="#12081f"/></svg>',
+ x:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>',
+ back:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+ star4:'<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 0l2.2 7.8L20 10l-7.8 2.2L10 20l-2.2-7.8L0 10l7.8-2.2z" fill="currentColor"/></svg>'};
+Object.assign(LOX,{pk:'',pv:null,psel:'',pf:'all',drag:null,sc:{}});
+const LOKN={w:'weapon',a:'armor',p:'companion'};
+const loA=k=>k==='a'?'armor':'a '+LOKN[k];
+const loOwn=(k,id)=>k==='w'?!!P.own[id]:k==='a'?!!P.ownA[id]:petOwned(id);
+const loLock=(k,id)=>{if(k!=='w')return'';const Q=PATHS[WP[id].p||'knight'];return pathOpen(WP[id].p||'knight')?'':`${Q.n} unlocks at level ${Q.lv}`};
+const loRk=(k,id)=>k==='p'?({r:2,l:4,m:5}[PDEF[id].r]||0):RKM[(k==='w'?WP:AR)[id].r]||0;
+function loSortKey(k){const L=loNorm(),so=L.so&&typeof L.so==='object'?L.so:{};return LOSO[k].some(o=>o[0]===so[k])?so[k]:LOSO[k][0][0]}
+/* what the slot is compared against: what the preset holds, or (if empty) what you wear now */
+function loBase(s,k){return s[k]||(k==='w'?P.weapon:k==='a'?P.armor:P.pet||'')}
+/* the game's own seeded test run (76b) gives one strength number for a weapon and armor pairing */
+function loPow(w,a){const key=w+'|'+a;if(LOX.sc[key]!=null)return LOX.sc[key];let v=0;try{v=aeScore(aeStats(WP[w]),aeStats(AR[a]),PATHS[WP[w].p||'knight']||{},aeUp(),4)}catch(e){}return LOX.sc[key]=v}
+function loItemPow(s,k,id){return k==='w'?loPow(id,loBase(s,'a')):k==='a'?loPow(loBase(s,'w'),id):0}
+const LOST=[['sc','Score',s=>Math.round((s.sc-1)*100),'%'],['hp','Max HP',s=>s.hp,''],['sh','Shields',s=>s.sh,''],['sl','Foes slower',s=>Math.round((1-s.sl)*100),'%'],
+ ['fu','Fury gain',s=>Math.round((s.fu-1)*100),'%'],['cr','Crit',s=>Math.round(s.cr*100),'%'],['ch','Chain',s=>Math.round(s.ch*100),'%'],['gm','Gold',s=>Math.round(s.gm*100),'%'],
+ ['cq','Fast combos',s=>s.cq?1:0,'b'],['ab','Special',s=>s.ab?1:0,'b']];
+function loKey(k,id){if(!id)return'';if(k==='p')return PDEF[id].ab.n;const c=aeChips(aeStats((k==='w'?WP:AR)[id]));return c[0]==='no bonuses'?'No bonus':c[0]}
+/* stat rows for a comparison: [label, from, to, dir] */
+function loDiff(k,a,b){if(k==='p')return[];const T=k==='w'?WP:AR,A=aeStats(T[a]),B=aeStats(T[b]),out=[];
+ for(const [key,l,f,u] of LOST){const x=f(A),y=f(B);if(!x&&!y)continue;const fmt=v=>u==='b'?(v?'Yes':'No'):u==='%'?(v>0?'+':'')+v+'%':(v>0?'+':'')+v;out.push([l,fmt(x),fmt(y),y>x?1:y<x?-1:0])}
+ return out}
+
+/* ---------- right panel: the slot editor ---------- */
+function loSlotRow(s,k,j){const id=s[k],R=loPlan(s)[k],bad=id&&!R.ok,ed=LOX.pk===k,lab=LOSN[k];
+ const sub=id?`<em style="color:${loCol(k,id)}">${esc(loRar(k,id))}</em>${bad?`<span class="lowhy">${R.why==='Not owned'||R.why==='Not hatched yet'?LOI.warn:LOSI.lk}${esc(R.why.replace(' unlocks at level ',' · Lv '))}</span>`:`<span class="lochips"><i>${esc(loKey(k,id))}</i></span>`}`
+  :`<span class="lowhy lomt">Empty · keeps what you wear</span>`;
+ return `<div class="loslw${ed?' ed':''}${bad?' bad':''}${id?'':' lomt'}" data-slot="${k}" style="--j:${j};--c:${loCol(k,id)}">
+  <button class="loslot" data-pick="${k}" aria-label="${lab}: ${id?esc(loName(k,id)):'empty'}. ${id?'Change':'Choose a'} ${LOKN[k]}">
+   <span class="lolab">${LOI[k]}${lab}</span>
+   <span class="lotile big${id?'':' lomt'}${bad?' bad':''}" style="--c:${loCol(k,id)}">${id?`<canvas width="180" height="180" data-lt="${k}:${id}" data-big="1"></canvas>`:`<i class="loplus">${LOI.plus}</i>`}${bad?`<i class="lobad">${R.why==='Not owned'||R.why==='Not hatched yet'?LOI.warn:LOSI.lk}</i>`:''}</span>
+   <span class="lort"><b>${id?esc(loName(k,id)):`Choose ${k==='a'?'armor':'a '+LOKN[k]}`}</b>${sub}</span>
+   <span class="lochg" aria-hidden="true"><i>${ed?'‹':'›'}</i></span></button>
+ ${id&&!ed?`<button class="lormv" data-rm="${k}" title="Remove from preset" aria-label="Remove ${esc(loName(k,id))} from this preset">${LOSI.x}</button>`:''}</div>`}
+function loStatus(s){const R=loPlan(s),ch=loChanges(s),sk=['w','a','p'].filter(k=>s[k]&&!R[k].ok).length;
+ if(loEmpty(s))return`<p class="lonote">Choose gear for each slot, or save what you are wearing.</p>`;
+ if(!R.w.ok&&!R.a.ok&&!R.p.ok)return`<p class="lonote warn">${LOI.warn}None of this gear can be used yet.</p>`;
+ if(loActive(s))return`<p class="lonote ok">${LOI.ok}You are wearing this loadout${sk?` <small>· ${sk} skipped</small>`:''}</p>`;
+ return`<p class="lonote">Will change ${ch.map(c=>`<b>${LOI[c[0]]}${LOSN[c[0]]}</b>`).join('')}${sk?`<small>· ${sk} skipped</small>`:''}</p>`}
+function loDetail(L){const s=L.s[L.sel],em=loEmpty(s),act=loActive(s),R=loPlan(s),any=R.w.ok||R.a.ok||R.p.ok,Q=s.c&&PATHS[s.c];
+ return `<div class="lodh"><h3 id="lodn">${esc(s.n)}</h3>${Q&&s.w?`<span class="locls" style="--c:${Q.c}">${ARI[s.c]||''}${Q.n}</span>`:''}<button class="lopen big" data-ren="${L.sel}" title="Rename" aria-label="Rename ${esc(s.n)}">${LOI.pen}</button></div>
+ <div class="lorows">${['w','a','p'].map((k,j)=>loSlotRow(s,k,j)).join('')}</div>
+ ${loStatus(s)}
+ ${em?'':`<button class="logo${act||!any?' off':''}" id="loeq" ${act||!any?'disabled':''}>${act?LOI.ok:LOI.crown}<span>${act?'Equipped':!any?'Nothing usable yet':'Equip preset'}</span></button>`}
+ <div class="lobr"><button class="losv${em?' prim':''}" id="losv" title="Copy what you are wearing into this preset">${LOI.disk}<span>Save current loadout</span></button><button class="losv" id="loauto" title="Fill weapon and armor with the strongest gear you own">${LOSI.spark}<span>Auto-fill best</span></button></div>
+ <label class="loask"><input type="checkbox" id="loask" ${L.ask?'checked':''}><i></i><span>Ask before replacing gear</span></label>`}
+function loCard(s,i,L){const act=loActive(s),Q=s.c&&PATHS[s.c],em=loEmpty(s);
+ return `<div class="locard${i===L.sel?' on':''}${em?' empty':''}" data-lo="${i}" role="option" tabindex="${i===L.sel?0:-1}" aria-selected="${i===L.sel}" aria-label="${esc(s.n)} preset${em?', empty':act?', equipped':''}" style="--d:${i}">
+  <div class="loch"><b class="lonm" id="lonm${i}">${esc(s.n)}</b>${Q&&s.w?`<span class="locls" style="--c:${Q.c}" title="${Q.n} class">${ARI[s.c]||''}${Q.n}</span>`:''}${act?`<span class="loact">${LOI.ok}Equipped</span>`:''}<button class="lopen" data-ren="${i}" title="Rename" aria-label="Rename ${esc(s.n)}">${LOI.pen}</button></div>
+  ${em?`<div class="loemt"><i>${LOI.plus}</i><span><b>Empty preset</b><small>Choose gear or save what you wear</small></span></div>`:`<div class="lotiles">${loTiles(s)}</div>`}</div>`}
+
+/* ---------- left panel: preset list, or the gear picker ---------- */
+function loListHTML(L,first){return `<div class="lolist"><h3>Saved Loadouts</h3><div class="locards ${first?'re0':'re'}" role="listbox" aria-label="Presets">${L.s.map((s,i)=>loCard(s,i,L)).join('')}</div></div>`}
+function loPickList(k){const L=loNorm(),s=L.s[L.sel],f=LOX.pf,so=loSortKey(k);
+ let ids=k==='w'?Object.keys(WP):k==='a'?Object.keys(AR):PIDS.slice();const total=ids.length;ids=ids.filter(id=>loOwn(k,id));const owned=ids.length;
+ if(f!=='all')ids=ids.filter(id=>k==='w'?(WP[id].p||'knight')===f:k==='p'?PDEF[id].r===f:(RKM[AR[id].r]||0)>=+f);
+ const pw=id=>loItemPow(s,k,id),nm=id=>loName(k,id),gm=id=>k==='p'?0:aeStats((k==='w'?WP:AR)[id]).gm;
+ const cmp={rec:(a,b)=>pw(b)-pw(a),rar:(a,b)=>loRk(k,b)-loRk(k,a)||nm(a).localeCompare(nm(b)),gold:(a,b)=>gm(b)-gm(a)||pw(b)-pw(a),mast:(a,b)=>wxp(b)-wxp(a),az:(a,b)=>nm(a).localeCompare(nm(b)),bond:(a,b)=>((P.pets[b]||{}).b||0)-((P.pets[a]||{}).b||0)}[so]||(()=>0);
+ ids.sort((a,b)=>(!!loLock(k,a)-!!loLock(k,b))||cmp(a,b));
+ let best='';if(k!=='p'){let bv=-1;for(const id of ids)if(!loLock(k,id)&&pw(id)>bv){bv=pw(id);best=id}}
+ return{ids,owned,total,best}}
+function loPickHTML(){const k=LOX.pk,L=loNorm(),s=L.s[L.sel],{ids,owned,total,best}=loPickList(k),so=loSortKey(k),son=LOSO[k].find(o=>o[0]===so)[1];
+ const chips=k==='w'?[['all','All'],...PK.map(p=>[p,PATHS[p].n,!pathOpen(p)])]:k==='p'?[['all','All'],['r','Rare'],['l','Legendary'],['m','Mythic']]:[['all','All'],['2','Rare+'],['3','Epic+'],['4','Legendary+']];
+ const cur=s[k],worn=k==='w'?P.weapon:k==='a'?P.armor:P.pet,sel=LOX.psel||cur||'';
+ const card=(id,i)=>{const lk=loLock(k,id),c=loCol(k,id),tag=id===cur?`<u class="lotg in">In preset</u>`:id===worn?`<u class="lotg wr">Wearing</u>`:'';
+  return `<div class="loit${id===sel?' on':''}${lk?' lk':''}" data-it="${id}" role="option" aria-selected="${id===sel}" tabindex="${id===sel||(!sel&&i===0)?0:-1}" draggable="${lk?'false':'true'}" style="--c:${c};--i:${Math.min(i,11)}" aria-label="${esc(loName(k,id))}, ${esc(loRar(k,id))}${lk?', '+esc(lk):''}${id===cur?', in this preset':''}">
+   <canvas width="150" height="96" data-lt="${k}:${id}"></canvas><b>${esc(loName(k,id))}</b><small>${lk?`${LOSI.lk}${esc(lk.replace(' unlocks at level ',' · Lv '))}`:esc(loKey(k,id))}</small>${tag}${id===best&&!lk?`<i class="lobest" title="Strongest for this preset">${LOSI.star}Best</i>`:''}</div>`};
+ return `<div class="lopk" data-k="${k}">
+  <div class="lopkh"><button class="lopkx" id="lopkx" title="Back to presets (Esc)" aria-label="Back to presets">${LOSI.back}</button><div class="lopkt"><h3>Choose ${k==='a'?'armor':'a '+LOKN[k]}</h3><small>for <b>${esc(s.n)}</b> · ${owned} owned</small></div>
+   <div class="ptso"><button class="ptsob" id="losob" aria-haspopup="listbox" aria-expanded="false">${LOSI.sort}<span>Sort: <b>${son}</b></span><i class="ptsoc">›</i></button>
+    <div class="ptsom" id="losom" role="listbox" aria-label="Sort ${LOKN[k]}s">${LOSO[k].map(([q,l,ic])=>`<button role="option" class="${q===so?'on':''}" aria-selected="${q===so}" data-so="${q}">${LOSI[ic]}<span>${l}</span>${q===so?`<i>${LOSI.chk}</i>`:''}</button>`).join('')}</div></div></div>
+  <div class="lofl" role="group" aria-label="Filter">${chips.map(([q,l,lk])=>`<button class="${LOX.pf===q?'on':''}" data-pf="${q}" aria-pressed="${LOX.pf===q}">${lk?LOSI.lk:''}${l}</button>`).join('')}</div>
+  <div class="lopkg" id="lopkg" role="listbox" aria-label="${LOSN[k]} choices">${ids.length?ids.map(card).join(''):`<p class="lopk0">Nothing here yet. ${k==='p'?'Hatch eggs in the Companion Hall.':'Open crates to find more.'}</p>`}${total>owned?`<p class="lopkm">${total-owned} more ${k==='p'?'companions to hatch':'to discover in crates'}</p>`:''}</div>
+  <div class="locmp" id="locmp" aria-live="polite"></div>
+  <button class="logo" id="loput" disabled>${LOI.crown}<span>Pick ${loA(k)}</span></button></div>`}
+function loCmpHTML(){const k=LOX.pk,L=loNorm(),s=L.s[L.sel],id=(LOX.pv&&LOX.pv.id)||LOX.psel;
+ const base=loBase(s,k),bl=s[k]?'In preset':'You wear';
+ if(!id)return `<div class="locmp0">${LOI[k]}<span>Hover or select ${loA(k)} to compare it with ${base?`<b>${esc(loName(k,base))}</b>`:'your current one'}.</span></div>`;
+ const tile=(x,lab)=>`<span class="locmt"><span class="lotile sm" style="--c:${loCol(k,x)}">${x?`<canvas width="120" height="120" data-lt="${k}:${x}"></canvas>`:''}</span><small>${lab}</small></span>`;
+ let rows='';
+ if(!base)rows=`<p class="locmn">Nothing to compare with yet.</p>`;
+ else if(base===id)rows=`<p class="locmn">${s[k]===id?'Already in this preset.':'This is what you are wearing.'}</p>`;
+ else if(k==='p')rows=`<div class="locmr"><span>Power</span><b>${esc(PDEF[base].ab.n)}</b><i class="loar">›</i><b class="nw">${esc(PDEF[id].ab.n)}</b></div><p class="locmd">${esc(PDEF[id].ab.d)}</p>`;
+ else{const d=loDiff(k,base,id),a=loItemPow(s,k,base),b=loItemPow(s,k,id),pc=a>0?Math.round((b/a-1)*100):0;
+  rows=`<div class="locmo ${pc>0?'up':pc<0?'dn':''}"><span>Overall strength</span><b>${pc>0?'▲ +':pc<0?'▼ ':''}${pc}%</b></div>`+d.slice(0,4).map(([l,x,y,dir])=>`<div class="locmr ${dir>0?'up':dir<0?'dn':''}"><span>${l}</span><b>${x}</b><i class="loar">›</i><b class="nw">${y}</b><i class="lodir">${dir>0?'▲':dir<0?'▼':'='}</i></div>`).join('')+(d.length>4?`<small class="locmm">+${d.length-4} more</small>`:'')+(d.length?'':`<p class="locmn">Same stats. ${b>a?'Stronger':'Different'} in testing.</p>`)}
+ return `<div class="locmh">${tile(base,bl)}<i class="loar big">›</i>${tile(id,(LOX.pv&&LOX.pv.id)?'Previewing':'Selected')}<span class="locmnm"><b style="color:${loCol(k,id)}">${esc(loName(k,id))}</b><em>${esc(loRar(k,id))}</em></span></div><div class="locmb">${rows}</div>`}
+
+/* ---------- the screen ---------- */
+{const l0=loadouts;loadouts=function(){LOX.pk='';LOX.pv=null;LOX.psel='';LOX.drag=null;const r=l0.apply(this,arguments);
+ const l=ov.querySelector('.lol-l');if(l)l.setAttribute('aria-label','Saved loadouts');
+ const S0=S.back;S.back=()=>{const so=$('losom');if(so&&so.classList.contains('on')){so.classList.remove('on');const b=$('losob');if(b){b.setAttribute('aria-expanded','false');b.focus()}return}
+  const m=$('lomod');if(m&&!m.hidden){loModClose();return}if(LOX.ren>=0){loRenEnd(false);return}if(LOX.pk){loPickClose();return}title()};
+ const ft=ov.querySelector('.loft>span');if(ft)ft.innerHTML=`${LOI.book}Skill Tree choices stay unchanged. Switching presets never costs a respec.`;
+ const ky=ov.querySelector('.lokeys');if(ky)ky.innerHTML='<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> preset <kbd>Enter</kbd> equip <kbd>Esc</kbd> back';
+ loRefresh({first:1});return r}}
+function loRefresh(o){o=o||{};const L=loNorm(),l=ov.querySelector('.lol-l'),d=$('lodt');if(!l||!d)return;
+ if(LOX.pk){const g=$('lopkg'),sc=g?g.scrollTop:0;l.innerHTML=loPickHTML();const g2=$('lopkg');if(g2&&o.keepScroll)g2.scrollTop=sc}
+ else{l.innerHTML=loListHTML(L,o.first);if(o.enter)l.querySelector('.lolist').classList.add('loin')}
+ d.innerHTML=loDetail(L);d.classList.toggle('picking',!!LOX.pk);ov.querySelector('.lol').classList.toggle('picking',!!LOX.pk);
+ if(o.anim){d.classList.remove('swap');void d.offsetWidth;d.classList.add('swap')}
+ loBind();loPaintAll();loCap();if(LOX.pk)loCmpUpd();
+ if(o.pop!=null){const c=l.querySelector(`[data-lo="${o.pop}"]`);if(c){const cl=o.cls||'lojust';c.classList.add(cl);c.addEventListener('animationend',e=>{if(e.target===c)c.classList.remove(cl)})}}
+ if(o.snap)o.snap.forEach((k,n)=>setTimeout(()=>loSnap(k),n*110))}
+function loSelect(i){const L=loNorm();if(LOX.pk){LOX.pk='';LOX.pv=null;LOX.psel=''}if(i===L.sel){loRefresh();return}L.sel=i;LOX.arm=-1;save();try{beep(600,.04,'triangle',.2)}catch(e){}loRefresh({anim:1,pop:i,cls:'losel'})}
+function loCap(){const L=loNorm(),el=$('lostn');if(!el)return;const v=LOX.pk&&(LOX.pv||(LOX.psel?{k:LOX.pk,id:LOX.psel}:null));
+ if(v){el.innerHTML=`<small>Previewing</small>${esc(loName(v.k,v.id))}`;el.classList.remove('cur');el.classList.add('pv');return}
+ const i=LOX.hov>=0?LOX.hov:L.sel,s=L.s[i];el.classList.remove('pv');el.textContent=loEmpty(s)?'Your current gear':s.n;el.classList.toggle('cur',loEmpty(s))}
+/* the stage shows the preset with whatever you are previewing dropped into its slot */
+function loResult(s){const R=loPlan(s),o={w:R.w.ok?s.w:P.weapon,a:R.a.ok?s.a:P.armor,p:R.p.ok?s.p:P.pet};
+ if(LOX.pk&&s===loNorm().s[loNorm().sel]){const id=(LOX.pv&&LOX.pv.id)||LOX.psel;if(id)o[LOX.pk]=id}return o}
+
+/* ---------- picking ---------- */
+function loPick(k){if(!LOSN[k])return;if(LOX.ren>=0)loRenEnd(true);const L=loNorm(),s=L.s[L.sel];LOX.pk=k;LOX.pv=null;LOX.psel='';LOX.sc={};
+ LOX.pf=k==='w'?(s.c&&PATHS[s.c]?s.c:'all'):'all';if(k==='w'&&LOX.pf!=='all'&&!loPickList('w').ids.length)LOX.pf='all';
+ try{beep(560,.04,'triangle',.2)}catch(e){}loRefresh();const pk=ov.querySelector('.lopk');if(pk)pk.classList.add('loin');
+ const f=ov.querySelector('.loit[tabindex="0"]');if(f)setTimeout(()=>{try{f.focus({preventScroll:false})}catch(e){}},40)}
+function loPickClose(){if(!LOX.pk)return;const k=LOX.pk;LOX.pk='';LOX.pv=null;LOX.psel='';try{beep(460,.04,'triangle',.18)}catch(e){}loRefresh({enter:1});const b=ov.querySelector(`[data-pick="${k}"]`);if(b)b.focus()}
+function loCmpUpd(){const c=$('locmp');if(!c)return;c.innerHTML=loCmpHTML();c.querySelectorAll('canvas[data-lt]').forEach(x=>{const [k,id]=x.dataset.lt.split(':');loPaint(x,k,id,1.2)});
+ const k=LOX.pk,L=loNorm(),s=L.s[L.sel],id=LOX.psel,b=$('loput');if(!b)return;const lk=id&&loLock(k,id),same=id&&s[k]===id;
+ b.disabled=!id||!!lk||!!same;b.classList.toggle('off',b.disabled);b.querySelector('span').textContent=!id?`Pick ${loA(k)}`:lk?lk:same?`Already in ${s.n}`:`Put in ${s.n}`;loCap()}
+function loPut(k,id){const L=loNorm(),s=L.s[L.sel];if(!id||!loOwn(k,id)||loLock(k,id))return false;
+ if(s[k]===id){loPickClose();return true}s[k]=id;if(k==='w')s.c=WP[id].p||'knight';save();
+ LOX.pk='';LOX.pv=null;LOX.psel='';try{beep(700,.06,'triangle',.22);setTimeout(()=>beep(1050,.1,'triangle',.2),70)}catch(e){}
+ loRefresh({enter:1,snap:[k]});const c=ov.querySelector(`[data-lo="${L.sel}"]`);if(c){c.classList.add('losvd');c.addEventListener('animationend',e=>{if(e.target===c)c.classList.remove('losvd')})}
+ const b=ov.querySelector(`[data-pick="${k}"]`);if(b)b.focus();return true}
+function loRm(k){const L=loNorm(),s=L.s[L.sel];if(!s[k])return;const nm=loName(k,s[k]);s[k]='';if(k==='w')s.c='';save();try{beep(380,.07,'triangle',.2)}catch(e){}
+ loRefresh();const w=ov.querySelector(`.loslw[data-slot="${k}"]`);if(w){w.classList.add('lopoof');w.addEventListener('animationend',()=>w.classList.remove('lopoof'),{once:true})}
+ loToast(`Removed ${nm}. Equipping keeps your current ${LOKN[k]}.`);const b=ov.querySelector(`[data-pick="${k}"]`);if(b)b.focus()}
+/* strongest owned weapon and armor for the preset's class, from the Auto-Equip test run */
+function loBest(cls){const sv=P.path;let r=null;try{P.path=cls;r=autoPick(6)}catch(e){}finally{P.path=sv}if(!r)return null;
+ let w=r.w;if((WP[w]||{}).p!==cls)w=P.own[PATHS[cls].st]?PATHS[cls].st:'';return{w,a:r.a}}
+function loAuto(){const L=loNorm(),s=L.s[L.sel],cls=s.c&&pathOpen(s.c)?s.c:P.path,r=loBest(cls);if(!r){loToast('Could not pick gear right now.',1);return}
+ const ch=[];if(r.w&&s.w!==r.w){s.w=r.w;s.c=cls;ch.push('w')}if(r.a&&s.a!==r.a){s.a=r.a;ch.push('a')}if(!s.p&&P.pet&&petOwned(P.pet)){s.p=P.pet;ch.push('p')}
+ if(!ch.length){loToast(`${s.n} already has your strongest ${PATHS[cls].n} gear.`);return}
+ save();LOX.pk='';LOX.pv=null;LOX.psel='';try{beep(660,.08,'triangle',.22);setTimeout(()=>beep(990,.12,'triangle',.2),100)}catch(e){}
+ loRefresh({enter:1,snap:ch});loToast(`Filled ${s.n} with your strongest ${PATHS[cls].n} gear.`)}
+/* a slot snapping shut: the tile drops in and sparkles fly */
+function loSnap(k){const w=ov.querySelector(`.loslw[data-slot="${k}"]`);if(!w)return;w.classList.remove('losnap');void w.offsetWidth;w.classList.add('losnap');w.addEventListener('animationend',e=>{if(e.target.classList.contains('lotile'))w.classList.remove('losnap')});
+ if(ptRM())return;const t=w.querySelector('.lotile');if(!t)return;const sp=document.createElement('span');sp.className='lospk';sp.setAttribute('aria-hidden','true');
+ sp.innerHTML=Array.from({length:8},(_,i)=>`<i style="--a:${i*45+(i%2)*18}deg;--r:${40+(i%3)*12}px;--s:${.6+(i%3)*.25};--d:${(i%4)*.03}s">${LOSI.star4}</i>`).join('');t.appendChild(sp);setTimeout(()=>sp.remove(),800)}
+
+/* ---------- wiring ---------- */
+function loBind(){const L=loNorm();
+ ov.querySelectorAll('.locard').forEach(c=>{const i=+c.dataset.lo;
+  c.onclick=e=>{if(e.target.closest('[data-ren]')||e.target.closest('.loren'))return;loSelect(i)};
+  c.ondblclick=e=>{if(e.target.closest('[data-ren]')||e.target.closest('.loren'))return;if(i===L.sel)loEquipAsk()};
+  c.onkeydown=e=>{if(e.target!==c)return;if(e.key==='Enter'){e.preventDefault();if(i===L.sel)loEquipAsk();else loSelect(i)}else if(e.key===' '){e.preventDefault();loSelect(i)}
+   else if(/^Arrow(Down|Up)$/.test(e.key)){e.preventDefault();const n=(i+(e.key==='ArrowDown'?1:2))%3,t=ov.querySelector(`[data-lo="${n}"]`);if(t){c.tabIndex=-1;t.tabIndex=0;t.focus()}}
+   else if(e.key==='ArrowRight'){e.preventDefault();const b=ov.querySelector('[data-pick]');if(b)b.focus()}};
+  c.onmouseenter=()=>{if(LOX.ren>=0)return;LOX.hov=i;loCap()};c.onmouseleave=()=>{LOX.hov=-1;loCap()}});
+ ov.querySelectorAll('[data-ren]').forEach(b=>b.onclick=e=>{e.stopPropagation();loRenStart(+b.dataset.ren)});
+ ov.querySelectorAll('.loslw').forEach(w=>{const k=w.dataset.slot,b=w.querySelector('[data-pick]');
+  b.onclick=()=>{if(LOX.pk===k){loPickClose();return}loPick(k)};
+  b.onkeydown=e=>{if((e.key==='Delete'||e.key==='Backspace')&&L.s[L.sel][k]){e.preventDefault();loRm(k)}else if(/^Arrow(Down|Up)$/.test(e.key)){e.preventDefault();const all=[...ov.querySelectorAll('[data-pick]')],n=all.indexOf(b)+(e.key==='ArrowDown'?1:-1);if(all[n])all[n].focus()}else if(e.key==='ArrowLeft'&&!LOX.pk){e.preventDefault();const c=ov.querySelector('.locard.on');if(c)c.focus()}};
+  w.ondragover=e=>{if(LOX.drag&&LOX.drag.k===k){e.preventDefault();e.dataTransfer.dropEffect='move';w.classList.add('over')}};
+  w.ondragleave=e=>{if(!w.contains(e.relatedTarget))w.classList.remove('over')};
+  w.ondrop=e=>{e.preventDefault();w.classList.remove('over');const d=LOX.drag;LOX.drag=null;if(d&&d.k===k)loPut(k,d.id)}});
+ ov.querySelectorAll('[data-rm]').forEach(b=>b.onclick=e=>{e.stopPropagation();loRm(b.dataset.rm)});
+ const eq=$('loeq');if(eq)eq.onclick=()=>{if(LOX.pk){LOX.pk='';LOX.pv=null;LOX.psel='';loRefresh()}loEquipAsk()};
+ const sv=$('losv');if(sv)sv.onclick=()=>{if(LOX.pk){LOX.pk='';LOX.pv=null;LOX.psel='';loRefresh();}loSave()};
+ const au=$('loauto');if(au)au.onclick=loAuto;
+ const ck=$('loask');if(ck)ck.onchange=()=>{L.ask=ck.checked?1:0;save()};
+ if(LOX.pk)loPickBind()}
+function loPickBind(){const k=LOX.pk,L=loNorm(),g=$('lopkg');if(!g)return;
+ $('lopkx').onclick=loPickClose;
+ const its=[...g.querySelectorAll('.loit')];
+ const pv=id=>{LOX.pv=id?{k,id}:null;loCmpUpd()};
+ const sel=it=>{LOX.psel=it.dataset.it;its.forEach(x=>{const on=x===it;x.classList.toggle('on',on);x.setAttribute('aria-selected',on);x.tabIndex=on?0:-1});try{beep(640,.03,'triangle',.16)}catch(e){}loCmpUpd()};
+ its.forEach(it=>{const id=it.dataset.it;
+  it.onmouseenter=()=>pv(id);it.onmouseleave=()=>pv(null);it.onfocus=()=>pv(id);it.onblur=()=>{if(LOX.pv&&LOX.pv.id===id)pv(null)};
+  it.onclick=()=>{if(LOX.psel===id&&!it.classList.contains('lk'))return;sel(it)};
+  it.ondblclick=()=>{if(loLock(k,id)){loToast(loLock(k,id),1);return}loPut(k,id)};
+  it.ondragstart=e=>{if(loLock(k,id)){e.preventDefault();return}LOX.drag={k,id};try{e.dataTransfer.setData('text/plain',k+':'+id);e.dataTransfer.effectAllowed='move'}catch(x){}ov.querySelector('.lol').classList.add('dragging');sel(it)};
+  it.ondragend=()=>{LOX.drag=null;const l=ov.querySelector('.lol');if(l)l.classList.remove('dragging');ov.querySelectorAll('.loslw.over').forEach(w=>w.classList.remove('over'))}});
+ g.onkeydown=e=>{const it=e.target.closest('.loit');if(!it)return;const i=its.indexOf(it);let n=-1;
+  const cols=Math.max(1,its.filter(x=>x.offsetTop===its[0].offsetTop).length);
+  if(e.key==='ArrowRight')n=i+1;else if(e.key==='ArrowLeft')n=i-1;else if(e.key==='ArrowDown')n=i+cols;else if(e.key==='ArrowUp')n=i-cols;else if(e.key==='Home')n=0;else if(e.key==='End')n=its.length-1;
+  else if(e.key==='Enter'){e.preventDefault();const id=it.dataset.it;if(loLock(k,id)){loToast(loLock(k,id),1);return}loPut(k,id);return}
+  else if(e.key===' '){e.preventDefault();sel(it);return}else return;
+  e.preventDefault();n=Math.max(0,Math.min(its.length-1,n));its.forEach(x=>x.tabIndex=-1);its[n].tabIndex=0;its[n].focus();its[n].scrollIntoView({block:'nearest'})};
+ const put=$('loput');put.onclick=()=>{if(LOX.psel)loPut(k,LOX.psel)};
+ ov.querySelectorAll('[data-pf]').forEach(b=>b.onclick=()=>{if(LOX.pf===b.dataset.pf)return;LOX.pf=b.dataset.pf;try{beep(600,.03,'triangle',.16)}catch(e){}loRefresh();const g2=$('lopkg');if(g2)g2.classList.add('resort');const f=ov.querySelector(`[data-pf="${LOX.pf}"]`);if(f)f.focus()});
+ const btn=$('losob'),menu=$('losom');let open=false;
+ const set=o=>{open=o;menu.classList.toggle('on',o);btn.setAttribute('aria-expanded',o);if(o){const c=menu.querySelector('.on')||menu.querySelector('button');setTimeout(()=>{try{c.focus()}catch(e){}},20)}};
+ btn.onclick=e=>{e.stopPropagation();try{beep(560,.03,'triangle',.2)}catch(x){}set(!open)};
+ menu.querySelectorAll('[data-so]').forEach(b=>b.onclick=e=>{e.stopPropagation();L.so=L.so&&typeof L.so==='object'?L.so:{};L.so[k]=b.dataset.so;save();try{beep(680,.04,'triangle',.22)}catch(x){}loRefresh();const g2=$('lopkg');if(g2)g2.classList.add('resort');const sb=$('losob');if(sb)sb.focus()});
+ menu.onkeydown=e=>{const bs=[...menu.querySelectorAll('button')],i=bs.indexOf(document.activeElement);if(e.key==='ArrowDown'){e.preventDefault();bs[(i+1)%bs.length].focus()}else if(e.key==='ArrowUp'){e.preventDefault();bs[(i-1+bs.length)%bs.length].focus()}else if(e.key==='Escape'){e.preventDefault();e.stopPropagation();set(false);btn.focus()}};
+ const pk=ov.querySelector('.lopk');pk.addEventListener('click',e=>{if(open&&!e.target.closest('.ptso'))set(false)})}
+
+/* renaming from the editor while the picker is open: close the picker first so the name is on screen */
+{const r0=loRenStart;loRenStart=function(i){if(LOX.pk){LOX.pk='';LOX.pv=null;LOX.psel='';loRefresh()}return r0.apply(this,arguments)}}
+/* card tiles: an empty slot is 'lomt' (the game already uses .em for the Endless menu, which leaked padding in here) */
+function loTiles(s){return['w','a','p'].map((k,j)=>{const id=s[k],R=loPlan(s)[k],bad=id&&!R.ok;
+ return `<span class="lotile${id?'':' lomt'}${bad?' bad':''}" style="--c:${loCol(k,id)};--j:${j}" title="${id?esc(loName(k,id))+(bad?' · '+esc(R.why):''):'Empty '+LOSN[k].toLowerCase()+' slot'}">${id?`<canvas width="150" height="130" data-lt="${k}:${id}"></canvas>`:`<i class="loph">${LOI[k]}</i>`}${bad?`<i class="lobad">${R.why==='Not owned'||R.why==='Not hatched yet'?LOI.warn:LOSI.lk}</i>`:''}</span>`}).join('')}
+/* the Armory gets a shortcut to the Locker */
+{const a0=armory;armory=function(){const r=a0.apply(this,arguments);try{const bar=ov.querySelector('.arbar'),au=$('arauto');if(bar&&au&&!$('arlo')){const b=document.createElement('button');b.className='arlo';b.id='arlo';b.title='Saved loadouts: switch your whole setup in one click';b.innerHTML=`${LOI.lock}<span>Loadouts</span>`;au.after(b);b.onclick=()=>loadouts()}}catch(e){}return r}}
+
+/* ---------- styles ---------- */
+{const st=document.createElement('style');st.textContent=`
+.lol-l{padding:0;overflow:hidden}
+.lolist,.lopk{display:flex;flex-direction:column;height:100%;min-height:0;padding:16px 16px 14px;box-sizing:border-box}
+.lolist>h3{margin:0 0 10px 4px;font:400 36px/1 'Pirata One',Georgia,serif;color:var(--gold);text-shadow:0 2px 0 #3a1a00}
+.lolist.loin,.lopk.loin{animation:loslide .38s var(--eo) both}@keyframes loslide{from{opacity:0;transform:translateX(-18px)}}
+.locards.re0 .locard{animation:lopop .5s var(--ez) both;animation-delay:calc(.12s + var(--d)*.08s)}
+.loemt{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:14px;border-radius:14px;border:2px dashed #3a3070;background:#0e0b2699;color:var(--mut);transition:border-color .2s,color .2s}
+.loemt>i{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#1e1850;border:1.5px solid #4a3e8a;color:var(--gold)}.loemt>i svg{width:20px;height:20px}
+.loemt span{display:flex;flex-direction:column;gap:2px}.loemt b{font:800 15px var(--ui);color:var(--ink)}.loemt small{font:600 12.5px var(--ui)}
+.locard:hover .loemt{border-color:#5a4ca0}.locard.on .loemt{border-color:#ffd45a66}
+.loemp{display:none}
+.lotile.lomt{background:#0e0b26;border:2px dashed #3a3070}.lowhy.lomt{color:var(--mut)}.lobad{background:#0a0618;border-radius:50%;padding:2px;box-sizing:border-box}
+/* slot editor */
+.lorows{gap:8px}
+.loslw{position:relative;border-radius:16px;animation:none}
+.lol-r.swap .loslw{animation:lorw .45s var(--ez) both;animation-delay:calc(var(--j)*.06s)}
+.loslot{all:unset;box-sizing:border-box;cursor:pointer;width:100%;display:grid;grid-template-columns:118px 70px minmax(0,1fr) auto;align-items:center;gap:12px;padding:7px 12px 7px 12px;border-radius:16px;background:linear-gradient(180deg,#171240,#0f0b2a);border:1.5px solid #2e2660;box-shadow:inset 0 1px 0 #ffffff10;transition:transform .2s var(--ez),border-color .2s}
+.loslot:hover{transform:translateY(-2px);border-color:#5a4ca0}.loslot:active{transform:scale(.98)}
+.loslot:focus-visible{outline:3px solid #8a7cf0;outline-offset:2px}
+.loslw.lomt .loslot{border-style:dashed;background:#0e0b26}
+.loslw.bad .loslot{border-color:#6a2a48}
+.loslw.ed .loslot{border:2px solid var(--gold);padding:6.5px 11.5px 6.5px 11.5px;background:linear-gradient(180deg,#261c56,#140e34);box-shadow:0 0 18px #ffb02a33,inset 0 1px 0 #ffffff1c}
+.loslw.over .loslot{border:2px dashed var(--gold);transform:scale(1.02)}
+.lol.dragging .loslw:not(.over)[data-slot] .loslot{opacity:.75}
+.loplus{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#1e1850;border:1.5px solid #4a3e8a;color:var(--gold)}.loplus svg{width:18px;height:18px}
+.loslw.lomt .lort b{color:var(--mut);font-weight:700;font-size:15.5px}
+.lochg{display:flex;align-items:center;gap:4px;font:700 12px var(--ui);color:var(--mut);transition:color .2s,transform .2s var(--ez)}.lochg i{font-style:normal;font-size:22px;line-height:1}.lochg u{text-decoration:none;font:800 10px var(--ui);letter-spacing:.06em;text-transform:uppercase}
+.loslot:hover .lochg,.loslot:focus-visible .lochg{color:var(--gold);transform:translateX(2px)}.loslw.ed .lochg{color:var(--gold)}
+.lormv{all:unset;box-sizing:border-box;position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:8px;display:grid;place-items:center;cursor:pointer;color:var(--mut);background:#0a0618;border:1px solid #3a3070;opacity:.75;transition:opacity .2s,color .2s,transform .2s var(--ez),border-color .2s}
+.lormv svg{width:12px;height:12px}.loslw:hover .lormv,.lormv:focus-visible{opacity:1}.lormv:hover{color:#ff9aa8;border-color:#e8364e;transform:scale(1.1)}.lormv:active{transform:scale(.88)}.lormv:focus-visible{outline:2px solid #8a7cf0;outline-offset:1px}
+.loslw:has(.lormv) .lochg{margin-right:14px}
+.loslw.losnap .lotile{animation:losnap .55s var(--ez) both}@keyframes losnap{0%{transform:translateX(-26px) scale(1.25) rotate(-8deg);opacity:.2}55%{transform:translateX(2px) scale(.94)}100%{transform:none;opacity:1}}
+.loslw.losnap .loslot{animation:lospr .55s var(--ez)}@keyframes lospr{0%{transform:scale(.98)}50%{transform:scale(1.015)}100%{transform:none}}
+.loslw.lopoof .lotile{animation:lopoof .4s var(--ez) both}@keyframes lopoof{from{transform:scale(.6);opacity:0}}
+.lotile{overflow:visible}.lotile>canvas{border-radius:13px}
+.lospk{position:absolute;inset:0;pointer-events:none}.lospk i{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;color:#ffe9a0;opacity:0;animation:lospk .6s ease-out var(--d) both}
+.lospk i svg{width:100%;height:100%;display:block}
+@keyframes lospk{0%{opacity:1;transform:rotate(var(--a)) translateY(0) scale(.2)}70%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(calc(var(--r)*-1)) scale(var(--s))}}
+.lonote{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 10px;margin:10px 0 9px;min-height:30px;font:600 13.5px/1.3 var(--ui);color:var(--mut)}
+.lonote b{display:inline-flex;align-items:center;gap:5px;padding:3px 9px 3px 6px;border-radius:99px;background:#221c52;border:1px solid #4a3e8a;color:var(--ink);font:700 12.5px var(--ui)}.lonote b svg{width:15px;height:15px}
+.lonote small{font:600 12px var(--ui);color:#ff9aa8}.lonote>svg{width:18px;height:18px;flex:none}
+.lonote.ok{color:#a8f080}.lonote.ok>svg{color:#8ae060}.lonote.warn{color:#ff9aa8}
+.lobr{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.lobr .losv{margin:0;height:46px;font-size:15px;gap:8px}.lobr .losv svg{width:19px;height:19px}
+#loauto svg{color:var(--gold)}
+.lol.picking .lol-r .logo:not(.off){color:var(--ink);background:linear-gradient(180deg,#2c2470,#1a1450);border:1.5px solid #5a4ca0;box-shadow:inset 0 1px 0 #ffffff1c}
+.lol.picking .lol-r .losv.prim{color:var(--ink);background:linear-gradient(180deg,#2c2470,#1a1450);border:1.5px solid #5a4ca0;box-shadow:inset 0 1px 0 #ffffff1c}
+.lodh .locls{flex:none}
+.loslot .lotile.big{width:70px;height:70px}.loslot .lolab{font-size:14.5px;gap:8px}
+/* gear picker */
+.lopk{gap:10px}
+.lopkh{display:flex;align-items:center;gap:10px}
+.lopkx{all:unset;box-sizing:border-box;flex:none;width:38px;height:38px;border-radius:11px;display:grid;place-items:center;cursor:pointer;color:var(--ink);background:linear-gradient(180deg,#2a2260,#18124a);border:1.5px solid #4a3e8a;transition:transform .2s var(--ez),border-color .2s,color .2s}
+.lopkx svg{width:18px;height:18px}.lopkx:hover{transform:translateX(-2px);border-color:var(--gold);color:var(--gold)}.lopkx:active{transform:scale(.88)}.lopkx:focus-visible{outline:3px solid #8a7cf0;outline-offset:2px}
+.lopkt{flex:1;min-width:0}.lopkt h3{margin:0;font:400 31px/1 'Pirata One',Georgia,serif;color:var(--gold);text-shadow:0 2px 0 #3a1a00;white-space:nowrap}
+.lopkt small{display:block;margin-top:2px;font:600 12px var(--ui);color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.lopkt small b{color:var(--ink)}
+.lopk .ptso{flex:none}.lopk .ptsob{padding:6px 10px;font-size:12.5px}.lopk .ptsom{min-width:200px}
+.lofl{display:flex;gap:6px;flex-wrap:nowrap;overflow:hidden}
+.lofl button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:4px;padding:5px 11px;border-radius:10px;font:700 12.5px var(--ui);color:#e8e0ff;background:#140e30;border:1.5px solid #3a3070;white-space:nowrap;transition:transform .18s var(--ez),border-color .18s}
+.lofl button svg{width:13px;height:13px}.lofl button:hover{transform:translateY(-1px);border-color:#8a7cf0}.lofl button:active{transform:scale(.92)}
+.lofl button.on{background:linear-gradient(180deg,#6a4ad8,#4a2ea8);border-color:#8a7cf0;color:#fff}.lofl button:focus-visible{outline:3px solid #8a7cf0;outline-offset:1px}
+.lopkg{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:118px;gap:9px;padding:3px 4px 6px 3px;margin:0 -4px 0 -3px;scrollbar-width:thin;scrollbar-color:#4a3e8a transparent;align-content:start}
+.loit{all:unset;-webkit-user-drag:element;box-sizing:border-box;position:relative;cursor:grab;user-select:none;outline:none;display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 6px 7px;border-radius:14px;min-width:0;background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--c) 20%,#1c1846),#0e0b26 78%);border:1.5px solid color-mix(in srgb,var(--c) 50%,#2e2660);box-shadow:inset 0 1px 0 #ffffff14;transition:transform .2s var(--ez),border-color .2s;animation:loitin .4s var(--ez) both;animation-delay:calc(var(--i)*.025s)}
+@keyframes loitin{from{opacity:0;transform:translateY(8px) scale(.94)}}
+.lopkg.resort .loit{animation:loitin .32s var(--ez) both;animation-delay:calc(var(--i)*.02s)}
+.loit canvas{width:100%;height:64px;object-fit:contain;display:block;pointer-events:none}
+.loit b{max-width:100%;font:800 12.5px/1.2 var(--ui);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loit small{display:flex;align-items:center;gap:3px;max-width:100%;font:700 10.5px/1.2 var(--ui);color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.loit small svg{width:11px;height:11px;flex:none}
+.loit:hover{transform:translateY(-3px);border-color:var(--c)}.loit:active{cursor:grabbing}.loit:active{transform:scale(.94)}
+.loit:focus-visible{outline:3px solid #8a7cf0;outline-offset:2px}
+.loit.on{border:2.5px solid var(--gold);padding:4px 5px 6px;box-shadow:0 0 0 1px #ffd45a44,0 0 16px #ffb02a40,inset 0 1px 0 #ffffff1c}
+.loit.lk{-webkit-user-drag:none;cursor:not-allowed;background:#0e0b26;border-color:#2e2660}.loit.lk canvas{opacity:.45;filter:grayscale(.9)}.loit.lk:hover{transform:none;border-color:#3a3070}
+.lotg{position:absolute;top:5px;left:5px;padding:1px 6px;border-radius:99px;font:800 9px/1.5 var(--ui);letter-spacing:.04em;text-transform:uppercase;text-decoration:none}
+.lotg.in{color:#2a1406;background:linear-gradient(180deg,#ffe27a,#f6b830)}.lotg.wr{color:#1a2a10;background:linear-gradient(180deg,#b8f080,#6ac040)}
+.lobest{position:absolute;top:5px;right:5px;display:flex;align-items:center;gap:2px;padding:1px 6px 1px 4px;border-radius:99px;font:800 9px/1.5 var(--ui);font-style:normal;text-transform:uppercase;color:#fff8e8;background:#6a4ad8;border:1px solid #b9a6ff}.lobest svg{width:10px;height:10px;color:var(--gold)}
+.lopk0,.lopkm{grid-column:1/-1;margin:4px 0;text-align:center;font:600 12.5px var(--ui);color:var(--mut)}
+.locmp{flex:none;height:138px;border-radius:16px;background:linear-gradient(180deg,#171240,#0f0b2a);border:1.5px solid #2e2660;box-shadow:inset 0 1px 0 #ffffff10;padding:9px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.locmp0{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;font:600 13px/1.4 var(--ui);color:var(--mut)}.locmp0 svg{width:26px;height:26px;flex:none;opacity:.6}.locmp0 b{color:var(--ink)}
+.locmh{display:flex;align-items:center;gap:8px}
+.locmt{display:flex;flex-direction:column;align-items:center;gap:1px}.locmt small{font:700 9.5px var(--ui);letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.lotile.sm{width:46px;height:46px;border-radius:10px}.locmh .lotile.sm{width:44px;height:40px}
+.loar{font-style:normal;color:var(--gold);font-weight:800;font-size:15px;line-height:1}.loar.big{font-size:22px}
+.locmnm{display:flex;flex-direction:column;min-width:0;margin-left:4px}.locmnm b{font:800 15px/1.2 var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.locmnm em{font:italic 600 12px var(--ui);color:var(--mut)}
+.locmb{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;align-content:start}
+.locmo{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:2px 8px;border-radius:8px;background:#0a0618;font:700 12px var(--ui);color:var(--mut)}.locmo b{font:800 13px var(--ui);color:var(--ink)}
+.locmo.up b,.locmr.up .nw,.locmr.up .lodir{color:#8ae060}.locmo.dn b,.locmr.dn .nw,.locmr.dn .lodir{color:#ff7a8a}
+.locmr{display:flex;align-items:center;gap:5px;min-width:0;font:600 11.5px var(--ui);color:var(--mut)}.locmr span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.locmr b{font:700 11.5px var(--ui);color:var(--ink);white-space:nowrap}.locmr .loar{font-size:12px}.lodir{font-style:normal;font-size:10px;width:10px;color:var(--mut)}
+.lol-l .locmr:has(+.locmd){grid-column:1/-1}.locmd{grid-column:1/-1;margin:0;font:500 12px/1.35 var(--ui);color:var(--mut);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.locmn{grid-column:1/-1;margin:2px 0;font:600 12.5px var(--ui);color:var(--mut)}.locmm{grid-column:1/-1;font:600 11px var(--ui);color:var(--mut)}
+.lopk>.logo{flex:none;height:50px;font-size:18px}
+.lostn.pv{display:flex;flex-direction:column;align-items:center;line-height:1}.lostn small{font:700 10px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:3px}
+.lokeys{gap:5px!important}
+/* Armory shortcut */
+.arlo{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:7px;padding:0 14px;height:34px;border-radius:10px;font:700 14px var(--ui);color:#fff8e8;background:linear-gradient(180deg,#2c2470,#1a1450);border:1.5px solid #5a4ca0;box-shadow:inset 0 1px 0 #ffffff1c;transition:transform .2s cubic-bezier(.3,1.5,.5,1),border-color .2s}
+.arlo svg{width:18px;height:18px;color:#ffd45a}.arlo:hover{transform:translateY(-2px);border-color:#8a7cf0}.arlo:active{transform:scale(.94)}.arlo:focus-visible{outline:3px solid #8a7cf0;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.lospk{display:none}.arlo{transition:none}}
+`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

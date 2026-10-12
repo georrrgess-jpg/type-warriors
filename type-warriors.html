@@ -19443,8 +19443,8 @@ function loAuto(){const L=loNorm(),s=L.s[L.sel],cls=s.c&&pathOpen(s.c)?s.c:P.pat
  loRefresh({enter:1,snap:ch});loToast(`Filled ${s.n} with your strongest ${PATHS[cls].n} gear.`)}
 /* a slot snapping shut: the tile drops in and sparkles fly */
 function loSnap(k){const w=ov.querySelector(`.loslw[data-slot="${k}"]`);if(!w)return;w.classList.remove('losnap');void w.offsetWidth;w.classList.add('losnap');w.addEventListener('animationend',e=>{if(e.target.classList.contains('lotile'))w.classList.remove('losnap')});
- if(ptRM())return;const t=w.querySelector('.lotile');if(!t)return;const sp=document.createElement('span');sp.className='lospk';sp.setAttribute('aria-hidden','true');
- sp.innerHTML=Array.from({length:8},(_,i)=>`<i style="--a:${i*45+(i%2)*18}deg;--r:${40+(i%3)*12}px;--s:${.6+(i%3)*.25};--d:${(i%4)*.03}s">${LOSI.star4}</i>`).join('');t.appendChild(sp);setTimeout(()=>sp.remove(),800)}
+ if(ptRM())return;const t=w.querySelector('.lotile');if(!t)return;const sp=document.createElement('span');sp.className='lospk';sp.setAttribute('aria-hidden','true');const wr=w.getBoundingClientRect(),tr=t.getBoundingClientRect(),z=wr.width/Math.max(1,w.offsetWidth);sp.style.cssText=`left:${(tr.left-wr.left)/z}px;top:${(tr.top-wr.top)/z}px;width:${tr.width/z}px;height:${tr.height/z}px`;
+ sp.innerHTML=Array.from({length:8},(_,i)=>`<i style="--a:${i*45+(i%2)*18}deg;--r:${40+(i%3)*12}px;--s:${.6+(i%3)*.25};--d:${(i%4)*.03}s">${LOSI.star4}</i>`).join('');w.appendChild(sp);setTimeout(()=>sp.remove(),800)}
 
 /* ---------- wiring ---------- */
 function loBind(){const L=loNorm();
@@ -19537,8 +19537,8 @@ function loTiles(s){return['w','a','p'].map((k,j)=>{const id=s[k],R=loPlan(s)[k]
 .loslw.losnap .lotile{animation:losnap .55s var(--ez) both}@keyframes losnap{0%{transform:translateX(-26px) scale(1.25) rotate(-8deg);opacity:.2}55%{transform:translateX(2px) scale(.94)}100%{transform:none;opacity:1}}
 .loslw.losnap .loslot{animation:lospr .55s var(--ez)}@keyframes lospr{0%{transform:scale(.98)}50%{transform:scale(1.015)}100%{transform:none}}
 .loslw.lopoof .lotile{animation:lopoof .4s var(--ez) both}@keyframes lopoof{from{transform:scale(.6);opacity:0}}
-.lotile{overflow:visible}.lotile>canvas{border-radius:13px}
-.lospk{position:absolute;inset:0;pointer-events:none}.lospk i{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;color:#ffe9a0;opacity:0;animation:lospk .6s ease-out var(--d) both}
+.lotile{overflow:hidden}.lotile>canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;border-radius:inherit}
+.lospk{position:absolute;pointer-events:none;z-index:3}.lospk i{position:absolute;left:50%;top:50%;width:14px;height:14px;margin:-7px;color:#ffe9a0;opacity:0;animation:lospk .6s ease-out var(--d) both}
 .lospk i svg{width:100%;height:100%;display:block}
 @keyframes lospk{0%{opacity:1;transform:rotate(var(--a)) translateY(0) scale(.2)}70%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(calc(var(--r)*-1)) scale(var(--s))}}
 .lonote{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px 10px;margin:10px 0 9px;min-height:30px;font:600 13.5px/1.3 var(--ui);color:var(--mut)}
@@ -19600,6 +19600,80 @@ function loTiles(s){return['w','a','p'].map((k,j)=>{const id=s[k],R=loPlan(s)[k]
 .arlo{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:7px;padding:0 14px;height:34px;border-radius:10px;font:700 14px var(--ui);color:#fff8e8;background:linear-gradient(180deg,#2c2470,#1a1450);border:1.5px solid #5a4ca0;box-shadow:inset 0 1px 0 #ffffff1c;transition:transform .2s cubic-bezier(.3,1.5,.5,1),border-color .2s}
 .arlo svg{width:18px;height:18px;color:#ffd45a}.arlo:hover{transform:translateY(-2px);border-color:#8a7cf0}.arlo:active{transform:scale(.94)}.arlo:focus-visible{outline:3px solid #8a7cf0;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){.lospk{display:none}.arlo{transition:none}}
+`;document.head.appendChild(st)}
+/* ===== MYTHIC BACKDROP: a living cosmos behind every Mythic companion portrait =====
+   Wherever an owned Mythic pet is shown in a frame (Companion Hall roster and portrait, the Loadout Locker cards,
+   slots and picker, the Armory pet slot, egg pool lists) a small canvas is slipped in behind the art and painted
+   through the LIVE loop every third frame (like the pet idle animations): a swirling spiral nebula with a starfield, twinkling stars, a breathing
+   core glow, an upright halo, a gold magic circle turning under the pet's feet, rising sparkles and the odd
+   shooting star. Glacierhorn gets frost and violet, Solmane sunfire and rose. The nebula, stars and rings are
+   painted once into cached sprites; each frame only places them. Reduced motion shows a still frame. */
+const MYPAL={
+ yeti:{b1:'#142a5e',b2:'#05071c',c:['#7ff0ff','#6a7dff','#c08aff','#bff6ff'],ring:'#bff6ff',glow:'#7ff0ff',mote:'#dffbff',star:'#bff6ff'},
+ sol:{b1:'#3a1236',b2:'#0c0618',c:['#ffb42a','#ff5c8a','#b04aff','#ffe9a0'],ring:'#ffd45a',glow:'#ffb42a',mote:'#fff2c0',star:'#ffe9a0'},
+ _:{b1:'#3a1650',b2:'#0c0618',c:['#ff6fae','#b04aff','#5ab8ff','#ffd0ec'],ring:'#ffd45a',glow:'#ff6fae',mote:'#ffe0f0',star:'#ffd0ec'}};
+const MYIMG={};
+const myPal=id=>MYPAL[id]||MYPAL._;
+/* cached sprites, one set per palette: n = spiral nebula, s = starfield, r = rune ring, g = glow */
+function mySpr(id,kind){const key=(MYPAL[id]?id:'_')+kind;if(MYIMG[key])return MYIMG[key];const S=kind==='g'?128:320,c=document.createElement('canvas');c.width=c.height=S;const g=c.getContext('2d'),P0=myPal(id),h=S/2;
+ let seed=kind==='n'?7:31;const r=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+ if(kind==='n'){g.globalCompositeOperation='lighter';
+  for(let arm=0;arm<3;arm++)for(let i=0;i<26;i++){const a=arm*TAU/3+i*.24,d=14+i*4.6,x=h+Math.cos(a)*d,y=h+Math.sin(a)*d,rad=26+r()*30+i*.8,col=P0.c[(arm+(i>12?1:0))%3];
+   const q=g.createRadialGradient(x,y,0,x,y,rad);q.addColorStop(0,col+'22');q.addColorStop(.5,col+'0c');q.addColorStop(1,col+'00');g.fillStyle=q;g.beginPath();g.arc(x,y,rad,0,TAU);g.fill()}
+  const q=g.createRadialGradient(h,h,0,h,h,70);q.addColorStop(0,P0.c[3]+'2a');q.addColorStop(1,P0.c[3]+'00');g.fillStyle=q;g.beginPath();g.arc(h,h,70,0,TAU);g.fill();
+  g.globalCompositeOperation='destination-out';for(let i=0;i<14;i++){const a=i*.9,d=40+i*6,x=h+Math.cos(a)*d,y=h+Math.sin(a)*d,rad=12+r()*14,q2=g.createRadialGradient(x,y,0,x,y,rad);q2.addColorStop(0,'#000000aa');q2.addColorStop(1,'#00000000');g.fillStyle=q2;g.beginPath();g.arc(x,y,rad,0,TAU);g.fill()}}
+ else if(kind==='s'){for(let i=0;i<90;i++){const x=r()*S,y=r()*S,rad=.5+r()*1.2;g.fillStyle=`rgba(255,255,255,${.3+r()*.6})`;g.beginPath();g.arc(x,y,rad,0,TAU);g.fill()}
+  for(let i=0;i<9;i++)myStar(g,r()*S,r()*S,3+r()*3.5,P0.star)}
+ else if(kind==='r'){g.translate(h,h);g.strokeStyle=P0.ring;g.fillStyle=P0.ring;g.lineWidth=4.6;g.globalAlpha=.85;g.beginPath();g.arc(0,0,148,0,TAU);g.stroke();
+  g.lineWidth=2.6;g.globalAlpha=.7;g.setLineDash([9,12]);g.beginPath();g.arc(0,0,128,0,TAU);g.stroke();g.setLineDash([]);g.lineWidth=2;g.globalAlpha=.45;g.beginPath();g.arc(0,0,96,0,TAU);g.stroke();
+  g.globalAlpha=1;for(let i=0;i<8;i++){g.save();g.rotate(i*TAU/8);g.beginPath();g.moveTo(0,-157);g.lineTo(6,-146);g.lineTo(0,-135);g.lineTo(-6,-146);g.closePath();g.fill();g.restore()}
+  g.globalAlpha=.85;for(let i=0;i<4;i++){g.save();g.rotate(i*TAU/4+.39);myStar(g,0,-112,9,'#ffffff');g.restore()}}
+ else{const q=g.createRadialGradient(h,h,0,h,h,h);q.addColorStop(0,P0.glow+'80');q.addColorStop(.45,P0.glow+'30');q.addColorStop(1,P0.glow+'00');g.fillStyle=q;g.fillRect(0,0,S,S)}
+ return MYIMG[key]=c}
+function myStar(g,x,y,s,col){g.fillStyle=col;g.beginPath();g.moveTo(x,y-s);g.quadraticCurveTo(x,y,x+s,y);g.quadraticCurveTo(x,y,x,y+s);g.quadraticCurveTo(x,y,x-s,y);g.quadraticCurveTo(x,y,x,y-s);g.fill()}
+/* layout per frame kind: halo centre/size and floor circle centre/size, as fractions of the frame */
+const MYLAY={card:{hy:.4,hs:.72,fy:.68,fs:.78,my:.7},tile:{hy:.46,hs:.88,fy:.84,fs:.92,my:.9},pick:{hy:.32,hs:.56,fy:.56,fs:.66,my:.58}};
+function myPainter(cv,id,lay){const g=cv.getContext('2d'),w=cv.width,h=cv.height,P0=myPal(id),L=MYLAY[lay]||MYLAY.tile,m=Math.min(w,h),dl=(Math.abs([...id].reduce((a,ch)=>a*31+ch.charCodeAt(0),7))%50)/10;
+ const base=document.createElement('canvas');base.width=w;base.height=h;{const b=base.getContext('2d'),q=b.createRadialGradient(w/2,h*.42,0,w/2,h*.42,Math.max(w,h)*.8);q.addColorStop(0,P0.b1);q.addColorStop(.98,P0.b2);b.fillStyle=q;b.fillRect(0,0,w,h)}
+ const vig=document.createElement('canvas');vig.width=w;vig.height=h;{const b=vig.getContext('2d');let q=b.createRadialGradient(w/2,h*.45,m*.3,w/2,h*.45,Math.max(w,h)*.75);q.addColorStop(0,'#05031000');q.addColorStop(1,'#05031099');b.fillStyle=q;b.fillRect(0,0,w,h);q=b.createLinearGradient(0,h*.6,0,h);q.addColorStop(0,'#05031000');q.addColorStop(1,'#05031099');b.fillStyle=q;b.fillRect(0,0,w,h)}
+ const N=mySpr(id,'n'),St=mySpr(id,'s'),Rg=mySpr(id,'r'),Gl=mySpr(id,'g'),D=Math.hypot(w,h)/320*1.08;
+ const TW=[[.18,.22],[.78,.18],[.64,.4],[.3,.5],[.86,.62],[.12,.7]],MO=[[.16,0,3],[.4,1.1,3.8],[.62,2.3,3.4],[.84,.6,4.2]];
+ return t=>{const T=ptRM()?1.2:t+dl;g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';g.drawImage(base,0,0);
+  g.save();g.translate(w/2,h*.45);g.rotate(T*TAU/40);g.scale(D,D);g.globalAlpha=.9;g.drawImage(N,-160,-160);g.rotate(-T*TAU/40-T*TAU/150);g.globalAlpha=.75;g.drawImage(St,-160,-160);g.restore();
+  g.globalAlpha=.55+.45*(.5+.5*Math.sin(T*1.85));const gs=m*.95;g.drawImage(Gl,w/2-gs/2,h*.52-gs/2,gs,gs);
+  g.save();g.translate(w/2,h*L.hy);g.rotate(-T*TAU/36);g.globalAlpha=.3;const hs=Math.min(w*L.hs,h*.96);g.drawImage(Rg,-hs/2,-hs/2,hs,hs);g.restore();
+  g.save();g.translate(w/2,h*L.fy);g.scale(1,.32);g.rotate(T*TAU/18);g.globalAlpha=.9;const fs=Math.min(w*L.fs,h*1.2);g.drawImage(Rg,-fs/2,-fs/2,fs,fs);g.restore();
+  g.globalAlpha=1;for(let i=0;i<TW.length;i++){const a=.15+.85*(.5+.5*Math.sin(T*2.6+i*1.7));g.globalAlpha=a;myStar(g,TW[i][0]*w,TW[i][1]*h,Math.max(2,m*.035)*(.7+.3*a),'#ffffff')}
+  for(const [x,d,u] of MO){const p=((T+d)%u)/u,y=h*L.my-p*h*.75,al=p<.2?p/.2:1-(p-.2)/.8;g.globalAlpha=Math.max(0,al)*.95;g.fillStyle=P0.mote;g.beginPath();g.arc(x*w+Math.sin(T*2+d)*m*.03,y,Math.max(1.2,m*.018)*(1-p*.6),0,TAU);g.fill()}
+  const ph=(T+dl*1.3)%7.5;if(ph>6.3){const k=(ph-6.3)/1.2,x0=-w*.3+k*w*1.5,y0=h*.14+k*h*.62,len=w*.36;g.globalAlpha=Math.sin(k*Math.PI);const q=g.createLinearGradient(x0-len,y0-len*.45,x0,y0);q.addColorStop(0,'#ffffff00');q.addColorStop(1,P0.mote);g.strokeStyle=q;g.lineWidth=Math.max(1.2,m*.012);g.lineCap='round';g.beginPath();g.moveTo(x0-len,y0-len*.45);g.lineTo(x0,y0);g.stroke()}
+  g.globalAlpha=1;g.drawImage(vig,0,0)}}
+/* which canvases show a pet, and which element is their frame */
+const MYHOST=[['canvas[data-pc]',c=>c.dataset.pc,c=>c.closest('.ptc'),'card'],
+ ['canvas[data-lt^="p:"]',c=>c.dataset.lt.slice(2),c=>c.closest('.loit')||c.parentElement,null],
+ ['#ptpor',()=>typeof PTX!=='undefined'?PTX.sel:'',c=>c.parentElement,'tile',1],
+ ['#arspc',()=>P.pet,c=>c.parentElement,'tile'],
+ ['canvas[data-pl],canvas[data-pm]',c=>c.dataset.pl||c.dataset.pm,c=>c.parentElement,'card']];
+function myDecorate(){try{if(typeof PDEF==='undefined'||!P||!ov)return;
+ for(const [sel,idf,hf,lay0,fit] of MYHOST)document.querySelectorAll(sel).forEach(c=>{const id=idf(c),host=hf(c);if(!host)return;
+  const on=!!(id&&PDEF[id]&&PDEF[id].r==='m'&&petOwned(id)),cur=host.querySelector(':scope>canvas.mybg');
+  if(!on){if(cur){cur.remove();host.classList.remove('myhost')}return}
+  const lay=lay0||(host.classList.contains('loit')?'pick':'tile'),bw=Math.round(fit?c.offsetWidth:host.clientWidth),bh=Math.round(fit?c.offsetHeight:host.clientHeight);if(bw<8||bh<8)return;
+  const sc=Math.min(2,Math.max(1,window.devicePixelRatio||1)),W=Math.round(bw*sc),H=Math.round(bh*sc);
+  let e=cur;if(!e||e.dataset.my!==id||e.width!==W||e.height!==H){if(e)e.remove();
+   if(getComputedStyle(host).position==='static')host.style.position='relative';host.classList.add('myhost');
+   e=document.createElement('canvas');e.className='mybg'+(fit?' fit':'');e.width=W;e.height=H;e.dataset.my=id;e.setAttribute('aria-hidden','true');e._fn=myPainter(e,id,lay);e._fn(1.2);host.prepend(e)}
+  if(fit){e.style.left=c.offsetLeft+'px';e.style.top=c.offsetTop+'px';e.style.width=bw+'px';e.style.height=bh+'px'}
+  if(!ptRM()&&!LIVE.some(L=>L.cv===e))LIVE.push({cv:e,fn:e._fn,slow:bw*bh<15000?4:3,ph:LIVE.length%3})});
+ }catch(e){}}
+{let q=0;const run=()=>{q=0;myDecorate()};new MutationObserver(()=>{if(!q)q=requestAnimationFrame(run)}).observe(document.body,{childList:true,subtree:true})}
+/* the Companion Hall portrait can swap pets without a re-render, so look again after any click */
+document.addEventListener('click',()=>requestAnimationFrame(myDecorate),true);
+
+{const st=document.createElement('style');st.textContent=`
+.myhost{isolation:isolate;overflow:hidden}
+.myhost>canvas.mybg{position:absolute;left:0;top:0;right:auto;bottom:auto;width:100%;height:100%;margin:0;z-index:-1;border-radius:inherit;pointer-events:none;display:block;object-fit:fill;filter:none;transform:none;animation:none}
+.myhost>canvas.mybg.fit{border-radius:16px}
+.ptc-m.myhost:not(.unk){background:#0c0618!important}
 `;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,

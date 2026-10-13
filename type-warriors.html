@@ -19807,6 +19807,30 @@ document.addEventListener('click',e=>{const i=e.target.closest&&e.target.closest
 @keyframes updzin{from{opacity:0}}@keyframes updzpop{from{opacity:0;transform:scale(.92)}}
 @media (prefers-reduced-motion:reduce){.updz,.updz img{animation:none}.blimg.blzoom{transition:none}}
 `;document.head.appendChild(st)}
+/* ===== CODE NEWUPDATECOINS81: 1,500 coins and a Runeshell egg =====
+   A built-in code (works on every device, no server). Each save can redeem it once, the game's usual "once per account":
+   max 0 means no global cap, and P.ccUsed remembers that this save used it. The code is hidden at the very end of the
+   8.1 notes in the bell's Updates tab only (the News card keeps the plain notes). */
+CC_BUILTIN.push({text:'NEWUPDATECOINS81',type:'gold',n:1500,id:'',max:0,used:0,builtin:1,egg:'r'});
+/* the egg rides along with the coins */
+{const g0=ccGrant;ccGrant=function(c,k){const r=g0.apply(this,arguments);try{if(r&&r.ok&&c&&c.egg&&PRAR[c.egg]){petNorm();P.eggs[c.egg]=(P.eggs[c.egg]|0)+1;save();r.rw.egg=c.egg;r.m='Code accepted! +'+c.n.toLocaleString('en-US')+' coins and a '+PRAR[c.egg].egg+' egg.'}}catch(e){}return r}}
+/* the reward card shows the egg under the coins */
+{const p0=ccPlay;ccPlay=function(rw){const pr=p0.apply(this,arguments);try{const card=document.querySelector('#ccfx .cccard'),k=rw&&rw.egg;if(card&&k&&PRAR[k]&&!card.querySelector('.ccegg')){
+ const d=document.createElement('div');d.className='ccegg';d.innerHTML=`<canvas width="84" height="100" aria-hidden="true"></canvas><span><b>+1 ${PRAR[k].egg} Egg</b><small>${PRAR[k].n} · hatch it in Pets → Eggs</small></span>`;
+ const ok=card.querySelector('.ccok');card.insertBefore(d,ok||null);try{eggFit(d.querySelector('canvas'),k,{t:1,noSh:1})}catch(e){}}}catch(e){}return pr}}
+/* hide the code at the end of the 8.1 notes in the Updates tab */
+const CC81_HINT='\n\nP.S. Sharp-eyed warriors who read all the way to the end deserve a reward: newupdatecoins81';
+{const u=UPDATES.find(e=>e.id==='u-8.1');if(u&&u.b.indexOf('newupdatecoins81')<0)u.b=u.b+CC81_HINT}
+{const b0=bellInner;bellInner=function(){let h=b0.apply(this,arguments);try{if(BELL_TAB==='u')h=h.replace('newupdatecoins81','<span class="blsec" title="Try it in Settings › Data › Cheat codes">newupdatecoins81</span>')}catch(e){}return h}}
+{const st=document.createElement('style');st.textContent=`
+.blsec{font-weight:700;color:#d8ccff;letter-spacing:.02em;border-bottom:1px dashed #8a7cf0;user-select:all;cursor:text;transition:color .2s,border-color .2s}
+.blsec:hover{color:#ffd45a;border-bottom-color:#ffd45a}
+.ccegg{display:flex;align-items:center;gap:12px;margin:2px auto 12px;padding:8px 16px 8px 10px;border-radius:14px;background:linear-gradient(180deg,#1c2a5a,#0e1430);border:1.5px solid #5ab8ff;box-shadow:inset 0 1px 0 #ffffff1c;animation:ccegg .5s cubic-bezier(.3,1.5,.5,1) .5s both}
+.ccegg canvas{width:52px;height:62px;display:block}
+.ccegg span{display:flex;flex-direction:column;text-align:left}.ccegg b{font:800 17px var(--ui);color:#fff8e8}.ccegg small{font:600 12.5px var(--ui);color:#a8d8ff}
+@keyframes ccegg{from{opacity:0;transform:translateY(10px) scale(.9)}}
+@media (prefers-reduced-motion:reduce){.ccegg{animation:none}}
+`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

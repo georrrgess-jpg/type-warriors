@@ -20690,7 +20690,7 @@ TA.wc=(()=>{const c=(s,v,x,y,r)=>`<g transform="translate(${x} ${y}) rotate(${r}
  <rect width="320" height="176" fill="url(#wcta)"/><ellipse cx="160" cy="190" rx="200" ry="90" fill="none" stroke="#c8963a" stroke-width="3" opacity=".6"/>
  ${c('e','7',96,96,-18)}${c('t','d2',140,84,-6)}${c('s','turn',184,84,6)}${c('w','wild',228,96,18)}
  <g fill="#ffd45a"><path d="M40 30l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path d="M286 40l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/></g></svg>`})();
-GAMES.unshift({id:'wc',n:'Wildcard',d:'NEW · The Dragon Lounge card game. Match the element or the number and be first to empty your hand. Play the lounge regulars, or friends with a room code.',m:()=>wcHome()});
+GAMES.unshift({id:'wc',n:'Wildcard',d:'NEW · The Dragon Lounge card game. Match the element or the number and empty your hand first.',m:()=>wcHome()});
 {const g0=gameOpen;gameOpen=function(id){if(id==='wc'){CAS.tok++;cFlush();wcHome();return}return g0.apply(this,arguments)}}
 function wcFeat(){const W=wcSt();return `<div class="twfeat wcfeat"><button class="twfart" data-g="wc" aria-label="Play Wildcard"><span class="twfa">${TA.wc}</span><i class="co c1"></i><i class="co c2"></i><i class="co c3"></i><i class="co c4"></i><span class="twrib wcrib">UPDATE 8.2</span></button>
  <div class="twfinfo"><div class="twfk"><span class="twbadge wcbadge">CARD GAME</span><span class="twnew">NEW</span></div><h3>Wildcard</h3>
@@ -20705,6 +20705,15 @@ function wcFeat(){const W=wcSt();return `<div class="twfeat wcfeat"><button clas
 
 /* Wildcard screens are fully opaque, so the game's background canvas is not redrawn behind them (it is invisible there) */
 {const d0=draw;draw=function(){if(S.mode==='title'&&ov.classList.contains('wcx')&&!ov.classList.contains('hide'))return;return d0.apply(this,arguments)}}
+/* casino tiles: a hover description must never spill out of its tile. On hover, focus or keyboard selection the text
+   shrinks (down to 10px, with tighter lines) until it fits above the name bar; anything still too long is trimmed with an ellipsis. */
+function gdFit(t){const d=t&&t.querySelector('.gdd');if(!d)return;const em=d.querySelector('em');d.style.fontSize=d.style.lineHeight=d.style.padding='';if(em)em.style.fontSize='';d.classList.remove('clamp');
+ const max=t.clientHeight-50;if(max<=0)return;let fs=parseFloat(getComputedStyle(d).fontSize)||13;
+ while(d.offsetHeight>max&&fs>10){fs-=.5;d.style.fontSize=fs+'px';if(fs<12.5){d.style.lineHeight='1.2';d.style.padding='5px 8px'}if(em)em.style.fontSize=Math.max(10,fs-.5)+'px'}if(d.offsetHeight>max)d.classList.add('clamp')}
+{const fit=e=>{const t=e.target&&e.target.closest&&e.target.closest('#ov.gdo .gdt');if(t&&t._fit!==t.clientHeight){t._fit=t.clientHeight;gdFit(t)}};
+ document.addEventListener('pointerover',fit,true);document.addEventListener('focusin',fit,true);
+ addEventListener('keydown',()=>setTimeout(()=>{const t=document.querySelector('#ov.gdo .gdt.sel');if(t)gdFit(t)},0));addEventListener('resize',()=>document.querySelectorAll('#ov.gdo .gdt').forEach(t=>t._fit=0))}
+{const st=document.createElement('style');st.textContent=`#ov.gdo .gdd.clamp b{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}`;document.head.appendChild(st)}
 /* ===== WILDCARD: a tiny QR code maker for Wi-Fi invites =====
    Byte mode, error correction level L, versions 1-20 (up to about 850 characters), standard mask scoring.
    wcQR(text) returns an inline <svg>. No network, no library. */

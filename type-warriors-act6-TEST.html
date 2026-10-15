@@ -22174,7 +22174,7 @@ function rkStart(o){o=o||{};const R=rkSt();rkDodge();
  WX.G=wcNew({players,hand:7,rules:{stack:1},seed:(Date.now()^Math.floor(Math.random()*1e9))>>>0});R.live={t:Date.now(),r:R.r};save();wcTable();
  const rg=players.find(p=>p.av&&p.av.rare);if(rg)wcToast(`✨ A rare guest takes an AI seat: <b>${esc(rg.name)}</b>. Win to earn the Pastel Wyrm card back!`);wcPump()}
 /* the table: rank pills on top, the blue ranked felt, AI tags and titles on the seats */
-{const t0=wcTable;wcTable=function(){const r=t0.apply(this,arguments);try{if(WX.rk){const t=$('wct');t.classList.remove('green');t.classList.add('blue','rkt');const R=rkSt();
+{const t0=wcTable;wcTable=function(){const r=t0.apply(this,arguments);try{if(WX.rk){const t=$('wct');t.classList.remove('green');t.classList.add('blue','rktbl');const R=rkSt();
  const top=t.querySelector('.wctop');if(top)top.innerHTML=`<span class="wcpill tb rkpil">${rkInsig(R.r,30)}<b>Ranked · ${WCRN[R.r].n}</b></span><span class="wcpill">${R.r===5?`Legend points <b>${R.lp}</b>`:`<b>${R.bar}</b> / 100`}</span><span class="wcpill">15-second turns</span>`}}catch(e){}return r}}
 {const s0=wcSeatHTML;wcSeatHTML=function(i){let h=s0.apply(this,arguments);try{const p=WX.G.P[i];
  if(WX.rk&&p.kind==='bot'&&p.ai&&!(p.av&&p.av.rare))h=h.replace(/(<div class="wcnm[^"]*"><b>[^<]*<\/b>)(<small[^>]*>[^<]*<\/small>)?/,'$1<small class="d-ai"><i>AI</i> '+WCRN[WX.rk.r].n+'</small>');
@@ -22570,7 +22570,7 @@ body.tv :is(.rkx,.rkpick,.rkup,.rkmmv,.rkhome) :is(b,small,p,span,em,li,h4,div,b
 .rkfly{position:absolute;width:0;height:0;z-index:12;pointer-events:none}.rkfly .rkeb{position:absolute;left:-60px;top:-132px;animation:rkpop 2s cubic-bezier(.3,1.4,.5,1) both}
 @keyframes rkpop{0%{transform:scale(.1) rotate(-25deg);opacity:0}12%{transform:scale(1.18) rotate(6deg);opacity:1}22%{transform:scale(1) rotate(-3deg);opacity:1}30%,82%{transform:scale(1) rotate(0);opacity:1}100%{transform:scale(.9) translateY(-24px);opacity:0}}
 .wcnm.muted{opacity:.6}.wcnm.muted b::after{content:' 🔇';font-size:.8em}.wcseat .wcnm{cursor:pointer}
-.rkt .wcseat .d-ai,.d-ai{color:#c8b8ff}.d-ai i{font-style:normal;padding:0 5px;border-radius:5px;background:#7a5af0;color:#fff;margin-right:3px}.d-leg{color:#ffd45a}
+.rktbl .wcseat .d-ai,.d-ai{color:#c8b8ff}.d-ai i{font-style:normal;padding:0 5px;border-radius:5px;background:#7a5af0;color:#fff;margin-right:3px}.d-leg{color:#ffd45a}
 .wcpill.rkpil{padding-left:4px;border-color:#ffd45a88}.wcpill.rkpil .rkins{width:34px;height:34px}`;document.head.appendChild(st)}
 /* ===== WILDCARD RANKED: online matchmaking through the room-code relays (no Firebase) =====
    Everyone searching joins one encrypted relay channel ("RANKED") and says {t:'seek',id,r} every 1.5 s. For the first 8 s

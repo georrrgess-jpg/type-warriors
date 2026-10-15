@@ -19954,6 +19954,8 @@ function pfCasSync(){try{const c=pfCas();if(c===PFC.last)return;PFC.last=c;if(PF
 {const h0=hide;hide=function(){const r=h0.apply(this,arguments);pfCasSync();return r}}
 /* a cheap per-frame check catches any other way the overlay changes */
 {const l0=loop;loop=function(ts){pfCasSync();return l0(ts)}}
+/* Performance mode changes nothing in the Casino, so the "Running slowly?" offer waits until you are outside it */
+{const o0=pfOffer;pfOffer=function(){if(pfCas())return;return o0.apply(this,arguments)}}
 /* ===== WILDCARD: the tavern card game (8.2) — rules engine, bots and economy =====
    Pure game logic with no DOM, so it runs the same for Solo, for a room host and in tests.
    Deck (108): four elements Ember, Tide, Grove, Spark, each with one 0, two of 1-9, two Stun (skip), two Turnabout
@@ -21130,17 +21132,23 @@ function wcFx(k,a){try{if(!ac||!sg||ST.svol<=0)return;const f=WCFX[k];if(f)f(ac.
      guest -> host   knock {gid,name}        (repeated until answered)
      host  -> guest  offer {sdp} | full | started
      guest -> host   answer {gid,sdp}
-   A tiny MQTT 3.1.1 client (CONNECT, SUBSCRIBE, PUBLISH at QoS 0, PING) is all that is needed. */
-var WCRELAYS=['wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
+   A tiny MQTT 3.1.1 client (CONNECT, SUBSCRIBE, PUBLISH at QoS 0, PING) is all that is needed.
+   School networks: most only allow ordinary web traffic on port 443, so the list mixes brokers on 443 with Nostr relays
+   (89q, entries starting 'nostr:'), which are all on 443. If the two devices still cannot reach each other directly,
+   the game itself is carried over this relay (89r). */
+var WCRELAYS=['wss://mqtt.eclipseprojects.io:443/mqtt','wss://public:public@public.cloud.shiftr.io:443',
+ 'nostr:wss://relay.damus.io','nostr:wss://nos.lol','nostr:wss://relay.primal.net','nostr:wss://nostr.mom',
+ 'wss://broker.emqx.io:8084/mqtt','wss://broker.hivemq.com:8884/mqtt','wss://test.mosquitto.org:8081/mqtt'];
 const WCSTUN={iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302']},{urls:'stun:stun.cloudflare.com:3478'}]};
 const wcTE=new TextEncoder(),wcTD=new TextDecoder();
 function wcMqStr(s){const b=wcTE.encode(s);return[b.length>>8,b.length&255,...b]}
 function wcMqPkt(type,body){const L=[];let n=body.length;do{let d=n%128;n=Math.floor(n/128);if(n>0)d|=128;L.push(d)}while(n>0);return new Uint8Array([type,...L,...body])}
 /* one broker connection: calls onMsg(topic, bytes) and onState('open'|'closed') */
-function wcMq(url,topics,onMsg,onState){const o={ok:false,ws:null,buf:new Uint8Array(0),pid:1,ping:0,dead:false};
+function wcMq(url,topics,onMsg,onState){const o={ok:false,ws:null,buf:new Uint8Array(0),pid:1,ping:0,dead:false};let user='',pass='';
+ try{const u=new URL(url);if(u.username){user=decodeURIComponent(u.username);pass=decodeURIComponent(u.password);u.username='';u.password='';url=u.href}}catch(e){}
  try{o.ws=new WebSocket(url,['mqtt']);o.ws.binaryType='arraybuffer'}catch(e){o.dead=true;setTimeout(()=>onState('closed',o),0);return o}
  const send=p=>{try{if(o.ws.readyState===1)o.ws.send(p)}catch(e){}};o.send=send;
- o.ws.onopen=()=>{const id='tw'+Math.random().toString(36).slice(2,14);send(wcMqPkt(0x10,[...wcMqStr('MQTT'),4,2,0,40,...wcMqStr(id)]))};
+ o.ws.onopen=()=>{const id='tw'+Math.random().toString(36).slice(2,14);send(wcMqPkt(0x10,[...wcMqStr('MQTT'),4,user?0xC2:2,0,40,...wcMqStr(id),...(user?[...wcMqStr(user),...wcMqStr(pass)]:[])]))};
  o.ws.onmessage=e=>{const a=new Uint8Array(e.data),b=new Uint8Array(o.buf.length+a.length);b.set(o.buf);b.set(a,o.buf.length);o.buf=b;
   for(;;){if(o.buf.length<2)break;let mul=1,len=0,i=1,d;do{if(i>=o.buf.length)return;d=o.buf[i++];len+=(d&127)*mul;mul*=128}while(d&128);if(o.buf.length<i+len)break;
    const t=o.buf[0]>>4,body=o.buf.slice(i,i+len);o.buf=o.buf.slice(i+len);
@@ -21153,22 +21161,27 @@ function wcMq(url,topics,onMsg,onState){const o={ok:false,ws:null,buf:new Uint8A
 const WCR={code:'',inbox:'',conns:[],key:null,base:'',seen:new Set(),on:null,state:'off',st:null};
 async function wcRKey(code){const h=await crypto.subtle.digest('SHA-256',wcTE.encode('twwc-key|'+code));return crypto.subtle.importKey('raw',h,'AES-GCM',false,['encrypt','decrypt'])}
 async function wcRBase(code){const h=new Uint8Array(await crypto.subtle.digest('SHA-256',wcTE.encode('twwc-topic|'+code)));return 'twwc/v1/'+Array.from(h.slice(0,10),b=>b.toString(16).padStart(2,'0')).join('')}
-const wcRelayOk=()=>typeof WebSocket==='function'&&!!(window.crypto&&crypto.subtle)&&typeof RTCPeerConnection==='function';
+/* direct connections are no longer required: when they are blocked, the game goes over the relay instead */
+const wcRelayOk=()=>typeof WebSocket==='function'&&!!(window.crypto&&crypto.subtle);
 /* inbox: 'h' for the host, 'g'+id for a guest. onMsg(obj). onState(state) with state 'connecting' | 'online' | 'offline' */
 async function wcRelayOpen(code,inbox,onMsg,onState){wcRelayClose();if(!wcRelayOk()){onState&&onState('offline');return false}
  const tok={};WCR.tok=tok;Object.assign(WCR,{code,inbox,conns:[],on:onMsg,st:onState,state:'connecting',seen:new Set()});
  try{WCR.key=await wcRKey(code);WCR.base=await wcRBase(code)}catch(e){onState&&onState('offline');return false}if(WCR.tok!==tok)return false;
  const topic=WCR.base+'/'+inbox;onState&&onState('connecting');let closed=0;
- const st=(s,o)=>{if(WCR.tok!==tok)return;if(s==='open'){if(WCR.state!=='online'){WCR.state='online';onState&&onState('online')}}
+ /* a relay that worked and then dropped (school filters often cut long connections) is reconnected, with a growing pause */
+ const mk=u=>{const o=/^nostr:/.test(u)?wcNostr(u.slice(6),[topic],msg,st):wcMq(u,[topic],msg,st);o.url=u;return o},tries={};
+ const st=(s,o)=>{if(WCR.tok!==tok)return;if(s==='open'){o.was=1;tries[o.url]=0;if(WCR.state!=='online'){WCR.state='online';onState&&onState('online')}}
+  if(s==='closed'&&o.was&&o.url&&(tries[o.url]=(tries[o.url]||0)+1)<=12)setTimeout(()=>{if(WCR.tok!==tok)return;const i=WCR.conns.indexOf(o);if(i>=0){const n=mk(o.url);n.was=1;WCR.conns[i]=n}},Math.min(30000,1500*tries[o.url]));
   else{closed++;if(closed>=WCRELAYS.length&&!WCR.conns.some(c=>c.ok)){WCR.state='offline';onState&&onState('offline')}else if(!WCR.conns.some(c=>c.ok)&&WCR.state==='online'){WCR.state='connecting';onState&&onState('connecting')}}};
  const msg=async(tp,bytes)=>{if(WCR.tok!==tok||bytes.length<14)return;try{const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.slice(0,12)},WCR.key,bytes.slice(12));const o=JSON.parse(wcTD.decode(pt));
   if(!o||!o.mid||WCR.seen.has(o.mid))return;WCR.seen.add(o.mid);if(WCR.seen.size>400)WCR.seen=new Set([...WCR.seen].slice(-200));WCR.on&&WCR.on(o)}catch(e){}};
- WCR.conns=WCRELAYS.map(u=>wcMq(u,[topic],msg,st));
+ WCR.conns=WCRELAYS.map(mk);
  setTimeout(()=>{if(WCR.tok===tok&&WCR.state==='connecting'&&!WCR.conns.some(c=>c.ok)){WCR.state='offline';onState&&onState('offline')}},9000);return true}
-async function wcRelaySend(to,obj){if(!WCR.key||!WCR.conns.some(c=>c.ok))return false;const o=Object.assign({mid:Math.random().toString(36).slice(2)+Date.now().toString(36)},obj),iv=crypto.getRandomValues(new Uint8Array(12));
- const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},WCR.key,wcTE.encode(JSON.stringify(o)))),b=new Uint8Array(12+ct.length);b.set(iv);b.set(ct,12);
- for(const c of WCR.conns)c.pub(WCR.base+'/'+to,b);return true}
-function wcRelayClose(){WCR.tok=null;for(const c of WCR.conns)c.close();WCR.conns=[];WCR.state='off';WCR.key=null}
+/* the key, topic and connections are taken when the call is made, so a message sent just before closing still goes out */
+async function wcRelaySend(to,obj){const key=WCR.key,conns=WCR.conns,base=WCR.base;if(!key||!conns.some(c=>c.ok))return false;const o=Object.assign({mid:Math.random().toString(36).slice(2)+Date.now().toString(36)},obj),iv=crypto.getRandomValues(new Uint8Array(12));
+ const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,wcTE.encode(JSON.stringify(o)))),b=new Uint8Array(12+ct.length);b.set(iv);b.set(ct,12);
+ for(const c of conns)c.pub(base+'/'+to,b);return true}
+function wcRelayClose(){WCR.tok=null;const cs=WCR.conns;WCR.conns=[];WCR.state='off';WCR.key=null;if(cs.length)setTimeout(()=>{for(const c of cs)c.close()},700)}
 /* room codes use 32 unambiguous characters (no I, O, 0 or 1) */
 const WCAB='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',wcCodeNorm=s=>String(s||'').toUpperCase().split('').filter(ch=>WCAB.includes(ch)).join('').slice(0,4);
 /* ===== WILDCARD: scan-to-join with the camera, for rooms with no internet =====
@@ -21794,6 +21807,209 @@ async function wcSkip2(e){const s=wcSeatEl(e.p),at=wcCen(e.p),fx=$('wcfx');wcFx(
  if(s){s.classList.remove('stun','frz');void s.offsetWidth;s.classList.add('stun','frz');setTimeout(()=>s&&s.classList.remove('frz'),1300)}
  wcShake(1);wcPop('Stunned!','stn',wcCen(e.p,-74));await wcSleep(560)}
 {const a0=wcAnim;wcAnim=async function(e){if(e.k==='deal')return wcDeal2(e);if(e.k==='rev')return wcRev2(e);if(e.k==='skip')return wcSkip2(e);return a0.apply(this,arguments)}}
+/* ===== WILDCARD: Nostr relays as a second kind of room-code relay =====
+   School and office networks usually allow only ordinary web traffic on port 443. The MQTT brokers in 89k mostly use
+   other ports, so a second, independent family of relays helps: public Nostr relays, which all speak plain JSON over a
+   secure WebSocket on port 443. Each message is a short-lived ("ephemeral", kind 2xxxx) event that relays pass on to
+   anyone subscribed and never store. The content is the same AES-GCM ciphertext the MQTT path carries, so relays only
+   see scrambled bytes. Nostr requires every event to be signed (BIP-340 Schnorr over secp256k1); a throwaway key is
+   made for each page load. wcNostr(url, topics, onMsg, onState) has the same shape as wcMq. */
+const WCNK=25051;
+const WCEC={p:2n**256n-2n**32n-977n,n:0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141n,
+ gx:0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798n,gy:0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8n};
+const wcMd=(a,m)=>{const r=a%m;return r<0n?r+m:r};
+function wcPw(b,e,m){let r=1n;b=wcMd(b,m);while(e>0n){if(e&1n)r=r*b%m;b=b*b%m;e>>=1n}return r}
+/* Jacobian points [X,Y,Z]; Z=0 is the point at infinity */
+function wcJd([X,Y,Z]){const p=WCEC.p;if(Y===0n||Z===0n)return[0n,1n,0n];const A=X*X%p,B=Y*Y%p,C=B*B%p,D=wcMd(2n*((X+B)*(X+B)-A-C),p),E=3n*A%p,F=E*E%p,X3=wcMd(F-2n*D,p);
+ return[X3,wcMd(E*(D-X3)-8n*C,p),2n*Y*Z%p]}
+function wcJa(P,Q){const p=WCEC.p;if(P[2]===0n)return Q;if(Q[2]===0n)return P;const [X1,Y1,Z1]=P,[X2,Y2,Z2]=Q,Z1s=Z1*Z1%p,Z2s=Z2*Z2%p,U1=X1*Z2s%p,U2=X2*Z1s%p,S1=Y1*Z2s%p*Z2%p,S2=Y2*Z1s%p*Z1%p;
+ if(U1===U2)return S1===S2?wcJd(P):[0n,1n,0n];const H=wcMd(U2-U1,p),R=wcMd(S2-S1,p),H2=H*H%p,H3=H2*H%p,U1H2=U1*H2%p,X3=wcMd(R*R-H3-2n*U1H2,p);
+ return[X3,wcMd(R*(U1H2-X3)-S1*H3,p),H*Z1%p*Z2%p]}
+function wcMul(k){let R=[0n,1n,0n],A=[WCEC.gx,WCEC.gy,1n];while(k>0n){if(k&1n)R=wcJa(R,A);A=wcJd(A);k>>=1n}
+ const p=WCEC.p,zi=wcPw(R[2],p-2n,p),zi2=zi*zi%p;return[R[0]*zi2%p,R[1]*zi2%p*zi%p]}
+const wcB2n=b=>BigInt('0x'+(Array.from(b,x=>x.toString(16).padStart(2,'0')).join('')||'0'));
+const wcN2b=n=>{const h=n.toString(16).padStart(64,'0'),b=new Uint8Array(32);for(let i=0;i<32;i++)b[i]=parseInt(h.slice(i*2,i*2+2),16);return b};
+const wcHx=b=>Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+const wcCat=(...a)=>{const o=new Uint8Array(a.reduce((s,x)=>s+x.length,0));let i=0;for(const x of a){o.set(x,i);i+=x.length}return o};
+async function wcSha(b){return new Uint8Array(await crypto.subtle.digest('SHA-256',b))}
+async function wcTag(t,b){const h=await wcSha(wcTE.encode(t));return wcSha(wcCat(h,h,b))}
+/* BIP-340: secret key d0 (bigint), message m (32 bytes), aux (32 bytes) -> 64-byte signature */
+async function wcSchnorr(d0,m,aux){const n=WCEC.n,P=wcMul(d0),d=P[1]%2n===0n?d0:n-d0,px=wcN2b(P[0]);
+ const t=wcN2b(d^wcB2n(await wcTag('BIP0340/aux',aux))),k0=wcB2n(await wcTag('BIP0340/nonce',wcCat(t,px,m)))%n;if(k0===0n)throw new Error('bad nonce');
+ const R=wcMul(k0),k=R[1]%2n===0n?k0:n-k0,rx=wcN2b(R[0]),e=wcB2n(await wcTag('BIP0340/challenge',wcCat(rx,px,m)))%n;return wcCat(rx,wcN2b((k+e*d)%n))}
+const WCNS={d:0n,pk:''};
+function wcNostrKey(){if(!WCNS.pk){let d=0n;while(d===0n||d>=WCEC.n)d=wcB2n(crypto.getRandomValues(new Uint8Array(32)));WCNS.d=d;WCNS.pk=wcHx(wcN2b(wcMul(d)[0]))}return WCNS}
+/* one signed event per message, shared by every relay it goes to */
+const WCNEV=new WeakMap();
+function wcNostrEvent(topic,bytes){let m=WCNEV.get(bytes);if(!m){m=new Map();WCNEV.set(bytes,m)}if(m.has(topic))return m.get(topic);
+ const pr=(async()=>{const K=wcNostrKey(),ev={pubkey:K.pk,created_at:Math.floor(Date.now()/1000),kind:WCNK,tags:[['t',topic]],content:btoa(String.fromCharCode(...bytes))};
+  const id=await wcSha(wcTE.encode(JSON.stringify([0,ev.pubkey,ev.created_at,ev.kind,ev.tags,ev.content])));ev.id=wcHx(id);ev.sig=wcHx(await wcSchnorr(K.d,id,crypto.getRandomValues(new Uint8Array(32))));return ev})();
+ m.set(topic,pr);return pr}
+function wcNostr(url,topics,onMsg,onState){const o={ok:false,ws:null,dead:false,sub:'tw'+Math.random().toString(36).slice(2,10),nostr:1};
+ try{o.ws=new WebSocket(url)}catch(e){o.dead=true;setTimeout(()=>onState('closed',o),0);return o}
+ const send=x=>{try{if(o.ws.readyState===1)o.ws.send(JSON.stringify(x))}catch(e){}};
+ o.ws.onopen=()=>{send(['REQ',o.sub,{kinds:[WCNK],'#t':topics,since:Math.floor(Date.now()/1000)-30}]);o.ok=true;onState('open',o)};
+ o.ws.onmessage=e=>{let a;try{a=JSON.parse(e.data)}catch(x){return}if(!Array.isArray(a))return;
+  if(a[0]==='EVENT'&&a[1]===o.sub&&a[2]&&a[2].kind===WCNK){const ev=a[2],tg=(ev.tags||[]).find(t=>t[0]==='t'&&topics.includes(t[1]));if(!tg)return;
+   try{const s=atob(String(ev.content||'')),b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);onMsg(tg[1],b)}catch(x){}}
+  else if(a[0]==='CLOSED'&&a[1]===o.sub){o.close();onState('closed',o)}};
+ o.ws.onclose=o.ws.onerror=()=>{if(o.dead)return;o.dead=true;o.ok=false;onState('closed',o)};
+ o.pub=(tp,bytes)=>{if(!o.ok)return;wcNostrEvent(tp,bytes).then(ev=>{o.sent=1;send(['EVENT',ev])},()=>{})};
+ o.close=()=>{if(o.dead&&!o.ok)return;o.dead=true;o.ok=false;try{send(['CLOSE',o.sub]);o.ws.close()}catch(e){}};return o}
+/* ===== WILDCARD: playing together on school and office networks =====
+   Why joining failed on school computers:
+   1. The room-code relays used ports 8084, 8884 and 8081. School firewalls usually allow only normal web traffic
+      (port 443), so the relay could not be reached at all ("Can't reach the internet"). 89k now also uses relays on
+      port 443, MQTT brokers plus Nostr relays (89q).
+   2. Both ways in (room code and QR) then needed a direct device-to-device WebRTC link. School networks normally stop
+      those: classroom Wi-Fi keeps devices apart (client isolation), blocks the UDP traffic WebRTC uses, and blocks the
+      local-name lookups (mDNS) Chrome needs to find a nearby device. The offline QR method depends on that direct link
+      completely, so it could not work there either.
+   The fix: a direct link is still tried first (it is the fastest), but if it has not opened after a few seconds, or
+   cannot be made at all, the game is carried over the same encrypted relay instead. The relay works anywhere ordinary
+   websites work. The QR invite now carries the room code whenever the room is online, so scanning simply joins
+   through the relay, with no reply code to scan back. "Connection check" shows what a device and network allow.
+   Relay channel: wcVC(inbox, gid) behaves like an open data channel (send, readyState, onmessage, onclose). Messages go
+   out as {t:'d', gid, n, x} with a running number n, so they are delivered once and in order even though several
+   relays carry them at the same time. */
+const WCFB_MS=5000,WCVC_IDLE=45000;
+/* a device that needed the relay recently goes straight to it next time (school computers stay on school networks) */
+const wcRelayPref=v=>{try{if(v===true)localStorage.setItem('twwcRelay',Date.now());else if(v===false)localStorage.removeItem('twwcRelay');else return Date.now()-(+localStorage.getItem('twwcRelay')||0)<7*864e5}catch(e){}return false};
+function wcVC(to,gid){const v={readyState:'open',relay:1,n:0,rn:0,buf:new Map(),last:Date.now(),lp:0,gap:0,onmessage:null,onclose:null};
+ v.send=str=>{if(v.readyState!=='open')return;str=String(str);if(str.startsWith('{"t":"ping"')){const t=Date.now();if(t-v.lp<8000)return;v.lp=t}wcRelaySend(to,{t:'d',gid,n:++v.n,x:str})};
+ v.recv=m=>{v.last=Date.now();const n=+m.n;if(!(n>v.rn)||v.buf.has(n))return;v.buf.set(n,String(m.x||''));v.flush()};
+ v.flush=()=>{while(v.buf.has(v.rn+1)){const x=v.buf.get(v.rn+1);v.buf.delete(++v.rn);if(v.readyState!=='open')return;try{v.onmessage&&v.onmessage({data:x})}catch(e){console.error(e)}}
+  if(v.buf.size&&!v.gap)v.gap=setTimeout(()=>{v.gap=0;if(v.buf.size){v.rn=Math.min(...v.buf.keys())-1;v.flush()}},1500)};
+ v.close=()=>{if(v.readyState==='closed')return;v.readyState='closed';clearInterval(v.tm);clearTimeout(v.gap);const f=v.onclose;v.onclose=null;f&&f()};
+ v.tm=setInterval(()=>{if(Date.now()-v.last>WCVC_IDLE)v.close()},3000);return v}
+const WCBYE='{"t":"bye"}';
+function wcPeerByGid(gid){for(const k in WCNET.peers){const s=WCNET.peers[k];if(s.gid===gid)return s}return null}
+/* host: move one seat onto the relay (the same steps as a data channel opening in wcHostPeer) */
+function wcHostToRelay(s){if(s.dc&&s.dc.relay)return;try{if(s.dc){s.dc.onopen=s.dc.onclose=s.dc.onmessage=null}if(s.pc){s.pc.onconnectionstatechange=null;s.pc.close()}}catch(e){}
+ s.pc=null;s.relay=1;s.pid=s.pid||'n'+(++WCNET.seq)+Date.now().toString(36);WCNET.peers[s.pid]=s;
+ const v=s.dc=wcVC('g'+s.gid,s.gid);v.onmessage=e=>{if(e.data===WCBYE){v.close();return}wcHostMsg(s,e.data)};v.onclose=()=>wcPeerGone(s);
+ s.k='net';s.ready=0;wcFx('join');const m=$('wcmod');if(m&&!m.hidden&&m.dataset.inv!=null&&WCL.seats[+m.dataset.inv]===s){m.hidden=true;m.innerHTML='';wcScanStop()}
+ s.fresh=1;if($('wcl'))wcLobbyRender();wcNetLobby()}
+{const h0=wcHostRelayMsg;wcHostRelayMsg=async function(m){const gid=String(m&&m.gid||'').slice(0,24);if(!gid)return;
+ if(m.t==='d'||m.t==='viarelay'){let s=wcPeerByGid(gid);if(!s||s.gone)return;if(!(s.dc&&s.dc.relay)){if(s.k==='net')return;wcHostToRelay(s)}if(m.t==='d')s.dc.recv(m);return}
+ if(m.t==='knock'&&(m.relay||!wcRtcOk())){if(!$('wcl')||WX.G&&WX.G.phase!=='over'&&$('wct')){wcRelaySend('g'+gid,{t:'started'});return}
+  let s=WCL.seats.find(x=>x.gid===gid);if(s&&s.relay&&!s.gone){wcRelaySend('g'+gid,{t:'relayok'});return}if(s&&s.k==='net')return;
+  const i=WCL.seats.findIndex(x=>x.k==='open');if(i<0){wcRelaySend('g'+gid,{t:'full'});return}
+  s=WCL.seats[i]={k:'inv',gid,via:'code',name:String(m.name||'Friend').replace(/[<>]/g,'').slice(0,14)};wcFx('pop');wcHostToRelay(s);wcRelaySend('g'+gid,{t:'relayok'});return}
+ return h0.apply(this,arguments)}}
+/* guest: give up on the direct link and use the relay */
+function wcGuestToRelay(g,acked){if(WCNET.guest!==g||g.relay)return;g.relay=1;if(g.pc)wcRelayPref(true);clearTimeout(g.fb);clearTimeout(g.slow);clearInterval(g.knock);
+ if(g.pc){try{g.pc.ondatachannel=null;g.pc.onconnectionstatechange=null;if(g.dc){g.dc.onopen=g.dc.onclose=g.dc.onmessage=null}g.pc.close()}catch(e){}g.pc=null}
+ if(!acked)wcRelaySend('h',{t:'viarelay',gid:g.gid});
+ const v=g.dc=wcVC('h',g.gid);v.onmessage=e=>{if(WCNET.guest===g)wcGuestMsg(e.data)};v.onclose=()=>{if(WCNET.guest===g)wcHostGone()};
+ wcNetSend({t:'hello',name:P.name||'Friend',av:wcMyAv(),gold:P.gold});wcFx('join');wcJoinView('in')}
+/* join by room code: direct first, relay after WCFB_MS (or straight away when this browser cannot make direct links) */
+function wcJoinCode(raw){const code=wcCodeNorm(raw);if(code.length<4){wcJoinView('bad');return}if(!wcRelayOk()){wcJoinView('nonet');return}
+ let g=null;if(wcRtcOk()&&!wcRelayPref()){try{g=wcGuestPeer(WCSTUN)}catch(e){g=null}}if(!g){wcNetClose();g=WCNET.guest={pc:null,dc:null,lobby:null,ready:0}}
+ g.via='code';g.code=code;g.gid=Math.random().toString(36).slice(2,10);g.tries=0;wcJoinView('find');
+ if(g.pc)g.pc.onconnectionstatechange=()=>{if(WCNET.guest===g&&g.pc&&g.pc.connectionState==='failed')wcGuestToRelay(g)};
+ const knock=()=>{if(WCNET.guest!==g||g.offer)return;g.tries++;wcRelaySend('h',{t:'knock',gid:g.gid,name:P.name||'Friend',relay:g.pc?0:1});if(g.tries>9){clearInterval(g.knock);wcJoinView('none')}};
+ wcRelayOpen(code,'g'+g.gid,async m=>{if(WCNET.guest!==g)return;
+  if(m.t==='d'){if(g.dc&&g.dc.relay)g.dc.recv(m);return}
+  if(m.t==='relayok'){if(!g.relay){g.offer=1;g.room=code;wcGuestToRelay(g,1)}return}
+  if(m.t==='full'){clearInterval(g.knock);wcJoinView('full');return}if(m.t==='started'){clearInterval(g.knock);wcJoinView('started');return}
+  if(m.t==='offer'&&!g.offer){g.offer=1;clearInterval(g.knock);g.room=String(m.room||code);wcJoinView('link');if(!g.pc){wcGuestToRelay(g);return}
+   const d0=g.pc.ondatachannel;g.pc.ondatachannel=e=>{d0&&d0(e);const o=e.channel.onopen;e.channel.onopen=ev=>{wcRelayPref(false);o&&o(ev)}};
+   try{await g.pc.setRemoteDescription({type:'offer',sdp:String(m.sdp||'')});await g.pc.setLocalDescription(await g.pc.createAnswer());await wcIce(g.pc,3000);if(WCNET.guest!==g||g.relay)return;
+    const sdp=g.pc.localDescription.sdp;wcRelaySend('h',{t:'answer',gid:g.gid,sdp});setTimeout(()=>{if(WCNET.guest===g&&!g.relay&&!(g.dc&&g.dc.readyState==='open'))wcRelaySend('h',{t:'answer',gid:g.gid,sdp})},1500);
+    g.fb=setTimeout(()=>{if(WCNET.guest===g&&!(g.dc&&g.dc.readyState==='open'))wcGuestToRelay(g)},WCFB_MS)}catch(e){wcGuestToRelay(g)}}},
+  st=>{if(WCNET.guest!==g)return;if(st==='online'&&!g.knock&&!g.offer){knock();g.knock=setInterval(knock,2000)}if(st==='offline'&&!g.offer)wcJoinView('nonet')})}
+/* leaving: say goodbye over the relay, since there is no data channel to close */
+{const c0=wcNetClose;wcNetClose=function(){const g=WCNET.guest;if(g&&g.dc&&g.dc.relay&&g.dc.readyState==='open'&&!g.closing){g.dc.send(WCBYE);g.dc.onclose=null;g.dc.close()}
+ for(const k in WCNET.peers){const s=WCNET.peers[k];if(s.dc&&s.dc.relay&&s.dc.readyState==='open'){wcTx(s,{t:'close'});s.dc.onclose=null;s.gone=1;s.dc.close()}}return c0.apply(this,arguments)}}
+{const d0=wcNetDrop;wcNetDrop=function(i){const s=WCL.seats[i];if(s&&s.relay&&s.dc){s.gone=1;wcTx(s,{t:'kick'});s.dc.onclose=null;s.dc.close();delete WCNET.peers[s.pid];return}return d0.apply(this,arguments)}}
+{const g0=wcHostGone;wcHostGone=function(){const g=WCNET.guest;const r=g0.apply(this,arguments);try{if(g&&g.dc&&g.dc.relay){g.dc.onclose=null;g.dc.close()}}catch(e){}return r}}
+/* ---------- QR invites carry the room code while the room is online ---------- */
+{const i0=wcInvite;wcInvite=async function(i){if(WCL.net!=='online')return i0.apply(this,arguments);
+ if(WCL.seats[i]&&WCL.seats[i].k==='inv'&&!WCL.seats[i].pc)WCL.seats[i]={k:'open'};wcLobbyRender();const txt='WCR~'+WCL.room,link=wcLink(txt)||txt;
+ const m=wcModal(`<h3>Invite by QR</h3><p class="wcp sm">Your friend opens Wildcard, taps <b>Join a room</b> › <b>Scan to join</b> and points their camera here. Or they just type <b class="mono">${WCL.room}</b>.</p>
+  <div class="wcqr big" id="wcqr"></div><div class="wcrow"><button class="wcbtn sm" id="wcicp">${WCI.copy}Copy invite message</button></div>
+  <p class="wcp sm wcqrn">Works on school and home networks. Nothing to scan back.</p><button class="wclink" id="wcioff">No internet at all? Make an offline invite instead</button>`,'wcinvm wcqrm');if(!m)return;
+ try{$('wcqr').innerHTML=wcQR(link);$('wcqr').classList.add('in')}catch(e){$('wcqr').textContent=WCL.room}
+ $('wcicp').onclick=()=>wcCopy('Join my Wildcard table in the Dragon Lounge! Room code: '+WCL.room,$('wcicp'));
+ $('wcioff').onclick=()=>{const j=WCL.seats.findIndex(x=>x.k==='open');if(j<0){wcModal('<h3>The room is full</h3><p class="wcp">Clear a seat first to invite someone else.</p>');return}WCL.seats[j]={k:'inv',via:'scan',name:'Friend'};wcLobbyRender();i0(j)}}}
+{const j0=wcJoin;wcJoin=function(code){const t=String(code||''),h=t.indexOf('#wcj=');let c=h>=0?t.slice(h+5):t;try{c=decodeURIComponent(c)}catch(e){}
+ const m=c.trim().match(/^WCR~([A-Za-z0-9]{4})$/);if(m){CAS.on=true;return wcJoinCode(m[1])}return j0.apply(this,arguments)}}
+/* ---------- clearer words, and a way into the connection check ---------- */
+{const v0=wcJoinView;wcJoinView=function(state){const r=v0.apply(this,arguments);try{const s=document.querySelector('.wcjs');if(!s)return r;
+ if(state==='nonet'){const h=s.querySelector('h2'),p=s.querySelector('p');if(h)h.textContent='Can\'t reach the room servers';if(p)p.innerHTML='This network may be blocking them. A connection check shows what is blocked. You can still play on one screen.'}
+ if(state==='none'){const p=s.querySelector('p');if(p)p.innerHTML+=' If the code is right, your two networks may not share a room server. Try a connection check on both devices.'}
+ if(state==='scan'){const p=s.querySelector('p');if(p)p.textContent='Point your camera at the QR code in the host\'s room.'}
+ if(['nonet','none','badinv','full','started'].includes(state)||state==='find'||state==='link'||state==='scan'){const b=document.createElement('button');b.className='wclink';b.id='wcckj';b.textContent='Connection check';b.onclick=()=>wcNetCheck();s.appendChild(b)}
+ if(state==='link'){const p=s.querySelector('p');if(p)p.textContent='Connecting to the host… On school networks this can take a few seconds.'}}catch(e){}return r}}
+{const n0=wcLobbyNet;wcLobbyNet=function(){const r=n0.apply(this,arguments);try{const e=$('wclnet');if(!e)return r;
+ if(WCL.net==='offline')e.innerHTML='<i></i>Room servers unreachable · friends on your Wi-Fi can scan an offline QR';
+ const off=document.querySelector('.wcoff p');if(off)off.innerHTML=WCL.net==='online'?'<b>Quicker:</b> friends can scan a QR to join.':'<b>No internet?</b> Friends on your Wi-Fi can scan a QR instead.';
+ if(!$('wcckl')){const b=document.createElement('button');b.className='wclink';b.id='wcckl';b.textContent='Connection check';b.onclick=()=>wcNetCheck();const box=document.querySelector('.wclp.code');if(box)box.appendChild(b)}}catch(e){}return r}}
+{const h0=wcHome;wcHome=function(){const r=h0.apply(this,arguments);try{const sj=$('wcscanj');if(sj&&!$('wcckh')){const b=document.createElement('button');b.className='wclink wcckh';b.id='wcckh';b.textContent='Trouble joining? Connection check';b.onclick=()=>wcNetCheck();sj.after(b)}}catch(e){}return r}}
+/* ---------- connection check ---------- */
+const WCCK={run:0,rep:[]};
+function wcCkRow(id,label){return`<div class="wcckr" id="wcck_${id}"><i class="ic run"></i><div><b>${label}</b><small>Checking…</small></div></div>`}
+function wcCkSet(id,st,txt){const r=$('wcck_'+id);if(!r)return;r.querySelector('.ic').className='ic '+st;r.querySelector('small').innerHTML=txt}
+function wcCkName(u){try{return new URL(u.replace(/^nostr:/,'')).hostname}catch(e){return u}}
+/* one relay: does it connect, and does a message come back? -> 'ok' | 'mute' | 'no' */
+function wcCkRelay(u){return new Promise(res=>{let done=false,c=null;const topic='twwc/chk/'+Math.random().toString(36).slice(2,12),probe=crypto.getRandomValues(new Uint8Array(16));
+ const fin=v=>{if(done)return;done=true;clearTimeout(t1);try{c&&c.close()}catch(e){}res(v)},t1=setTimeout(()=>fin(c&&c.ok?'mute':'no'),9000);
+ const onMsg=(tp,b)=>{if(b.length===probe.length&&b.every((x,i)=>x===probe[i]))fin('ok')};
+ const onSt=s=>{if(s==='open')setTimeout(()=>{try{c.pub(topic,probe)}catch(e){}},250);else if(s==='closed')fin('no')};
+ try{c=/^nostr:/.test(u)?wcNostr(u.slice(6),[topic],onMsg,onSt):wcMq(u,[topic],onMsg,onSt)}catch(e){fin('no')}})}
+/* direct links: two connections inside this page, plus what the STUN servers report */
+async function wcCkDirect(){if(!wcRtcOk())return{ok:false,why:'off',host:0,srflx:0};let a,b;
+ try{a=new RTCPeerConnection(WCSTUN);b=new RTCPeerConnection(WCSTUN)}catch(e){return{ok:false,why:'off',host:0,srflx:0}}
+ const cand=[];a.onicecandidate=e=>{if(e.candidate)cand.push(e.candidate.candidate)};
+ try{const dc=a.createDataChannel('chk');let opened=false;dc.onopen=()=>{opened=true};
+  await a.setLocalDescription(await a.createOffer());await wcIce(a,2500);await b.setRemoteDescription(a.localDescription);await b.setLocalDescription(await b.createAnswer());await wcIce(b,2500);await a.setRemoteDescription(b.localDescription);
+  for(let i=0;i<50&&!opened;i++)await new Promise(r=>setTimeout(r,100));const ok=opened,sdp=a.localDescription.sdp+'\n'+cand.join('\n');return{ok,why:ok?'':'blocked',host:(sdp.match(/typ host/g)||[]).length,srflx:(sdp.match(/typ srflx/g)||[]).length}}
+ catch(e){return{ok:false,why:'error',host:0,srflx:0}}finally{try{a.close();b.close()}catch(e){}}}
+async function wcCkCamera(){const o={api:!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia),cams:-1,perm:'unknown'};
+ try{if(navigator.mediaDevices&&navigator.mediaDevices.enumerateDevices)o.cams=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput').length}catch(e){}
+ try{if(navigator.permissions)o.perm=(await navigator.permissions.query({name:'camera'})).state}catch(e){}return o}
+async function wcNetCheck(){const m=wcModal(`<h3>Connection check</h3><p class="wcp sm">Shows what this device and network allow, so you know how to play together here.</p><div class="wccks" id="wccks"><i class="ic run"></i><span>Checking…</span></div>
+ <div class="wcck">${wcCkRow('page','This page')}${wcCkRow('r443','Room servers (secure web port 443)')}${wcCkRow('rmq','Room servers (other ports)')}${wcCkRow('dir','Direct links (WebRTC)')}${wcCkRow('cam','Camera for QR codes')}</div>
+ <div class="wcrow"><button class="wcbtn sm" id="wcckcp" disabled>${WCI.copy}Copy report</button><button class="wcbtn sm gold" id="wcckre" disabled>Check again</button></div>`,'wide wcckm');if(!m)return;
+ const run=++WCCK.run,alive=()=>WCCK.run===run&&!!$('wccks'),rep=[];
+ const inFrame=(()=>{try{return window.self!==window.top}catch(e){return true}})(),proto=location.protocol.replace(':','');
+ const pageOk=!!(window.crypto&&crypto.subtle)&&typeof WebSocket==='function';
+ wcCkSet('page',pageOk?'ok':'bad',(pageOk?'Ready for room codes':'This page cannot encrypt messages, so room codes are off. Open it from https or as a downloaded file.')+` · opened ${proto==='file'?'as a file':'from '+proto}${inFrame?' inside another page':''}`);
+ rep.push('page: '+proto+(inFrame?' (in a frame)':'')+', secure='+!!window.isSecureContext+', crypto='+!!(window.crypto&&crypto.subtle)+', websocket='+(typeof WebSocket==='function'));
+ const urls=WCRELAYS.slice(),is443=u=>{try{const x=new URL(u.replace(/^nostr:/,''));return!x.port||x.port==='443'}catch(e){return false}};
+ const pr=urls.map(u=>wcCkRelay(u).then(v=>{rep.push('relay '+wcCkName(u)+(is443(u)?'':' :'+new URL(u.replace(/^nostr:/,'')).port)+': '+v);return[u,v]}));
+ const dirP=wcCkDirect(),camP=wcCkCamera();
+ const res=await Promise.all(pr);if(!alive())return;
+ const sum=list=>{const ok=list.filter(x=>x[1]==='ok').length,mute=list.filter(x=>x[1]==='mute').length;return{ok,mute,n:list.length,names:list.filter(x=>x[1]==='ok').map(x=>wcCkName(x[0]))}};
+ const a=sum(res.filter(x=>is443(x[0]))),b=sum(res.filter(x=>!is443(x[0])));
+ wcCkSet('r443',a.ok?'ok':a.mute||!a.n?'warn':'bad',!a.n?'None set up':a.ok?`${a.ok} of ${a.n} working (${a.names.join(', ')})`:a.mute?`${a.mute} of ${a.n} connect, but messages are stopped`:`All ${a.n} blocked on this network`);
+ wcCkSet('rmq',b.ok?'ok':'warn',!b.n?'None set up':b.ok?`${b.ok} of ${b.n} working`:`All ${b.n} blocked. That is normal on school networks.`);
+ const d=await dirP;if(!alive())return;rep.push('direct: '+(d.ok?'ok':d.why)+', host candidates '+d.host+', stun candidates '+d.srflx);
+ wcCkSet('dir',d.ok?(d.srflx?'ok':'warn'):'warn',d.ok?(d.srflx?'This device can make direct links.':'This device can make direct links, but the network blocks the servers that help devices find each other.')+' Between two school computers they are often blocked anyway; Wildcard then uses the room servers.':d.why==='off'?'Turned off in this browser. Wildcard uses the room servers instead.':'Blocked on this device or network. Wildcard uses the room servers instead.');
+ const c=await camP;if(!alive())return;rep.push('camera: api='+c.api+', cameras='+c.cams+', permission='+c.perm+(inFrame?', in a frame':''));
+ const camOk=c.api&&c.cams!==0&&c.perm!=='denied';
+ wcCkSet('cam',camOk?(c.perm==='granted'?'ok':'warn'):'bad',!c.api?'Not available here'+(inFrame?' (the page is inside another page that does not allow the camera)':'')+'. Type the room code instead.':c.cams===0?'No camera found. Type the room code instead.':c.perm==='denied'?'Camera access is blocked by a setting. Type the room code instead.':c.perm==='granted'?'Camera allowed.':'Your browser will ask for permission when you scan.');
+ const rOk=a.ok+b.ok>0;const sm=$('wccks');
+ sm.className='wccks '+(rOk?'ok':'bad');sm.innerHTML=rOk?`<i class="ic ok"></i><span><b>Room codes work here.</b> If a direct link is blocked, the game goes through the room servers automatically.</span>`
+  :`<i class="ic bad"></i><span><b>This network blocks every room server.</b> Room codes cannot work here. Ask your IT team to allow secure WebSockets to ${urls.filter(is443).map(wcCkName).join(', ')}. Until then, play on one screen.</span>`;
+ rep.unshift('Wildcard connection check · '+new Date().toISOString()+' · '+(rOk?'room codes OK':'room codes BLOCKED'));rep.push('browser: '+navigator.userAgent);WCCK.rep=rep;
+ $('wcckcp').disabled=false;$('wcckre').disabled=false;$('wcckcp').onclick=()=>wcCopy(WCCK.rep.join('\n'),$('wcckcp'));$('wcckre').onclick=()=>wcNetCheck()}
+{const st=document.createElement('style');st.textContent=`
+.wcck{display:grid;gap:10px;margin:4px 0 6px}
+.wcckr{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:16px;background:linear-gradient(180deg,#1a1448,#120c34);border:2px solid #3a3070;box-shadow:inset 0 1px 0 #ffffff14}
+.wcckr b{display:block;font:800 15px var(--ui);color:#fff}.wcckr small{display:block;margin-top:2px;font:600 13.5px/1.4 var(--ui);color:#c4badf}
+.wcck .ic,.wccks .ic{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;box-shadow:0 0 0 2.5px #12081f;font:900 16px var(--ui);color:#12081f;font-style:normal}
+.ic.run{background:conic-gradient(var(--gold) 0 25%,#ffffff22 0);animation:wcspin .9s linear infinite}
+.ic.ok{background:linear-gradient(180deg,#9af07a,#3ca84a)}.ic.ok::after{content:'✓'}
+.ic.warn{background:linear-gradient(180deg,#ffe27a,#f6b830)}.ic.warn::after{content:'!'}
+.ic.bad{background:linear-gradient(180deg,#ff9a8a,#e0404a)}.ic.bad::after{content:'✕';color:#fff}
+.wccks{display:flex;align-items:center;gap:14px;margin:0 0 14px;padding:14px 18px;border-radius:16px;border:2px solid #5a4ca0;background:#221a5a;font:600 14.5px/1.45 var(--ui);color:#ece4ff}
+.wccks b{color:#fff}.wccks.ok{border-color:#4fd27a;background:linear-gradient(180deg,#123a2a,#0c2418)}.wccks.bad{border-color:#ff6a6a;background:linear-gradient(180deg,#3a1420,#240c14)}
+.wcckm .wcmb{width:760px}
+.wcqrm .wcmb{width:560px;text-align:center}.wcqrm .wcqr{margin:6px auto 0}.wcqrn{margin:14px 0 0!important;color:#a8ffd8!important;font-weight:700!important}
+.wcckh{display:flex;margin:6px auto 0;font-size:13px;color:#c4badf}
+.wclp.code .wclink{display:flex;margin:10px auto 0;font-size:13px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

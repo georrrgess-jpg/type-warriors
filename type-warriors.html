@@ -19956,6 +19956,39 @@ function pfCasSync(){try{const c=pfCas();if(c===PFC.last)return;PFC.last=c;if(PF
 {const l0=loop;loop=function(ts){pfCasSync();return l0(ts)}}
 /* Performance mode changes nothing in the Casino, so the "Running slowly?" offer waits until you are outside it */
 {const o0=pfOffer;pfOffer=function(){if(pfCas())return;return o0.apply(this,arguments)}}
+/* ===== FULLSCREEN ON WIX: Big Screen instead of a new tab =====
+   Inside the Wix HTML embed (an iframe without fullscreen permission) real fullscreen fails, and the old fallback offered
+   "Open in new tab", which school filters block. Now, inside an iframe:
+   1. The save is written first (the Big Screen copy reads the same save), then the page gets {type:'type-warriors-fullscreen'}.
+   2. We wait up to 400 ms for {type:'type-warriors-fullscreen-ack'} from window.parent (anything else is ignored).
+   3. Ack: no message (the page opens its Big Screen lightbox, or closes it). Mid-run, a 2-second note says the run restarts
+      there. This copy then goes quiet behind the lightbox: sound is suspended and a typing run is paused. If the other
+      copy saves meanwhile, the usual "your save changed in another window" question is skipped; the first tap after
+      coming back simply reloads the newest save.
+      Optional: the page may send {type:'type-warriors-fullscreen-ack', action:'close'} from the lightbox, and the note then
+      says it is going back to the normal view.
+   4. No ack (embedded somewhere without the page code): the old message, without the new-tab button, with the device
+      fullscreen keys instead. The new-tab button is kept only when the game is not in an iframe at all. */
+const FSB={wait:null,dormant:false,stale:false};
+const fsBusy=()=>{try{if(['play','pause','arena','treat'].includes(S.mode))return true;if(typeof WX!=='undefined'&&WX.G&&WX.G.phase!=='over'&&document.getElementById('wct'))return true}catch(e){}return false};
+window.addEventListener('message',e=>{try{if(e.source!==window.parent||window.parent===window)return;const d=e.data;if(!d||typeof d!=='object'||d.type!=='type-warriors-fullscreen-ack')return;
+ if(FSB.wait){const w=FSB.wait;FSB.wait=null;clearTimeout(w.t);w.ok(d)}}catch(x){}});
+{const f0=fsFallback;fsFallback=function(){if(!inFrame())return f0.apply(this,arguments);if(FSB.wait)return;
+ const busy=fsBusy(),ranked=(()=>{try{return!!(WX.rk&&WX.G&&WX.G.phase!=='over'&&$('wct'))}catch(e){return false}})();
+ try{if(typeof sgFlush==='function')sgFlush();else save()}catch(e){}
+ const t=setTimeout(()=>{if(!FSB.wait)return;FSB.wait=null;fsNoBig()},400);
+ FSB.wait={t,ok:d=>{const closing=d&&d.action==='close';if(busy)fsNote(closing?'Back to the normal view. Your save is shared; this run will restart there.':`Opening Big Screen. Your save is shared; this run will restart there.${ranked?' This ranked match counts as left (4th).':''}`);fsSleep()}};
+ try{parent.postMessage({type:'type-warriors-fullscreen'},'*')}catch(e){clearTimeout(t);FSB.wait=null;fsNoBig()}}}
+function fsNoBig(){let m=document.getElementById('fsmsg');if(m)m.remove();m=document.createElement('div');m.id='fsmsg';m.className='fsb';
+ m.innerHTML=`<b>Fullscreen is blocked here</b><p>This website does not let the game go fullscreen. Use your device's own full screen instead: <code>F11</code> on Windows, the <code>fullscreen key</code> on a Chromebook (top row, the box with corners), or <code>Ctrl+Cmd+F</code> on a Mac.</p><div class="row"><button class="sm gd" id="fsx">Got it</button></div>`;
+ document.body.appendChild(m);const kill=()=>{if(m.isConnected)m.remove()};$('fsx').onclick=kill;setTimeout(kill,25000)}
+function fsNote(txt){let m=document.getElementById('fsnote');if(m)m.remove();m=document.createElement('div');m.id='fsnote';m.textContent=txt;document.body.appendChild(m);setTimeout(()=>{if(m.isConnected)m.remove()},2000)}
+/* this copy sits behind the Big Screen lightbox: quiet, paused, and it never overwrites the other copy's progress */
+function fsSleep(){FSB.dormant=true;try{if(S.mode==='play')pause()}catch(e){}try{if(typeof ac!=='undefined'&&ac&&ac.state==='running')ac.suspend()}catch(e){}}
+function fsWake(){if(!FSB.dormant)return;FSB.dormant=false;if(FSB.stale||(typeof SGS!=='undefined'&&SGS.stale)){try{location.reload()}catch(e){}return}try{if(typeof ac!=='undefined'&&ac&&ac.state==='suspended')ac.resume()}catch(e){}}
+['pointerdown','keydown'].forEach(k=>window.addEventListener(k,()=>{if(FSB.dormant)fsWake()},true));
+{const s0=typeof sgStaleUI==='function'?sgStaleUI:null;if(s0)sgStaleUI=function(){if(FSB.dormant){FSB.stale=true;return}return s0.apply(this,arguments)}}
+{const st=document.createElement('style');st.textContent=`#fsmsg.fsb p{font:500 15px/1.55 Poppins,sans-serif;color:#ece4ff}#fsmsg.fsb code{font:700 .92em Poppins,sans-serif;color:#ffd45a;white-space:nowrap}#fsnote{position:fixed;left:50%;top:22px;transform:translateX(-50%);z-index:100000;padding:12px 20px;border-radius:14px;background:linear-gradient(180deg,#221a5a,#120a30);border:2px solid #ffd45a;box-shadow:0 0 0 3px #12081f,0 12px 30px #000a;color:#fff8e8;font:700 15px Poppins,sans-serif;max-width:min(560px,90vw);text-align:center;animation:fsn .25s ease-out both}@keyframes fsn{from{opacity:0;transform:translate(-50%,-10px)}}`;document.head.appendChild(st)}
 /* ===== WILDCARD: the tavern card game (8.2) — rules engine, bots and economy =====
    Pure game logic with no DOM, so it runs the same for Solo, for a room host and in tests.
    Deck (108): four elements Ember, Tide, Grove, Spark, each with one 0, two of 1-9, two Stun (skip), two Turnabout

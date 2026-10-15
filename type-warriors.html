@@ -19845,7 +19845,9 @@ const CC81_HINT='\n\nP.S. Sharp-eyed warriors who read all the way to the end de
    The background is never cached while the screen shakes or a boss cutscene zooms, so motion stays correct.
    If the game runs slowly in Quality mode, it offers Performance mode once. Settings live in ST.tvis and ST.perf. */
 Object.assign(defST,{tvis:'off',perf:'high'});if(ST.tvis==null)ST.tvis='off';if(ST.perf==null)ST.perf='high';
-const PFM=()=>ST.perf==='low'?'low':ST.perf==='bal'?'bal':'high';
+/* PFSET is the saved choice; PFM is what runs right now. The Casino always runs at Quality (see 88l_perf_casino.js). */
+const PFSET=()=>ST.perf==='low'?'low':ST.perf==='bal'?'bal':'high';
+const PFM=()=>pfCas()?'high':PFSET();
 
 /* ---------- resolution ---------- */
 {const a0=applyLayout;applyLayout=function(){const r=a0.apply(this,arguments);try{const m=PFM();let rs=RS;if(m==='bal'&&rs>1)rs=1;if(m==='low')rs=.75;
@@ -19915,13 +19917,13 @@ SETG.Display.push('Text visibility','Performance mode');
 {const st0=settingsTabs;settingsTabs=function(){const box=ov.querySelector('.opts');if(box&&!box.querySelector('#pfopt')){
  const seg=(k,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button class="sm${String(ST[k])===String(v)?' on':''}" data-k="${k}" data-v="${v}">${l}</button>`).join('')}</div>`;
  const a=document.createElement('div');a.className='opt';a.id='tvopt';a.innerHTML=`<div><label>Text visibility</label><small>Clear makes menu text brighter, bolder and sharper against busy backgrounds. Gameplay is not changed.</small></div>${seg('tvis',[['off','Standard'],['on','Clear']])}`;
- const b=document.createElement('div');b.className='opt';b.id='pfopt';b.innerHTML=`<div><label>Performance mode</label><small>${PFM()==='low'?'Performance: lowest resolution and lighter effects for slower computers.':PFM()==='bal'?'Balanced: sharp at 1x with lighter background work. A good middle ground.':'Quality: full detail. Choose Balanced or Performance if the game feels slow.'}</small></div>${seg('perf',[['high','Quality'],['bal','Balanced'],['low','Performance']])}`;
+ const b=document.createElement('div');b.className='opt';b.id='pfopt';b.innerHTML=`<div><label>Performance mode</label><small>${PFSET()==='low'?'Performance: lowest resolution and lighter effects for slower computers. The Casino keeps its full animations.':PFSET()==='bal'?'Balanced: sharp at 1x with lighter background work. A good middle ground. The Casino keeps its full animations.':'Quality: full detail. Choose Balanced or Performance if the game feels slow.'}</small></div>${seg('perf',[['high','Quality'],['bal','Balanced'],['low','Performance']])}`;
  const fps=[...box.querySelectorAll(':scope>.opt')].find(o=>/Show FPS/.test(o.textContent));if(fps){fps.before(a);fps.before(b)}else{box.appendChild(a);box.appendChild(b)}}
  return st0.apply(this,arguments)}}
 
 /* ---------- a one-time offer when the game is clearly struggling ---------- */
 const PFW={t0:0,n:0,low:0,asked:false};
-{const l0=loop;loop=function(ts){try{if(PFM()==='high'&&!ST.perfAsked&&!document.hidden){if(!PFW.t0)PFW.t0=ts;PFW.n++;const el=ts-PFW.t0;
+{const l0=loop;loop=function(ts){try{if(PFSET()==='high'&&!ST.perfAsked&&!document.hidden){if(!PFW.t0)PFW.t0=ts;PFW.n++;const el=ts-PFW.t0;
  if(el>=5000){const f=PFW.n*1000/el;PFW.low=f<20?PFW.low+1:0;PFW.t0=ts;PFW.n=0;if(PFW.low>=2&&S.mode!=='play')pfOffer()}}else PFW.t0=0}catch(e){}return l0(ts)}}
 function pfOffer(){if(PFW.asked||document.getElementById('pfask'))return;PFW.asked=true;const d=document.createElement('div');d.id='pfask';d.setAttribute('role','dialog');d.setAttribute('aria-label','Performance mode');
  d.innerHTML=`<b>Running slowly?</b><span>Performance mode lowers the resolution and lightens effects so the game runs smoother on this computer.</span><div><button class="pfy">Turn on Performance mode</button><button class="pfn">Not now</button></div>`;document.body.appendChild(d);
@@ -19940,6 +19942,18 @@ body.pf-low *,body.pf-low *::before,body.pf-low *::after{backdrop-filter:none!im
 @media (prefers-reduced-motion:reduce){#pfask{animation:none}}
 `;document.head.appendChild(st)}
 setTimeout(()=>{try{applyLayout()}catch(e){}},0);
+/* ===== PERFORMANCE MODE LEAVES THE CASINO ALONE =====
+   Balanced and Performance still lighten the rest of the game, but every Casino screen (the lobby, each game and all of Wildcard,
+   i.e. any #ov screen with the casbg class) runs exactly as in Quality: full resolution, full-rate menu canvases, canvas glow,
+   looping CSS animations, backdrop blur and Wildcard's full-length deal and effects. PFM() in 88k returns 'high' while pfCas() is true;
+   pfCasSync() re-applies the mode the moment you step in or out. */
+function pfCas(){try{return /\bcasbg\b/.test(ov.className)}catch(e){return false}}
+const PFC={last:false};
+function pfCasSync(){try{const c=pfCas();if(c===PFC.last)return;PFC.last=c;if(PFSET()==='high')return;PFBG.ok=false;applyLayout()}catch(e){}}
+{const s0=show;show=function(){const r=s0.apply(this,arguments);pfCasSync();return r}}
+{const h0=hide;hide=function(){const r=h0.apply(this,arguments);pfCasSync();return r}}
+/* a cheap per-frame check catches any other way the overlay changes */
+{const l0=loop;loop=function(ts){pfCasSync();return l0(ts)}}
 /* ===== WILDCARD: the tavern card game (8.2) — rules engine, bots and economy =====
    Pure game logic with no DOM, so it runs the same for Solo, for a room host and in tests.
    Deck (108): four elements Ember, Tide, Grove, Spark, each with one 0, two of 1-9, two Stun (skip), two Turnabout

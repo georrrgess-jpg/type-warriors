@@ -20022,9 +20022,10 @@ if(inFrame())window.addEventListener('wheel',e=>{try{if(ST.fitscr==='off'||e.ctr
 {const st=document.createElement('style');st.textContent='#ov,#ov *{overscroll-behavior:contain}';document.head.appendChild(st)}
 /* Settings › Display */
 SETG.Display.push('Fit to screen on websites');
-{const st0=settingsTabs;settingsTabs=function(){const r=st0.apply(this,arguments);try{const pf=ov.querySelector('#pfopt');if(pf&&!ov.querySelector('#fitopt')){
+/* added before the tabs are built (next to Fullscreen), so the Display tab owns it and other tabs hide it */
+{const st0=settingsTabs;settingsTabs=function(){try{const box=ov.querySelector('.opts'),fs=box&&[...box.querySelectorAll(':scope>.opt')].find(o=>(o.querySelector('label')||{}).textContent==='Fullscreen');if(fs&&!ov.querySelector('#fitopt')){const pf=fs;
  const o=document.createElement('div');o.className='opt';o.id='fitopt';o.innerHTML=`<div><label>Fit to screen on websites</label><small>When the game is embedded in a website: shrink it so all of it fits on screen, and keep the mouse wheel from scrolling the page behind it.</small></div><div class="seg">${[['auto','On'],['off','Off']].map(([v,l])=>`<button class="sm${ST.fitscr===v?' on':''}" data-k="fitscr" data-v="${v}">${l}</button>`).join('')}</div>`;
- pf.after(o);o.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ST.fitscr=b.dataset.v;saveST();applyLayout();o.querySelectorAll('[data-k]').forEach(x=>x.classList.toggle('on',x===b))})}}catch(e){}return r}}
+ pf.after(o);o.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ST.fitscr=b.dataset.v;saveST();applyLayout();o.querySelectorAll('[data-k]').forEach(x=>x.classList.toggle('on',x===b))})}}catch(e){}return st0.apply(this,arguments)}}
 /* ===== WILDCARD: the tavern card game (8.2) — rules engine, bots and economy =====
    Pure game logic with no DOM, so it runs the same for Solo, for a room host and in tests.
    Deck (108): four elements Ember, Tide, Grove, Spark, each with one 0, two of 1-9, two Stun (skip), two Turnabout
@@ -22901,6 +22902,67 @@ rkStandings=function(){return `<div class="rkstd2" id="rklbnear"></div><button c
 .rkbrows::-webkit-scrollbar{width:10px}.rkbrows::-webkit-scrollbar-thumb{background:#463a8a;border-radius:10px;border:2px solid #100a30}.rkbrows::-webkit-scrollbar-track{background:transparent}
 .rkbmt{margin:70px auto 0;max-width:520px;text-align:center}.rkbmt b{display:block;font:400 36px 'Pirata One',var(--ui);color:var(--gold)}.rkbmt p{font:600 16px/1.5 var(--ui);color:#cfc6f5}
 .rkbmt .wcbtn{margin-top:10px}`;document.head.appendChild(st)}
+/* ===== LAST 5 SECONDS COUNTDOWN =====
+   Every game with a time limit shows a big 5-4-3-2-1 countdown with a tick each second when time is almost up:
+   - Wildcard turn timers (rooms with a timer, and Ranked's 15-second turns): only on your own turn. The host uses the
+     exact time its turn timer was started (wcStep restarts it); a guest starts counting when its turn begins.
+   - Casino Quiz (the clue timer; the Quiz already beeps, so no extra tick): small, in the clue's header row
+   - Trick-or-Treat doorsteps (hidden while Moonfreeze holds the clock): small, in the doorstep's header row
+   - Timed Practice drills and Starfall Rift (canvas games: shown at the top centre)
+   One driver checks the sources 10 times a second and draws one element on the stage (#tacd). Settings › Effects ›
+   "Last 5 seconds countdown": On, Silent (no ticks) or Off. In Wildcard it replaces the old 3-2-1 ticks unless Off.
+   Animations use transform and opacity only. */
+Object.assign(defST,{tacd:'on'});if(ST.tacd==null)ST.tacd='on';
+const TCD={el:null,id:'',sec:0,src:'',wc:null,g:{k:'',t0:0}};
+{const s0=wcStep;wcStep=function(){const r=s0.apply(this,arguments);try{const G=WX.G;
+ if(G&&WX.host&&G.phase!=='over'&&WX.cfg&&WX.cfg.timer&&$('wct')){const cur=G.P[G.turn];if(cur&&['you','local','net'].includes(cur.kind)&&!(WX.mode==='pp'&&G.turn!==WX.me))TCD.wc={k:G.turn+':'+G.turns,t0:Date.now(),dur:WX.cfg.timer*1000}}}catch(e){}return r}}
+{const f0=wcFx;wcFx=function(k){if(k==='tick'&&ST.tacd!=='off'&&TCD.src==='wc')return;return f0.apply(this,arguments)}}
+/* the running clock that is almost out, if any: {src,id,left (seconds),x,y in stage pixels or anchor element,quiet} */
+function taSource(){
+ try{const t=$('wct'),G=WX.G;if(t&&G&&G.phase!=='over'&&WX.cfg&&WX.cfg.timer){const me=G.P[WX.me];
+  if(G.turn===WX.me&&me&&(me.kind==='you'||me.kind==='local')){const k=G.turn+':'+G.turns;let t0;
+   if(WX.host){if(!TCD.wc||TCD.wc.k!==k)return null;t0=TCD.wc.t0}else{const gk=k+':'+G.phase;if(TCD.g.k!==gk)TCD.g={k:gk,t0:Date.now()};t0=TCD.g.t0}
+   return{src:'wc',id:'wc'+k,left:(t0+WX.cfg.timer*1000-Date.now())/1000,x:800,y:560}}}}catch(e){}
+ try{const n=document.getElementById('qtn');if(n&&ov.contains(n)&&ov.querySelector('.qa button:not([disabled])')){const q=ov.querySelector('.qq');return{src:'qz',id:'qz'+(q?q.textContent.length+q.textContent.slice(0,20):''),left:+n.textContent,anchor:ov.querySelector('.qct')||n,sm:1,quiet:1}}}catch(e){}
+ try{if(typeof TRT!=='undefined'&&S.mode==='treat'&&TRT.run&&TRT.run.phase==='typing'&&!TRT.paused&&!document.getElementById('svm')){const r=TRT.run;
+  if(!(r.walk>0||r.greet>.65||r.freeze>0)){const a=document.getElementById('tttimer');if(a)return{src:'tt',id:'tt'+r.stop+':'+r.house,left:r.remaining,anchor:a.closest('.ttchallengehead')||a,sm:1}}}}catch(e){}
+ try{if(S.mode==='play'&&!S.ban){if(S.prac&&S.prac.goal==='time')return{src:'pr',id:'pr',left:S.prac.gn-S.pel,x:800,y:132};if(S.rift)return{src:'rf',id:'rf',left:S.time,x:800,y:132}}}catch(e){}
+ return null}
+function taEl(){if(TCD.el&&TCD.el.isConnected)return TCD.el;const e=TCD.el=document.createElement('div');e.id='tacd';e.className='tacd';e.setAttribute('role','timer');e.setAttribute('aria-live','polite');e.hidden=true;
+ e.innerHTML='<i class="taring"></i><b class="tanum"></b><span class="talab"></span>';(document.getElementById('wrap')||document.body).appendChild(e);return e}
+function taHide(){TCD.id='';TCD.sec=0;TCD.src='';if(TCD.el&&!TCD.el.hidden){TCD.el.hidden=true;TCD.el.classList.remove('low')}}
+function taPlace(e,s){let x=s.x,y=s.y;if(s.anchor){const w=document.getElementById('wrap'),wr=w.getBoundingClientRect(),k=wr.width/W||1,r=s.anchor.getBoundingClientRect();x=(r.left+r.width/2-wr.left)/k;y=(r.top+r.height/2-wr.top)/k}
+ e.style.left=Math.round(x)+'px';e.style.top=Math.round(y)+'px'}
+function taTick(sec,src){if(ST.tacd!=='on'||src.quiet)return;try{beep(sec<=3?1180+(3-sec)*120:880,.06,'square',sec<=3?.42:.3)}catch(e){}}
+function taStep(){if(ST.tacd==='off'||document.hidden){taHide();return}const s=taSource();if(!s||!(s.left>0)||s.left>5){taHide();return}
+ const sec=Math.max(1,Math.ceil(s.left-1e-6)),e=taEl();taPlace(e,s);e.classList.toggle('sm',!!s.sm);
+ if(TCD.id!==s.id||e.hidden){TCD.id=s.id;TCD.sec=0;e.hidden=false;e.classList.remove('in');void e.offsetWidth;e.classList.add('in')}TCD.src=s.src;
+ if(sec!==TCD.sec){TCD.sec=sec;const n=e.querySelector('.tanum'),g=e.querySelector('.taring');n.textContent=sec;e.querySelector('.talab').textContent=sec===1?'second left':'seconds left';
+  e.classList.toggle('low',sec<=3);n.classList.remove('pop');g.classList.remove('go');void n.offsetWidth;n.classList.add('pop');g.classList.add('go');taTick(sec,s)}}
+setInterval(()=>{try{taStep()}catch(e){}},100);
+/* Settings › Effects */
+SETG.Effects.push('Last 5 seconds countdown');
+{const st0=settingsTabs;settingsTabs=function(){try{const box=ov.querySelector('.opts'),fl=box&&[...box.querySelectorAll(':scope>.opt')].find(o=>(o.querySelector('label')||{}).textContent==='Flash effects');
+ if(fl&&!ov.querySelector('#taopt')){const o=document.createElement('div');o.className='opt';o.id='taopt';
+  o.innerHTML=`<div><label>Last 5 seconds countdown</label><small>In games with a time limit (Wildcard turn timers and Ranked, Casino Quiz, Trick-or-Treat, timed Practice), a big countdown with a tick each second shows when time is almost up.</small></div><div class="seg">${[['on','On'],['quiet','Silent'],['off','Off']].map(([v,l])=>`<button class="sm${ST.tacd===v?' on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
+  fl.after(o);o.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ST.tacd=b.dataset.v;saveST();o.querySelectorAll('[data-v]').forEach(x=>x.classList.toggle('on',x===b));if(ST.tacd==='on')try{beep(880,.06,'square',.3)}catch(e){}})}}catch(e){}
+ return st0.apply(this,arguments)}}
+{const st=document.createElement('style');st.textContent=`
+.tacd{position:absolute;z-index:60;display:flex;align-items:center;gap:12px;height:72px;padding:0 24px 0 10px;border-radius:40px;transform:translate(-50%,-50%);pointer-events:none;
+ background:linear-gradient(180deg,#2c1f6e,#150b3a);border:3px solid #ffd45a;box-shadow:0 0 0 3px #12081f,0 14px 30px #000b;color:#fff8e8;font-family:var(--ui,Poppins),sans-serif}
+.tacd[hidden]{display:none}
+.tacd.in{animation:tain .32s cubic-bezier(.3,1.6,.5,1) both}@keyframes tain{from{opacity:0;transform:translate(-50%,-50%) scale(.5)}}
+.tacd .tanum{position:relative;display:grid;place-items:center;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff2a0,#f6b830 60%,#a8680e);box-shadow:0 0 0 3px #12081f;
+ font:400 44px/1 'Pirata One',Georgia,serif;color:#2a1406;text-shadow:none}
+.tacd .tanum.pop{animation:tapop .45s cubic-bezier(.3,1.7,.5,1) both}@keyframes tapop{0%{transform:scale(1.7);opacity:0}55%{opacity:1}100%{transform:scale(1)}}
+.tacd .taring{position:absolute;left:10px;top:50%;width:56px;height:56px;margin-top:-28px;border-radius:50%;border:4px solid #ffd45a;opacity:0}
+.tacd .taring.go{animation:taring .9s ease-out both}@keyframes taring{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(2.2)}}
+.tacd .talab{font:800 18px var(--ui,Poppins),sans-serif;letter-spacing:.02em;white-space:nowrap;text-shadow:none}
+.tacd.low{border-color:#ff6a4a;background:linear-gradient(180deg,#6a1a2a,#2a0816)}
+.tacd.low .tanum{background:radial-gradient(circle at 35% 30%,#ffd0b0,#ff6a4a 60%,#a8201a);color:#fff;text-shadow:0 2px 0 #6a0a0a}
+.tacd.low .taring{border-color:#ff6a4a}
+.tacd.low .talab{color:#ffd8cc}
+.tacd.sm{height:50px;gap:9px;padding:0 18px 0 6px}.tacd.sm .tanum{width:40px;height:40px;font-size:32px}.tacd.sm .taring{left:6px;width:40px;height:40px;margin-top:-20px}.tacd.sm .talab{font-size:15px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

@@ -22010,6 +22010,586 @@ async function wcNetCheck(){const m=wcModal(`<h3>Connection check</h3><p class="
 .wcqrm .wcmb{width:560px;text-align:center}.wcqrm .wcqr{margin:6px auto 0}.wcqrn{margin:14px 0 0!important;color:#a8ffd8!important;font-weight:700!important}
 .wcckh{display:flex;margin:6px auto 0;font-size:13px;color:#c4badf}
 .wclp.code .wclink{display:flex;margin:10px auto 0;font-size:13px}`;document.head.appendChild(st)}
+/* ===== WILDCARD RANKED (8.3): ranks, points, seasons, rewards and the AI ladder =====
+   Ranked lives inside Wildcard: a normal 4-player game with the usual rules (+2 stacking on), no coin stake, 15-second
+   turns. The game ends when someone empties their hand; everyone else is placed by fewest cards, then fewest card points
+   (numbers count their value, actions 20, wilds 50), then whoever played last. Your place moves a 100-point bar; fill it to
+   rank up (the bar starts again at 0). The bar never goes below 0 and you never drop a rank during a season.
+   Seasons last 6 weeks; at the end you drop 2 ranks (Bronze is the floor) and the bar resets. Legend has no bar: Legend
+   points keep counting. Every rank up gives a sleeve (a card back in the vault), a moment emote and coins (coins again each
+   season you reach that rank). Leaving a match, closing the page during one, or three timeouts in a row place you 4th.
+   Save data: P.rk (rkSt). Sleeves live in the Wildcard vault (W.backs, keys rk*); emotes in P.rk.em. */
+const WCRN=[
+ {k:'bronze',n:'Bronze',pts:[30,20,10,0],coins:0,back:'rkcopper',emo:null,c:'#ffb070',c2:'#8a4418',ai:'Plays a random legal card and picks a random element for wilds.'},
+ {k:'silver',n:'Silver',pts:[30,15,5,-5],coins:1500,back:'rkmoon',emo:'stun',c:'#e8eefa',c2:'#7a86a8',ai:'Plays number cards first, saves its wilds and picks the element it holds most.'},
+ {k:'gold',n:'Gold',pts:[30,10,0,-10],coins:3000,back:'rksun',emo:'rev',c:'#ffd45a',c2:'#a86a10',ai:'Aims action cards at whoever has the fewest cards and always calls WILD!'},
+ {k:'plat',n:'Platinum',pts:[25,10,-5,-15],coins:5000,back:'rkglacier',emo:'stack',c:'#8af0d8',c2:'#1a8a7a',ai:'Remembers which elements each player could not match and switches to them.'},
+ {k:'dia',n:'Diamond',pts:[25,5,-10,-20],coins:8000,back:'rkprism',emo:'slam',c:'#8ad0ff',c2:'#2a5ad0',ai:'Counts the cards played and holds its +4 until someone is down to one or two cards.'},
+ {k:'leg',n:'Legend',pts:[25,5,-10,-20],coins:12000,back:'rkcelest',emo:'over',c:'#e6b8ff',c2:'#7a3ad0',title:'Legend',ai:'Counts the cards played and holds its +4 until someone is down to one or two cards.'}];
+const WCREMO={stun:{n:'Stunned!',r:1,when:'you skip someone with a Stun card',c:'#5ab8ff',c2:'#1a3a9a'},rev:{n:'Reversed!',r:2,when:'you flip the turn order with a Turnabout',c:'#ffc94a',c2:'#9a5a10'},
+ stack:{n:'Stack Attack',r:3,when:'you add to a +2 stack and pass it on',c:'#4ae0b8',c2:'#0a6a5a'},slam:{n:'+4 Slam',r:4,when:'you play a +4 Hex',c:'#8ab8ff',c2:'#2a3ab8'},over:{n:'Game Over',r:5,when:'you play your last card and win',c:'#c88aff',c2:'#4a1a8a'}};
+const WCREMK=['stun','rev','stack','slam','over'];
+const WCRSEA={start:Date.UTC(2026,9,12),len:42*864e5};
+const rkSeason=()=>Math.max(1,Math.floor((Date.now()-WCRSEA.start)/WCRSEA.len)+1),rkSeasonEnd=s=>WCRSEA.start+s*WCRSEA.len;
+const rkLvl=r=>Math.min(4,Math.max(0,r|0));
+function rkSt(){let R=P.rk;if(!R||typeof R!=='object'||Array.isArray(R))R=P.rk={};
+ const d={r:0,bar:0,lp:0,season:rkSeason(),peak:0,n:0,w:0,paid:{},em:{},hist:[],title:'',met:{},note:'',moved:0};
+ for(const k in d)if(R[k]==null||typeof R[k]!==typeof d[k]||Array.isArray(d[k])!==Array.isArray(R[k]))R[k]=JSON.parse(JSON.stringify(d[k]));
+ if(R.live===undefined)R.live=null;R.r=Math.max(0,Math.min(5,R.r|0));R.bar=Math.max(0,Math.min(99,R.bar|0));R.lp=Math.max(0,R.lp|0);
+ const cur=rkSeason();if(R.season<cur){const drop=2*(cur-R.season),from=R.r;R.r=Math.max(0,R.r-drop);R.bar=0;R.lp=0;R.season=cur;
+  R.note=`Season ${cur} has started.${from!==R.r?` You start it in ${WCRN[R.r].n} (down from ${WCRN[from].n}).`:''} Your sleeves and emotes are yours to keep.`;
+  for(const s in R.paid)if(+s<cur-2)delete R.paid[s]}
+ try{const W=wcSt();if(!W.byd.rk||typeof W.byd.rk!=='object')W.byd.rk={g:0,w:0}}catch(e){}return R}
+const rkPts=(place,r)=>WCRN[r].pts[Math.max(0,Math.min(3,place))];
+/* rewards for reaching rank r: sleeve and emote once ever, coins once per season */
+function rkReward(r){const R=rkSt(),W=wcSt(),T=WCRN[r],o={r,back:T.back,newBack:false,emo:T.emo,newEmo:false,coins:0,title:T.title||''};
+ if(T.back&&!W.backs[T.back]){W.backs[T.back]=1;o.newBack=true}if(T.emo&&!R.em[T.emo]){R.em[T.emo]=1;o.newEmo=true}
+ const ps=R.paid[R.season]||(R.paid[R.season]=[]);if(T.coins&&!ps.includes(r)){ps.push(r);P.gold=Math.min(1e12,P.gold+T.coins);o.coins=T.coins}
+ if(T.title)R.title=T.title;return o}
+/* apply a finished match: place 0..3 */
+function rkApply(place,why){const R=rkSt(),W=wcSt(),from={r:R.r,bar:R.bar,lp:R.lp},d=rkPts(place,R.r),o={place,d,from,up:null,first:false,why:why||''};
+ R.n++;if(place===0)R.w++;if(!W.backs.rkcopper){W.backs.rkcopper=1;o.first=true}
+ if(R.r===5)R.lp=Math.max(0,R.lp+d);else{const b=R.bar+d;if(b>=100){R.r++;R.bar=0;o.up=rkReward(R.r)}else R.bar=Math.max(0,b)}
+ R.peak=Math.max(R.peak,R.r);R.hist.push({p:place,d,r:from.r,t:Date.now(),why:why||''});if(R.hist.length>20)R.hist.splice(0,R.hist.length-20);
+ R.live=null;o.to={r:R.r,bar:R.bar,lp:R.lp};save();return o}
+/* a ranked match left behind (page closed mid-game) counts as 4th */
+function rkDodge(){const R=rkSt();if(!R.live)return null;if(WX.rk&&WX.G&&WX.G.phase!=='over'&&$('wct'))return null;const o=rkApply(3,'left');rkSt().note='Your last ranked match counted as 4th because you left it before the end.';save();return o}
+setTimeout(()=>{try{if(P&&P.rk&&P.rk.live)rkDodge()}catch(e){}},2500);
+
+/* ---------- placing: winner, fewest cards, fewest card points, then whoever played last ---------- */
+{const p0=wcPlay;wcPlay=function(G,pi){const r=p0.apply(this,arguments);if(r)G.P[pi].lp=G.seq;return r}}
+function wcRank(G){return G.P.map((p,i)=>({i,n:p.hand.length,pts:p.hand.reduce((a,c)=>a+wcPts(c),0),lp:p.lp||0})).sort((a,b)=>(a.i===G.win?-1:b.i===G.win?1:0)||a.n-b.n||a.pts-b.pts||b.lp-a.lp).map(x=>x.i)}
+
+/* ---------- the AI ladder: five levels, Diamond and Legend share the top one ---------- */
+Object.assign(WCB,{r0:{forget:.35,catch:.2,react:[1600,2800]},r1:{forget:.2,catch:.4,react:[1200,2300]},r2:{forget:0,catch:.65,react:[900,1800]},r3:{forget:0,catch:.8,react:[700,1500]},r4:{forget:0,catch:.92,react:[500,1200]}});
+/* Platinum and up remember which elements each player could not match (forgotten again once they play that element) */
+{const p0=wcPlay;wcPlay=function(G,pi,idx){const c=G.P[pi]&&G.P[pi].hand[idx];const r=p0.apply(this,arguments);if(r&&c&&c.s!=='w'&&G.P[pi].lack)G.P[pi].lack[c.s]=0;return r}}
+function rkCol(G,pi,lv){const p=G.P[pi],cnt={e:0,t:0,g:0,s:0};for(const c of p.hand)if(c.s!=='w')cnt[c.s]++;
+ if(lv===0)return WCS[Math.floor(G.r()*4)];const sc={};for(const s of WCS)sc[s]=cnt[s]*2;
+ if(lv>=3){const nx=G.P[wcNext(G)];for(const s of WCS)if(nx.lack[s])sc[s]+=cnt[s]?4:1.5}
+ if(lv>=4){const un=rkUnseen(G,pi);for(const s of WCS)sc[s]+=(25-un[s])*.12}
+ let best=WCS[0];for(const s of WCS)if(sc[s]>sc[best])best=s;return best}
+const rkUnseen=(G,pi)=>{const u={e:25,t:25,g:25,s:25};for(const c of G.disc)if(c.s!=='w')u[c.s]--;for(const c of G.P[pi].hand)if(c.s!=='w')u[c.s]--;return u};
+function wcBotRk(G,pi,lv){const p=G.P[pi],L=wcLegal(G,pi),nxI=wcNext(G),nx=G.P[nxI],pv=G.P[wcNext(G,-1)],mine=p.hand.length;
+ const minOpp=Math.min(...G.P.map((q,i)=>i===pi?99:q.hand.length)),danger=minOpp<=2,lead=nx.hand.length===minOpp,col=c=>c.s==='w'?rkCol(G,pi,lv):null;
+ if(G.phase==='drawn'){if(!L.length)return{t:'pass'};const c=p.hand[L[0]];
+  if(lv>=4&&c.v==='d4'&&!danger&&mine>2)return{t:'pass'};if(lv===1&&c.s==='w'&&mine>3)return{t:'pass'};return{t:'play',i:L[0],col:col(c)}}
+ if(!L.length)return{t:'draw'};
+ if(lv===0){const i=L[Math.floor(G.r()*L.length)];return{t:'play',i,col:col(p.hand[i])}}
+ const cnt={e:0,t:0,g:0,s:0};for(const c of p.hand)if(c.s!=='w')cnt[c.s]++;const un=lv>=4?rkUnseen(G,pi):null;
+ let best=-1e9,pick=L[0];
+ for(const i of L){const c=p.hand[i],act=c.v==='stun'||c.v==='d2'||c.v==='turn';let s=0;
+  if(c.s==='w'){s+=(mine<=2?16:c.v==='d4'?-7:-4);if(c.v==='d4'&&lv>=2&&(danger||lead&&nx.hand.length<=3))s+=14}
+  else{s+=10+(wcIsNum(c)?(+c.v)*.45:2);s+=(cnt[c.s]-1)*1.1;
+   if(lv>=2&&act&&(lead||nx.hand.length<=2))s+=nx.hand.length<=2?10:4;
+   if(lv>=2&&c.v==='turn'&&G.P.length>2&&pv.hand.length<nx.hand.length&&pv.hand.length<=3)s-=7;
+   if(lv>=3&&nx.lack[c.s])s+=nx.hand.length<=3?8:5;
+   if(lv>=4)s+=(25-un[c.s])*.1}
+  if(lv>=4&&c.v==='d4'&&!danger&&mine>2)s-=6;
+  if(lv>=3&&danger)s+=wcPts(c)*(lv>=4?.3:.2);
+  if(G.stack>0&&lv>=2&&c.v==='d2')s+=6;
+  s+=G.r()*(lv>=3?.4:lv>=2?.8:1.6);if(s>best){best=s;pick=i}}
+ return{t:'play',i:pick,col:col(p.hand[pick])}}
+{const b0=wcBot;wcBot=function(G,pi){const p=G.P[pi];if(p&&/^r[0-4]$/.test(p.diff||''))return wcBotRk(G,pi,+p.diff[1]);return b0.apply(this,arguments)}}
+/* the AI thinks for 0.8 to 2 seconds in ranked */
+{const m0=wcBotMove;wcBotMove=function(pi,again){if(WX.rk&&!again){const G=WX.G;wcLater(()=>wcBotMove(pi,1),G?G.r()*600:0);return}return m0.call(this,pi)}}
+
+/* ---------- a ranked match ---------- */
+/* every new game starts unranked unless it says otherwise */
+{const r0=wcReset;wcReset=function(o){Object.assign(WX,{rk:null,rkDone:0,rkTo:0,rkLeft:null,rkWait:0,rkFin:null,rkRank:null,rkWaitFin:0,rkAfkRes:null,rkSendRk:0,mute:{},emoT:0,rkMom:null});return r0.apply(this,arguments)}}
+WCT.rk={n:'Ranked',lab:'R',stake:0,chip:'#ffd45a',chip2:'#7a4a10'};
+function rkStart(o){o=o||{};const R=rkSt();rkDodge();
+ wcReset({mode:'solo',tbl:'rk',stake:0,fee:0,cfg:{timer:15,tbl:'rk'},rk:{r:R.r,id:Date.now().toString(36)},rkTo:0,rkDone:0,mute:{}});
+ const lv='r'+rkLvl(R.r),crew=wcCrewGen(3,null,{rare:.1});
+ const players=[{id:'me',name:P.name||'You',kind:'you',av:wcMyAv(),title:R.title},...crew.map((A,i)=>({id:'r'+i,name:A.name,kind:'bot',diff:lv,ai:1,av:A}))];
+ WX.G=wcNew({players,hand:7,rules:{stack:1},seed:(Date.now()^Math.floor(Math.random()*1e9))>>>0});R.live={t:Date.now(),r:R.r};save();wcTable();
+ const rg=players.find(p=>p.av&&p.av.rare);if(rg)wcToast(`✨ A rare guest takes an AI seat: <b>${esc(rg.name)}</b>. Win to earn the Pastel Wyrm card back!`);wcPump()}
+/* the table: rank pills on top, the blue ranked felt, AI tags and titles on the seats */
+{const t0=wcTable;wcTable=function(){const r=t0.apply(this,arguments);try{if(WX.rk){const t=$('wct');t.classList.remove('green');t.classList.add('blue','rkt');const R=rkSt();
+ const top=t.querySelector('.wctop');if(top)top.innerHTML=`<span class="wcpill tb rkpil">${rkInsig(R.r,30)}<b>Ranked · ${WCRN[R.r].n}</b></span><span class="wcpill">${R.r===5?`Legend points <b>${R.lp}</b>`:`<b>${R.bar}</b> / 100`}</span><span class="wcpill">15-second turns</span>`}}catch(e){}return r}}
+{const s0=wcSeatHTML;wcSeatHTML=function(i){let h=s0.apply(this,arguments);try{const p=WX.G.P[i];
+ if(WX.rk&&p.kind==='bot'&&p.ai&&!(p.av&&p.av.rare))h=h.replace(/(<div class="wcnm[^"]*"><b>[^<]*<\/b>)(<small[^>]*>[^<]*<\/small>)?/,'$1<small class="d-ai"><i>AI</i> '+WCRN[WX.rk.r].n+'</small>');
+ if(p.title==='Legend')h=h.replace(/(<div class="wcnm[^"]*"><b>[^<]*<\/b>)/,'$1<small class="d-leg">★ Legend</small>')}catch(e){}return h}}
+/* who acted: a move the player sent themselves resets the timeout count; a timer move adds to it */
+{const s0=wcSend;wcSend=function(a){WX.rkUser=1;try{return s0.apply(this,arguments)}finally{WX.rkUser=0}}}
+{const a0=wcApply;wcApply=function(pi,a){const G=WX.G,mine=!!(WX.rk&&G&&pi===WX.me&&G.P[pi]&&G.P[pi].kind==='you'),user=!!WX.rkUser;const r=a0.apply(this,arguments);
+ if(mine&&r&&a&&a.t!=='call'&&a.t!=='catch'){if(user)WX.rkTo=0;else if(a.t==='draw'||a.t==='pass'){WX.rkTo=(WX.rkTo||0)+1;if(WX.rkTo>=3&&WX.G&&WX.G.phase!=='over')setTimeout(rkAfk,600);else if(WX.rkTo===2)wcToast('One more timeout and an AI takes your seat. That counts as leaving (4th).')}}return r}}
+function rkAfk(){if(!WX.rk||WX.rkDone||!WX.G)return;const G=WX.G;G.P[WX.me].kind='bot';G.P[WX.me].diff='r'+rkLvl(WX.rk.r);G.P[WX.me].ai=1;WX.rkDone=1;const res=rkApply(3,'afk');
+ /* hosting an online match: the game keeps running for the others, an AI plays this seat */
+ if(WX.rk.net&&WX.host){WX.rkAfkRes=res;try{wcRecord({forfeit:1})}catch(e){}wcToast('Three timeouts: an AI took your seat. This counts as 4th.');wcRender();wcStep();return}
+ try{wcRecord({forfeit:1})}catch(e){}WX.tok++;wcClear();rkResults(res,null,{afk:1})}
+/* leaving through the menu */
+{const r0=wcRecord;wcRecord=function(o){if(WX.rk&&o&&o.forfeit&&!WX.rkDone&&WX.G&&WX.G.phase!=='over'){WX.rkDone=1;WX.rkLeft=rkApply(3,'left');rkSt().note='You left your last ranked match, so it counted as 4th.';save()}
+ if(WX.rk&&!(o&&o.forfeit)){const W=wcSt(),fw=W.fw;W.fw=wcDay();const R=r0.apply(this,arguments);W.fw=fw;return R}return r0.apply(this,arguments)}}
+{const e0=wcEnd;wcEnd=function(){if(!WX.rk)return e0.apply(this,arguments);const G=WX.G;if(WX.rkAfkRes&&$('wct')){const r=WX.rkAfkRes;WX.rkAfkRes=null;rkResults(r,null,{afk:1});return}if(!G||!$('wct')||WX.rkDone)return;WX.rkDone=1;
+ const rank=wcRank(G),place=rank.indexOf(WX.me);try{wcRecord()}catch(e){}const res=rkApply(place);rkResults(res,rank)}}
+/* ===== WILDCARD RANKED: insignia, sleeves and emote badges =====
+   rkInsig(r,size,o): the rank insignia, built from four parts that all upgrade with the rank:
+     the hand (a fan of 2..6 cards in the rank's metal, a full wheel at Legend), wings (frost at Platinum, crystal at
+     Diamond, great golden wings at Legend), the medallion (round, shield, crowned shield, frost octagon, gem, winged star)
+     and the emblem (forge flame, crescent moon, crowned sun, snowflake rune, diamond, radiant star).
+   o.label adds the rank ribbon; o.anim (or a parent with class rkanim) lets Legend's wheel turn and sparkles twinkle.
+   Sleeves are card backs (wcBack) keyed rk*; they carry the same emblem in a medallion at the centre. Celestial's
+   orbiting cards and light rays only move where a big back is shown (vault preview, rank-up, rewards road).
+   rkEmo(key,av,cls): a comic-burst emote badge starring that player's hero; rkEmoPaint(root) draws the heroes. */
+const RKF='#12081f',RKSUIT=['#ff4a1f','#1f8cff','#22c55e','#ffc21a'];
+const RKMET=[['#ffd8b0','#e8904a','#8a4418'],['#ffffff','#c8d2e8','#6a7698'],['#fff4a8','#ffc93a','#a8680e'],['#e6fff8','#7ae8d0','#157a6a'],['#e6f4ff','#6ab8ff','#1f3fb0'],['#fff8d0','#ffd45a','#c87a10']];
+const RKMED=['#5a2410','#1e2850','#4a2a08','#0c4a44','#102a6a','#3a0e7a'];
+{const d=document.createElement('div');d.innerHTML=`<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+${RKMET.map((m,i)=>`<linearGradient id="rkm${i}" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="${m[0]}"/><stop offset=".45" stop-color="${m[1]}"/><stop offset="1" stop-color="${m[2]}"/></linearGradient>`).join('')}
+${RKMED.map((c,i)=>`<radialGradient id="rkd${i}" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="${i===5?'#9a4af0':'#ffffff'}" stop-opacity="${i===5?1:.18}"/><stop offset="1" stop-color="${c}"/></radialGradient>`).join('')}
+<radialGradient id="rkglow"><stop offset="0" stop-color="#fff2b0" stop-opacity=".9"/><stop offset=".45" stop-color="#ffb84a" stop-opacity=".35"/><stop offset="1" stop-color="#ffb84a" stop-opacity="0"/></radialGradient>
+<linearGradient id="rkfl" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#ff5a1a"/><stop offset=".6" stop-color="#ffb02a"/><stop offset="1" stop-color="#fff2a0"/></linearGradient>
+<linearGradient id="rkgem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8f6ff"/><stop offset=".5" stop-color="#6ab8ff"/><stop offset="1" stop-color="#2a3ab8"/></linearGradient>
+<linearGradient id="rkrain" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6a8a" stop-opacity="0"/><stop offset=".3" stop-color="#ffd45a" stop-opacity=".5"/><stop offset=".5" stop-color="#7affb8" stop-opacity=".55"/><stop offset=".7" stop-color="#8ab8ff" stop-opacity=".5"/><stop offset="1" stop-color="#d08aff" stop-opacity="0"/></linearGradient>
+<radialGradient id="rkneb" cx=".45" cy=".4" r=".75"><stop offset="0" stop-color="#ff8ad8"/><stop offset=".35" stop-color="#9a4af0"/><stop offset=".75" stop-color="#3a127a"/><stop offset="1" stop-color="#14052e"/></radialGradient>
+<linearGradient id="rkb0" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f0a060"/><stop offset=".55" stop-color="#b0581e"/><stop offset="1" stop-color="#5a2410"/></linearGradient>
+<linearGradient id="rkb1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3a78"/><stop offset="1" stop-color="#0c1230"/></linearGradient>
+<radialGradient id="rkb2" cx=".5" cy=".45" r=".7"><stop offset="0" stop-color="#ff7a3a"/><stop offset=".6" stop-color="#d0201e"/><stop offset="1" stop-color="#6a0610"/></radialGradient>
+<linearGradient id="rkb3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7af0d8"/><stop offset=".55" stop-color="#1fa894"/><stop offset="1" stop-color="#074a48"/></linearGradient>
+<linearGradient id="rkb4" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7ac8ff"/><stop offset=".5" stop-color="#2a6ae0"/><stop offset="1" stop-color="#0c1e7a"/></linearGradient>
+</defs></svg>`;document.body.appendChild(d.firstChild)}
+const rkStar4=(x,y,s,c)=>`<path class="rksp" d="M${x} ${y-s}Q${x+s*.18} ${y-s*.18} ${x+s} ${y}Q${x+s*.18} ${y+s*.18} ${x} ${y+s}Q${x-s*.18} ${y+s*.18} ${x-s} ${y}Q${x-s*.18} ${y-s*.18} ${x} ${y-s}Z" fill="${c||'#fff8d0'}"/>`;
+/* the emblem, centred on 0,0, about 60 units across */
+function rkEmblem(r){const f=RKF;switch(r){
+ case 0:return `<path d="M0-30C10-18 22-10 20 6 18 22 8 28 0 28-8 28-18 22-20 6-21-6-12-12-8-20-6-12-4-8 0-6 2-14 0-22 0-30Z" fill="url(#rkfl)" stroke="${f}" stroke-width="4" stroke-linejoin="round"/><path d="M0 2C6 8 8 14 6 20 4 24 0 25-2 25-6 24-8 20-7 16-6 12-2 10 0 2Z" fill="#fff4b0"/>`;
+ case 1:return `<path d="M8-26A28 28 0 1 0 10 26 22 22 0 1 1 8-26Z" fill="#eef4ff" stroke="${f}" stroke-width="4" stroke-linejoin="round"/><path d="M4-18A20 20 0 0 0 6 18" stroke="#b8c4e0" stroke-width="3" fill="none"/>${rkStar4(16,-10,8,'#fff')}${rkStar4(22,8,5,'#dfe8ff')}`;
+ case 2:return `${Array.from({length:12},(_,i)=>`<path d="M0-30L5-19H-5Z" transform="rotate(${i*30})" fill="#ffd45a" stroke="${f}" stroke-width="2.4" stroke-linejoin="round"/>`).join('')}<circle r="17" fill="#ffc93a" stroke="${f}" stroke-width="4"/><path d="M-11 4L-11-8-5-2 0-11 5-2 11-8 11 4Z" fill="#fff2a0" stroke="${f}" stroke-width="2.6" stroke-linejoin="round"/><circle cx="-5" cy="9" r="1.8" fill="${f}"/><circle cx="5" cy="9" r="1.8" fill="${f}"/>`;
+ case 3:return `${[0,60,120].map(a=>`<g transform="rotate(${a})"><path d="M0-30V30M0-20L-8-28M0-20L8-28M0 20L-8 28M0 20L8 28M0-9L-6-15M0-9L6-15M0 9L-6 15M0 9L6 15" stroke="${f}" stroke-width="8" stroke-linecap="round"/><path d="M0-30V30M0-20L-8-28M0-20L8-28M0 20L-8 28M0 20L8 28M0-9L-6-15M0-9L6-15M0 9L-6 15M0 9L6 15" stroke="#eafffa" stroke-width="3.6" stroke-linecap="round"/></g>`).join('')}<circle r="5" fill="#7ae8d0" stroke="${f}" stroke-width="2.4"/>`;
+ case 4:return `<path d="M-24-8L-12-22H12L24-8 0 26Z" fill="url(#rkgem)" stroke="${f}" stroke-width="4" stroke-linejoin="round"/><path d="M-24-8H24M-12-22L-6-8 0 26 6-8 12-22M-6-8L0-22 6-8" stroke="#12081f" stroke-width="1.6" fill="none" opacity=".55"/><path d="M-12-22L-6-8-24-8Z" fill="#fff" opacity=".55"/>${rkStar4(14,-18,6,'#fff')}`;
+ default:return `<path d="M0-32Q4-4 32 0Q4 4 0 32Q-4 4-32 0Q-4-4 0-32Z" fill="#fff8d0" stroke="${f}" stroke-width="4" stroke-linejoin="round"/><path d="M0-18Q2-2 18 0Q2 2 0 18Q-2 2-18 0Q-2-2 0-18Z" fill="#ffd45a"/>`}}
+/* the medallion (shape and field), centred on 0,0 */
+function rkMedal(r){const f=RKF,m=`url(#rkm${r})`,d=`url(#rkd${r})`;switch(r){
+ case 0:return `<circle r="46" fill="${m}" stroke="${f}" stroke-width="5"/><circle r="36" fill="${d}" stroke="${f}" stroke-width="3.5"/>${[0,90,180,270].map(a=>`<circle cx="0" cy="-41" r="4" transform="rotate(${a})" fill="#ffe0c0" stroke="${f}" stroke-width="2.2"/>`).join('')}`;
+ case 1:case 2:{const sh='M0-50L44-36 40 10Q34 40 0 56Q-34 40-40 10L-44-36Z',sh2='M0-38L32-28 29 8Q24 30 0 42Q-24 30-29 8L-32-28Z';
+  return `${r===2?`<path d="M-30-40L-30-64-15-52 0-72 15-52 30-64 30-40Z" fill="${m}" stroke="${f}" stroke-width="5" stroke-linejoin="round"/>${[[-30,-64,'#ff4a1f'],[0,-72,'#1f8cff'],[30,-64,'#22c55e']].map(([x,y,c])=>`<circle cx="${x}" cy="${y}" r="5" fill="${c}" stroke="${f}" stroke-width="2.4"/>`).join('')}`:''}<path d="${sh}" fill="${m}" stroke="${f}" stroke-width="5" stroke-linejoin="round"/><path d="${sh2}" fill="${d}" stroke="${f}" stroke-width="3.5" stroke-linejoin="round"/>${r===2?`<path d="M-58 10Q-48 40-14 56M58 10Q48 40 14 56" stroke="${f}" stroke-width="12" fill="none" stroke-linecap="round"/><path d="M-58 10Q-48 40-14 56M58 10Q48 40 14 56" stroke="#ffd45a" stroke-width="6" fill="none" stroke-linecap="round" stroke-dasharray="7 5"/>`:''}`}
+ case 3:{const o=(R)=>Array.from({length:8},(_,i)=>{const a=(i*45+22.5)*Math.PI/180;return(i?'L':'M')+(R*Math.sin(a)).toFixed(1)+' '+(-R*Math.cos(a)).toFixed(1)}).join('')+'Z';
+  return `<path d="${o(50)}" fill="${m}" stroke="${f}" stroke-width="5" stroke-linejoin="round"/><path d="${o(39)}" fill="${d}" stroke="${f}" stroke-width="3.5" stroke-linejoin="round"/>`}
+ case 4:return `<path d="M0-56L46-26V26L0 56-46 26V-26Z" fill="${m}" stroke="${f}" stroke-width="5" stroke-linejoin="round"/><path d="M0-43L35-20V20L0 43-35 20V-20Z" fill="${d}" stroke="${f}" stroke-width="3.5" stroke-linejoin="round"/><path d="M0-56V-43M46-26L35-20M46 26L35 20M0 56V43M-46 26-35 20M-46-26-35-20" stroke="${f}" stroke-width="2.5"/>`;
+ default:{const st=(R,r2,n)=>Array.from({length:n*2},(_,i)=>{const a=i*Math.PI/n,rr=i%2?r2:R;return(i?'L':'M')+(rr*Math.sin(a)).toFixed(1)+' '+(-rr*Math.cos(a)).toFixed(1)}).join('')+'Z';
+  return `<path d="${st(60,40,8)}" fill="${m}" stroke="${f}" stroke-width="5" stroke-linejoin="round"/><path d="${st(46,30,8)}" fill="${d}" stroke="${f}" stroke-width="3.5" stroke-linejoin="round"/>`}}}
+/* wings: kind 'frost' | 'crystal' | 'gold' */
+function rkWings(kind,sc){sc=sc||1;const n=kind==='gold'?6:kind==='crystal'?5:4,cols=kind==='frost'?['#d8fff4','#5ad8c0']:kind==='crystal'?['#eaf6ff','#7ab8ff']:['#fff8e0','#d8b8ff'];let s='';
+ for(const side of[-1,1])for(let k=n-1;k>=0;k--){const ang=-58+k*(80/(n-1)),L=(kind==='gold'?112:kind==='crystal'?78:74)*(1-k*.09)*sc,w=(kind==='gold'?13:kind==='frost'?13:8)*sc;
+  const shape=kind==='frost'?`M0 ${-w*.55}L${L*.55} ${-w*.75}L${L} 0L${L*.55} ${w*.35}L0 ${w*.55}Z`:kind==='crystal'?`M0 ${-w}L${L*.7} ${-w*.8}L${L} 0L${L*.7} ${w*.8}L0 ${w}Z`:`M0 ${-w}Q${L*.6} ${-w*1.7} ${L} 0Q${L*.6} ${w*1.2} 0 ${w}Z`;
+  s+=`<g transform="translate(${side*34*sc} ${6*sc}) scale(${side} 1) rotate(${ang})"><path d="${shape}" fill="${k%2?cols[1]:cols[0]}" stroke="${RKF}" stroke-width="${3.6*sc}" stroke-linejoin="round"/>${kind==='gold'?`<path d="M${L*.15} 0H${L*.8}" stroke="#fff" stroke-width="${1.6*sc}" opacity=".7"/>`:''}</g>`}return s}
+/* a card of the hand, standing on the pivot */
+const rkCard=(i,met,w,h)=>`<rect x="${-w/2}" y="${-h}" width="${w}" height="${h}" rx="${w*.16}" fill="${met}" stroke="${RKF}" stroke-width="4"/><rect x="${-w/2+5}" y="${-h+5}" width="${w-10}" height="${h-10}" rx="${w*.1}" fill="none" stroke="#fff" stroke-width="1.6" opacity=".6"/><path d="M${-w/2+11} ${-h+8}l5 6-5 6-5-6Z" fill="${RKSUIT[i%4]}" stroke="${RKF}" stroke-width="1.6"/><path d="M${w/2-11} ${-h+8}l5 6-5 6-5-6Z" fill="${RKSUIT[(i+1)%4]}" stroke="${RKF}" stroke-width="1.6"/>`;
+function rkInsig(r,size,o){o=o||{};r=Math.max(0,Math.min(5,r|0));const met=`url(#rkm${r})`;let hand='';
+ if(r<5){const n=r+2,spread=Math.min(96,24*(n-1));for(let i=0;i<n;i++){const a=n>1?-spread/2+i*spread/(n-1):0;hand+=`<g transform="translate(0 30) rotate(${a})"><g transform="translate(0 -32)">${rkCard(i,met,48,72)}</g></g>`}}
+ else{hand=`<g class="rkwheel">${Array.from({length:10},(_,i)=>`<g transform="rotate(${i*36})"><g transform="translate(0 -30)">${rkCard(i,met,44,70)}</g></g>`).join('')}</g>`}
+ const wings=r===3?rkWings('frost'):r===4?rkWings('crystal'):r===5?rkWings('gold'):'';
+ const sp=r>=2?`<g class="rkspk">${rkStar4(-82,-52,7)}${rkStar4(86,-20,6)}${rkStar4(-70,64,5)}${rkStar4(64,72,5)}${r>=4?rkStar4(0,-96,7):''}</g>`:'';
+ const halo=r===5?`<ellipse cx="0" cy="-92" rx="30" ry="9" fill="none" stroke="${RKF}" stroke-width="8"/><ellipse cx="0" cy="-92" rx="30" ry="9" fill="none" stroke="#fff2a0" stroke-width="4"/>`:'';
+ const lab=o.label?`<g transform="translate(0 74)"><path d="M-74-14H74L64 0 74 14H-74L-64 0Z" fill="${RKMED[r]}" stroke="${RKF}" stroke-width="4.5" stroke-linejoin="round"/><path d="M-62-14H62V14H-62Z" fill="url(#rkm${r})" stroke="${RKF}" stroke-width="4"/><text y="7" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="19" letter-spacing="1.5" fill="${RKMED[r]}">${WCRN[r].n.toUpperCase()}</text></g>`:'';
+ return `<svg class="rkins rk${r}${o.anim?' rkanim':''}" viewBox="-110 -110 220 220" width="${size}" height="${size}" aria-label="${WCRN[r].n} insignia" role="img">${r===5?'<circle r="105" fill="url(#rkglow)"/>':''}${halo}<g>${hand}</g>${wings}<g transform="translate(0 6)">${rkMedal(r)}<g transform="scale(.82)">${rkEmblem(r)}</g></g>${sp}${lab}</svg>`}
+
+/* ---------- sleeves: card backs in the vault, rarity "Ranked" ---------- */
+WCRAR.push('Ranked');WCRARC.push('#ffd45a');const RKRAR=WCRAR.length-1;
+const RKSLV=[['rkcopper','Forged Copper','Hammered copper, rivets and rising forge sparks.','Play your first ranked match'],
+ ['rkmoon','Moonsteel','Midnight filigree in a silver frame, under twinkling stars.','Rank up to Silver in Ranked'],
+ ['rksun','Sunforged','A crimson sunburst with engraved scrolls in a gold frame.','Rank up to Gold in Ranked'],
+ ['rkglacier','Glacier Rune','Teal ice shards, a rune ring and frost wings.','Rank up to Platinum in Ranked'],
+ ['rkprism','Prism Facet','Sapphire facets, a rainbow glint and crystal wings.','Rank up to Diamond in Ranked'],
+ ['rkcelest','Celestial','A nebula with light rays, orbiting cards and golden wings. It moves.','Rank up to Legend in Ranked']];
+RKSLV.forEach(([k,n,fl,how],i)=>{WCBK[k]={n,r:RKRAR,how,fl,rk:i,need:W=>{let p=0;try{p=i?Math.min(i,rkSt().peak):rkSt().n?1:0}catch(e){}return[i?p:Math.min(1,p),i||1]}};if(!WCBKK.includes(k))WCBKK.push(k)});
+function rkSleeve(i){const f=RKF,cm=(x,y,c)=>`<path d="M${x} ${y-4}l4 4-4 4-4-4Z" fill="${c}" stroke="${f}" stroke-width="1.2"/>`,corners=`${cm(16,16,RKSUIT[0])}${cm(84,16,RKSUIT[1])}${cm(16,130,RKSUIT[2])}${cm(84,130,RKSUIT[3])}`;
+ const frame=(c,c2)=>`<rect x="7" y="7" width="86" height="132" rx="8" fill="none" stroke="${c}" stroke-width="3"/><rect x="11.5" y="11.5" width="77" height="123" rx="5.5" fill="none" stroke="${c2}" stroke-width="1.1"/>`;
+ const medal=(c,bg)=>`<circle cx="50" cy="66" r="21" fill="${bg}" stroke="${f}" stroke-width="2.6"/><circle cx="50" cy="66" r="17.5" fill="none" stroke="${c}" stroke-width="1.6"/><g transform="translate(50 66) scale(.42)">${rkEmblem(i)}</g>`;
+ const ribbon=c=>`<g transform="translate(50 113)"><path d="M-25-6H25L21 0 25 6H-25L-21 0Z" fill="${c}" stroke="${f}" stroke-width="1.4"/><text y="2.8" text-anchor="middle" font-family="Pirata One,Georgia,serif" font-size="8.5" letter-spacing="1.4" fill="${RKMED[i]}">WILDCARD</text></g>`;
+ const wing=(k,c)=>`<g transform="translate(50 66) scale(.36)">${rkWings(k,1)}</g>`;
+ switch(i){
+ case 0:return `<rect x="7" y="7" width="86" height="132" rx="8" fill="url(#rkb0)"/><g clip-path="url(#wcclip)">${Array.from({length:44},(_,k)=>`<circle cx="${(k*37)%84+8}" cy="${(k*53)%128+9}" r="${2+(k%3)}" fill="${k%2?'#ffd0a0':'#5a2410'}" opacity="${k%2?.18:.22}"/>`).join('')}${Array.from({length:14},(_,k)=>`<circle cx="${20+(k*29)%62}" cy="${128-(k*17)%40}" r="${.8+(k%3)*.4}" fill="#ffd45a" opacity=".9"/>`).join('')}</g>
+  ${Array.from({length:16},(_,k)=>{const t=k/16,x=k<4?14+k*24:k<8?86:k<12?86-(k-8)*24:14,y=k<4?14:k<8?14+(k-4)*39:k<12?132:132-(k-12)*39;return `<circle cx="${x}" cy="${y}" r="1.7" fill="#ffd8b0" stroke="${f}" stroke-width=".8"/>`}).join('')}${frame('#ffb070','#ffd8b0')}${medal('#ffd8b0','#5a2410')}${ribbon('#ffb070')}${corners}`;
+ case 1:return `<rect x="7" y="7" width="86" height="132" rx="8" fill="url(#rkb1)"/><g clip-path="url(#wcclip)">${Array.from({length:7},(_,y)=>Array.from({length:5},(_,x)=>`<path d="M${12+x*18+(y%2)*9} ${18+y*19}c3-4 8-4 9 0s-4 6-6 3" stroke="#8aa0e0" stroke-width="1.1" fill="none" opacity=".45"/>`).join('')).join('')}
+  ${[[20,28],[80,24],[26,96],[78,100],[60,40],[38,42]].map(([x,y],k)=>rkStar4(x,y,k%2?2.6:3.4,'#eef4ff')).join('')}</g>${frame('#dfe6f5','#9aa6c8')}${medal('#eef4ff','#1e2850')}${ribbon('#dfe6f5')}${corners}`;
+ case 2:return `<rect x="7" y="7" width="86" height="132" rx="8" fill="url(#rkb2)"/><g clip-path="url(#wcclip)">${Array.from({length:18},(_,k)=>`<path d="M50 66L${50+90*Math.cos(k*Math.PI/9)} ${66+90*Math.sin(k*Math.PI/9)}L${50+90*Math.cos(k*Math.PI/9+.09)} ${66+90*Math.sin(k*Math.PI/9+.09)}Z" fill="#ffd45a" opacity=".16"/>`).join('')}
+  <path d="M18 28c8-8 16 4 24-2s14-6 16 0M82 28c-8-8-16 4-24-2M18 104c8 8 16-4 24 2s14 6 16 0M82 104c-8 8-16-4-24 2" stroke="#ffd45a" stroke-width="1.2" fill="none" opacity=".6"/></g>${frame('#ffd45a','#ffe8a0')}${medal('#ffd45a','#4a2a08')}${ribbon('#ffd45a')}${corners}`;
+ case 3:return `<rect x="7" y="7" width="86" height="132" rx="8" fill="url(#rkb3)"/><g clip-path="url(#wcclip)">${[[8,140,22,96,36,140],[30,140,44,110,56,140],[62,140,78,92,94,140],[6,6,18,40,30,6],[70,6,84,34,96,6]].map(p=>`<path d="M${p[0]} ${p[1]}L${p[2]} ${p[3]} ${p[4]} ${p[5]}Z" fill="#eafffa" opacity=".22"/>`).join('')}
+  <circle cx="50" cy="66" r="30" fill="none" stroke="#eafffa" stroke-width="1.4" opacity=".7"/>${Array.from({length:16},(_,k)=>`<path d="M50 34v4" transform="rotate(${k*22.5} 50 66)" stroke="#eafffa" stroke-width="1.6" opacity=".8"/>`).join('')}</g>${wing('frost')}${frame('#bff8ea','#eafffa')}${medal('#bff8ea','#0c4a44')}${ribbon('#bff8ea')}${corners}`;
+ case 4:return `<rect x="7" y="7" width="86" height="132" rx="8" fill="url(#rkb4)"/><g clip-path="url(#wcclip)">${Array.from({length:6},(_,y)=>Array.from({length:6},(_,x)=>{const X=7+x*16,Y=7+y*24,a=['#2a6ae0','#4a8af0','#1a4ac0','#6aa8ff','#3a5ad8'][(x*3+y*2)%5],b=['#1a3aa8','#5a9af8','#2a5ad0','#8ac8ff'][(x+y*3)%4];return `<path d="M${X} ${Y}h16l-16 24Z" fill="${a}" opacity=".85"/><path d="M${X+16} ${Y}v24h-16Z" fill="${b}" opacity=".85"/>`}).join('')).join('')}
+  <path d="M-10 120L120 10V40L-10 150Z" fill="url(#rkrain)" opacity=".8"/></g>${wing('crystal')}${frame('#cfe8ff','#eaf6ff')}${medal('#cfe8ff','#102a6a')}${ribbon('#cfe8ff')}${corners}`;
+ default:return `<rect x="7" y="7" width="86" height="132" rx="8" fill="url(#rkneb)"/><g clip-path="url(#wcclip)"><g class="rkray">${Array.from({length:12},(_,k)=>`<path d="M50 66L${50+100*Math.cos(k*Math.PI/6)} ${66+100*Math.sin(k*Math.PI/6)}L${50+100*Math.cos(k*Math.PI/6+.14)} ${66+100*Math.sin(k*Math.PI/6+.14)}Z" fill="#fff2c0" opacity=".14"/>`).join('')}</g>
+  ${Array.from({length:22},(_,k)=>`<circle cx="${(k*41)%84+8}" cy="${(k*67)%128+9}" r="${.6+(k%3)*.4}" fill="#fff"/>`).join('')}<g class="rkorb">${[0,1,2,3].map(k=>`<g transform="rotate(${k*90} 50 66)"><rect x="44" y="26" width="12" height="17" rx="2.4" fill="#fff8d0" stroke="${f}" stroke-width="1.2"/><path d="M50 31l2.5 3-2.5 3-2.5-3Z" fill="${RKSUIT[k]}"/></g>`).join('')}</g></g>
+  ${wing('gold')}${frame('#ffd45a','#f0d8ff')}${medal('#fff2a0','#3a0e7a')}${ribbon('#ffd45a')}${corners}`}}
+{const a0=wcBackArt;wcBackArt=function(k){const b=WCBK[k];if(b&&b.rk!=null)return rkSleeve(b.rk);return a0.apply(this,arguments)}}
+
+/* ---------- emote badges ---------- */
+const rkBurst=(n,R,r)=>Array.from({length:n*2},(_,i)=>{const a=i*Math.PI/n,rr=i%2?r:R*(1+(i%4===0?.08:0));return(i?'L':'M')+(rr*Math.sin(a)).toFixed(1)+' '+(-rr*Math.cos(a)).toFixed(1)}).join('')+'Z';
+function rkEmoProp(k){const f=RKF;switch(k){
+ case 'stun':return `<path d="M30-46L12-10H26L8 30 44-16H28L42-46Z" fill="#ffe14a" stroke="${f}" stroke-width="3.5" stroke-linejoin="round"/><g transform="translate(-34 22) rotate(-14)"><rect x="-12" y="-17" width="24" height="34" rx="4" fill="#fff" stroke="${f}" stroke-width="3"/><circle r="7" fill="none" stroke="#1f8cff" stroke-width="3"/><path d="M-5 5L5-5" stroke="#1f8cff" stroke-width="3"/></g>`;
+ case 'rev':return `<path d="M-40-6A40 40 0 0 1 30-30" stroke="${f}" stroke-width="11" fill="none" stroke-linecap="round"/><path d="M-40-6A40 40 0 0 1 30-30" stroke="#ffd45a" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M24-42L40-28 20-22Z" fill="#ffd45a" stroke="${f}" stroke-width="3" stroke-linejoin="round"/><path d="M40 8A40 40 0 0 1-30 32" stroke="${f}" stroke-width="11" fill="none" stroke-linecap="round"/><path d="M40 8A40 40 0 0 1-30 32" stroke="#ffd45a" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M-24 44L-40 30-20 24Z" fill="#ffd45a" stroke="${f}" stroke-width="3" stroke-linejoin="round"/>`;
+ case 'stack':return [0,1].map(j=>`<g transform="translate(${28+j*8} ${-6-j*12}) rotate(${10+j*10})"><rect x="-14" y="-20" width="28" height="40" rx="5" fill="${j?'#22c55e':'#1f8cff'}" stroke="${f}" stroke-width="3"/><text y="6" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="15" fill="#fff" stroke="${f}" stroke-width="1">+2</text></g>`).join('')+`<rect x="22" y="-48" width="26" height="14" rx="7" fill="#e8384a" stroke="${f}" stroke-width="2.4"/><text x="35" y="-37" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="10" fill="#fff">+4</text>`;
+ case 'slam':return `<g transform="translate(30 4) rotate(12)"><rect x="-19" y="-27" width="38" height="54" rx="6" fill="#fff" stroke="${f}" stroke-width="3.4"/>${RKSUIT.map((c,j)=>`<path d="M${j%2?0:-15} ${j<2?-23:0}h15v23h-15Z" fill="${c}" opacity=".85" transform="translate(${j%2?2:2} 0)"/>`).join('')}<rect x="-12" y="-11" width="24" height="22" rx="5" fill="#fff" stroke="${f}" stroke-width="2"/><text y="6" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="13" fill="${f}">+4</text></g><path d="M-6-34L4-26M-10-20L2-16M-8 30L4 24" stroke="#fff" stroke-width="4" stroke-linecap="round"/>`;
+ default:return `<g transform="translate(0 -40)"><path d="M-22 8L-22-12-10-2 0-18 10-2 22-12 22 8Z" fill="#ffd45a" stroke="${f}" stroke-width="3.4" stroke-linejoin="round"/>${[-22,0,22].map((x,j)=>`<circle cx="${x}" cy="${j===1?-18:-12}" r="4" fill="${RKSUIT[j]}" stroke="${f}" stroke-width="2"/>`).join('')}</g>${[[-44,-10,'#ff4a1f'],[44,-20,'#1f8cff'],[-40,30,'#22c55e'],[42,26,'#ffc21a']].map(([x,y,c],j)=>`<rect x="${x-4}" y="${y-6}" width="8" height="12" rx="2" fill="${c}" stroke="${f}" stroke-width="1.6" transform="rotate(${j*40-30} ${x} ${y})"/>`).join('')}`}}
+function rkEmo(k,av,cls){const E=WCREMO[k];if(!E)return'';const AV=esc(JSON.stringify(av||{t:'hero'}));
+ return `<div class="rkeb ${cls||''}" data-emo="${k}" data-av="${AV}" style="--c:${E.c};--c2:${E.c2}"><svg class="rkebg" viewBox="-60 -60 120 120"><path d="${rkBurst(12,58,44)}" fill="${E.c2}" stroke="${RKF}" stroke-width="4" stroke-linejoin="round"/><path d="${rkBurst(12,50,38)}" fill="${E.c}"/>${Array.from({length:12},(_,i)=>`<path d="M0-38L3-50H-3Z" transform="rotate(${i*30+15})" fill="#fff" opacity=".55"/>`).join('')}<circle r="36" fill="#fff" opacity=".18"/></svg>
+  <canvas width="120" height="120"></canvas><svg class="rkebp" viewBox="-60 -60 120 120">${rkEmoProp(k)}</svg><b class="rkebc">${E.n.toUpperCase()}</b></div>`}
+function rkEmoPaint(root){(root||document).querySelectorAll('.rkeb:not([data-p])').forEach(el=>{el.dataset.p=1;const cv=el.querySelector('canvas');let av={t:'hero'};try{av=JSON.parse(el.dataset.av)}catch(e){}
+ try{if(av&&av.t==='crew')wcCrewPortrait(cv,av,1.2);else wcPortrait(cv,av)}catch(e){}})}
+{const st=document.createElement('style');st.textContent=`
+.rkins{display:block;overflow:visible}
+.rkanim .rkwheel,.rkins.rkanim .rkwheel{animation:rkspin 40s linear infinite}
+.rkanim .rksp{animation:rktw 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}.rkanim .rksp:nth-child(2n){animation-delay:-.8s}.rkanim .rksp:nth-child(3n){animation-delay:-1.6s}
+@keyframes rkspin{to{transform:rotate(360deg)}}@keyframes rktw{0%,100%{opacity:.25;transform:scale(.6)}50%{opacity:1;transform:scale(1.15)}}
+.rkbig .rkorb,.wcvbig .rkorb,.rkup .rkorb{animation:rkorb 14s linear infinite;transform-origin:50px 66px}.rkbig .rkray,.wcvbig .rkray,.rkup .rkray{animation:rkorb 40s linear infinite reverse;transform-origin:50px 66px}
+@keyframes rkorb{to{transform:rotate(360deg)}}
+.rkeb{position:relative;width:120px;height:132px;flex:none}.rkeb svg,.rkeb canvas{position:absolute;left:0;top:0;width:120px;height:120px}
+.rkeb canvas{left:21px;top:21px;width:78px;height:78px;border-radius:50%}
+.rkebc{position:absolute;left:50%;bottom:0;transform:translateX(-50%) rotate(-3deg);padding:3px 10px;border-radius:6px;background:linear-gradient(180deg,#2a2060,#120a30);border:2.5px solid var(--c);box-shadow:0 0 0 2px #12081f;font:900 12px var(--ui);letter-spacing:.08em;color:#fff;white-space:nowrap}
+.rkeb.sm{transform:scale(.5);transform-origin:0 0;margin:0 -60px -66px 0}
+.rkeb.lock{opacity:.45;filter:grayscale(.85)}`;document.head.appendChild(st)}
+/* ===== WILDCARD RANKED: screens and emotes =====
+   rkHub()             the Ranked hub: insignia, bar, this rank's points, next reward, recent matches, Find ranked match
+   rkResults(res,rank) the match result: places with cards and card points, the bar filling, then the rank-up ceremony
+   rkUp(up,done)       the rank-up ceremony: new insignia, sleeve, emote and coins
+   rkRoad()            the rank-up rewards road (all six ranks and what each pays)
+   Emotes (every Wildcard table): an Emote button opens the picker (8 free emotes plus the 5 ranked ones, locked ones show
+   the rank that unlocks them). One emote every 3 seconds; tap a player's name to mute them. Right after a matching moment
+   (for example your Turnabout), that emote glows on the button for 4 seconds so one tap sends it. */
+const WCRFREE=['Haha!','Nooo','So close','Well played','Sneaky','GG','Nice!','Oops'];
+const rkDays=s=>Math.max(0,Math.ceil((rkSeasonEnd(s)-Date.now())/864e5));
+function rkBarHTML(R,cls){return R.r===5?`<div class="rkbar leg ${cls||''}"><i style="--w:100%"></i></div>`:`<div class="rkbar ${cls||''}"><i style="--w:${R.bar}%"></i></div>`}
+const rkNextTxt=R=>R.r===5?`${cmn(R.lp)} Legend points this season`:`${100-R.bar} more to ${WCRN[R.r+1].n}`;
+function rkHead(title,backTxt){const R=rkSt(),s=R.season;return `<header class="wclh rkh"><button class="wcpb back" id="rkback">${WCI.back}<span>${backTxt||'Wildcard'}</span></button><h1>${title}</h1>
+ <span class="wcpb rkseason">${WCI2.flame}<span>Season ${s} · ${rkDays(s)} day${rkDays(s)===1?'':'s'} left</span></span><span class="wcpb gold"><span class="coin"></span><b>${cmn(P.gold)}</b></span></header>`}
+/* ---------- the hub ---------- */
+function rkHub(){WX.tok++;wcClear();try{wcScanStop()}catch(e){}CAS.on=true;rkDodge();const R=rkSt(),T=WCRN[R.r],nx=WCRN[Math.min(5,R.r+1)],W=wcSt();
+ const rows=T.pts.map((d,i)=>`<div class="rkpt p${i}"><span class="wcpl p${i}">${WCPL[i]}</span><b class="${d>0?'up':d<0?'dn':''}">${d>0?'+':d<0?'−':''}${Math.abs(d)}</b></div>`).join('');
+ const hist=R.hist.slice(-5).reverse();
+ const next=R.r<5?`<h4>Next reward · ${nx.n}</h4><div class="rknext"><div class="rknc">${wcBack(nx.back)}</div><div class="rkne">${rkEmo(nx.emo,wcMyAv(),'sm2')}</div><div class="rknt"><b><span class="coin"></span>${cmn(nx.coins)}</b><small>${esc(WCBK[nx.back].n)} sleeve</small><small>“${WCREMO[nx.emo].n}” emote</small>${nx.title?'<small>+ the Legend title</small>':''}</div></div>`
+  :`<h4>Legend standings · Season ${R.season}</h4>${rkStandings()}`;
+ show(`<div class="rkx rkhub" id="rkhub"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div>${rkHead('Ranked')}
+ <section class="rkp rkcrest" style="--rc:${T.c}"><div class="rkglow"></div>${rkInsig(R.r,300,{anim:1})}<h2 style="color:${T.c}">${T.n}</h2>
+  ${R.r===5?`<div class="rknum"><b>${cmn(R.lp)}</b><small>Legend points</small></div>`:`<div class="rknum"><b>${R.bar}</b><small>/ 100</small></div>`}${rkBarHTML(R)}<p class="rknx">${rkNextTxt(R)}</p>
+  <button class="wcbtn gold big" id="rkfind">${WCI2.cards}Find ranked match</button><p class="rksm">4 players · usual rules · 15-second turns · no buy-in, points are the prize</p></section>
+ <section class="rkp rkmid"><h4>Points at ${T.n}</h4><div class="rkpts">${rows}</div>
+  <ul class="rkul"><li>The bar never drops below 0 and you never lose a rank during a season.</li><li>Fill the bar to rank up. Every rank up pays a sleeve, an emote and coins.</li><li>Leaving a match, or three timeouts in a row, places you 4th.</li><li>Seasons last 6 weeks. A new season moves you down 2 ranks.</li></ul>
+  <h4>Your opponents</h4><p class="rkai"><b>${T.n} AI:</b> ${T.ai} Real players at your rank are matched first; empty seats are filled by AI.</p>
+  <div class="rkrow"><button class="wcbtn" id="rkroad">${WCI.book}Rank rewards</button><button class="wcbtn" id="rksleeve">${WCI2.cards}Sleeves</button><button class="wcbtn" id="rkhow">How it works</button></div></section>
+ <section class="rkp rkside">${next}<h4 class="rkhh">Recent ranked matches</h4>${hist.length?hist.map(h=>`<div class="rkhr"><span class="wcpl p${h.p}">${WCPL[h.p]}</span><span>${h.why==='left'?'Left the match':h.why==='afk'?'Timed out':WCRN[h.r].n}</span><b class="${h.d>0?'up':h.d<0?'dn':''}">${h.d>0?'+':h.d<0?'−':''}${Math.abs(h.d)}</b></div>`).join(''):'<p class="rkempty">Your ranked matches will show here.</p>'}
+  <p class="rkrec">${R.n} ranked match${R.n===1?'':'es'} · ${R.w} won · best ${WCRN[R.peak].n}</p></section>
+ <div class="wcmod" id="wcmod" hidden></div></div>`,'casbg wcx');
+ rkEmoPaint(ov);S.back=()=>{wcFx('back');wcHome()};$('rkback').onclick=S.back;
+ $('rkfind').onclick=()=>{wcFx('click');typeof rkFind==='function'?rkFind():rkStart()};$('rkroad').onclick=()=>{wcFx('click');rkRoad()};$('rksleeve').onclick=()=>{wcFx('click');WX.vtab='rk';wcVault(WCBK[W.back]&&WCBK[W.back].rk!=null?W.back:'rkcopper')};$('rkhow').onclick=rkHow;
+ if(R.note){const n=R.note;R.note='';save();setTimeout(()=>wcModal(`<h3>Ranked</h3><p class="wcp">${esc(n)}</p>`),350)}wcFx('vault')}
+function rkStandings(){const R=rkSt(),me={n:P.name||'You',lp:R.lp,me:1},L=[me,...Object.entries(R.met||{}).filter(([k,v])=>v&&v.s===R.season).map(([k,v])=>({n:k,lp:v.lp}))].sort((a,b)=>b.lp-a.lp).slice(0,8);
+ return `<div class="rkstd">${L.map((x,i)=>`<div class="${x.me?'me':''}"><span>${i+1}</span><b>${esc(x.n)}</b><em>${cmn(x.lp)}</em></div>`).join('')}</div><p class="rkempty">Legend players you meet in ranked matches join this list.</p>`}
+function rkHow(){wcModal(`<h3>How Ranked works</h3><div class="rkhow">
+ <p><b>1 · Find a match.</b> Wildcard looks for players at your rank for 8 seconds, then one rank either side, up to 15 seconds. Empty seats are filled by AI players at your rank, marked AI.</p>
+ <p><b>2 · Play.</b> The usual rules, with +2 stacking. Each turn has 15 seconds; running out draws a card for you. Three timeouts in a row hand your seat to an AI.</p>
+ <p><b>3 · Placing.</b> The game ends as soon as someone empties their hand. Everyone else is placed by fewest cards left, then fewest card points (numbers count their value, actions 20, wilds 50), then whoever played last.</p>
+ <p><b>4 · Points.</b> Your place moves your 100-point bar. Fill it to rank up. Legend has no bar: Legend points keep counting.</p>
+ <p><b>5 · Rewards.</b> Every rank up gives a sleeve, a moment emote and coins. Sleeves and emotes are yours forever; coins are paid again each season you reach the rank.</p></div>`,'wide')}
+/* ---------- match result ---------- */
+function rkHandWords(h){const nm=c=>c.s==='w'?(c.v==='d4'?'a +4 Hex':'a Wild Rune'):wcIsNum(c)?(c.v==='8'?'an 8':'a '+c.v):c.v==='stun'?'a Stun':c.v==='turn'?'a Turnabout':'a +2 Curse';const a=h.map(nm);
+ return a.length<=1?(a[0]||''):a.slice(0,-1).join(', ')+' and '+a[a.length-1]}
+function rkResults(res,rank,o){o=o||{};const G=WX.G,R=rkSt(),me=WX.me,place=res.place,T0=WCRN[res.from.r];WX.rkLast=res;
+ const won=place===0,wi=rank?rank[0]:-1,wname=G&&wi>=0?(wi===me?'You':G.P[wi].name):'';
+ const rowsH=rank?rank.map((i,k)=>{const p=G.P[i],pts=p.hand.reduce((a,c)=>a+wcPts(c),0),d=T0.pts[k];return `<div class="rkrr${i===me?' me':''}" style="--d:${k}"><span class="rkpl p${k}">${WCPL[k]}</span><canvas width="96" height="96" data-por="${i}"></canvas>
+  <span class="rkrn"><b>${esc(p.name)}${i===me?' (you)':''}${p.ai&&!(p.av&&p.av.rare)?' <i class="rkai2">AI</i>':''}${p.title==='Legend'?' <i class="rkleg2">★ Legend</i>':''}</b><small>${p.hand.length?`${p.hand.length} card${p.hand.length>1?'s':''} left · ${pts} card point${pts===1?'':'s'}`:'Emptied their hand'}</small></span><em class="${d>0?'up':d<0?'dn':''}">${d>0?'+':d<0?'−':''}${Math.abs(d)}</em></div>`}).join('')
+  :`<div class="rkrr me"><span class="rkpl p3">4th</span><span class="rkrn"><b>${esc(P.name||'You')} (you)</b><small>${o.afk?'Three turns timed out, so an AI took your seat.':'You left the match.'}</small></span><em class="${res.d<0?'dn':''}">${res.d<0?'−':''}${Math.abs(res.d)}</em></div>`;
+ const mine=G&&G.P[me]?G.P[me].hand:[];let handBox='';
+ if(rank&&!won&&mine.length){const pts=mine.reduce((a,c)=>a+wcPts(c),0);handBox=`<section class="rkp rkhand"><h4>Your hand when ${esc(wname)} went out</h4><p>${esc(rkHandWords(mine.slice(0,6)))}${mine.length>6?' and more':''}: ${pts} card point${pts===1?'':'s'}.${mine.length<=2?` ${mine.length===1?'One more turn':'Two more turns'} and you would have gone out first.`:''}</p><div class="rkhc">${mine.slice(0,6).map((c,k)=>`<div class="rkhcc" style="--k:${k-(Math.min(6,mine.length)-1)/2}">${wcCardEl(c,'')}</div>`).join('')}</div></section>`}
+ else if(rank&&won){const c=G.disc[G.disc.length-1];handBox=`<section class="rkp rkhand"><h4>Your winning card</h4><p>You emptied your hand in ${G.turns} turns. ${res.d>0?`+${res.d} points.`:''}</p><div class="rkhc"><div class="rkhcc" style="--k:0">${wcCardEl(c,'')}</div></div></section>`}
+ const title=won?'You win!':`${WCPL[place]} place`,sub=!rank?(o.afk?'Your seat went to an AI after three timeouts.':'Leaving a ranked match places you 4th.'):won?'You emptied your hand first. Everyone else is placed by cards left.':`${esc(wname)} went out first. Everyone else is placed by cards left.`;
+ show(`<div class="rkx rkres${won?' won':''}" id="rkres"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div><div class="rktag"><span>RANKED</span>${esc(T0.n.toUpperCase())} · MATCH RESULT</div>
+ <h1 class="rkt">${title}</h1><p class="rksub">${sub}</p>
+ <section class="rklist">${rowsH}</section>
+ ${rank?`<section class="rkp rktie"><h4>Tie-breaks</h4><p>Fewest cards left places higher. Same number of cards: lower card points wins (numbers count their value, action cards 20, wilds 50), then whoever played last. Leaving a match places you 4th and an AI finishes your seat.</p></section>`:''}${handBox}
+ <section class="rkp rkcard" id="rkcard" style="--rc:${T0.c}"><div class="rkglow"></div><div id="rkins">${rkInsig(res.from.r,250,{anim:1})}</div><h2 id="rkrn" style="color:${T0.c}">${T0.n}</h2>
+  <div class="rknum big"><b id="rkn">${res.from.r===5?cmn(res.from.lp):res.from.bar}</b><small id="rkof">${res.from.r===5?'Legend points':'/ 100'}</small><em class="${res.d>0?'up':res.d<0?'dn':'zero'}">${res.d>0?'+':res.d<0?'−':'±'}${Math.abs(res.d)}</em></div>
+  <div class="rkbar big" id="rkbar"><i style="--w:${res.from.r===5?100:res.from.bar}%"></i><u></u></div><p class="rknx" id="rknx">${res.from.r===5?'Legend points set your place on the Legend standings':rkNextTxt({r:res.from.r,bar:res.from.bar})}</p>
+  ${res.first?`<button class="rkfirst" id="rkfirst">${wcBack('rkcopper')}<span><b>New sleeve: Forged Copper</b><small>For playing your first ranked match · tap to equip</small></span></button>`:''}</section>
+ <div class="rkbtns"><button class="wcbtn gold big" id="rkagain">Play again</button><button class="wcbtn big" id="rkhubb">Back to Ranked</button></div><div class="wcmod" id="wcmod" hidden></div></div>`,'casbg wcx');
+ ov.querySelectorAll('canvas[data-por]').forEach(c=>{const av=G.P[+c.dataset.por].av;if(av&&av.t==='crew')wcLive(c,av,'por');else wcPortrait(c,av)});
+ S.back=()=>rkHub();$('rkhubb').onclick=()=>{wcFx('click');rkHub()};$('rkagain').onclick=()=>{wcFx('click');typeof rkFind==='function'?rkFind():rkStart()};
+ if($('rkfirst'))$('rkfirst').onclick=()=>{const W=wcSt();W.back='rkcopper';W.seen.rkcopper=1;save();wcFx('equip');$('rkfirst').classList.add('done');$('rkfirst').querySelector('small').textContent='Equipped on your cards'};
+ wcFx(won?'win':res.d<0?'lose':'chip');
+ /* the bar moves from where it was to where it is now; a rank up fills it to 100 first */
+ const bar=$('rkbar'),fill=bar.querySelector('i'),seg=bar.querySelector('u'),n=$('rkn'),from=res.from,d=res.d;
+ const count=(a,b,ms)=>{const t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/ms);if(!n.isConnected)return;n.textContent=cmn(Math.round(a+(b-a)*(1-Math.pow(1-k,3))));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)};
+ setTimeout(()=>{if(!bar.isConnected)return;if(from.r===5){count(from.lp,res.to.lp,900);return}
+  const to=res.up?100:res.to.bar;if(d>0){seg.style.left=from.bar+'%';seg.style.setProperty('--w',(to-from.bar)+'%');seg.className='g'}else if(d<0&&from.bar>0){seg.style.left=to+'%';seg.style.setProperty('--w',(from.bar-to)+'%');seg.className='r';fill.style.setProperty('--w',to+'%')}
+  count(from.bar,to,900);if(res.up)setTimeout(()=>{if(bar.isConnected)rkUp(res.up,()=>rkResAfterUp(res))},1300)},650)}
+function rkResAfterUp(res){const T=WCRN[res.to.r],c=$('rkcard');if(!c)return;c.style.setProperty('--rc',T.c);$('rkins').innerHTML=rkInsig(res.to.r,250,{anim:1});const h=$('rkrn');h.textContent=T.n;h.style.color=T.c;
+ $('rkn').textContent=res.to.r===5?cmn(res.to.lp):'0';$('rkof').textContent=res.to.r===5?'Legend points':'/ 100';const b=$('rkbar');b.querySelector('i').style.setProperty('--w',res.to.r===5?'100%':'0%');b.querySelector('u').className='';
+ $('rknx').textContent=rkNextTxt(rkSt())}
+/* ---------- rank-up ceremony ---------- */
+function rkUp(up,done){const host=$('rkres')||$('rkhub')||document.querySelector('.rkx');if(!host){done&&done();return}const T=WCRN[up.r],E=WCREMO[up.emo];
+ const d=document.createElement('div');d.className='rkup rkbig';d.style.setProperty('--rc',T.c);
+ d.innerHTML=`<div class="rkupbg"></div><svg class="rkuprays" viewBox="-100 -100 200 200">${Array.from({length:16},(_,i)=>`<path d="M0 0L${(140*Math.cos(i*Math.PI/8)).toFixed(1)} ${(140*Math.sin(i*Math.PI/8)).toFixed(1)}L${(140*Math.cos(i*Math.PI/8+.13)).toFixed(1)} ${(140*Math.sin(i*Math.PI/8+.13)).toFixed(1)}Z" fill="${T.c}" opacity=".12"/>`).join('')}</svg>
+ <div class="rkupin">${rkInsig(up.r,330,{label:1,anim:1})}</div><h2>You reached <span style="color:${T.c}">${T.n}</span>!</h2><p class="rkups">Season ${rkSt().season} · ${up.r===5?'Legend points now set your place on the Legend standings':'your bar starts again at 0'}</p>
+ <div class="rkupr"><div class="rkupt" style="--d:0"><div class="rkupc">${wcBack(up.back)}</div><b>${esc(WCBK[up.back].n)} sleeve</b><small>${up.newBack?'New! Yours forever':'Already in your vault'}</small><button class="rkeq" id="rkequip">Use this sleeve</button></div>
+  ${E?`<div class="rkupt" style="--d:1">${rkEmo(up.emo,wcMyAv())}<b>“${E.n}” emote</b><small>Glows right after ${E.when}</small></div>`:''}
+  <div class="rkupt" style="--d:2"><div class="rkupcoin"><span class="coin"></span><b id="rkupn">0</b></div><b>Coin bonus</b><small>${up.coins?'Added to your gold':'Already paid this season'}</small>${up.title?'<small class="rkupleg">+ the “Legend” title</small>':''}</div></div>
+ <button class="wcbtn gold big rkupgo" id="rkupgo">Continue</button>`;
+ host.appendChild(d);rkEmoPaint(d);wcFx('rare');setTimeout(()=>wcFx('win'),500);
+ const nEl=d.querySelector('#rkupn'),goal=up.coins||WCRN[up.r].coins;setTimeout(()=>{const t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/1100);if(!nEl.isConnected)return;nEl.textContent='+'+cmn(Math.round(goal*(1-Math.pow(1-k,3))));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f);if(up.coins)wcFx('chip')},1500);
+ d.querySelector('#rkequip').onclick=e=>{const W=wcSt();W.back=up.back;W.seen[up.back]=1;save();wcFx('equip');e.target.textContent='✓ In use';e.target.disabled=true};
+ const close=()=>{d.classList.add('out');setTimeout(()=>d.remove(),300);S.back=()=>rkHub();done&&done()};d.querySelector('#rkupgo').onclick=close;S.back=close;setTimeout(()=>{const b=d.querySelector('#rkupgo');if(b)b.focus()},200)}
+/* ---------- the rank-up rewards road ---------- */
+function rkRoad(){WX.tok++;wcClear();const R=rkSt(),W=wcSt();
+ const pos=R.r===5?100:(R.r+R.bar/100)/5*100;
+ const top=WCRN.map((T,i)=>`<div class="rkrdi${i<=R.r?' got':''}${i===R.r?' cur':''}" style="--rc:${T.c};--d:${i}">${rkInsig(i,i===5?150:128,{anim:i===5||i===R.r})}<b style="color:${T.c}">${T.n}</b></div>`).join('');
+ const cards=WCRN.map((T,i)=>{const st=i===0?'start':i<=R.peak?'got':i===R.r+1?'next':'lock';const lab=i===0?'':st==='got'?'✓ CLAIMED':st==='next'?'NEXT REWARD':'LOCKED';
+  return `<div class="rkrc ${st}" style="--rc:${T.c};--d:${i}">${lab?`<em>${lab}</em>`:''}${i===0?`<p class="rkst"><b>Everyone starts here.</b>Bronze can't lose points, so your first games always move you forward.</p>`:''}
+  <div class="rkrcb">${wcBack(T.back)}</div><b>${esc(WCBK[T.back].n)} sleeve</b>${i===0?`<small class="rkok">${W.backs.rkcopper?'✓ ':''}after your first ranked match</small>`:`${rkEmo(T.emo,wcMyAv(),'sm'+(st==='got'||R.em[T.emo]?'':' lock'))}<small>“${WCREMO[T.emo].n}” emote</small><div class="rkrcoin"><span class="coin"></span>${cmn(T.coins)}</div>${T.title?'<small class="rkupleg">+ “Legend” title</small>':''}`}</div>`}).join('');
+ const tot=WCRN.reduce((a,T)=>a+T.coins,0);
+ show(`<div class="rkx rkroad rkbig" id="rkroad"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div>${rkHead('Rank-up Rewards','Ranked')}
+ <p class="rkroadsub">Every rank up pays out three things: an exclusive sleeve, a moment emote and a big coin bonus.</p>
+ <div class="rkline"><i style="--w:${pos}%"></i><span class="rkyou" style="left:${pos}%">You · ${R.r===5?cmn(R.lp)+' LP':R.bar+'/100'}</span></div><div class="rkrdtop">${top}</div><div class="rkrdc">${cards}</div>
+ <p class="rkfoot">Sleeves and emotes are yours forever. Coins are paid again every season you reach the rank. Total for reaching Legend: <span class="coin"></span><b>${cmn(tot)} coins</b>, 6 sleeves, 5 emotes.</p><div class="wcmod" id="wcmod" hidden></div></div>`,'casbg wcx');
+ rkEmoPaint(ov);S.back=()=>{wcFx('back');rkHub()};$('rkback').onclick=S.back;wcFx('vault')}
+
+/* ---------- the way in: a crest on the Wildcard home screen ---------- */
+{const h0=wcHome;wcHome=function(){const r=h0.apply(this,arguments);try{const R=rkSt(),T=WCRN[R.r],h=$('wch');if(h&&!$('rkhome')){const b=document.createElement('button');b.className='rkhome';b.id='rkhome';b.style.setProperty('--rc',T.c);
+ b.innerHTML=`<span class="rkhi">${rkInsig(R.r,74,{anim:R.r===5})}</span><span class="rkht"><em>RANKED</em><b style="color:${T.c}">${T.n}</b><small>${R.r===5?cmn(R.lp)+' LP':R.bar+' / 100'}</small>${rkBarHTML(R,'sm')}</span>`;
+ b.onclick=()=>{wcFx('click');rkHub()};b.onmouseenter=()=>wcFx('hover');h.appendChild(b)}}catch(e){}return r}}
+/* the vault gets two shelves: Lounge backs and Ranked sleeves */
+{const v0=wcVault;wcVault=function(sel){const r=v0.apply(this,arguments);try{const g=ov.querySelector('.wcvgrid'),hd=ov.querySelector('#wcvault .wclh');if(!g||!hd)return r;
+ const S2=sel&&WCBK[sel]?sel:wcSt().back;let tab=WX.vtab||(WCBK[S2]&&WCBK[S2].rk!=null?'rk':'lo');WX.vtab=null;
+ const t=document.createElement('div');t.className='rkvt';const W=wcSt(),cnt=f=>WCBKK.filter(k=>f(k)&&W.backs[k]).length+' / '+WCBKK.filter(f).length;
+ const isR=k=>WCBK[k].rk!=null;t.innerHTML=`<button data-t="lo">Lounge <small>${cnt(k=>!isR(k))}</small></button><button data-t="rk">Ranked sleeves <small>${cnt(isR)}</small></button>`;hd.querySelector('h1').after(t);
+ const apply=()=>{t.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));g.querySelectorAll('[data-vk]').forEach(b=>{b.hidden=isR(b.dataset.vk)!==(tab==='rk')});g.classList.toggle('rkg',tab==='rk')};
+ t.querySelectorAll('button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;wcFx('click');apply();const first=g.querySelector('[data-vk]:not([hidden])');if(first)first.click()});apply();
+ g.querySelectorAll('[data-vk]').forEach(b=>{const B=WCBK[b.dataset.vk];if(B.rk!=null){const h=b.querySelector('.wcvh');if(h)h.textContent=B.rk?'Reach '+WCRN[B.rk].n:'First match'}})}catch(e){}return r}}
+/* leaving a ranked table goes back to the hub; the menu says what leaving costs */
+{const x0=wcExit;wcExit=function(){if(!WX.rk)return x0.apply(this,arguments);const res=WX.rkLeft;WX.tok++;wcClear();try{wcNetClose()}catch(e){}WX.G=null;const was=WX.rk;WX.rk=null;WX.rkLeft=null;rkHub()}}
+{const m0=wcMenu;wcMenu=function(){const r=m0.apply(this,arguments);try{if(WX.rk){const m=$('wcmod'),R=rkSt();const s=m&&m.querySelector('.wcmnb small');if(s)s.textContent='Ranked · '+WCRN[R.r].n+' · 15-second turns';
+ const p=m&&m.querySelector('.wcmnb > p');if(p&&WX.G&&WX.G.phase!=='over'){const d=rkPts(3,R.r);p.innerHTML=`Leaving now places you <b>4th</b> (${d<0?'−'+Math.abs(d):'±0'} points) and an AI finishes your seat.`}}}catch(e){}return r}}
+
+/* ---------- emotes ---------- */
+const rkOwn=k=>!!rkSt().em[k];
+{const t0=wcTable;wcTable=function(){const r=t0.apply(this,arguments);try{const t=$('wct'),em=$('wcemo');if(em)em.remove();const tools=t.querySelector('.wctools');
+ if(tools&&!$('rkemob')){const b=document.createElement('button');b.className='wctb rkemob';b.id='rkemob';b.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="8.6" cy="10" r="1.5" fill="currentColor"/><circle cx="15.4" cy="10" r="1.5" fill="currentColor"/><path d="M7.5 14.2q4.5 4.6 9 0" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><span>Emote</span>';
+  tools.prepend(b);b.onclick=()=>{if(WX.rkMom&&Date.now()<WX.rkMom.until){const k=WX.rkMom.k;rkMomEnd();rkSend('@'+k);return}rkPick()}}}catch(e){}return r}}
+function rkPick(){const t=$('wct');if(!t)return;let p=$('rkpick');if(p){p.remove();return}const R=rkSt();p=document.createElement('div');p.className='rkpick';p.id='rkpick';
+ p.innerHTML=`<h4>Emotes</h4><div class="rkfree">${WCRFREE.map(x=>`<button data-x="${esc(x)}">${esc(x)}</button>`).join('')}</div><h4>Ranked</h4><div class="rkre">${WCREMK.map(k=>{const own=rkOwn(k),E=WCREMO[k];
+  return `<button data-k="${k}" class="${own?'':'lk'}${WX.rkMom&&WX.rkMom.k===k?' mom':''}" ${own?'':'disabled'} title="${own?E.n:'Unlocks at '+WCRN[E.r].n}">${WX.rkMom&&WX.rkMom.k===k?'<em>Moment!</em>':''}${rkEmo(k,wcMyAv(),'sm'+(own?'':' lock'))}${own?'':`<i>${WCI2.lock}</i>`}<small>${own?E.n:WCRN[E.r].n}</small></button>`}).join('')}</div>
+ <p class="rkpn">One emote every 3 seconds. Tap a player's name to mute them.</p>`;t.appendChild(p);rkEmoPaint(p);wcFx('pop');
+ p.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{rkSend(b.dataset.x);p.remove()});p.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{if(!rkOwn(b.dataset.k))return;rkSend('@'+b.dataset.k);p.remove()});
+ setTimeout(()=>{const off=e=>{if(!p.isConnected){document.removeEventListener('pointerdown',off,true);return}if(!p.contains(e.target)&&e.target.closest('#rkemob')==null){p.remove();document.removeEventListener('pointerdown',off,true)}};document.addEventListener('pointerdown',off,true)},0)}
+function rkSend(x){const now=Date.now();if(WX.emoT&&now-WX.emoT<3000){const b=$('rkemob');if(b){b.classList.remove('cd');void b.offsetWidth;b.classList.add('cd')}wcFx('bad');return}
+ if(x[0]==='@'&&!rkOwn(x.slice(1)))return;WX.emoT=now;const b=$('rkemob');if(b){b.classList.remove('cd');void b.offsetWidth;b.classList.add('cd')}wcEmote(x)}
+/* show an emote above a seat: text bubbles stay as they are, ranked emotes burst out of the seat */
+{const b0=wcBubble;wcBubble=function(i,txt,ms){if(WX.mute&&WX.mute[i]&&i!==WX.me)return;const t=String(txt||'');if(t[0]==='@'){const k=t.slice(1);if(WCREMO[k])rkShow(i,k);return}return b0.apply(this,arguments)}}
+{const c0=wcChat;wcChat=function(n,x){const t=String(x||'');if(t[0]==='@'&&WCREMO[t.slice(1)])x='sent “'+WCREMO[t.slice(1)].n+'”';return c0.call(this,n,x)}}
+function rkShow(i,k){const fx=$('wcfx'),s=wcSeatEl(i),G=WX.G;if(!fx||!s||!G||!G.P[i])return;const av=G.P[i].av||{t:'hero'},a=s.querySelector('.wcav')||s,r=wcLocal(a);if(!r)return;
+ const d=document.createElement('div');d.className='rkfly'+(i===WX.me?' me':'');const x=Math.max(70,Math.min(1530,r.x+r.w/2)),y=Math.max(80,r.y-(i===WX.me?70:30));d.style.left=x+'px';d.style.top=y+'px';d.innerHTML=rkEmo(k,av);fx.appendChild(d);rkEmoPaint(d);
+ wcFx({stun:'zap',rev:'swirl',stack:'chip',slam:'whoosh',over:'rare'}[k]||'pop');setTimeout(()=>d.remove(),2100)}
+/* moments: the emote that matches what just happened glows for 4 seconds; the AI sends theirs now and then */
+function rkMomEnd(){const b=$('rkemob');if(b){b.classList.remove('mom');const c=b.querySelector('.rkmc');if(c)c.remove()}WX.rkMom=null}
+function rkMoment(i,k){const G=WX.G;if(!G||!G.P[i]||!WCREMO[k])return;
+ if(i===WX.me&&G.P[i].kind!=='bot'){if(!rkOwn(k))return;WX.rkMom={k,until:Date.now()+4000};const b=$('rkemob');if(!b)return;b.classList.add('mom');let c=b.querySelector('.rkmc');if(!c){c=document.createElement('span');c.className='rkmc';b.appendChild(c)}c.textContent=WCREMO[k].n+' · tap';
+  clearTimeout(WX.rkMomT);WX.rkMomT=setTimeout(rkMomEnd,4000);return}
+ const p=G.P[i];if(WX.rk&&p.kind==='bot'&&p.ai&&WCREMO[k].r<=WX.rk.r&&G.r()<.3)setTimeout(()=>{if(WX.G===G)wcBubble(i,'@'+k)},500+G.r()*700)}
+{const a0=wcAnim;wcAnim=function(e){try{const G=WX.G;if(G&&e){if(e.k==='play'){WX.rkLP={p:e.p,v:e.c&&e.c.v};if(e.c&&e.c.v==='stun')rkMoment(e.p,'stun');else if(e.c&&e.c.v==='turn')rkMoment(e.p,'rev')}
+ else if(e.k==='stack'&&WX.rkLP){const lp=WX.rkLP,base=lp.v==='d4'?4:2;if(e.n>base)rkMoment(lp.p,'stack');else if(lp.v==='d4')rkMoment(lp.p,'slam');WX.rkLP=null}
+ else if(e.k==='win')rkMoment(e.p,'over')}}catch(x){}return a0.apply(this,arguments)}}
+/* mute: tap a player's name */
+{const r0=wcRender;wcRender=function(){const r=r0.apply(this,arguments);try{WX.mute=WX.mute||{};document.querySelectorAll('#wcseats .wcseat').forEach(s=>{const i=+s.dataset.seat;if(i===WX.me)return;const nm=s.querySelector('.wcnm');if(!nm)return;
+ nm.classList.toggle('muted',!!WX.mute[i]);nm.title=WX.mute[i]?'Tap to unmute':'Tap to mute emotes';nm.onclick=e=>{e.stopPropagation();WX.mute[i]=!WX.mute[i];nm.classList.toggle('muted',!!WX.mute[i]);wcFx('click');wcToast(WX.mute[i]?`Muted <b>${esc(WX.G.P[i].name)}</b>'s emotes.`:`<b>${esc(WX.G.P[i].name)}</b> can send emotes again.`)}})}catch(e){}return r}}
+
+{const st=document.createElement('style');st.textContent=`
+.rkx{position:relative;width:1600px;height:900px;overflow:hidden;margin:0 auto;color:var(--ink);font-family:var(--ui);text-align:left}
+.rkx h4{margin:0 0 10px;font:800 13px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
+.rkh .rkseason{cursor:default;color:#ffb070;border-color:#ff8a3a55}.rkh .rkseason svg{width:16px;height:16px;color:#ff8a3a}.rkh .wcpb.gold{cursor:default}
+.rkp{position:absolute;padding:22px 24px;border-radius:24px;background:linear-gradient(180deg,#1e1650f2,#100a30f2);border:2px solid #463a8a;box-shadow:0 0 0 3px #12081f,0 18px 40px #000a,inset 0 1px 0 #ffffff1a;box-sizing:border-box;animation:wcup .55s var(--sp) both;z-index:2}
+.rkglow{position:absolute;left:50%;top:150px;width:420px;height:420px;margin:-210px 0 0 -210px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--rc) 40%,transparent),transparent 65%);pointer-events:none}
+.rkcrest{left:40px;top:118px;bottom:30px;width:520px;display:flex;flex-direction:column;align-items:center;text-align:center;border-color:color-mix(in srgb,var(--rc) 60%,#463a8a)}
+.rkcrest .rkins{position:relative;margin-top:-14px}
+.rkcrest h2,.rkcard h2{margin:-6px 0 0;font:400 58px/1 'Pirata One',Georgia,serif;text-shadow:0 3px 0 #12081f}
+.rknum{display:flex;align-items:baseline;gap:8px;margin-top:8px}.rknum b{font:900 40px var(--ui);color:#fff}.rknum small{font:800 20px var(--ui);color:#a8a0d0}.rknum em{font:900 40px var(--ui);font-style:normal;margin-left:10px}
+.rknum.big b,.rknum.big em{font-size:52px}
+.up{color:#7ae8a0}.dn{color:#ff8a8a}.zero{color:#c4badf}
+.rkbar{position:relative;width:380px;height:16px;margin-top:10px;border-radius:99px;background:#0a0620;border:2px solid #2e2660;overflow:hidden}
+.rkbar i{position:absolute;left:0;top:0;bottom:0;width:var(--w);border-radius:99px;background:linear-gradient(90deg,#c87a10,#ffd45a);transition:width .9s cubic-bezier(.3,.8,.3,1)}
+.rkbar u{position:absolute;top:0;bottom:0;left:0;width:0;transition:width .9s cubic-bezier(.3,.8,.3,1)}.rkbar u.g{width:var(--w);background:#6ae8a8}.rkbar u.r{width:var(--w);background:#ff6a7a}
+.rkbar.leg i{background:linear-gradient(90deg,#9a4af0,#ffd45a,#9a4af0)}.rkbar.big{width:420px;height:20px}.rkbar.sm{width:150px;height:9px;margin-top:5px;border-width:1.5px}
+.rknx{margin:8px 0 0;font:700 15px var(--ui);color:#c4badf}
+.rkcrest .wcbtn.big{margin-top:auto;width:100%}.rksm{margin:10px 0 0;font:600 13px var(--ui);color:#a8a0d0}
+.rkmid{left:584px;top:118px;bottom:30px;width:480px;display:flex;flex-direction:column}
+.rkpts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.rkpt{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 6px;border-radius:16px;background:#0e0828;border:1.5px solid #2e2660}.rkpt b{font:900 30px var(--ui)}
+.rkul{margin:0 0 16px;padding:0 0 0 18px;font:600 14.5px/1.5 var(--ui);color:#ddd4ff}.rkul li{margin:3px 0}
+.rkai{margin:0;font:600 14.5px/1.5 var(--ui);color:#ddd4ff}.rkai b{color:#fff}
+.rkrow{display:flex;gap:10px;margin-top:auto;flex-wrap:wrap}.rkrow .wcbtn{flex:1;padding:0 12px;font-size:15px}.rkrow .wcbtn svg{width:18px;height:18px}
+.rkside{left:1088px;right:40px;top:118px;bottom:30px;display:flex;flex-direction:column}
+.rknext{display:flex;align-items:center;gap:12px;padding:12px;border-radius:18px;background:#0e0828;border:1.5px solid #2e2660;margin-bottom:16px}
+.rknc{width:84px;height:123px;flex:none}.rknc svg{width:100%;height:100%;display:block}
+.rkne .rkeb.sm2{transform:scale(.72);transform-origin:center;margin:-18px -16px}
+.rknt{display:flex;flex-direction:column;gap:3px}.rknt b{display:flex;align-items:center;gap:6px;font:900 24px var(--ui);color:var(--gold)}.rknt small{font:700 13px var(--ui);color:#c4badf}
+.rkhh{margin-top:4px!important}.rkhr{display:flex;align-items:center;gap:12px;padding:8px 12px;margin-bottom:6px;border-radius:12px;background:#0e0828;border:1.5px solid #2e2660;font:700 15px var(--ui)}.rkhr span:nth-child(2){flex:1;color:#ddd4ff}.rkhr b{font:900 17px var(--ui)}
+.rkempty{margin:4px 0 8px;font:600 14px var(--ui);color:#a8a0d0}.rkrec{margin:auto 0 0;font:700 13px var(--ui);color:#a8a0d0}
+.rkstd>div{display:flex;align-items:center;gap:10px;padding:7px 12px;margin-bottom:5px;border-radius:12px;background:#0e0828;font:700 15px var(--ui)}.rkstd>div.me{border:1.5px solid var(--gold)}.rkstd span{width:22px;color:#a8a0d0}.rkstd b{flex:1}.rkstd em{font-style:normal;color:var(--gold)}
+.rkhow p{margin:0 0 12px;font:600 15.5px/1.5 var(--ui);color:#ece4ff}.rkhow b{color:var(--gold)}
+/* result */
+.rktag{position:absolute;left:50%;top:18px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:6px 16px 6px 6px;border-radius:99px;background:#120a2ee6;border:1.5px solid #463a8a;font:800 13px var(--ui);letter-spacing:.12em;z-index:3}
+.rktag span{padding:4px 12px;border-radius:99px;background:linear-gradient(180deg,#ffe27a,#f6b830);color:#2a1406}
+.rkt{position:absolute;left:56px;top:40px;margin:0;font:400 70px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 4px 0 #6a2a08,0 0 30px #ffb02a55;z-index:2;animation:wcdn .5s var(--eo,ease-out) both}
+.rkres.won .rkt{color:#ffe27a}
+.rksub{position:absolute;left:58px;top:118px;margin:0;font:600 16px var(--ui);color:#c4badf;z-index:2}
+.rklist{position:absolute;left:56px;top:150px;width:780px;display:flex;flex-direction:column;gap:10px;z-index:2}
+.rkrr{display:flex;align-items:center;gap:16px;height:72px;padding:0 22px;border-radius:18px;background:#0e0828e6;border:1.5px solid #2e2660;animation:wcup .45s var(--sp) both;animation-delay:calc(.15s + var(--d)*.08s)}
+.rkrr.me{background:linear-gradient(90deg,#3a2a9a,#251a6a);border:2px solid var(--gold);box-shadow:0 0 22px #ffd45a33}
+.rkrr canvas{width:52px;height:52px;border-radius:50%;background:#1a1240;border:2.5px solid #5ab8ff;flex:none}
+.rkpl{width:64px;font:900 26px var(--ui)}.rkpl.p0{color:#ffd45a}.rkpl.p1,.rkpl.p2{color:#ddd4ff}.rkpl.p3{color:#ff8a8a}
+.rkrn{flex:1;display:flex;flex-direction:column}.rkrn b{font:800 18px var(--ui);color:#fff}.rkrn small{font:700 13px var(--ui);color:#a8a0d0}
+.rkai2,.rkleg2{font-style:normal;margin-left:6px;padding:1px 7px;border-radius:99px;font:800 11px var(--ui);vertical-align:2px;background:#7a5af0;color:#fff}.rkleg2{background:linear-gradient(180deg,#ffe27a,#c87a10);color:#2a1406}
+.rkrr em{font:900 24px var(--ui);font-style:normal}
+.rktie{left:56px;top:498px;width:780px;padding:16px 22px}.rktie p,.rkhand p{margin:0;font:600 14.5px/1.5 var(--ui);color:#ece4ff}
+.rkhand{left:56px;top:636px;width:780px;height:230px;padding:16px 22px}.rkhand p{width:390px}
+.rkhc{position:absolute;right:120px;top:40px;width:0;height:0}.rkhcc{position:absolute;left:0;top:0;width:86px;height:126px;transform:translateX(calc(var(--k)*62px - 43px)) rotate(calc(var(--k)*5deg))}.rkhcc .wcc{width:86px;height:126px}.rkhcc svg{width:100%;height:100%;display:block}
+.rkcard{left:892px;top:150px;width:670px;height:520px;display:flex;flex-direction:column;align-items:center;text-align:center;border-color:color-mix(in srgb,var(--rc) 55%,#463a8a)}
+.rkcard .rkins{position:relative;margin-top:-6px}
+.rkfirst{all:unset;cursor:pointer;display:flex;align-items:center;gap:12px;margin-top:12px;padding:8px 16px 8px 8px;border-radius:14px;background:#0e0828;border:1.5px solid #ffb070;text-align:left}.rkfirst svg{width:40px;height:58px;display:block}.rkfirst b{display:block;font:800 14px var(--ui);color:#ffb070}.rkfirst small{font:600 12px var(--ui);color:#c4badf}.rkfirst.done{border-color:#7ae8a0}
+.rkbtns{position:absolute;left:892px;width:670px;top:700px;display:flex;gap:14px;z-index:2}.rkbtns .wcbtn.big{flex:1;margin:0}
+/* ceremony */
+.rkup{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;animation:rkfade .3s ease-out both}.rkup.out{animation:rkfade .3s ease-in reverse both}
+@keyframes rkfade{from{opacity:0}to{opacity:1}}
+.rkupbg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 36%,color-mix(in srgb,var(--rc) 30%,#1a0a3a),#07030cf2 70%)}
+.rkuprays{position:absolute;left:50%;top:200px;width:1500px;height:1500px;margin:-750px 0 0 -750px;-webkit-mask:radial-gradient(circle,#000 10%,transparent 60%);mask:radial-gradient(circle,#000 10%,transparent 60%);animation:rkspin 50s linear infinite;pointer-events:none}
+.rkupin{position:relative;margin-top:30px;animation:rkin .9s var(--sp) both}@keyframes rkin{from{transform:scale(.2) rotate(-20deg);opacity:0}to{transform:none;opacity:1}}
+.rkup h2{position:relative;margin:-6px 0 0;font:400 62px/1 'Pirata One',Georgia,serif;color:#fff;text-shadow:0 4px 0 #12081f;animation:wcup .5s .5s var(--sp) both}
+.rkups{position:relative;margin:6px 0 0;font:700 16px var(--ui);color:#c4badf;animation:wcup .5s .6s var(--sp) both}
+.rkupr{position:relative;display:flex;gap:22px;margin-top:22px}
+.rkupt{width:250px;height:250px;padding:16px;box-sizing:border-box;border-radius:20px;background:linear-gradient(180deg,#1e1650,#100a30);border:2px solid color-mix(in srgb,var(--rc) 55%,#463a8a);box-shadow:0 0 0 3px #12081f;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;animation:wcup .5s var(--sp) both;animation-delay:calc(.8s + var(--d)*.18s)}
+.rkupt b{font:800 16px var(--ui);color:#fff}.rkupt small{font:600 13px var(--ui);color:#c4badf;text-align:center}.rkupt .wcbtn{margin-top:6px}
+.rkupc{width:80px;height:117px;margin-bottom:auto}.rkupc svg{width:100%;height:100%;display:block}
+.rkupcoin{display:flex;align-items:center;gap:12px;margin:auto 0}.rkupcoin .coin{transform:scale(2.1);margin-right:10px}.rkupt .rkupcoin b{font:900 40px var(--ui);color:var(--gold)}.rkeq{all:unset;cursor:pointer;margin-top:6px;padding:7px 16px;border-radius:12px;font:800 14px var(--ui);color:#2a1406;background:linear-gradient(180deg,#ffe27a,#f6b830);border:2px solid #fff0b0;box-shadow:0 3px 0 #9a5a10}.rkeq:disabled{opacity:.8;cursor:default}
+.rkupleg{color:#ffd45a!important;font-weight:800!important}
+.rkupgo{position:relative;width:340px!important;margin-top:22px!important;animation:wcup .5s 1.4s var(--sp) both}
+/* road */
+.rkroadsub{position:absolute;left:58px;top:96px;margin:0;font:600 16px var(--ui);color:#c4badf;z-index:2}
+.rkline{position:absolute;left:150px;right:150px;top:222px;height:8px;border-radius:99px;background:#2a2060;z-index:1}.rkline i{position:absolute;left:0;top:0;bottom:0;width:var(--w);border-radius:99px;background:linear-gradient(90deg,#e8904a,#ffd45a)}
+.rkyou{position:absolute;top:30px;transform:translateX(-50%);padding:4px 12px;border-radius:99px;background:linear-gradient(180deg,#ffe27a,#f6b830);color:#2a1406;font:800 13px var(--ui);white-space:nowrap}
+.rkrdtop{position:absolute;left:30px;right:30px;top:140px;display:grid;grid-template-columns:repeat(6,1fr);z-index:2}
+.rkrdi{display:flex;flex-direction:column;align-items:center;height:200px;justify-content:flex-end;animation:wcup .5s var(--sp) both;animation-delay:calc(var(--d)*.07s)}.rkrdi b{font:400 30px 'Pirata One',Georgia,serif;margin-top:2px}
+.rkrdi:not(.got) .rkins{opacity:.6}
+.rkrdc{position:absolute;left:30px;right:30px;top:352px;display:grid;grid-template-columns:repeat(6,1fr);gap:16px;z-index:2}
+.rkrc{position:relative;height:440px;padding:30px 12px 14px;box-sizing:border-box;border-radius:20px;background:linear-gradient(180deg,#1a1248,#0e0828);border:2px solid #2e2660;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;animation:wcup .5s var(--sp) both;animation-delay:calc(.2s + var(--d)*.07s)}
+.rkrc.next{border-color:var(--gold);box-shadow:0 0 30px #ffd45a44}.rkrc.got{border-color:color-mix(in srgb,var(--rc) 50%,#2e2660)}
+.rkrc em{position:absolute;top:10px;font:800 11px var(--ui);font-style:normal;letter-spacing:.14em;color:#a8a0d0}.rkrc.got em{color:#7ae8a0}.rkrc.next em{color:var(--gold)}
+.rkrcb{width:96px;height:140px;flex:none}.rkrcb svg{width:100%;height:100%;display:block}.rkrc.lock .rkrcb{opacity:.6}
+.rkrc>b{font:800 14px var(--ui);color:#fff}.rkrc small{font:700 13px var(--ui);color:#c4badf}.rkrc .rkok{color:#7ae8a0}
+.rkrc .rkeb.sm{margin:2px -60px -66px 0}
+.rkrcoin{display:flex;align-items:center;gap:8px;margin-top:auto;font:900 26px var(--ui);color:var(--gold)}
+.rkst{margin:6px 0 10px;font:600 13.5px/1.45 var(--ui);color:#c4badf}.rkst b{display:block;color:#fff;margin-bottom:4px;font-size:15px}
+.rkfoot{position:absolute;left:0;right:0;bottom:22px;margin:0;text-align:center;font:700 15px var(--ui);color:#c4badf;z-index:2}.rkfoot b{color:var(--gold)}.rkfoot .coin{vertical-align:-3px}
+/* home crest */
+.rkhome{all:unset;cursor:pointer;position:absolute;left:166px;top:12px;height:58px;display:flex;align-items:center;gap:8px;padding:0 18px 0 6px;border-radius:18px;background:linear-gradient(180deg,#221a5af2,#100a30f2);border:2px solid color-mix(in srgb,var(--rc) 70%,#463a8a);box-shadow:0 0 0 3px #12081f,0 12px 30px #000a,0 0 30px color-mix(in srgb,var(--rc) 25%,transparent);z-index:5;transition:transform .2s var(--sp);animation:wcup .55s .2s var(--sp) both}
+.rkhome:hover{transform:translateY(-3px) scale(1.03)}.rkhome:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.rkhi{margin:-10px 0}.rkht{display:grid;grid-template-columns:auto auto;align-items:center;column-gap:10px}.rkht em{grid-column:1/3;font:800 10px/1.2 var(--ui);font-style:normal;letter-spacing:.2em;color:var(--gold)}.rkht b{font:400 24px/1 'Pirata One',Georgia,serif}.rkht small{font:700 12px var(--ui);color:#c4badf}.rkht .rkbar{grid-column:1/3;width:150px;margin-top:2px}.rkht small{justify-self:end}
+/* vault shelves */
+.rkvt{display:flex;gap:6px;padding:4px;border-radius:14px;background:#0e0828;border:1.5px solid #2e2660}.rkvt button{all:unset;cursor:pointer;padding:8px 14px;border-radius:10px;font:800 14px var(--ui);color:#c4badf}.rkvt button small{color:#8a80b8;margin-left:4px}.rkvt button.on{background:linear-gradient(180deg,#ffe27a,#f6b830);color:#2a1406}.rkvt button.on small{color:#6a4a10}
+.wcvgrid.rkg{grid-template-columns:repeat(3,1fr)}.wcvt[hidden]{display:none!important}
+/* emotes at the table */
+.rkemob{position:relative}.rkemob svg{width:20px;height:20px}.rkemob.mom{border-color:var(--gold);box-shadow:0 0 0 2px #ffd45a88,0 0 20px #ffd45a88;animation:rkmom 1s ease-in-out infinite}
+@keyframes rkmom{50%{transform:scale(1.06)}}.rkemob.cd::after{content:'';position:absolute;left:8px;right:8px;bottom:4px;height:3px;border-radius:2px;background:var(--gold);transform-origin:left;animation:rkcd 3s linear both}@keyframes rkcd{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.rkemob .rkmc{position:absolute;font:800 13px var(--ui)!important;letter-spacing:0;text-shadow:none;left:0;bottom:calc(100% + 8px);padding:6px 12px;border-radius:10px;background:linear-gradient(180deg,#ffe27a,#f6b830);color:#2a1406;font:800 13px var(--ui);white-space:nowrap;box-shadow:0 0 0 2px #12081f}
+.rkpick{position:absolute;left:28px;bottom:206px;width:430px;padding:16px 18px 12px;border-radius:20px;background:linear-gradient(180deg,#221a5af7,#100a30f7);border:2px solid var(--gold);box-shadow:0 0 0 3px #12081f,0 18px 40px #000c;z-index:20;animation:wcpop .3s var(--sp) both}
+.rkpick h4{margin:0 0 9px;font:800 13px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:var(--gold);text-shadow:none}.rkfree{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}.rkfree button{all:unset;cursor:pointer;padding:7px 13px;border-radius:99px;background:#2a2060;border:1.5px solid #463a8a;font:700 14px var(--ui);color:#fff;transition:transform .15s var(--sp)}.rkfree button:hover{transform:scale(1.06);border-color:var(--gold)}
+.rkre{display:flex;gap:4px}.rkre button{all:unset;cursor:pointer;position:relative;width:76px;display:flex;flex-direction:column;align-items:center;transition:transform .15s var(--sp)}.rkre button:not(.lk):hover{transform:scale(1.08)}.rkre button.lk{cursor:default}
+.rkre .rkeb.sm{margin:0 -60px -66px 0;transform:scale(.6);margin:0 -48px -53px 0}.rkre small{font:700 11.5px var(--ui);color:#c4badf;white-space:nowrap}.rkre button.lk small{color:#8a80b8}
+.rkre i{position:absolute;right:6px;top:2px;width:18px;height:18px;color:#c4badf}.rkre i svg{width:100%;height:100%}.rkre em{position:absolute;top:-10px;padding:2px 7px;border-radius:99px;background:var(--gold);color:#2a1406;font:800 10px var(--ui);font-style:normal;z-index:2}
+.rkre button.mom .rkeb{filter:drop-shadow(0 0 8px #ffd45a)}.rkpn{margin:10px 0 0;font:600 12px var(--ui);color:#a8a0d0}
+.rkfly{position:absolute;width:0;height:0;z-index:12;pointer-events:none}.rkfly .rkeb{position:absolute;left:-60px;top:-132px;animation:rkpop 2s cubic-bezier(.3,1.4,.5,1) both}
+@keyframes rkpop{0%{transform:scale(.1) rotate(-25deg);opacity:0}12%{transform:scale(1.18) rotate(6deg);opacity:1}22%{transform:scale(1) rotate(-3deg);opacity:1}30%,82%{transform:scale(1) rotate(0);opacity:1}100%{transform:scale(.9) translateY(-24px);opacity:0}}
+.wcnm.muted{opacity:.6}.wcnm.muted b::after{content:' 🔇';font-size:.8em}.wcseat .wcnm{cursor:pointer}
+.rkt .wcseat .d-ai,.d-ai{color:#c8b8ff}.d-ai i{font-style:normal;padding:0 5px;border-radius:5px;background:#7a5af0;color:#fff;margin-right:3px}.d-leg{color:#ffd45a}
+.wcpill.rkpil{padding-left:4px;border-color:#ffd45a88}.wcpill.rkpil .rkins{width:34px;height:34px}`;document.head.appendChild(st)}
+/* ===== WILDCARD RANKED: online matchmaking through the room-code relays (no Firebase) =====
+   Everyone searching joins one encrypted relay channel ("RANKED") and says {t:'seek',id,r} every 1.5 s. For the first 8 s
+   only players at your own rank count; after that, one rank either side. When compatible players are around, the one
+   with the smallest id hosts: it picks a room code, tells the others ({t:'room',code,to:[ids]}) and opens a normal
+   private room; the others join it by that code and are readied automatically. At 15 s, if nobody was found, the match
+   starts with AI players. The host fills empty seats with AI at its rank, runs the game as a normal room game with the
+   ranked flag, and at the end sends everyone the final standings and hands ({t:'rkfin'}); each player applies their own
+   points on their own device. Timeouts are counted by the host: three in a row hand that seat to an AI ({t:'rkafk'}).
+   There is no server, so points are not protected against cheating; that is the cost of not using Firebase. */
+const RKMM={on:0,id:'',t0:0,peers:{},tm:0,role:'',room:'',to:[],tA:0};
+function rkFind(){const R=rkSt();rkDodge();if(!wcRelayOk()){rkStart();return}
+ rkMMStop();Object.assign(RKMM,{on:1,id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),t0:Date.now(),peers:{},role:'seek',room:'',to:[],tA:0});
+ WX.tok++;wcClear();rkMMView();
+ wcRelayOpen('RANKED','mm',rkMMMsg,st=>{if(!RKMM.on)return;RKMM.net=st;rkMMView(true)});
+ RKMM.tm=setInterval(rkMMTick,500);rkMMTick()}
+function rkMMStop(keepRelay){clearInterval(RKMM.tm);RKMM.tm=0;if(!keepRelay&&RKMM.role==='seek')try{wcRelayClose()}catch(e){}RKMM.on=0}
+const rkMMWin=()=>Date.now()-RKMM.t0>=8000?1:0;
+const rkMMOk=p=>Math.abs(p.r-rkSt().r)<=rkMMWin()&&Math.abs(p.r-rkSt().r)<=(p.win||0)&&Date.now()-p.last<4500;
+function rkMMMsg(m){if(!RKMM.on||!m||m.id===RKMM.id)return;const R=rkSt();
+ if(m.t==='seek'&&RKMM.role==='seek'){RKMM.peers[m.id]={id:m.id,r:Math.max(0,Math.min(5,m.r|0)),win:m.win|0,name:String(m.name||'Player').replace(/[<>]/g,'').slice(0,14),av:m.av&&m.av.t==='hero'?m.av:{t:'hero'},lp:m.lp|0,last:Date.now()};
+  if(m.r===5&&m.lp){R.met[RKMM.peers[m.id].name]={lp:m.lp|0,s:R.season};const ks=Object.keys(R.met);if(ks.length>30)delete R.met[ks[0]]}rkMMView(true)}
+ if(m.t==='room'&&RKMM.role==='seek'&&Array.isArray(m.to)&&m.to.includes(RKMM.id)&&/^[A-Z2-9]{4}$/.test(m.code||'')){RKMM.role='guest';RKMM.room=m.code;rkMMStop(true);rkMMJoin(m.code)}}
+function rkMMTick(){if(!RKMM.on)return;const R=rkSt(),el=Date.now()-RKMM.t0;
+ if(RKMM.role==='seek'){wcRelaySend('mm',{t:'seek',id:RKMM.id,r:R.r,win:rkMMWin(),name:P.name||'Player',av:wcMyAv(),lp:R.r===5?R.lp:0});
+  const ok=Object.values(RKMM.peers).filter(rkMMOk);
+  if(el>=3000&&ok.length&&ok.every(p=>RKMM.id<p.id)){RKMM.role='host';RKMM.to=ok.sort((a,b)=>a.id<b.id?-1:1).slice(0,3).map(p=>p.id);RKMM.room=wcCode();RKMM.tA=Date.now();rkMMAnnounce();return}
+  if(el>=15000){rkMMStop();wcToast&&0;rkStart();setTimeout(()=>{try{wcToast('No ranked players were free, so AI players at your rank took the seats.')}catch(e){}},1200);return}}
+ rkMMView(true)}
+function rkMMAnnounce(){let n=0;const say=()=>{if(RKMM.role!=='host')return;wcRelaySend('mm',{t:'room',id:RKMM.id,code:RKMM.room,to:RKMM.to});if(++n<4)setTimeout(say,450);else setTimeout(rkMMHost,300)};say()}
+/* host: a ranked private room, readied guests, then deal */
+function rkMMHost(){clearInterval(RKMM.tm);RKMM.tm=0;const R=rkSt();
+ Object.assign(WCL,{room:RKMM.room,seats:[{k:'you',name:P.name||'You'},{k:'open'},{k:'open'},{k:'open'}],crew:wcCrewGen(3,null,{rare:.1}),rk:1});WCL.set=Object.assign(WCL.set||{},{stake:0,timer:15,hand:7,stack:1,until:0,seven:0});
+ wcRelayClose();WX.tok++;wcClear();wcHostRelay();wcLobbyRender();RKMM.on=1;RKMM.role='hosting';
+ RKMM.tm=setInterval(()=>{if(!$('wcl')||!WCL.rk){clearInterval(RKMM.tm);return}const net=WCL.seats.filter(s=>s.k==='net'),all=net.length>=RKMM.to.length&&net.every(s=>s.ready),late=Date.now()-RKMM.tA>16000;
+  rkMMView(true);if((all&&net.length)||late){clearInterval(RKMM.tm);RKMM.on=0;rkNetStart()}},500)}
+function rkNetStart(){const R=rkSt(),lv='r'+rkLvl(R.r);WCL.rk=0;
+ const seats=WCL.seats.map((s,i)=>Object.assign({},s,{_i:i})).filter(s=>s.k!=='none');
+ const players=seats.map(s=>{const i=s._i;if(s.k==='you')return{id:'host',name:P.name||'You',kind:'you',av:wcMyAv(),title:R.title};
+  if(s.k==='net'){const real=WCL.seats[i];return{id:real.pid,name:real.name||'Friend',kind:'net',av:real.av||{t:'hero'}}}
+  const A=WCL.crew[i-1]||wcCrewGen(1)[0];return{id:'b'+i,name:A.name,kind:'bot',diff:lv,ai:1,av:A}});
+ const net=players.some(p=>p.kind==='net');wcFx('shuffle');
+ wcReset({mode:net?'net':'solo',tbl:'rk',host:true,stake:0,fee:0,room:WCL.room,cfg:{timer:15,tbl:'rk',set:Object.assign({},WCL.set)},rk:{r:R.r,id:WCL.room,net:net?1:0}});
+ WX.G=wcNew({players,hand:7,rules:{stack:1,until:0,seven:0},seed:(Date.now()^Math.floor(Math.random()*1e9))>>>0});R.live={t:Date.now(),r:R.r};save();
+ if(net){WX.rkSendRk=1;wcNetStart()}else try{wcRelayClose()}catch(e){}wcTable();wcPump()}
+/* the ranked flag goes to the guests right after 'start' and before the first table state */
+{const y0=wcSync;wcSync=function(){if(WX.rkSendRk){WX.rkSendRk=0;wcRelay({t:'rk'})}return y0.apply(this,arguments)}}
+/* guest: join the host's room by code, ready up, play */
+function rkMMJoin(code){WX.rkmm=1;RKMM.joinT=Date.now();wcJoinCode(code);setTimeout(()=>{if(WX.rkmm&&!(WX.G&&WX.rk)){WX.rkmm=0;try{wcNetClose()}catch(e){}rkStart();setTimeout(()=>{try{wcToast('Could not reach the other player, so AI players took the seats.')}catch(e){}},1200)}},30000)}
+{const v0=wcJoinView;wcJoinView=function(state){if(WX.rkmm&&['none','full','started','nonet','bad','badinv'].includes(state)){WX.rkmm=0;try{wcNetClose()}catch(e){}rkStart();return}const r=v0.apply(this,arguments);if(WX.rkmm)rkMMView(true);return r}}
+{const g0=wcGuestMsg;wcGuestMsg=function(raw){let m=null;try{m=JSON.parse(raw)}catch(e){}const g=WCNET.guest;
+ if(m&&m.t==='rk'){const R=rkSt();WX.rk={r:R.r,id:WX.room||'',net:1};WX.rkmm=0;WX.cfg.timer=15;R.live={t:Date.now(),r:R.r};save();if($('wct'))try{wcTable()}catch(e){}return}
+ if(m&&m.t==='rkfin'&&WX.rk){WX.rkFin=m;return}
+ if(m&&m.t==='rkafk'&&WX.rk&&!WX.rkDone){WX.rkDone=1;const res=rkApply(3,'afk');try{wcRecord({forfeit:1})}catch(e){}const gg=WCNET.guest;if(gg)gg.closing=1;try{wcNetClose()}catch(e){}WX.tok++;wcClear();rkResults(res,null,{afk:1});return}
+ const r=g0.apply(this,arguments);if(m&&m.t==='lobby'&&WX.rkmm&&g&&!g.ready){g.ready=1;wcNetSend({t:'ready',v:1})}return r}}
+/* the host sends the final standings and every hand, so guests can place everyone exactly */
+{const e0=wcEnd;wcEnd=function(){if(WX.rk&&WX.rk.net){const G=WX.G;if(WX.host&&G){wcRelay({t:'rkfin',rank:wcRank(G),hands:G.P.map(p=>p.hand)})}
+ else if(!WX.host&&!WX.rkFin&&(WX.rkWaitFin=(WX.rkWaitFin||0)+1)<12){wcLater(()=>wcEnd(),250);return}
+ else if(!WX.host&&WX.rkFin&&G){const f=WX.rkFin;if(Array.isArray(f.hands))f.hands.forEach((h,i)=>{if(G.P[i]&&Array.isArray(h))G.P[i].hand=h});if(Array.isArray(f.rank)){WX.rkRank=f.rank}}}return e0.apply(this,arguments)}}
+{const k0=wcRank;wcRank=function(G){if(WX.rkRank&&WX.G===G&&!WX.host)return WX.rkRank.slice();return k0.apply(this,arguments)}}
+/* timeouts at an online seat are counted by the host */
+{const h0=wcHostMsg;wcHostMsg=function(s,raw){WX.rkNet=1;try{return h0.apply(this,arguments)}finally{WX.rkNet=0}}}
+{const a0=wcApply;wcApply=function(pi,a){const G=WX.G,p=G&&G.P[pi],netSeat=!!(WX.rk&&WX.host&&p&&p.kind==='net'),own=!!WX.rkNet;const r=a0.apply(this,arguments);
+ if(netSeat&&r&&a&&a.t!=='call'&&a.t!=='catch'){if(own)p.rkTo=0;else if(a.t==='draw'||a.t==='pass'){p.rkTo=(p.rkTo||0)+1;if(p.rkTo>=3){const s=WCNET.peers[p.id];if(s)wcTx(s,{t:'rkafk'});p.kind='bot';p.diff='r'+rkLvl(WX.rk.r);p.ai=1;wcChat('Lounge',`${p.name} timed out three times. An AI takes their seat.`)}}}return r}}
+{const p0=wcPeerGone;wcPeerGone=function(s){const r=p0.apply(this,arguments);try{if(WX.rk&&WX.G){const p=WX.G.P.find(q=>q.id===s.pid);if(p&&p.kind==='bot'){p.diff='r'+rkLvl(WX.rk.r);p.ai=1}}}catch(e){}return r}}
+/* the host leaving is not the guests' fault: the match simply does not count for them */
+{const x0=wcHostGone;wcHostGone=function(msg){if(WX.rk&&WX.rk.net&&!WX.host&&!WX.rkDone&&WX.G&&WX.G.phase!=='over'){WX.rkDone=1;const R=rkSt();R.live=null;save();return x0.call(this,'The host left, so this ranked match does not count')}return x0.apply(this,arguments)}}
+/* the matchmaking screen (over the lobby or join screen when a match is being set up) */
+function rkMMView(update){const R=rkSt(),T=WCRN[R.r],el=Math.max(0,Date.now()-RKMM.t0),sec=Math.min(15,Math.floor(el/1000)),wide=rkMMWin();
+ const found=RKMM.role==='seek'?Object.values(RKMM.peers).filter(rkMMOk):[],range=wide?[R.r-1,R.r,R.r+1].filter(x=>x>=0&&x<=5).map(x=>WCRN[x].n).join(', '):T.n;
+ const status=RKMM.role==='seek'?(RKMM.net==='offline'?'Can\'t reach the room servers. AI players will fill the table.':found.length?`${found.length} player${found.length>1?'s':''} found…`:'Looking for players…')
+  :RKMM.role==='host'||RKMM.role==='hosting'?'Match found! Setting up the table…':'Match found! Joining the table…';
+ const body=`<div class="rkmmc">${rkInsig(R.r,200,{anim:1})}<div class="rkmmr"><i></i><i></i><i></i></div></div><h2>Finding a ranked match</h2><p class="rkmms">${status}</p>
+  <div class="rkmmt"><b>0:${String(sec).padStart(2,'0')}</b><span>${RKMM.role==='seek'?`Matching with ${range} players${wide?'':' · one rank either side after 8 s'}`:'Empty seats are filled by AI at your rank'}</span></div>
+  <div class="rkmmp">${found.slice(0,3).map(p=>`<span><b>${esc(p.name)}</b><small style="color:${WCRN[p.r].c}">${WCRN[p.r].n}</small></span>`).join('')}</div>${RKMM.role==='seek'?'<button class="wcbtn" id="rkmmx">Cancel</button>':''}`;
+ let v=document.querySelector('.rkmmv');const root=$('wcl')||$('wcj')||null;
+ if(!v||!v.isConnected){if(root){v=document.createElement('div');v.className='rkmmv over';root.appendChild(v)}else{show(`<div class="rkx rkmmx" id="rkmmx0"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div><div class="rkmmv"></div><div class="wcmod" id="wcmod" hidden></div></div>`,'casbg wcx');v=document.querySelector('.rkmmv');S.back=rkMMCancel}}
+ v.innerHTML=body;const x=$('rkmmx');if(x)x.onclick=rkMMCancel}
+function rkMMCancel(){rkMMStop();RKMM.role='';wcFx('back');rkHub()}
+{const st=document.createElement('style');st.textContent=`
+.rkmmv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:40;text-align:center;color:var(--ink);font-family:var(--ui)}
+.rkmmv.over{background:radial-gradient(ellipse at 50% 40%,#2a1a5af7,#07030cf7 75%)}
+.rkmmc{position:relative;width:300px;height:300px;display:grid;place-items:center}.rkmmc .rkins{position:relative;z-index:2}
+.rkmmr i{position:absolute;left:50%;top:50%;width:200px;height:200px;margin:-100px 0 0 -100px;border-radius:50%;border:3px solid #ffd45a;opacity:0;animation:rkring 2.4s ease-out infinite}.rkmmr i:nth-child(2){animation-delay:.8s}.rkmmr i:nth-child(3){animation-delay:1.6s}
+@keyframes rkring{0%{transform:scale(.6);opacity:.8}100%{transform:scale(1.5);opacity:0}}
+.rkmmv h2{margin:6px 0 0;font:400 52px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 4px 0 #12081f}
+.rkmms{margin:10px 0 0;font:700 18px var(--ui);color:#ece4ff}
+.rkmmt{display:flex;flex-direction:column;align-items:center;gap:4px;margin-top:16px}.rkmmt b{font:900 40px var(--ui);color:#fff}.rkmmt span{font:700 14px var(--ui);color:#a8a0d0}
+.rkmmp{display:flex;gap:12px;margin-top:16px;min-height:52px}.rkmmp span{display:flex;flex-direction:column;padding:8px 16px;border-radius:14px;background:#160c34;border:1.5px solid #463a8a;animation:wcpop .35s var(--sp) both}.rkmmp b{font:800 15px var(--ui)}.rkmmp small{font:800 12px var(--ui)}
+.rkmmv .wcbtn{margin-top:18px;width:220px}`;document.head.appendChild(st)}
+/* after an online ranked match, both sides hang up cleanly (the guest first, so the host's goodbye does not pull them off the result screen) */
+{const r0=rkResults;rkResults=function(){if(WX.rk&&WX.rk.net){if(WX.host)setTimeout(()=>{try{if(!$('wct'))wcNetClose()}catch(e){}},2500);else{const g=WCNET.guest;if(g)g.closing=1;setTimeout(()=>{try{wcNetClose()}catch(e){}},300)}}return r0.apply(this,arguments)}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

@@ -22663,6 +22663,244 @@ function rkMMCancel(){rkMMStop();RKMM.role='';wcFx('back');rkHub()}
 .rkmmv .wcbtn{margin-top:18px;width:220px}`;document.head.appendChild(st)}
 /* after an online ranked match, both sides hang up cleanly (the guest first, so the host's goodbye does not pull them off the result screen) */
 {const r0=rkResults;rkResults=function(){if(WX.rk&&WX.rk.net){if(WX.host)setTimeout(()=>{try{if(!$('wct'))wcNetClose()}catch(e){}},2500);else{const g=WCNET.guest;if(g)g.closing=1;setTimeout(()=>{try{wcNetClose()}catch(e){}},300)}}return r0.apply(this,arguments)}}
+/* ===== WILDCARD RANKED: the season leaderboard, kept on public Nostr relays (no account, no server of our own) =====
+   Storage: each player's game posts one "latest score" event per season (kind 30078, tags d/t = "twwc-lb-s<season>").
+   Relays keep only the newest such event per player key, so an entry is replaced, never duplicated. Everyone's game reads
+   those events back from all the relays, keeps the newest per player, checks them, and ranks them.
+   Identity: a key made once per save (P.rk.nsk). Only that key can post or replace its entry; nobody can change or delete
+   someone else's. The name shown is the player's name plus the first 4 characters of their key (#a1b2).
+   Checks (anti-cheat), done by every reader on every entry, so a bad entry is hidden for everyone:
+   - the signature and the event id must be valid (BIP-340), so relays cannot alter entries and nobody can post as another
+     player; a forged newer event never pushes a player's real entry off the board
+   - right season and season tag; time stamp inside the season and not in the future
+   - sane values: rank 0..5, bar 0..99, wins <= matches, start rank <= 3 (the most a new season can start at)
+   - enough matches for the claimed rank and points (at most 30 points a match), enough season time for those wins, and
+     not more matches than time allows
+   - the last 10 matches must be listed: times in order, wins at least RKLBGAP s apart, points matching the ranked table
+     for that rank and place, ranks that never go down and only go up after a gain
+   - when the whole season fits in those 10 matches, they are replayed and must give exactly the claimed rank and bar
+   - names: no control or invisible characters, 14 characters at most, a word filter
+   Hidden players post {hide:1}, which replaces their entry. A cheater who controls their own game can still post a
+   carefully faked but plausible score; these checks only stop impossible ones. */
+const RKLB={t:0,s:0,state:'idle',list:[],all:0,me:null,hidden:0,relays:0,reached:0,err:'',p:null,loading:null,ver:new Map(),pushT:0,pushQ:0,refT:0};
+const RKLBK=30078,RKLBGAP=20,RKLBPACE=8,RKLBDAY=2000;
+const rkLbTag=s=>'twwc-lb-s'+s,rkSeaStart=s=>Math.floor((WCRSEA.start+(s-1)*WCRSEA.len)/1000);
+const rkLbRelays=()=>WCRELAYS.filter(u=>/^nostr:/.test(u)).map(u=>u.slice(6));
+/* the player's key, season counters and the season's starting rank */
+function rkLbKey(){const R=rkSt();if(!/^[0-9a-f]{64}$/.test(R.nsk||'')){let d=0n;while(d===0n||d>=WCEC.n)d=wcB2n(crypto.getRandomValues(new Uint8Array(32)));R.nsk=d.toString(16).padStart(64,'0');R.npk='';save()}
+ if(!/^[0-9a-f]{64}$/.test(R.npk||''))R.npk=wcHx(wcN2b(wcMul(BigInt('0x'+R.nsk))[0]));return{d:BigInt('0x'+R.nsk),pk:R.npk}}
+{const s0=rkSt;rkSt=function(){const before=P&&P.rk&&typeof P.rk==='object'&&!Array.isArray(P.rk)?P.rk.season:null;const R=s0.apply(this,arguments);
+ if(typeof before==='number'&&before!==R.season){R.r0=R.r;R.sm=0;R.sw=0;R.lbLast='';R.lbSent=0}
+ if(typeof R.sm!=='number'){/* first run of this update: count this season's matches from the history when it is complete */
+  const S0=rkSeaStart(R.season)*1000,hs=R.hist.filter(x=>x&&x.t>=S0);if(R.hist.length<20){R.sm=hs.length;R.sw=hs.filter(x=>x.p===0).length}else{R.sm=Math.max(R.n,hs.length);R.sw=Math.max(R.w,hs.filter(x=>x.p===0).length)}
+  if(typeof R.r0!=='number')R.r0=Math.min(3,hs.length?hs[0].r|0:R.r)}
+ if(typeof R.r0!=='number')R.r0=0;if(typeof R.lbHide!=='number')R.lbHide=0;return R}}
+{const a0=rkApply;rkApply=function(place){const o=a0.apply(this,arguments);try{const R=rkSt();R.sm++;if(place===0)R.sw++;save();rkLbPush()}catch(e){}return o}}
+
+/* ---------- BIP-340 verification ---------- */
+function rkMulP(k,X,Y){let R=[0n,1n,0n],A=[X,Y,1n];while(k>0n){if(k&1n)R=wcJa(R,A);A=wcJd(A);k>>=1n}return R}
+function rkAff(J){if(J[2]===0n)return null;const p=WCEC.p,zi=wcPw(J[2],p-2n,p),zi2=zi*zi%p;return[J[0]*zi2%p,J[1]*zi2%p*zi%p]}
+async function rkSchnorrOk(pkHex,msg,sigHex){try{if(!/^[0-9a-f]{64}$/.test(pkHex)||!/^[0-9a-f]{128}$/.test(sigHex))return false;const p=WCEC.p,n=WCEC.n,x=BigInt('0x'+pkHex);if(x>=p)return false;
+ const c=(x*x%p*x+7n)%p,y0=wcPw(c,(p+1n)/4n,p);if(y0*y0%p!==c)return false;const y=y0%2n===0n?y0:p-y0;
+ const r=BigInt('0x'+sigHex.slice(0,64)),s=BigInt('0x'+sigHex.slice(64));if(r>=p||s>=n)return false;
+ const e=wcB2n(await wcTag('BIP0340/challenge',wcCat(wcN2b(r),wcN2b(x),msg)))%n;
+ const R=rkAff(wcJa(rkMulP(s,WCEC.gx,WCEC.gy),rkMulP((n-e)%n,x,y)));return!!R&&R[1]%2n===0n&&R[0]===r}catch(e){return false}}
+const rkEvSer=ev=>JSON.stringify([0,ev.pubkey,ev.created_at,ev.kind,ev.tags,ev.content]);
+const rkEvShape=ev=>!!ev&&typeof ev==='object'&&/^[0-9a-f]{64}$/.test(ev.pubkey)&&/^[0-9a-f]{64}$/.test(ev.id)&&typeof ev.sig==='string'&&Number.isInteger(ev.created_at)&&ev.kind===RKLBK&&Array.isArray(ev.tags)&&typeof ev.content==='string';
+async function rkEvOk(ev){try{/* the id is the hash of everything in the event, so once it matches, id + signature stand for the whole event */
+ const id=wcHx(await wcSha(wcTE.encode(rkEvSer(ev))));if(id!==ev.id)return false;const ck=id+ev.sig;if(RKLB.ver.has(ck))return RKLB.ver.get(ck);
+ const ok=await rkSchnorrOk(ev.pubkey,wcN2b(BigInt('0x'+id)),ev.sig);if(RKLB.ver.size>3000)RKLB.ver.clear();RKLB.ver.set(ck,ok);return ok}catch(e){return false}}
+async function rkEvSign(K,kind,tags,content,at){const ev={pubkey:K.pk,created_at:at||Math.floor(Date.now()/1000),kind,tags,content};const id=await wcSha(wcTE.encode(rkEvSer(ev)));ev.id=wcHx(id);ev.sig=wcHx(await wcSchnorr(K.d,id,crypto.getRandomValues(new Uint8Array(32))));return ev}
+
+/* ---------- names ---------- */
+/* RKBAD: blocked anywhere in the name (letters only, common look-alike digits read as letters); RKBADW: only as a whole
+   word, since they hide inside ordinary words (Essex, grape, Hancock) */
+const RKBAD=['fuck','shit','bitch','cunt','pussy','nigg','slut','whore','nazi','hitler','penis','vagina','porn'],RKBADW=['sex','sexy','rape','dick','cock','fag','fags','kys','tits','ass','butt'];
+function rkLbName(s){s=String(s==null?'':s).normalize('NFC').replace(/[\u0000-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff\ufff0-\uffff]/g,'').replace(/\s+/g,' ').trim();
+ s=Array.from(s).slice(0,14).join('').trim();const low=s.toLowerCase().replace(/[01345$@]/g,c=>({0:'o',1:'i',3:'e',4:'a',5:'s',$:'s','@':'a'}[c])),flat=low.replace(/[^a-z]/g,''),words=low.split(/[^a-z]+/);
+ if(!s||!/[\p{L}\p{N}]/u.test(s)||RKBAD.some(w=>flat.includes(w))||words.some(w=>RKBADW.includes(w)))return'Player';return s}
+
+/* ---------- the checks ---------- */
+const rkInt=(v,a,b)=>Number.isInteger(v)&&v>=a&&v<=b;
+function rkLbCheck(ev,season,now){try{now=now||Math.floor(Date.now()/1000);const S0=rkSeaStart(season),tg=rkLbTag(season);
+ if(ev.kind!==RKLBK||!Array.isArray(ev.tags)||!ev.tags.some(t=>Array.isArray(t)&&t[0]==='d'&&t[1]===tg)||typeof ev.content!=='string'||ev.content.length>4000)return null;
+ if(!rkInt(ev.created_at,S0-60,Math.min(now+600,rkSeaStart(season+1)+3600)))return null;
+ const c=JSON.parse(ev.content);if(!c||typeof c!=='object'||Array.isArray(c)||c.v!==1||c.s!==season)return null;if(c.hide===1)return{hide:1};
+ const{r,b,lp,m,w,r0}=c;if(!rkInt(r,0,5)||!rkInt(b,0,99)||!rkInt(lp,0,1e7)||!rkInt(m,1,1e6)||!rkInt(w,0,m)||!rkInt(r0,0,Math.min(3,r)))return null;
+ if(r===5&&b!==0||r<5&&lp!==0)return null;
+ const el=Math.max(0,ev.created_at-S0);if(m>el/RKLBPACE+10||m>Math.ceil(el/86400+1)*RKLBDAY)return null;
+ /* the fewest matches that can give this rank and bar: every rank passed needs its full 100 points, each match gives at most
+    that rank's 1st-place points, and points over 100 are lost on a rank up */
+ let gains=0;for(let k=r0;k<r;k++)gains+=Math.ceil(100/WCRN[k].pts[0]);gains+=Math.ceil((r===5?lp:b)/WCRN[r].pts[0]);if(m<gains||(gains-10)*RKLBGAP>el+60)return null;
+ const h=c.h;if(!Array.isArray(h)||h.length!==Math.min(m,10))return null;let pt=0,pr=-1,pd=0,wins=0;
+ for(const x of h){if(!Array.isArray(x)||x.length!==4)return null;const[t,p,d,rr]=x;if(!rkInt(t,S0-60,ev.created_at+5)||!rkInt(p,0,3)||!rkInt(rr,0,5))return null;
+  if(pr>=0&&(t<pt||d>0&&t-pt<RKLBGAP))return null;if(rr<pr||pr>=0&&rr>pr&&(rr>pr+1||pd<=0)||d!==WCRN[rr].pts[p])return null;if(p===0)wins++;pt=t;pr=rr;pd=d}
+ if(pr>r||pr<r-1||r>pr&&pd<=0||wins>w||h.length&&h[0][3]<r0)return null;
+ if(h.length===m){/* the whole season is listed: replay it */let R2=r0,B2=0,L2=0;for(const[,p,d,rr]of h){if(rr!==R2)return null;if(R2===5)L2=Math.max(0,L2+d);else{const nb=B2+d;if(nb>=100){R2++;B2=0}else B2=Math.max(0,nb)}}
+  if(R2!==r||B2!==b||L2!==lp||wins!==w)return null}
+ return{pk:ev.pubkey,id:ev.id,t:ev.created_at,n:rkLbName(c.n),r,b,lp,m,w,sc:r*1e7+(r===5?lp:b)}}catch(e){return null}}
+function rkLbSort(a,b){return b.sc-a.sc||b.w-a.w||a.m-b.m||a.t-b.t||(a.pk<b.pk?-1:a.pk>b.pk?1:0)}
+
+/* ---------- talking to the relays ---------- */
+function rkRelayQuery(url,filter,ms){return new Promise(res=>{const got=[];let ws,done=false;const sub='lb'+Math.random().toString(36).slice(2,9);
+ const fin=ok=>{if(done)return;done=true;clearTimeout(t);try{ws&&ws.readyState===1&&ws.send(JSON.stringify(['CLOSE',sub]));ws&&ws.close()}catch(e){}res({ok,evs:got})};const t=setTimeout(()=>fin(got.length>0),ms||6000);
+ try{ws=new WebSocket(url)}catch(e){fin(false);return}
+ ws.onopen=()=>{try{ws.send(JSON.stringify(['REQ',sub,filter]))}catch(e){fin(false)}};
+ ws.onmessage=e=>{let a;try{a=JSON.parse(e.data)}catch(x){return}if(!Array.isArray(a))return;if(a[0]==='EVENT'&&a[1]===sub&&a[2]&&typeof a[2]==='object'){if(got.length<3000)got.push(a[2])}else if(a[0]==='EOSE'&&a[1]===sub)fin(true);else if(a[0]==='CLOSED'&&a[1]===sub)fin(got.length>0)};
+ ws.onerror=ws.onclose=()=>fin(got.length>0)})}
+/* relays send at most a few hundred events per request (often 500): page back in time with "until" while pages come back full */
+async function rkRelayQueryAll(url,filter,ms){const all=[],seen=new Set();let ok=false,until=null;
+ for(let pg=0;pg<4;pg++){const f=Object.assign({},filter);if(until!=null)f.until=until;const r=await rkRelayQuery(url,f,ms);if(!r.ok&&!pg)return r;ok=ok||r.ok;let fresh=0,low=Infinity;
+  for(const ev of r.evs){if(!ev||typeof ev.id!=='string')continue;if(Number.isInteger(ev.created_at))low=Math.min(low,ev.created_at);if(seen.has(ev.id))continue;seen.add(ev.id);all.push(ev);fresh++}
+  if(r.evs.length<200||!fresh||!isFinite(low)||all.length>=3000)break;until=low}return{ok,evs:all}}
+function rkRelaySend(url,ev,ms){return new Promise(res=>{let ws,done=false;const fin=ok=>{if(done)return;done=true;clearTimeout(t);try{ws&&ws.close()}catch(e){}res(ok)};const t=setTimeout(()=>fin(false),ms||6000);
+ try{ws=new WebSocket(url)}catch(e){fin(false);return}ws.onopen=()=>{try{ws.send(JSON.stringify(['EVENT',ev]))}catch(e){fin(false)}};
+ ws.onmessage=e=>{let a;try{a=JSON.parse(e.data)}catch(x){return}if(Array.isArray(a)&&a[0]==='OK'&&a[1]===ev.id)fin(a[2]===true||/duplicate/i.test(String(a[3]||'')))};ws.onerror=ws.onclose=()=>fin(false)})}
+/* the player's own entry, as posted */
+function rkLbMine(){const R=rkSt(),S0=rkSeaStart(R.season)*1000;const h=R.hist.filter(x=>x&&x.t>=S0).map(x=>[Math.floor(x.t/1000),x.p,x.d,x.r]).slice(-10);
+ const m=Math.max(R.sm,h.length),hh=h.slice(-Math.min(m,10));return{v:1,s:R.season,n:rkLbName(P.name||'Player'),r:R.r,b:R.r===5?0:R.bar,lp:R.r===5?R.lp:0,m,w:Math.min(m,Math.max(R.sw,hh.filter(x=>x[1]===0).length)),r0:Math.min(3,R.r0,R.r),h:hh}}
+const rkLbContent=()=>{const R=rkSt();return JSON.stringify(R.lbHide?{v:1,s:R.season,hide:1}:rkLbMine())};
+/* is there something on this device the relays have not got yet? */
+const rkLbDirty=()=>{try{const R=rkSt();if(!R.lbHide&&R.sm<1)return false;return !!R.lbPend||R.lbLast!==rkLbContent()}catch(e){return false}};
+async function rkLbPush(force){const R=rkSt(),rel=rkLbRelays();if(!rel.length)return 0;if(!R.lbHide&&R.sm<1)return 0;
+ if(RKLB.p){RKLB.again=1;return RKLB.p}const now=Date.now();
+ if(now-RKLB.pushT<15000&&!force){clearTimeout(RKLB.pushQ);RKLB.pushQ=setTimeout(()=>rkLbPush(),15000-(now-RKLB.pushT));return 0}RKLB.pushT=now;clearTimeout(RKLB.pushQ);
+ RKLB.p=(async()=>{let n=0;try{const K=rkLbKey(),txt=rkLbContent(),tg=rkLbTag(R.season);
+  /* each new entry gets a later time stamp than the last one, so relays and readers always keep the newest */
+  const at=Math.max(Math.floor(Date.now()/1000),(rkSt().lbAt|0)+1);rkSt().lbAt=at;
+  const ev=await rkEvSign(K,RKLBK,[['d',tg],['t',tg],['t','twwc-lb']],txt,at);const oks=await Promise.all(rel.map(u=>rkRelaySend(u,ev,6000)));n=oks.filter(Boolean).length;
+  const S=rkSt();if(n){S.lbSent=Date.now();S.lbLast=txt;S.lbPend=0;RKLB.t=0}else S.lbPend=1;save()}catch(e){try{rkSt().lbPend=1;save()}catch(x){}}
+  finally{RKLB.p=null;if(RKLB.again){RKLB.again=0;if(rkLbDirty())setTimeout(()=>rkLbPush(true),50)}}rkLbPaint();return n})();return RKLB.p}
+try{addEventListener('online',()=>{if(rkLbDirty())rkLbPush(true)})}catch(e){}
+/* a player's current entry: their newest event whose signature holds (checked lazily: relays already check signatures,
+   so only entries that reach the board, and newer events that would remove or hide an entry, are verified here) */
+async function rkLbHead(g,season,nowS){while(g.length){const ev=g[0],e=rkLbCheck(ev,season,nowS);if(e&&!e.hide){e.ev=ev;return e}
+  if(g.length>1&&!(await rkEvOk(ev))){g.shift();continue}return e}return null}
+/* fetch, check, verify and rank the board */
+async function rkLbLoad(force){const R=rkSt(),rel=rkLbRelays(),now=Date.now();if(!force&&RKLB.state==='ok'&&now-RKLB.t<120000&&RKLB.s===R.season)return RKLB;
+ if(RKLB.loading)return RKLB.loading;if(!rel.length){RKLB.state='offline';RKLB.relays=0;RKLB.reached=0;return RKLB}RKLB.state=RKLB.state==='ok'&&RKLB.s===R.season?'ok':'loading';RKLB.busy=1;rkLbPaint();
+ RKLB.loading=(async()=>{try{const season=R.season,tg=rkLbTag(season),res=await Promise.all(rel.map(u=>rkRelayQueryAll(u,{kinds:[RKLBK],'#t':[tg],limit:1000},6500)));
+  RKLB.relays=rel.length;RKLB.reached=res.filter(x=>x.ok).length;
+  if(!RKLB.reached){RKLB.state='offline';return RKLB}
+  const groups=new Map();for(const x of res)for(const ev of x.evs){if(!rkEvShape(ev))continue;let g=groups.get(ev.pubkey);if(!g)groups.set(ev.pubkey,g=[]);if(!g.some(o=>o.id===ev.id&&o.sig===ev.sig))g.push(ev)}
+  const K=rkLbKey(),nowS=Math.floor(now/1000),cand=[];let hidden=0;groups.delete(K.pk);
+  for(const g of groups.values()){g.sort((a,b)=>b.created_at-a.created_at||(a.id<b.id?-1:1));if(g.length>6)g.length=6;const e=await rkLbHead(g,season,nowS);if(!e)continue;if(e.hide){hidden++;continue}cand.push(e)}
+  cand.sort(rkLbSort);const list=[];let i=0,k=0;
+  while(i<cand.length&&list.length<100){const e=cand[i++];if(await rkEvOk(e.ev)){list.push(e);if(++k%10===0)await new Promise(r=>setTimeout(r,0));continue}
+   /* a forged or broken event: fall back to that player's previous one */
+   const g=groups.get(e.pk);g.shift();const n=await rkLbHead(g,season,nowS);if(!n)continue;if(n.hide){hidden++;continue}
+   let j=i;while(j<cand.length&&rkLbSort(cand[j],n)<0)j++;cand.splice(j,0,n)}
+  const rest=cand.slice(i);
+  /* the player's own place comes from their own save, not from what a relay says */
+  let me=null,place=0;if(!R.lbHide&&R.sm>0){const c=rkLbMine();me={pk:K.pk,me:1,t:Math.floor((R.lbSent||now)/1000),n:c.n,r:c.r,b:c.b,lp:c.lp,m:c.m,w:c.w,sc:c.r*1e7+(c.r===5?c.lp:c.b)};
+   place=list.filter(e=>rkLbSort(e,me)<0).length+rest.filter(e=>rkLbSort(e,me)<0).length+1;const at=list.findIndex(e=>rkLbSort(e,me)>0);
+   if(at>=0){list.splice(at,0,me);if(list.length>100)list.length=100}else list.push(me);me.place=place}
+  Object.assign(RKLB,{state:'ok',list,all:list.filter(e=>!e.me).length+rest.length+(me?1:0),me,hidden,t:Date.now(),s:season,err:''});
+  try{R.lbc={t:RKLB.t,s:season,list:list.map(e=>({pk:e.pk.slice(0,8),n:e.n,r:e.r,b:e.b,lp:e.lp,m:e.m,w:e.w,me:e.me?1:0})),all:RKLB.all,place};save()}catch(e){}
+  if(rkLbDirty())rkLbPush(true);return RKLB}
+ catch(e){RKLB.state='offline';RKLB.err=String(e&&e.message||e);return RKLB}finally{RKLB.loading=null;RKLB.busy=0;rkLbPaint()}})();return RKLB.loading}
+
+/* ---------- screens ---------- */
+const rkAgo=t=>{const s=Math.max(0,Math.round((Date.now()-t)/1000));return s<45?'just now':s<5400?`${Math.max(1,Math.round(s/60))} min ago`:s<129600?`${Math.round(s/3600)} h ago`:`${Math.round(s/86400)} days ago`};
+const rkGem=r=>`<i class="rkgem${r===5?' leg':''}" style="--rc:${WCRN[r].c};--rc2:${WCRN[r].c2}" title="${WCRN[r].n}">${r===5?'<u>★</u>':''}</i>`;
+const rkLbScore=e=>e.r===5?`<b>${cmn(e.lp)}</b><small>LP</small>`:`<b>${e.b}</b><small>/ 100</small>`;
+function rkLbRow(e,place,mini){const pl=place<=3?` p${place}`:'';
+ return `<div class="rkbr${e.me?' me':''}${mini?' mini':''}" style="--d:${Math.min(place,14)}"><span class="rkbpl${pl}">${place}</span>${rkGem(e.r)}<span class="rkbn"><b>${esc(e.me?rkLbName(P.name||'Player'):e.n)}</b><small>${e.me?'you':'#'+esc(String(e.pk).slice(0,4))}</small></span><span class="rkbrk" style="color:${WCRN[e.r].c}">${WCRN[e.r].n}</span><span class="rkbsc">${rkLbScore(e)}</span>${mini?'':`<span class="rkbmw"><b>${cmn(e.m)}</b><small>played · ${cmn(e.w)} won</small></span>`}</div>`}
+/* what to draw: the live board, or the copy saved on this device */
+function rkLbView(){const R=rkSt();if(RKLB.state==='ok'&&RKLB.s===R.season)return{live:1,list:RKLB.list,all:RKLB.all,place:RKLB.me?RKLB.me.place:0,t:RKLB.t};
+ const c=R.lbc;if(c&&c.s===R.season&&Array.isArray(c.list))return{live:0,list:c.list,all:c.all|0,place:c.place|0,t:c.t};return null}
+function rkLbRows(v,max,mini){if(!v.list.length)return'';let out='',meShown=false;const n=Math.min(v.list.length,max);
+ for(let i=0;i<n;i++){const e=v.list[i];out+=rkLbRow(e,e.me&&v.place?v.place:i+1,mini);if(e.me)meShown=true}
+ if(!meShown&&v.place){const e=v.list.find(x=>x.me);if(e)out+=`<div class="rkbgap">⋯</div>`+rkLbRow(e,v.place,mini)}return out}
+function rkLbStatus(){const v=rkLbView(),R=rkSt();if(RKLB.busy&&!v)return'Loading the leaderboard…';
+ if(RKLB.state==='ok'&&v&&v.live)return`Updated ${rkAgo(v.t)} · ${RKLB.reached} of ${RKLB.relays} relays answered${RKLB.hidden?` · ${RKLB.hidden} hidden by their players`:''}`;
+ if(RKLB.busy)return'Updating…';if(v)return`Offline · showing the board saved ${rkAgo(v.t)}`;return R.lbPend?'Offline · your score will be sent when you are back online':'Could not reach the leaderboard.'}
+/* every paint redraws only what changed, so rows do not replay their entry animation */
+function rkLbPaint(){try{const v=rkLbView(),R=rkSt();
+ const mini=document.getElementById('rklbmr');if(mini){let h='';if(v&&v.list.length){const top=v.list.slice(0,3);h=top.map((e,i)=>rkLbRow(e,e.me&&v.place?v.place:i+1,1)).join('');const me=v.list.find(x=>x.me);
+   if(me&&v.place>3)h+=rkLbRow(me,v.place,1);else if(!me&&!R.lbHide&&R.sm<1)h+=`<p class="rkempty">Play a ranked match to get on the board.</p>`}
+  else h=`<p class="rkempty">${RKLB.busy?'Loading the leaderboard…':v?'No one is on the board yet this season. Win a ranked match to be first!':'The leaderboard needs an internet connection.'}</p>`;if(mini.dataset.k!==h){mini.dataset.k=h;mini.innerHTML=h}}
+ const near=document.getElementById('rklbnear');if(near){let h='';if(v&&v.list.length){const i=v.list.findIndex(x=>x.me),me=v.list[i];
+   if(me&&v.place===i+1){const a=Math.max(0,Math.min(i-2,v.list.length-5));h=v.list.slice(a,a+5).map((e,k)=>rkLbRow(e,a+k+1,1)).join('')}
+   else{h=v.list.filter(x=>!x.me).slice(0,me?3:5).map((e,k)=>rkLbRow(e,k+1,1)).join('');if(me&&v.place)h+=`<div class="rkbgap">⋯</div>`+rkLbRow(me,v.place,1)}}
+  else h=`<p class="rkempty">${RKLB.busy?'Loading…':'Legend players this season show here.'}</p>`;if(near.dataset.k!==h){near.dataset.k=h;near.innerHTML=h}}
+ const bd=document.getElementById('rkboard');if(bd){const box=bd.querySelector('#rkbrows'),st=bd.querySelector('#rkbst'),pl=bd.querySelector('#rkbplace'),of=bd.querySelector('#rkbof'),rf=bd.querySelector('#rkbref');
+  if(rf)rf.classList.toggle('spin',!!RKLB.busy);if(st)st.textContent=rkLbStatus();
+  if(pl){pl.textContent=R.lbHide?'Hidden':v&&v.place?'#'+v.place:'—';of.textContent=R.lbHide?'You are not shown on the leaderboard.':R.sm<1?'Play a ranked match to get on the board.':v&&v.place?`of ${cmn(v.all)} player${v.all===1?'':'s'} this season`:RKLB.busy?'Finding your place…':'Your place shows once the board loads.'}
+  if(box){let h;if(v&&v.list.length)h=rkLbRows(v,100,0);else if(v)h=`<div class="rkbmt"><b>No one is on the board yet</b><p>Season ${R.season} is waiting for its first players. Win a ranked match to take first place.</p></div>`;
+   else if(RKLB.busy)h=`<div class="rkbmt"><b>Loading the leaderboard…</b><p>Asking the relays for this season's players.</p></div>`;
+   else h=`<div class="rkbmt"><b>Couldn't reach the leaderboard</b><p>The leaderboard lives on public relays and needs an internet connection. Your ranked progress is safe on this device and is sent when you are back online.</p><button class="wcbtn" id="rkbretry">Try again</button></div>`;
+   if(box.dataset.k!==h){box.dataset.k=h;box.innerHTML=h;const me=box.querySelector('.rkbr.me');if(me&&!box.dataset.sc){box.dataset.sc=1;box.scrollTop=Math.max(0,me.offsetTop-box.offsetTop-box.clientHeight/2+30)}
+    const rt=box.querySelector('#rkbretry');if(rt)rt.onclick=()=>{wcFx('click');rkLbLoad(true)}}}}}catch(e){}}
+function rkBoard(){WX.tok++;wcClear();CAS.on=true;const R=rkSt(),T=WCRN[R.r],K=(()=>{try{return rkLbKey()}catch(e){return{pk:''}}})();
+ show(`<div class="rkx rkboard" id="rkboard"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div>${rkHead('Leaderboard','Ranked')}
+ <section class="rkp rkbme" style="--rc:${T.c}"><h4>Your place · Season ${R.season}</h4><div class="rkbbig" id="rkbplace">—</div><p class="rkbof" id="rkbof"></p>
+  <div class="rkbins">${rkInsig(R.r,200)}</div><b class="rkbrn" style="color:${T.c}">${T.n}</b><div class="rkbsc2">${R.r===5?`${cmn(R.lp)} Legend points`:`${R.bar} / 100`}</div>
+  <p class="rkbst2">${cmn(R.sm)} ranked match${R.sm===1?'':'es'} · ${cmn(R.sw)} won this season</p>
+  <div class="rkbname">On the board as <b>${esc(rkLbName(P.name||'Player'))}</b> <span>#${esc(K.pk.slice(0,4))}</span></div>
+  <div class="rkbtog"><span>Show me on the leaderboard</span><div class="seg"><button class="sm${R.lbHide?'':' on'}" data-h="0">On</button><button class="sm${R.lbHide?' on':''}" data-h="1">Off</button></div></div>
+  <p class="rkbnote">Every score is signed by its player's game. Scores that could not have been played are hidden automatically.</p></section>
+ <section class="rkp rkblist"><div class="rkbtop"><h4>Season ${R.season} · top 100</h4><span class="rkbst" id="rkbst"></span><button class="wcpb" id="rkbref" aria-label="Refresh"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 1 7.4 5H17v2h6V5h-2v2.3A10 10 0 1 0 22 12h-2a8 8 0 1 1-8-8z" fill="currentColor"/></svg><span>Refresh</span></button></div>
+  <div class="rkbhd"><span>#</span><span></span><span>Player</span><span>Rank</span><span>Points</span><span>Matches</span></div><div class="rkbrows" id="rkbrows"></div></section>
+ <div class="wcmod" id="wcmod" hidden></div></div>`,'casbg wcx');
+ S.back=()=>{wcFx('back');rkHub()};$('rkback').onclick=S.back;
+ $('rkbref').onclick=()=>{if(RKLB.busy)return;if(Date.now()-RKLB.refT<4000){rkLbPaint();return}RKLB.refT=Date.now();wcFx('click');rkLbLoad(true)};
+ ov.querySelectorAll('.rkbtog [data-h]').forEach(b=>b.onclick=()=>{const h=+b.dataset.h,S2=rkSt();if(S2.lbHide===h)return;wcFx('click');S2.lbHide=h;save();
+  ov.querySelectorAll('.rkbtog [data-h]').forEach(x=>x.classList.toggle('on',x===b));RKLB.t=0;rkLbPaint();rkLbPush(true).then(()=>rkLbLoad(true))});
+ rkLbPaint();rkLbLoad();wcFx('vault')}
+/* the hub: a top-3 preview in the middle panel; at Legend, the players around you replace the old standings */
+rkStandings=function(){return `<div class="rkstd2" id="rklbnear"></div><button class="rklbv side" id="rklbview2">Full leaderboard ›</button>`};
+{const h0=rkHub;rkHub=function(){const r=h0.apply(this,arguments);try{const mid=ov.querySelector('.rkhub .rkmid'),row=mid&&mid.querySelector('.rkrow');
+ if(row&&!mid.querySelector('#rklbmini')){const d=document.createElement('div');d.className='rklbm';d.id='rklbmini';
+  d.innerHTML=`<div class="rklbmh"><h4>Season leaderboard</h4><button class="rklbv" id="rklbview">View all ›</button></div><div id="rklbmr"></div>`;row.before(d)}
+ const go=()=>{wcFx('click');rkBoard()};ov.querySelectorAll('#rklbview,#rklbview2').forEach(b=>b.onclick=go);const mr=ov.querySelector('#rklbmr');if(mr)mr.onclick=go;
+ rkLbPaint();rkLbLoad()}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.rklbm{margin:14px 0 10px}.rklbmh{display:flex;align-items:center;justify-content:space-between}.rklbmh h4{margin:0}
+.rklbv{all:unset;cursor:pointer;font:800 14px var(--ui);color:var(--gold);padding:6px 10px;margin:-6px -10px 0 0;border-radius:10px;transition:transform .2s var(--sp)}.rklbv:hover{transform:translateX(3px)}
+.rklbv.side{display:block;margin:6px 0 0;text-align:right}
+#rklbmr{margin-top:8px;cursor:pointer;min-height:40px}
+.rkbr{display:grid;grid-template-columns:62px 44px minmax(0,1fr) 120px 120px 170px;align-items:center;gap:10px;height:54px;padding:0 16px 0 10px;margin-bottom:6px;border-radius:14px;background:#0e0828;border:1.5px solid #2e2660;box-sizing:border-box;animation:rkbin .4s var(--sp) both;animation-delay:calc(var(--d)*25ms)}
+.rkbr.mini{grid-template-columns:34px 26px minmax(0,1fr) 84px 80px;height:34px;gap:8px;padding:0 12px 0 6px;margin-bottom:4px;border-radius:11px}
+@keyframes rkbin{from{opacity:0;transform:translateY(8px)}}
+.rkbr.me{border:2px solid var(--gold);background:linear-gradient(90deg,#3a2a12,#0e0828 70%)}
+.rkbpl{display:grid;place-items:center;width:38px;height:38px;margin:0 auto;border-radius:50%;font:900 16px var(--ui);color:#cfc6f5}
+.mini .rkbpl{width:26px;height:26px;font-size:13px}
+.rkbpl.p1,.rkbpl.p2,.rkbpl.p3{color:#2a1406;box-shadow:0 0 0 2.5px #12081f}
+.rkbpl.p1{background:radial-gradient(circle at 35% 30%,#fff2a0,#f6b830 60%,#a8680e)}.rkbpl.p2{background:radial-gradient(circle at 35% 30%,#ffffff,#c8d0e8 60%,#7a86a8)}.rkbpl.p3{background:radial-gradient(circle at 35% 30%,#ffd0a0,#e08a40 60%,#8a4418)}
+.rkgem{display:grid;place-items:center;width:24px;height:24px;margin:0 auto;transform:rotate(45deg);border-radius:6px;background:linear-gradient(135deg,#ffffffaa 0%,var(--rc) 38%,var(--rc2) 100%);box-shadow:0 0 0 2.5px #12081f;font-style:normal}
+.rkgem u{transform:rotate(-45deg);text-decoration:none;font:900 13px/1 var(--ui);color:#3a0a6a}
+.mini .rkgem{width:16px;height:16px;border-radius:4px}.mini .rkgem u{font-size:10px}
+.rkbn{display:flex;align-items:baseline;gap:8px;min-width:0}.rkbn b{font:800 17px var(--ui);color:#fff8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rkbn small{font:700 13px var(--ui);color:#8a80c0;flex:none}
+.mini .rkbn b{font-size:15px}.mini .rkbn small{font-size:12px}
+.rkbr.me .rkbn small{color:var(--gold)}
+.rkbrk{font:800 15px var(--ui)}.mini .rkbrk{font-size:13px}
+.rkbsc{text-align:right;white-space:nowrap}.rkbsc b{font:900 18px var(--ui);color:#fff8e8}.rkbsc small{font:700 12px var(--ui);color:#a8a0d0;margin-left:4px}
+.mini .rkbsc b{font-size:15px}
+.rkbmw{text-align:right;white-space:nowrap}.rkbmw b{font:800 15px var(--ui);color:#ddd4ff}.rkbmw small{font:600 12px var(--ui);color:#8a80c0;margin-left:5px}
+.rkbgap{text-align:center;color:#6a60a0;font:900 16px var(--ui);line-height:12px;margin:-2px 0 4px}
+.rkbme{left:40px;top:118px;bottom:30px;width:440px;display:flex;flex-direction:column;align-items:center;text-align:center;border-color:color-mix(in srgb,var(--rc) 55%,#463a8a)}
+.rkbme h4{align-self:stretch;text-align:left}
+.rkbbig{font:400 92px/1 'Pirata One',var(--ui);color:var(--gold);margin-top:4px}
+.rkbof{margin:4px 0 6px;font:700 15px var(--ui);color:#cfc6f5;min-height:20px}
+.rkbins{height:200px;margin:0 0 -6px}
+.rkbrn{font:400 40px/1.1 'Pirata One',var(--ui)}
+.rkbsc2{font:800 17px var(--ui);color:#fff8e8}
+.rkbst2{margin:6px 0 0;font:600 14px var(--ui);color:#a8a0d0}
+.rkbname{margin-top:14px;font:600 15px var(--ui);color:#cfc6f5}.rkbname b{color:#fff8e8}.rkbname span{color:var(--gold);font-weight:800}
+.rkbtog{margin-top:auto;align-self:stretch;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;background:#0e0828;border:1.5px solid #2e2660;font:700 15px var(--ui);text-align:left}
+.rkbtog .seg{display:flex;gap:6px}.rkbtog .seg button{min-width:58px;font:800 14px var(--ui)}
+.rkbnote{margin:12px 0 0;font:600 13px/1.45 var(--ui);color:#8a80c0}
+.rkblist{left:504px;right:40px;top:118px;bottom:30px;display:flex;flex-direction:column}
+.rkbtop{display:flex;align-items:center;gap:14px;margin-bottom:12px}.rkbtop h4{margin:0}
+.rkbst{flex:1;text-align:right;font:600 13px var(--ui);color:#a8a0d0}
+#rkbref svg{width:18px;height:18px}#rkbref.spin svg{animation:rkspin .9s linear infinite}@keyframes rkspin{to{transform:rotate(360deg)}}
+.rkbhd{display:grid;grid-template-columns:62px 44px minmax(0,1fr) 120px 120px 170px;gap:10px;padding:0 32px 6px 10px;font:800 12px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#8a80c0}
+.rkbhd span:first-child{text-align:center}.rkbhd span:nth-child(5),.rkbhd span:nth-child(6){text-align:right}
+.rkbrows{flex:1;min-height:0;overflow-y:auto;padding-right:6px;overscroll-behavior:contain}
+.rkbrows::-webkit-scrollbar{width:10px}.rkbrows::-webkit-scrollbar-thumb{background:#463a8a;border-radius:10px;border:2px solid #100a30}.rkbrows::-webkit-scrollbar-track{background:transparent}
+.rkbmt{margin:70px auto 0;max-width:520px;text-align:center}.rkbmt b{display:block;font:400 36px 'Pirata One',var(--ui);color:var(--gold)}.rkbmt p{font:600 16px/1.5 var(--ui);color:#cfc6f5}
+.rkbmt .wcbtn{margin-top:10px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

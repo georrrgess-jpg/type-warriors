@@ -23699,7 +23699,7 @@ WCBKX.rkcelest={base:'#4a1a8a',art(){const cx=150,cy=219;
    Performance (measured at 4x CPU throttle): a hover change moves at most the hovered card and its two direct
    neighbours, glow and veil switch instantly instead of fading, nothing breathes while idle, and no card keeps a
    permanent layer (will-change made idle frames slower); only transform and opacity ever animate. */
-const WCHL_SETTLE=110,WCHL={hv:null,src:null,pt:null,L:[],bs:[],tap:null,down:null,ft:0,gt:0};
+const WCH_CARRY=new Set(['wchyIn','wchyFl','wchySh','wchySh2']),WCHL_SETTLE=110,WCHL={hv:null,src:null,pt:null,L:[],bs:[],tap:null,down:null,ft:0,gt:0};
 /* lift (px), scale and tilt factor per card state; the CSS below is generated from this table so JS and CSS agree */
 const WCHV={ok:[-26,1,1],okb:[-12,1,1],okhv:[-50,1.06,.2],hv:[-20,1,.55],pend:[-38,1.06,.3],pendhv:[-46,1.07,0],rest:[0,1,1]};
 /* resting slots: x,y0 = card top-left offset from the hand line (top 718), r = tilt in degrees. The arc is scaled down
@@ -23742,10 +23742,12 @@ function wchSet(i,src,quiet){const bs=WCHL.bs,b=bs[i]||null,id=b?b.dataset.id:nu
  const T=$('wct');if(T){const was=T.classList.contains('wchup');let up=was;if(!b)up=false;else if(!was&&ok){const s=$('wcstat'),w=s?s.offsetWidth:0,x=WCHL.L[i].x;up=w>0&&x<800+w/2+10&&x+112>800-w/2-10}if(up!==was)T.classList.toggle('wchup',up)}
  /* a pointer sweep only lifts the card under the cursor; the neighbours part (and the sheen and tick play) once the
     pointer rests on one card for SETTLE ms, so a fast sweep never sets three cards moving per step */
- const lifts=!!b&&!b.classList.contains('no'),part=k=>(ok&&Math.abs(k-i)===1?Math.sign(k-i)*P:0).toFixed(1)+'px',settle=!quiet&&src==='ptr';clearTimeout(WCHL.stm);
- bs.forEach((e,k)=>{const on=k===i;if(e.classList.contains('hv')!==on){e.classList.toggle('hv',on);clearTimeout(e._zt);
-  /* a card being let go stays on top while it sinks (a timed class: a delayed z-index transition would restyle every frame) */
-  if(!on){e.classList.remove('wchs','wchs2');if(lifts&&!e.classList.contains('no')){e.classList.add('wchz');e._zt=setTimeout(()=>e.classList.remove('wchz'),200)}else e.classList.remove('wchz')}else e.classList.remove('wchz')}const px=settle?'0.0px':part(k);if(e._px!==px){e._px=px;e.style.setProperty('--hcp',px)}});
+ const part=k=>(ok&&Math.abs(k-i)===1?Math.sign(k-i)*P:0).toFixed(1)+'px',settle=!quiet&&src==='ptr';clearTimeout(WCHL.stm);
+ /* a card being let go drops straight back to its own place in the stack (z-index = its index) while it sinks: if it
+    stayed on top for a moment, a fast sweep left would leave a trail of sinking cards lying over their right-hand
+    neighbours, each popping back under at a different time, which reads as edges glitching through the cards. Now the
+    stack order is always the hand order, apart from the one hovered card on top. */
+ bs.forEach((e,k)=>{const on=k===i;if(e.classList.contains('hv')!==on){e.classList.toggle('hv',on);e.classList.remove('wchfl');if(!on)e.classList.remove('wchs','wchs2')}const px=settle?'0.0px':part(k);if(e._px!==px){e._px=px;e.style.setProperty('--hcp',px)}});
  if(settle&&b)WCHL.stm=setTimeout(()=>{if(WCHL.hv!==id||!b.isConnected)return;bs.forEach((e,k)=>{const px=part(k);if(e._px!==px){e._px=px;e.style.setProperty('--hcp',px)}});wchGlint(b,src)},WCHL_SETTLE);
  const hit=document.querySelector('#wchand .wchit');if(hit)hit.classList.toggle('ok',!!(b&&b.classList.contains('ok')));
  if(b&&!quiet&&!settle)wchGlint(b,src)}
@@ -23767,7 +23769,13 @@ function wchWire(h){if(h._wch)return;h._wch=1;const isHit=e=>e.target.classList&
  h.addEventListener('focusin',e=>{const b=e.target;if(!b.classList||!b.classList.contains('wchc'))return;let fv=true;try{fv=b.matches(':focus-visible')}catch(x){}if(fv)wchSet(WCHL.bs.indexOf(b),'key')});
  h.addEventListener('focusout',()=>{if(WCHL.src==='key')wchSet(-1,'key')})}
 {const r0=wcRenderHand;wcRenderHand=function(resort){const h=$('wchand'),rm=wcRM(),old=new Map();
- if(h&&!rm)h.querySelectorAll('.wchc').forEach(b=>{if(b.style.visibility!=='hidden')old.set(b.dataset.id,wchT(b))});
+ /* each card's target transform, plus where it is right now if it is still moving (a hover rise or sink, a glide) and
+    the progress of its draw-in and sheen animations, so a re-render mid-motion carries on instead of snapping */
+ if(h&&!rm)h.querySelectorAll('.wchc').forEach(b=>{if(b.style.visibility==='hidden')return;const o={t:wchT(b),cur:null,an:null,cl:null};
+  const A=b.getAnimations?b.getAnimations({subtree:true}):[];
+  if(A.some(a=>a.transitionProperty==='transform'&&a.effect&&a.effect.target===b&&a.playState==='running'))o.cur=getComputedStyle(b).transform;
+  const C=A.filter(a=>WCH_CARRY.has(a.animationName)&&a.playState!=='finished');if(C.length){o.an=new Map(C.map(a=>[a.animationName,a.currentTime]));o.cl=['fresh','wchs','wchs2'].filter(k=>b.classList.contains(k))}
+  old.set(b.dataset.id,o)});
  const out=r0.apply(this,arguments);if(!h||!h.isConnected)return out;
  const bs=[...h.querySelectorAll('.wchc')],n=bs.length,L=wcHandLay(n);WCHL.L=L;WCHL.R=null;WCHL.bs=bs;wchWire(h);h.classList.toggle('wchrm',rm);h.classList.toggle('wchbig',n>12);
  h.style.setProperty('--bt',(-(performance.now()%1600)).toFixed(0)+'ms');/* keeps the pending glow breathing in phase across re-renders */
@@ -23779,10 +23787,15 @@ function wchWire(h){if(h._wch)return;h._wch=1;const isHit=e=>e.target.classList&
  const cur=bs.findIndex(b=>b.dataset.id===WCHL.hv);let i=-1;
  if(WCHL.pt&&WCHL.src!=='key'){const p=wchStage(WCHL.pt.x,WCHL.pt.y);if(p)i=wchPick(p.x,p.y,cur)}else if(WCHL.src==='key'){const ae=document.activeElement;i=bs.indexOf(ae);if(i<0)i=cur}
  wchSet(i,WCHL.src||'ptr',true);
- /* FLIP: a card whose slot changed starts where it was heading before, then glides into its new slot; most
-    re-renders (another player's move) change nothing, so they cost no extra layout */
- if(old.size&&!rm){const mv=[];bs.forEach(b=>{const t=old.get(b.dataset.id);if(t&&t!==wchT(b)){b.style.transition='none';b.style.transform=t;mv.push(b)}});
-  if(mv.length){void h.offsetWidth;h.classList.add('wchfl');mv.forEach(b=>{b.style.transition='';b.style.transform=''});clearTimeout(WCHL.ft);WCHL.ft=setTimeout(()=>h.classList.remove('wchfl'),650)}}
+ /* FLIP: a card whose slot changed starts where it was (or was heading) and glides into its new slot (.wchfl, on that
+    card only, so hovering the other cards keeps its normal snappy timing); a card caught mid-hover keeps moving from
+    where it was with its usual timing; running draw-in and sheen animations continue from the same moment. Most
+    re-renders (another player's move) change nothing, so they cost no extra layout. */
+ if(old.size&&!rm){const mv=[],cont=[];bs.forEach(b=>{const o=old.get(b.dataset.id);if(!o)return;const nt=wchT(b);
+   if(o.t!==nt){b.style.transition='none';b.style.transform=o.cur||o.t;mv.push(b)}else if(o.cur){b.style.transition='none';b.style.transform=o.cur;cont.push(b)}
+   if(o.an){o.cl.forEach(k=>b.classList.add(k));try{b.getAnimations({subtree:true}).forEach(a=>{if(o.an.has(a.animationName))a.currentTime=o.an.get(a.animationName)})}catch(e){}}});
+  if(mv.length||cont.length){void h.offsetWidth;mv.forEach(b=>b.classList.add('wchfl'));mv.concat(cont).forEach(b=>{b.style.transition='';b.style.transform=''});
+   if(mv.length){clearTimeout(WCHL.ft);WCHL.ft=setTimeout(()=>mv.forEach(b=>b.classList.remove('wchfl')),650)}}}
  return out}}
 {const V=k=>`--hcl:${WCHV[k][0]}px;--hcs:${WCHV[k][1]};--hck:${WCHV[k][2]}`,st=document.createElement('style');st.textContent=`
 /* the hover vars are registered as non-inherited: changing them on a card must not restyle its whole SVG face */
@@ -23793,8 +23806,7 @@ function wchWire(h){if(h._wch)return;h._wch=1;const isHit=e=>e.target.classList&
 .wcx #wchand .wchc{pointer-events:none;cursor:default;transform:translate(calc(var(--x) + var(--hcp)),calc(var(--y) + var(--hcl))) rotate(calc(var(--r) * var(--hck))) scale(var(--hcs));
  transition:transform .26s cubic-bezier(.3,.7,.35,1);box-shadow:0 12px 20px -6px #000c,0 3px 6px #0007;filter:none}
 .wcx #wchand .wchc.hv{transition:transform .19s cubic-bezier(.2,.9,.3,1)}
-.wcx #wchand.wchfl .wchc{transition:transform .52s cubic-bezier(.22,1.22,.36,1)}
-.wcx #wchand .wchc.wchz{z-index:49}
+.wcx #wchand .wchc.wchfl{transition:transform .52s cubic-bezier(.22,1.22,.36,1)}
 .wcx #wchand .wchc.ok{${V('ok')};box-shadow:0 0 0 2.5px color-mix(in srgb,var(--ec) 45%,#fff),0 14px 22px -6px #000d,0 3px 6px #0007}
 .wcx #wchand.wchbig .wchc.ok:not(.pend):not(.hv){${V('okb')}}
 .wcx #wchand .wchc.hv{${V('hv')};z-index:50}

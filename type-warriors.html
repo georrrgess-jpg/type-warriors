@@ -5094,7 +5094,7 @@ function profile(sc){S.mode='title';S.view='menu';const l=lvl(P.xp),a=lvx(l),b=l
  $('nm').onchange=nm;if($('wp2'))$('wp2').onclick=()=>{nm();armory()};
  dyeBind(()=>{nm();profile()});presBind();
  $('b').onclick=()=>{nm();title()};
- $('rs').onclick=e=>{const t=e.target;if(t.dataset.a){sgSnap('Before erase','safe');sgMuteOffer();P=fresh();save();title()}else{t.dataset.a=1;t.textContent='Click again to erase. A backup is kept.';setTimeout(()=>{if(t.isConnected){t.dataset.a='';t.textContent='Reset save'}},3000)}}}
+ $('rs').onclick=e=>{const t=e.target;if(t.dataset.a){sgSnap('Before erase','safe');sgMuteOffer();load({});save();title()}else{t.dataset.a=1;t.textContent='Click again to erase. A backup is kept.';setTimeout(()=>{if(t.isConnected){t.dataset.a='';t.textContent='Reset save'}},3000)}}}
 
 /* ---------- armory ---------- */
 let prevA=null,prevW=null,prevMK=null;
@@ -14070,7 +14070,7 @@ function ccPlay(rw){return new Promise(res=>{
   g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);const cx=W/2,cy=H*.45;
   const bg=Math.min(.82,t*1.6);g.fillStyle=`rgba(6,3,16,${bg})`;g.fillRect(0,0,W,H);
   if(rw.t==='corn'){const f=.75+.25*Math.sin(t*9)*Math.sin(t*3.7),gr=g.createRadialGradient(cx,H*.62,10,cx,H*.62,Math.max(W,H)*.7);gr.addColorStop(0,`rgba(255,120,20,${.34*f*Math.min(1,t*2)})`);gr.addColorStop(.55,`rgba(120,30,160,${.2*Math.min(1,t*2)})`);gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,W,H)}
-  else{const gr=g.createRadialGradient(cx,cy,10,cx,cy,Math.max(W,H)*.6);gr.addColorStop(0,col+Math.round(Math.min(1,t*2)*70).toString(16).padStart(2,'0'));gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,W,H)}
+  else{const gr=g.createRadialGradient(cx,cy,10,cx,cy,Math.max(W,H)*.6);gr.addColorStop(0,col+Math.round(Math.max(0,Math.min(1,t*2))*70).toString(16).padStart(2,'0'));gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,W,H)}
   if(rw.t==='w'||rw.t==='a'){const n=10+rank*3,spin=t*.45;g.save();g.translate(cx,cy);for(let i=0;i<n;i++){const a=spin+i*6.2832/n,wdt=.09+.03*Math.sin(t*3+i);g.fillStyle=col+'2a';g.beginPath();g.moveTo(0,0);g.arc(0,0,Math.max(W,H),a-wdt,a+wdt);g.closePath();g.fill()}g.restore()}
   if(!burst&&t>.35){burst=1;const n=lite?14:rw.t==='gold'?90:rw.t==='corn'?50:40+rank*26;
    if(rw.t==='gold')for(let i=0;i<n;i++){const a=R(-Math.PI,0)-.0,v=R(380,980);addCoin(cx,cy,Math.cos(a)*v*.9,Math.sin(a)*v)}
@@ -22083,29 +22083,32 @@ async function wcNetCheck(){const m=wcModal(`<h3>Connection check</h3><p class="
 /* ===== WILDCARD RANKED (8.3): ranks, points, seasons, rewards and the AI ladder =====
    Ranked lives inside Wildcard: a normal 4-player game with the usual rules (+2 stacking on), no coin stake, 15-second
    turns. The game ends when someone empties their hand; everyone else is placed by fewest cards, then fewest card points
-   (numbers count their value, actions 20, wilds 50), then whoever played last. Your place moves a 100-point bar; fill it to
-   rank up (the bar starts again at 0). The bar never goes below 0 and you never drop a rank during a season.
+   (numbers count their value, actions 20, wilds 50), then whoever played last. Your place moves the rank's bar; fill it to
+   rank up (the bar starts again at 0). Each rank needs more points than the one before (WCRN[].need: 110, 150, 200, 250,
+   290; 1,000 to reach Legend): the first rank ups come quickly, Platinum and Diamond are the long climb. The bar never goes below 0 and you never drop a rank during a season.
    Seasons last 6 weeks; at the end you drop 2 ranks (Bronze is the floor) and the bar resets. Legend has no bar: Legend
    points keep counting. Every rank up gives a sleeve (a card back in the vault), a moment emote and coins (coins again each
    season you reach that rank). Leaving a match, closing the page during one, or three timeouts in a row place you 4th.
    Save data: P.rk (rkSt). Sleeves live in the Wildcard vault (W.backs, keys rk*); emotes in P.rk.em. */
 const WCRN=[
- {k:'bronze',n:'Bronze',pts:[30,20,10,0],coins:0,back:'rkcopper',emo:null,c:'#ffb070',c2:'#8a4418',ai:'Plays a random legal card and picks a random element for wilds.'},
- {k:'silver',n:'Silver',pts:[30,15,5,-5],coins:1500,back:'rkmoon',emo:'stun',c:'#e8eefa',c2:'#7a86a8',ai:'Plays number cards first, saves its wilds and picks the element it holds most.'},
- {k:'gold',n:'Gold',pts:[30,10,0,-10],coins:3000,back:'rksun',emo:'rev',c:'#ffd45a',c2:'#a86a10',ai:'Aims action cards at whoever has the fewest cards and always calls WILD!'},
- {k:'plat',n:'Platinum',pts:[25,10,-5,-15],coins:5000,back:'rkglacier',emo:'stack',c:'#8af0d8',c2:'#1a8a7a',ai:'Remembers which elements each player could not match and switches to them.'},
- {k:'dia',n:'Diamond',pts:[25,5,-10,-20],coins:8000,back:'rkprism',emo:'slam',c:'#8ad0ff',c2:'#2a5ad0',ai:'Counts the cards played and holds its +4 until someone is down to one or two cards.'},
+ {k:'bronze',n:'Bronze',need:110,pts:[30,20,10,0],coins:0,back:'rkcopper',emo:null,c:'#ffb070',c2:'#8a4418',ai:'Plays a random legal card and picks a random element for wilds.'},
+ {k:'silver',n:'Silver',need:150,pts:[30,15,5,-5],coins:1500,back:'rkmoon',emo:'stun',c:'#e8eefa',c2:'#7a86a8',ai:'Plays number cards first, saves its wilds and picks the element it holds most.'},
+ {k:'gold',n:'Gold',need:200,pts:[30,10,0,-10],coins:3000,back:'rksun',emo:'rev',c:'#ffd45a',c2:'#a86a10',ai:'Aims action cards at whoever has the fewest cards and always calls WILD!'},
+ {k:'plat',n:'Platinum',need:250,pts:[25,10,-5,-15],coins:5000,back:'rkglacier',emo:'stack',c:'#8af0d8',c2:'#1a8a7a',ai:'Remembers which elements each player could not match and switches to them.'},
+ {k:'dia',n:'Diamond',need:290,pts:[25,5,-10,-20],coins:8000,back:'rkprism',emo:'slam',c:'#8ad0ff',c2:'#2a5ad0',ai:'Counts the cards played and holds its +4 until someone is down to one or two cards.'},
  {k:'leg',n:'Legend',pts:[25,5,-10,-20],coins:12000,back:'rkcelest',emo:'over',c:'#e6b8ff',c2:'#7a3ad0',title:'Legend',ai:'Counts the cards played and holds its +4 until someone is down to one or two cards.'}];
 const WCREMO={stun:{n:'Stunned!',r:1,when:'you skip someone with a Stun card',c:'#5ab8ff',c2:'#1a3a9a'},rev:{n:'Reversed!',r:2,when:'you flip the turn order with a Turnabout',c:'#ffc94a',c2:'#9a5a10'},
  stack:{n:'Stack Attack',r:3,when:'you add to a +2 stack and pass it on',c:'#4ae0b8',c2:'#0a6a5a'},slam:{n:'+4 Slam',r:4,when:'you play a +4 Hex',c:'#8ab8ff',c2:'#2a3ab8'},over:{n:'Game Over',r:5,when:'you play your last card and win',c:'#c88aff',c2:'#4a1a8a'}};
 const WCREMK=['stun','rev','stack','slam','over'];
 const WCRSEA={start:Date.UTC(2026,9,12),len:42*864e5};
 const rkSeason=()=>Math.max(1,Math.floor((Date.now()-WCRSEA.start)/WCRSEA.len)+1),rkSeasonEnd=s=>WCRSEA.start+s*WCRSEA.len;
+/* points needed to fill the bar at rank r (Legend has no bar) */
+const rkNeed=r=>(WCRN[r]&&WCRN[r].need)||100;
 const rkLvl=r=>Math.min(4,Math.max(0,r|0));
 function rkSt(){let R=P.rk;if(!R||typeof R!=='object'||Array.isArray(R))R=P.rk={};
  const d={r:0,bar:0,lp:0,season:rkSeason(),peak:0,n:0,w:0,paid:{},em:{},hist:[],title:'',met:{},note:'',moved:0};
  for(const k in d)if(R[k]==null||typeof R[k]!==typeof d[k]||Array.isArray(d[k])!==Array.isArray(R[k]))R[k]=JSON.parse(JSON.stringify(d[k]));
- if(R.live===undefined)R.live=null;R.r=Math.max(0,Math.min(5,R.r|0));R.bar=Math.max(0,Math.min(99,R.bar|0));R.lp=Math.max(0,R.lp|0);
+ if(R.live===undefined)R.live=null;R.r=Math.max(0,Math.min(5,R.r|0));R.bar=Math.max(0,Math.min(rkNeed(R.r)-1,R.bar|0));R.lp=Math.max(0,R.lp|0);
  const cur=rkSeason();if(R.season<cur){const drop=2*(cur-R.season),from=R.r;R.r=Math.max(0,R.r-drop);R.bar=0;R.lp=0;R.season=cur;
   R.note=`Season ${cur} has started.${from!==R.r?` You start it in ${WCRN[R.r].n} (down from ${WCRN[from].n}).`:''} Your sleeves and emotes are yours to keep.`;
   for(const s in R.paid)if(+s<cur-2)delete R.paid[s]}
@@ -22119,8 +22122,8 @@ function rkReward(r){const R=rkSt(),W=wcSt(),T=WCRN[r],o={r,back:T.back,newBack:
 /* apply a finished match: place 0..3 */
 function rkApply(place,why){const R=rkSt(),W=wcSt(),from={r:R.r,bar:R.bar,lp:R.lp},d=rkPts(place,R.r),o={place,d,from,up:null,first:false,why:why||''};
  R.n++;if(place===0)R.w++;if(!W.backs.rkcopper){W.backs.rkcopper=1;o.first=true}
- if(R.r===5)R.lp=Math.max(0,R.lp+d);else{const b=R.bar+d;if(b>=100){R.r++;R.bar=0;o.up=rkReward(R.r)}else R.bar=Math.max(0,b)}
- R.peak=Math.max(R.peak,R.r);R.hist.push({p:place,d,r:from.r,t:Date.now(),why:why||''});if(R.hist.length>20)R.hist.splice(0,R.hist.length-20);
+ if(R.r===5)R.lp=Math.max(0,R.lp+d);else{const b=R.bar+d;if(b>=rkNeed(R.r)){R.r++;R.bar=0;o.up=rkReward(R.r)}else R.bar=Math.max(0,b)}
+ R.peak=Math.max(R.peak,R.r);R.hist.push({p:place,d,r:from.r,t:Date.now(),why:why||'',q:from.r<5?rkNeed(from.r):0});if(R.hist.length>20)R.hist.splice(0,R.hist.length-20);
  R.live=null;o.to={r:R.r,bar:R.bar,lp:R.lp};save();return o}
 /* a ranked match left behind (page closed mid-game) counts as 4th */
 function rkDodge(){const R=rkSt();if(!R.live)return null;if(WX.rk&&WX.G&&WX.G.phase!=='over'&&$('wct'))return null;const o=rkApply(3,'left');rkSt().note='Your last ranked match counted as 4th because you left it before the end.';save();return o}
@@ -22176,7 +22179,7 @@ function rkStart(o){o=o||{};const R=rkSt();rkDodge();
  const rg=players.find(p=>p.av&&p.av.rare);if(rg)wcToast(`✨ A rare guest takes an AI seat: <b>${esc(rg.name)}</b>. Win to earn the Pastel Wyrm card back!`);wcPump()}
 /* the table: rank pills on top, the blue ranked felt, AI tags and titles on the seats */
 {const t0=wcTable;wcTable=function(){const r=t0.apply(this,arguments);try{if(WX.rk){const t=$('wct');t.classList.remove('green');t.classList.add('blue','rktbl');const R=rkSt();
- const top=t.querySelector('.wctop');if(top)top.innerHTML=`<span class="wcpill tb rkpil">${rkInsig(R.r,30)}<b>Ranked · ${WCRN[R.r].n}</b></span><span class="wcpill">${R.r===5?`Legend points <b>${R.lp}</b>`:`<b>${R.bar}</b> / 100`}</span><span class="wcpill">15-second turns</span>`}}catch(e){}return r}}
+ const top=t.querySelector('.wctop');if(top)top.innerHTML=`<span class="wcpill tb rkpil">${rkInsig(R.r,30)}<b>Ranked · ${WCRN[R.r].n}</b></span><span class="wcpill">${R.r===5?`Legend points <b>${R.lp}</b>`:`<b>${R.bar}</b> / ${rkNeed(R.r)}`}</span><span class="wcpill">15-second turns</span>`}}catch(e){}return r}}
 {const s0=wcSeatHTML;wcSeatHTML=function(i){let h=s0.apply(this,arguments);try{const p=WX.G.P[i];
  if(WX.rk&&p.kind==='bot'&&p.ai&&!(p.av&&p.av.rare))h=h.replace(/(<div class="wcnm[^"]*"><b>[^<]*<\/b>)(<small[^>]*>[^<]*<\/small>)?/,'$1<small class="d-ai"><i>AI</i> '+WCRN[WX.rk.r].n+'</small>');
  if(p.title==='Legend')h=h.replace(/(<div class="wcnm[^"]*"><b>[^<]*<\/b>)/,'$1<small class="d-leg">★ Legend</small>')}catch(e){}return h}}
@@ -22319,8 +22322,9 @@ function rkEmoPaint(root){(root||document).querySelectorAll('.rkeb:not([data-p])
    (for example your Turnabout), that emote glows on the button for 4 seconds so one tap sends it. */
 const WCRFREE=['Haha!','Nooo','So close','Well played','Sneaky','GG','Nice!','Oops'];
 const rkDays=s=>Math.max(0,Math.ceil((rkSeasonEnd(s)-Date.now())/864e5));
-function rkBarHTML(R,cls){return R.r===5?`<div class="rkbar leg ${cls||''}"><i style="--w:100%"></i></div>`:`<div class="rkbar ${cls||''}"><i style="--w:${R.bar}%"></i></div>`}
-const rkNextTxt=R=>R.r===5?`${cmn(R.lp)} Legend points this season`:`${100-R.bar} more to ${WCRN[R.r+1].n}`;
+const rkPct=(bar,r)=>Math.round(Math.max(0,Math.min(1,bar/rkNeed(r)))*1000)/10;
+function rkBarHTML(R,cls){return R.r===5?`<div class="rkbar leg ${cls||''}"><i style="--w:100%"></i></div>`:`<div class="rkbar ${cls||''}"><i style="--w:${rkPct(R.bar,R.r)}%"></i></div>`}
+const rkNextTxt=R=>R.r===5?`${cmn(R.lp)} Legend points this season`:`${rkNeed(R.r)-R.bar} more to ${WCRN[R.r+1].n}`;
 function rkHead(title,backTxt){const R=rkSt(),s=R.season;return `<header class="wclh rkh"><button class="wcpb back" id="rkback">${WCI.back}<span>${backTxt||'Wildcard'}</span></button><h1>${title}</h1>
  <span class="wcpb rkseason">${WCI2.flame}<span>Season ${s} · ${rkDays(s)} day${rkDays(s)===1?'':'s'} left</span></span><span class="wcpb gold"><span class="coin"></span><b>${cmn(P.gold)}</b></span></header>`}
 /* ---------- the hub ---------- */
@@ -22331,7 +22335,7 @@ function rkHub(){WX.tok++;wcClear();try{wcScanStop()}catch(e){}CAS.on=true;rkDod
   :`<h4>Legend standings · Season ${R.season}</h4>${rkStandings()}`;
  show(`<div class="rkx rkhub" id="rkhub"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div>${rkHead('Ranked')}
  <section class="rkp rkcrest" style="--rc:${T.c}"><div class="rkglow"></div>${rkInsig(R.r,300,{anim:1})}<h2 style="color:${T.c}">${T.n}</h2>
-  ${R.r===5?`<div class="rknum"><b>${cmn(R.lp)}</b><small>Legend points</small></div>`:`<div class="rknum"><b>${R.bar}</b><small>/ 100</small></div>`}${rkBarHTML(R)}<p class="rknx">${rkNextTxt(R)}</p>
+  ${R.r===5?`<div class="rknum"><b>${cmn(R.lp)}</b><small>Legend points</small></div>`:`<div class="rknum"><b>${R.bar}</b><small>/ ${rkNeed(R.r)}</small></div>`}${rkBarHTML(R)}<p class="rknx">${rkNextTxt(R)}</p>
   <button class="wcbtn gold big" id="rkfind">${WCI2.cards}Find ranked match</button><p class="rksm">4 players · usual rules · 15-second turns · no buy-in, points are the prize</p></section>
  <section class="rkp rkmid"><h4>Points at ${T.n}</h4><div class="rkpts">${rows}</div>
   <ul class="rkul"><li>The bar never drops below 0 and you never lose a rank during a season.</li><li>Fill the bar to rank up. Every rank up pays a sleeve, an emote and coins.</li><li>Leaving a match, or three timeouts in a row, places you 4th.</li><li>Seasons last 6 weeks. A new season moves you down 2 ranks.</li></ul>
@@ -22349,7 +22353,7 @@ function rkHow(){wcModal(`<h3>How Ranked works</h3><div class="rkhow">
  <p><b>1 · Find a match.</b> Wildcard looks for players at your rank for 8 seconds, then one rank either side, up to 15 seconds. Empty seats are filled by AI players at your rank, marked AI.</p>
  <p><b>2 · Play.</b> The usual rules, with +2 stacking. Each turn has 15 seconds; running out draws a card for you. Three timeouts in a row hand your seat to an AI.</p>
  <p><b>3 · Placing.</b> The game ends as soon as someone empties their hand. Everyone else is placed by fewest cards left, then fewest card points (numbers count their value, actions 20, wilds 50), then whoever played last.</p>
- <p><b>4 · Points.</b> Your place moves your 100-point bar. Fill it to rank up. Legend has no bar: Legend points keep counting.</p>
+ <p><b>4 · Points.</b> Your place moves your rank's bar. Fill it to rank up. Each rank needs more than the last: 110 points at Bronze, 150 at Silver, 200 at Gold, 250 at Platinum and 290 at Diamond. Legend has no bar: Legend points keep counting.</p>
  <p><b>5 · Rewards.</b> Every rank up gives a sleeve, a moment emote and coins. Sleeves and emotes are yours forever; coins are paid again each season you reach the rank.</p></div>`,'wide')}
 /* ---------- match result ---------- */
 function rkHandWords(h){const nm=c=>c.s==='w'?(c.v==='d4'?'a +4 Hex':'a Wild Rune'):wcIsNum(c)?(c.v==='8'?'an 8':'a '+c.v):c.v==='stun'?'a Stun':c.v==='turn'?'a Turnabout':'a +2 Curse';const a=h.map(nm);
@@ -22368,22 +22372,22 @@ function rkResults(res,rank,o){o=o||{};const G=WX.G,R=rkSt(),me=WX.me,place=res.
  <section class="rklist">${rowsH}</section>
  ${rank?`<section class="rkp rktie"><h4>Tie-breaks</h4><p>Fewest cards left places higher. Same number of cards: lower card points wins (numbers count their value, action cards 20, wilds 50), then whoever played last. Leaving a match places you 4th and an AI finishes your seat.</p></section>`:''}${handBox}
  <section class="rkp rkcard" id="rkcard" style="--rc:${T0.c}"><div class="rkglow"></div><div id="rkins">${rkInsig(res.from.r,250,{anim:1})}</div><h2 id="rkrn" style="color:${T0.c}">${T0.n}</h2>
-  <div class="rknum big"><b id="rkn">${res.from.r===5?cmn(res.from.lp):res.from.bar}</b><small id="rkof">${res.from.r===5?'Legend points':'/ 100'}</small><em class="${res.d>0?'up':res.d<0?'dn':'zero'}">${res.d>0?'+':res.d<0?'−':'±'}${Math.abs(res.d)}</em></div>
-  <div class="rkbar big" id="rkbar"><i style="--w:${res.from.r===5?100:res.from.bar}%"></i><u></u></div><p class="rknx" id="rknx">${res.from.r===5?'Legend points set your place on the Legend standings':rkNextTxt({r:res.from.r,bar:res.from.bar})}</p>
+  <div class="rknum big"><b id="rkn">${res.from.r===5?cmn(res.from.lp):res.from.bar}</b><small id="rkof">${res.from.r===5?'Legend points':'/ '+rkNeed(res.from.r)}</small><em class="${res.d>0?'up':res.d<0?'dn':'zero'}">${res.d>0?'+':res.d<0?'−':'±'}${Math.abs(res.d)}</em></div>
+  <div class="rkbar big" id="rkbar"><i style="--w:${res.from.r===5?100:rkPct(res.from.bar,res.from.r)}%"></i><u></u></div><p class="rknx" id="rknx">${res.from.r===5?'Legend points set your place on the Legend standings':rkNextTxt({r:res.from.r,bar:res.from.bar})}</p>
   ${res.first?`<button class="rkfirst" id="rkfirst">${wcBack('rkcopper')}<span><b>New sleeve: Forged Copper</b><small>For playing your first ranked match · tap to equip</small></span></button>`:''}</section>
  <div class="rkbtns"><button class="wcbtn gold big" id="rkagain">Play again</button><button class="wcbtn big" id="rkhubb">Back to Ranked</button></div><div class="wcmod" id="wcmod" hidden></div></div>`,'casbg wcx');
  ov.querySelectorAll('canvas[data-por]').forEach(c=>{const av=G.P[+c.dataset.por].av;if(av&&av.t==='crew')wcLive(c,av,'por');else wcPortrait(c,av)});
  S.back=()=>rkHub();$('rkhubb').onclick=()=>{wcFx('click');rkHub()};$('rkagain').onclick=()=>{wcFx('click');typeof rkFind==='function'?rkFind():rkStart()};
  if($('rkfirst'))$('rkfirst').onclick=()=>{const W=wcSt();W.back='rkcopper';W.seen.rkcopper=1;save();wcFx('equip');$('rkfirst').classList.add('done');$('rkfirst').querySelector('small').textContent='Equipped on your cards'};
  wcFx(won?'win':res.d<0?'lose':'chip');
- /* the bar moves from where it was to where it is now; a rank up fills it to 100 first */
+ /* the bar moves from where it was to where it is now; a rank up fills it first */
  const bar=$('rkbar'),fill=bar.querySelector('i'),seg=bar.querySelector('u'),n=$('rkn'),from=res.from,d=res.d;
  const count=(a,b,ms)=>{const t0=performance.now();const f=t=>{const k=Math.min(1,(t-t0)/ms);if(!n.isConnected)return;n.textContent=cmn(Math.round(a+(b-a)*(1-Math.pow(1-k,3))));if(k<1)requestAnimationFrame(f)};requestAnimationFrame(f)};
  setTimeout(()=>{if(!bar.isConnected)return;if(from.r===5){count(from.lp,res.to.lp,900);return}
-  const to=res.up?100:res.to.bar;if(d>0){seg.style.left=from.bar+'%';seg.style.setProperty('--w',(to-from.bar)+'%');seg.className='g'}else if(d<0&&from.bar>0){seg.style.left=to+'%';seg.style.setProperty('--w',(from.bar-to)+'%');seg.className='r';fill.style.setProperty('--w',to+'%')}
+  const nd=rkNeed(from.r),to=res.up?nd:res.to.bar,pc=x=>rkPct(x,from.r);if(d>0){seg.style.left=pc(from.bar)+'%';seg.style.setProperty('--w',(pc(to)-pc(from.bar))+'%');seg.className='g'}else if(d<0&&from.bar>0){seg.style.left=pc(to)+'%';seg.style.setProperty('--w',(pc(from.bar)-pc(to))+'%');seg.className='r';fill.style.setProperty('--w',pc(to)+'%')}
   count(from.bar,to,900);if(res.up)setTimeout(()=>{if(bar.isConnected)rkUp(res.up,()=>rkResAfterUp(res))},1300)},650)}
 function rkResAfterUp(res){const T=WCRN[res.to.r],c=$('rkcard');if(!c)return;c.style.setProperty('--rc',T.c);$('rkins').innerHTML=rkInsig(res.to.r,250,{anim:1});const h=$('rkrn');h.textContent=T.n;h.style.color=T.c;
- $('rkn').textContent=res.to.r===5?cmn(res.to.lp):'0';$('rkof').textContent=res.to.r===5?'Legend points':'/ 100';const b=$('rkbar');b.querySelector('i').style.setProperty('--w',res.to.r===5?'100%':'0%');b.querySelector('u').className='';
+ $('rkn').textContent=res.to.r===5?cmn(res.to.lp):'0';$('rkof').textContent=res.to.r===5?'Legend points':'/ '+rkNeed(res.to.r);const b=$('rkbar');b.querySelector('i').style.setProperty('--w',res.to.r===5?'100%':'0%');b.querySelector('u').className='';
  $('rknx').textContent=rkNextTxt(rkSt())}
 /* ---------- rank-up ceremony ---------- */
 function rkUp(up,done){const host=$('rkres')||$('rkhub')||document.querySelector('.rkx');if(!host){done&&done();return}const T=WCRN[up.r],E=WCREMO[up.emo];
@@ -22400,8 +22404,8 @@ function rkUp(up,done){const host=$('rkres')||$('rkhub')||document.querySelector
  const close=()=>{d.classList.add('out');setTimeout(()=>d.remove(),300);S.back=()=>rkHub();done&&done()};d.querySelector('#rkupgo').onclick=close;S.back=close;setTimeout(()=>{const b=d.querySelector('#rkupgo');if(b)b.focus()},200)}
 /* ---------- the rank-up rewards road ---------- */
 function rkRoad(){WX.tok++;wcClear();const R=rkSt(),W=wcSt();
- const pos=R.r===5?100:(R.r+R.bar/100)/5*100;
- const top=WCRN.map((T,i)=>`<div class="rkrdi${i<=R.r?' got':''}${i===R.r?' cur':''}" style="--rc:${T.c};--d:${i}">${i===R.r?`<span class="rkyou">You · ${R.r===5?cmn(R.lp)+' LP':R.bar+' / 100'}</span>`:''}${rkInsig(i,i===5?150:128,{anim:i===5||i===R.r})}<b style="color:${T.c}">${T.n}</b></div>`).join('');
+ const pos=R.r===5?100:(R.r+R.bar/rkNeed(R.r))/5*100;
+ const top=WCRN.map((T,i)=>`<div class="rkrdi${i<=R.r?' got':''}${i===R.r?' cur':''}" style="--rc:${T.c};--d:${i}">${i===R.r?`<span class="rkyou">You · ${R.r===5?cmn(R.lp)+' LP':R.bar+' / '+rkNeed(R.r)}</span>`:''}${rkInsig(i,i===5?150:128,{anim:i===5||i===R.r})}<b style="color:${T.c}">${T.n}</b></div>`).join('');
  const cards=WCRN.map((T,i)=>{const st=i===0?'start':i<=R.peak?'got':i===R.r+1?'next':'lock';const lab=i===0?'':st==='got'?'✓ CLAIMED':st==='next'?'NEXT REWARD':'LOCKED';
   return `<div class="rkrc ${st}" style="--rc:${T.c};--d:${i}">${lab?`<em>${lab}</em>`:''}${i===0?`<p class="rkst"><b>Everyone starts here.</b>Bronze can't lose points, so your first games always move you forward.</p>`:''}
   <div class="rkrcb">${wcBack(T.back)}</div><b>${esc(WCBK[T.back].n)} sleeve</b>${i===0?`<small class="rkok">${W.backs.rkcopper?'✓ ':''}after your first ranked match</small>`:`${rkEmo(T.emo,wcMyAv(),'sm'+(st==='got'||R.em[T.emo]?'':' lock'))}<small>“${WCREMO[T.emo].n}” emote</small><div class="rkrcoin"><span class="coin"></span>${cmn(T.coins)}</div>${T.title?'<small class="rkupleg">+ “Legend” title</small>':''}`}</div>`}).join('');
@@ -22414,8 +22418,8 @@ function rkRoad(){WX.tok++;wcClear();const R=rkSt(),W=wcSt();
 
 /* ---------- the way in: a crest on the Wildcard home screen ---------- */
 {const h0=wcHome;wcHome=function(){const r=h0.apply(this,arguments);try{const R=rkSt(),T=WCRN[R.r],h=$('wch');if(h&&!$('rkhome')){const b=document.createElement('button');b.className='rkhome';b.id='rkhome';b.style.setProperty('--rc',T.c);
- b.setAttribute('aria-label','Play Ranked: '+T.n+(R.r===5?'':', '+R.bar+' of 100 points'));
- b.innerHTML=`<span class="rkhi">${rkInsig(R.r,78,{anim:R.r===5})}</span><span class="rkht"><em>PLAY RANKED</em><b style="color:${T.c}">${T.n}</b><small>${R.r===5?cmn(R.lp)+' LP':R.bar+' / 100'}</small>${rkBarHTML(R,'sm')}</span><span class="rktro" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h10v3h3.5v2.2c0 2.6-1.9 4.4-4.4 4.7-.7 1.7-2 2.9-3.6 3.3V19h3.2v2H8.3v-2h3.2v-2.8c-1.6-.4-2.9-1.6-3.6-3.3C5.4 12.6 3.5 10.8 3.5 8.2V6H7zm0 5H5.5v.2c0 1.3.7 2.3 1.8 2.7C7.1 10 7 9 7 8zm10 0c0 1-.1 2-.3 2.9 1.1-.4 1.8-1.4 1.8-2.7V8z" fill="currentColor"/></svg></span><i class="rkgo" aria-hidden="true">›</i>`;
+ b.setAttribute('aria-label','Play Ranked: '+T.n+(R.r===5?'':', '+R.bar+' of '+rkNeed(R.r)+' points'));
+ b.innerHTML=`<span class="rkhi">${rkInsig(R.r,78,{anim:R.r===5})}</span><span class="rkht"><em>PLAY RANKED</em><b style="color:${T.c}">${T.n}</b><small>${R.r===5?cmn(R.lp)+' LP':R.bar+' / '+rkNeed(R.r)}</small>${rkBarHTML(R,'sm')}</span><span class="rktro" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h10v3h3.5v2.2c0 2.6-1.9 4.4-4.4 4.7-.7 1.7-2 2.9-3.6 3.3V19h3.2v2H8.3v-2h3.2v-2.8c-1.6-.4-2.9-1.6-3.6-3.3C5.4 12.6 3.5 10.8 3.5 8.2V6H7zm0 5H5.5v.2c0 1.3.7 2.3 1.8 2.7C7.1 10 7 9 7 8zm10 0c0 1-.1 2-.3 2.9 1.1-.4 1.8-1.4 1.8-2.7V8z" fill="currentColor"/></svg></span><i class="rkgo" aria-hidden="true">›</i>`;
  b.onclick=()=>{wcFx('click');rkHub()};b.onmouseenter=()=>wcFx('hover');h.appendChild(b)}}catch(e){}return r}}
 /* the vault gets two shelves: Lounge backs and Ranked sleeves */
 {const v0=wcVault;wcVault=function(sel){const r=v0.apply(this,arguments);try{const g=ov.querySelector('.wcvgrid'),hd=ov.querySelector('#wcvault .wclh');if(!g||!hd)return r;
@@ -22674,7 +22678,7 @@ function rkMMCancel(){rkMMStop();RKMM.role='';wcFx('back');rkHub()}
    - the signature and the event id must be valid (BIP-340), so relays cannot alter entries and nobody can post as another
      player; a forged newer event never pushes a player's real entry off the board
    - right season and season tag; time stamp inside the season and not in the future
-   - sane values: rank 0..5, bar 0..99, wins <= matches, start rank <= 3 (the most a new season can start at)
+   - sane values: rank 0..5, bar below that rank's need (WCRN[].need), wins <= matches, start rank <= 3 (the most a new season can start at)
    - enough matches for the claimed rank and points (at most 30 points a match), enough season time for those wins, and
      not more matches than time allows
    - the last 10 matches must be listed: times in order, wins at least RKLBGAP s apart, points matching the ranked table
@@ -22684,6 +22688,9 @@ function rkMMCancel(){rkMMStop();RKMM.role='';wcFx('back');rkHub()}
    Hidden players post {hide:1}, which replaces their entry. A cheater who controls their own game can still post a
    carefully faked but plausible score; these checks only stop impossible ones. */
 const RKLB={t:0,s:0,state:'idle',list:[],all:0,me:null,hidden:0,relays:0,reached:0,err:'',p:null,loading:null,ver:new Map(),pushT:0,pushQ:0,refT:0};
+/* entries list each match's bar size (need). Season 1 began with 100 for every rank, so 100 is still accepted for season-1
+   matches played before RKLBQCUT; old 4-number entries (v:1) count as 100. */
+const RKLBQCUT=Math.floor(Date.UTC(2026,10,1)/1000);
 const RKLBK=30078,RKLBGAP=20,RKLBPACE=8,RKLBDAY=2000;
 const rkLbTag=s=>'twwc-lb-s'+s,rkSeaStart=s=>Math.floor((WCRSEA.start+(s-1)*WCRSEA.len)/1000);
 const rkLbRelays=()=>WCRELAYS.filter(u=>/^nostr:/.test(u)).map(u=>u.slice(6));
@@ -22726,18 +22733,19 @@ const rkInt=(v,a,b)=>Number.isInteger(v)&&v>=a&&v<=b;
 function rkLbCheck(ev,season,now){try{now=now||Math.floor(Date.now()/1000);const S0=rkSeaStart(season),tg=rkLbTag(season);
  if(ev.kind!==RKLBK||!Array.isArray(ev.tags)||!ev.tags.some(t=>Array.isArray(t)&&t[0]==='d'&&t[1]===tg)||typeof ev.content!=='string'||ev.content.length>4000)return null;
  if(!rkInt(ev.created_at,S0-60,Math.min(now+600,rkSeaStart(season+1)+3600)))return null;
- const c=JSON.parse(ev.content);if(!c||typeof c!=='object'||Array.isArray(c)||c.v!==1||c.s!==season)return null;if(c.hide===1)return{hide:1};
- const{r,b,lp,m,w,r0}=c;if(!rkInt(r,0,5)||!rkInt(b,0,99)||!rkInt(lp,0,1e7)||!rkInt(m,1,1e6)||!rkInt(w,0,m)||!rkInt(r0,0,Math.min(3,r)))return null;
+ const c=JSON.parse(ev.content);if(!c||typeof c!=='object'||Array.isArray(c)||(c.v!==1&&c.v!==2)||c.s!==season)return null;if(c.hide===1)return{hide:1,gone:c.gone===1};
+ const{r,b,lp,m,w,r0}=c;if(!rkInt(r,0,5)||!rkInt(b,0,r<5?rkNeed(r)-1:0)||!rkInt(lp,0,1e7)||!rkInt(m,1,1e6)||!rkInt(w,0,m)||!rkInt(r0,0,Math.min(3,r)))return null;
  if(r===5&&b!==0||r<5&&lp!==0)return null;
  const el=Math.max(0,ev.created_at-S0);if(m>el/RKLBPACE+10||m>Math.ceil(el/86400+1)*RKLBDAY)return null;
- /* the fewest matches that can give this rank and bar: every rank passed needs its full 100 points, each match gives at most
-    that rank's 1st-place points, and points over 100 are lost on a rank up */
- let gains=0;for(let k=r0;k<r;k++)gains+=Math.ceil(100/WCRN[k].pts[0]);gains+=Math.ceil((r===5?lp:b)/WCRN[r].pts[0]);if(m<gains||(gains-10)*RKLBGAP>el+60)return null;
+ /* the fewest matches that can give this rank and bar: every rank passed needs its full bar (100 at the least in season 1,
+    when the old bars still count), each match gives at most that rank's 1st-place points, and extra points are lost on a rank up */
+ let gains=0;for(let k=r0;k<r;k++)gains+=Math.ceil((season===1?Math.min(100,rkNeed(k)):rkNeed(k))/WCRN[k].pts[0]);gains+=Math.ceil((r===5?lp:b)/WCRN[r].pts[0]);if(m<gains||(gains-10)*RKLBGAP>el+60)return null;
  const h=c.h;if(!Array.isArray(h)||h.length!==Math.min(m,10))return null;let pt=0,pr=-1,pd=0,wins=0;
- for(const x of h){if(!Array.isArray(x)||x.length!==4)return null;const[t,p,d,rr]=x;if(!rkInt(t,S0-60,ev.created_at+5)||!rkInt(p,0,3)||!rkInt(rr,0,5))return null;
+ const qs=[];for(const x of h){if(!Array.isArray(x)||x.length!==4&&x.length!==5)return null;const[t,p,d,rr]=x;if(!rkInt(t,S0-60,ev.created_at+5)||!rkInt(p,0,3)||!rkInt(rr,0,5))return null;
+  const q=x.length===5?x[4]:rr<5?100:0;if(rr===5?q!==0:q!==rkNeed(rr)&&!(q===100&&season===1&&t<RKLBQCUT))return null;qs.push(q);
   if(pr>=0&&(t<pt||d>0&&t-pt<RKLBGAP))return null;if(rr<pr||pr>=0&&rr>pr&&(rr>pr+1||pd<=0)||d!==WCRN[rr].pts[p])return null;if(p===0)wins++;pt=t;pr=rr;pd=d}
  if(pr>r||pr<r-1||r>pr&&pd<=0||wins>w||h.length&&h[0][3]<r0)return null;
- if(h.length===m){/* the whole season is listed: replay it */let R2=r0,B2=0,L2=0;for(const[,p,d,rr]of h){if(rr!==R2)return null;if(R2===5)L2=Math.max(0,L2+d);else{const nb=B2+d;if(nb>=100){R2++;B2=0}else B2=Math.max(0,nb)}}
+ if(h.length===m){/* the whole season is listed: replay it */let R2=r0,B2=0,L2=0;for(let i=0;i<h.length;i++){const[,p,d,rr]=h[i];if(rr!==R2)return null;if(R2===5)L2=Math.max(0,L2+d);else{const nb=B2+d;if(nb>=qs[i]){R2++;B2=0}else B2=Math.max(0,nb)}}
   if(R2!==r||B2!==b||L2!==lp||wins!==w)return null}
  return{pk:ev.pubkey,id:ev.id,t:ev.created_at,n:rkLbName(c.n),r,b,lp,m,w,sc:r*1e7+(r===5?lp:b)}}catch(e){return null}}
 function rkLbSort(a,b){return b.sc-a.sc||b.w-a.w||a.m-b.m||a.t-b.t||(a.pk<b.pk?-1:a.pk>b.pk?1:0)}
@@ -22758,8 +22766,8 @@ function rkRelaySend(url,ev,ms){return new Promise(res=>{let ws,done=false;const
  try{ws=new WebSocket(url)}catch(e){fin(false);return}ws.onopen=()=>{try{ws.send(JSON.stringify(['EVENT',ev]))}catch(e){fin(false)}};
  ws.onmessage=e=>{let a;try{a=JSON.parse(e.data)}catch(x){return}if(Array.isArray(a)&&a[0]==='OK'&&a[1]===ev.id)fin(a[2]===true||/duplicate/i.test(String(a[3]||'')))};ws.onerror=ws.onclose=()=>fin(false)})}
 /* the player's own entry, as posted */
-function rkLbMine(){const R=rkSt(),S0=rkSeaStart(R.season)*1000;const h=R.hist.filter(x=>x&&x.t>=S0).map(x=>[Math.floor(x.t/1000),x.p,x.d,x.r]).slice(-10);
- const m=Math.max(R.sm,h.length),hh=h.slice(-Math.min(m,10));return{v:1,s:R.season,n:rkLbName(P.name||'Player'),r:R.r,b:R.r===5?0:R.bar,lp:R.r===5?R.lp:0,m,w:Math.min(m,Math.max(R.sw,hh.filter(x=>x[1]===0).length)),r0:Math.min(3,R.r0,R.r),h:hh}}
+function rkLbMine(){const R=rkSt(),S0=rkSeaStart(R.season)*1000;const h=R.hist.filter(x=>x&&x.t>=S0).map(x=>[Math.floor(x.t/1000),x.p,x.d,x.r,x.r<5?(typeof x.q==='number'?x.q:100):0]).slice(-10);
+ const m=Math.max(R.sm,h.length),hh=h.slice(-Math.min(m,10));return{v:2,s:R.season,n:rkLbName(P.name||'Player'),r:R.r,b:R.r===5?0:R.bar,lp:R.r===5?R.lp:0,m,w:Math.min(m,Math.max(R.sw,hh.filter(x=>x[1]===0).length)),r0:Math.min(3,R.r0,R.r),h:hh}}
 const rkLbContent=()=>{const R=rkSt();return JSON.stringify(R.lbHide?{v:1,s:R.season,hide:1}:rkLbMine())};
 /* is there something on this device the relays have not got yet? */
 const rkLbDirty=()=>{try{const R=rkSt();if(!R.lbHide&&R.sm<1)return false;return !!R.lbPend||R.lbLast!==rkLbContent()}catch(e){return false}};
@@ -22785,11 +22793,11 @@ async function rkLbLoad(force){const R=rkSt(),rel=rkLbRelays(),now=Date.now();if
   if(!RKLB.reached){RKLB.state='offline';return RKLB}
   const groups=new Map();for(const x of res)for(const ev of x.evs){if(!rkEvShape(ev))continue;let g=groups.get(ev.pubkey);if(!g)groups.set(ev.pubkey,g=[]);if(!g.some(o=>o.id===ev.id&&o.sig===ev.sig))g.push(ev)}
   const K=rkLbKey(),nowS=Math.floor(now/1000),cand=[];let hidden=0;groups.delete(K.pk);
-  for(const g of groups.values()){g.sort((a,b)=>b.created_at-a.created_at||(a.id<b.id?-1:1));if(g.length>6)g.length=6;const e=await rkLbHead(g,season,nowS);if(!e)continue;if(e.hide){hidden++;continue}cand.push(e)}
+  for(const g of groups.values()){g.sort((a,b)=>b.created_at-a.created_at||(a.id<b.id?-1:1));if(g.length>6)g.length=6;const e=await rkLbHead(g,season,nowS);if(!e)continue;if(e.hide){if(!e.gone)hidden++;continue}cand.push(e)}
   cand.sort(rkLbSort);const list=[];let i=0,k=0;
   while(i<cand.length&&list.length<100){const e=cand[i++];if(await rkEvOk(e.ev)){list.push(e);if(++k%10===0)await new Promise(r=>setTimeout(r,0));continue}
    /* a forged or broken event: fall back to that player's previous one */
-   const g=groups.get(e.pk);g.shift();const n=await rkLbHead(g,season,nowS);if(!n)continue;if(n.hide){hidden++;continue}
+   const g=groups.get(e.pk);g.shift();const n=await rkLbHead(g,season,nowS);if(!n)continue;if(n.hide){if(!n.gone)hidden++;continue}
    let j=i;while(j<cand.length&&rkLbSort(cand[j],n)<0)j++;cand.splice(j,0,n)}
   const rest=cand.slice(i);
   /* the player's own place comes from their own save, not from what a relay says */
@@ -22804,7 +22812,7 @@ async function rkLbLoad(force){const R=rkSt(),rel=rkLbRelays(),now=Date.now();if
 /* ---------- screens ---------- */
 const rkAgo=t=>{const s=Math.max(0,Math.round((Date.now()-t)/1000));return s<45?'just now':s<5400?`${Math.max(1,Math.round(s/60))} min ago`:s<129600?`${Math.round(s/3600)} h ago`:`${Math.round(s/86400)} days ago`};
 const rkGem=r=>`<i class="rkgem${r===5?' leg':''}" style="--rc:${WCRN[r].c};--rc2:${WCRN[r].c2}" title="${WCRN[r].n}">${r===5?'<u>★</u>':''}</i>`;
-const rkLbScore=e=>e.r===5?`<b>${cmn(e.lp)}</b><small>LP</small>`:`<b>${e.b}</b><small>/ 100</small>`;
+const rkLbScore=e=>e.r===5?`<b>${cmn(e.lp)}</b><small>LP</small>`:`<b>${e.b}</b><small>/ ${rkNeed(e.r)}</small>`;
 function rkLbRow(e,place,mini){const pl=place<=3?` p${place}`:'';
  return `<div class="rkbr${e.me?' me':''}${mini?' mini':''}" style="--d:${Math.min(place,14)}"><span class="rkbpl${pl}">${place}</span>${rkGem(e.r)}<span class="rkbn"><b>${esc(e.me?rkLbName(P.name||'Player'):e.n)}</b><small>${e.me?'you':'#'+esc(String(e.pk).slice(0,4))}</small></span><span class="rkbrk" style="color:${WCRN[e.r].c}">${WCRN[e.r].n}</span><span class="rkbsc">${rkLbScore(e)}</span>${mini?'':`<span class="rkbmw"><b>${cmn(e.m)}</b><small>played · ${cmn(e.w)} won</small></span>`}</div>`}
 /* what to draw: the live board, or the copy saved on this device */
@@ -22836,7 +22844,7 @@ function rkLbPaint(){try{const v=rkLbView(),R=rkSt();
 function rkBoard(){WX.tok++;wcClear();CAS.on=true;const R=rkSt(),T=WCRN[R.r],K=(()=>{try{return rkLbKey()}catch(e){return{pk:''}}})();
  show(`<div class="rkx rkboard" id="rkboard"><div class="wclbg"><i class="wcspot a"></i><i class="wcspot b"></i></div>${rkHead('Leaderboard','Ranked')}
  <section class="rkp rkbme" style="--rc:${T.c}"><h4>Your place · Season ${R.season}</h4><div class="rkbbig" id="rkbplace">—</div><p class="rkbof" id="rkbof"></p>
-  <div class="rkbins">${rkInsig(R.r,200)}</div><b class="rkbrn" style="color:${T.c}">${T.n}</b><div class="rkbsc2">${R.r===5?`${cmn(R.lp)} Legend points`:`${R.bar} / 100`}</div>
+  <div class="rkbins">${rkInsig(R.r,200)}</div><b class="rkbrn" style="color:${T.c}">${T.n}</b><div class="rkbsc2">${R.r===5?`${cmn(R.lp)} Legend points`:`${R.bar} / ${rkNeed(R.r)}`}</div>
   <p class="rkbst2">${cmn(R.sm)} ranked match${R.sm===1?'':'es'} · ${cmn(R.sw)} won this season</p>
   <div class="rkbname">On the board as <b>${esc(rkLbName(P.name||'Player'))}</b> <span>#${esc(K.pk.slice(0,4))}</span></div>
   <div class="rkbtog"><span>Show me on the leaderboard</span><div class="seg"><button class="sm${R.lbHide?'':' on'}" data-h="0">On</button><button class="sm${R.lbHide?' on':''}" data-h="1">Off</button></div></div>
@@ -22902,6 +22910,35 @@ rkStandings=function(){return `<div class="rkstd2" id="rklbnear"></div><button c
 .rkbrows::-webkit-scrollbar{width:10px}.rkbrows::-webkit-scrollbar-thumb{background:#463a8a;border-radius:10px;border:2px solid #100a30}.rkbrows::-webkit-scrollbar-track{background:transparent}
 .rkbmt{margin:70px auto 0;max-width:520px;text-align:center}.rkbmt b{display:block;font:400 36px 'Pirata One',var(--ui);color:var(--gold)}.rkbmt p{font:600 16px/1.5 var(--ui);color:#cfc6f5}
 .rkbmt .wcbtn{margin-top:10px}`;document.head.appendChild(st)}
+
+/* ---------- a reset or replaced save leaves the board ----------
+   Each save has its own key, so resetting the profile (or importing or restoring another save) used to leave the old
+   profile's entry on the board for the rest of the season. This device remembers the key of the save it last wrote
+   (localStorage 'twlbDev'). When the save changes to one with another key (or none), the old key signs a final
+   {hide:1, gone:1} entry, which replaces the old entry on the relays; readers skip it without counting it as hidden.
+   Retirements wait in 'twlbRetire' until a relay accepts them (retried at start, on the Ranked screens and when back
+   online), then stay listed as done for 60 days. If a retired save comes back (restored from a backup), it is taken off the list and posts its entry again. */
+const RKLBDV={d:null};
+const rkLbLs=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k)||'null');localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
+function rkLbRetireList(){const L=rkLbLs('twlbRetire');return Array.isArray(L)?L.filter(x=>x&&/^[0-9a-f]{64}$/.test(x.nsk||'')&&Date.now()-(x.t||0)<60*864e5):[]}
+function rkLbDevCheck(){const R=P&&P.rk&&typeof P.rk==='object'?P.rk:null,cur=R&&/^[0-9a-f]{64}$/.test(R.nsk||'')?R.nsk:'';
+ let D=RKLBDV.d||(RKLBDV.d=rkLbLs('twlbDev')||{nsk:'',sent:0,s:0});
+ if(D.nsk!==cur){let L=rkLbRetireList();
+  if(D.nsk&&D.sent&&!L.some(x=>x.nsk===D.nsk))L.push({nsk:D.nsk,s:D.s,t:Date.now()});
+  if(cur&&L.some(x=>x.nsk===cur)){L=L.filter(x=>x.nsk!==cur);R.lbLast='';R.lbPend=1}
+  rkLbLs('twlbRetire',L);D={nsk:cur,sent:0,s:0};Object.assign(RKLB,{t:0,state:'idle',list:[],me:null});if(L.some(x=>!x.done))setTimeout(rkLbRetireRun,400)}
+ const sent=R&&cur&&R.lbSent?1:0,s=R&&R.season|0;if(D.sent!==sent||D.s!==s||RKLBDV.d!==D||!RKLBDV.w){D.sent=sent;D.s=s;RKLBDV.d=D;RKLBDV.w=1;rkLbLs('twlbDev',D)}}
+{const sv0=save;save=function(){const r=sv0.apply(this,arguments);try{if(!(typeof SGS!=='undefined'&&(SGS.lock||SGS.stale)))rkLbDevCheck()}catch(e){}return r}}
+/* finished retirements stay listed (done) for 60 days, so a save restored from a backup is still recognised */
+async function rkLbRetireRun(){if(RKLB.ret)return;const rel=rkLbRelays();let L=rkLbRetireList();if(!rel.length||!L.some(x=>!x.done))return;RKLB.ret=1;
+ try{for(const x of L){if(x.done)continue;if(x.s&&x.s!==rkSeason()){x.done=1;continue}/* an old season's board is not shown any more */
+  const d=BigInt('0x'+x.nsk),pk=wcHx(wcN2b(wcMul(d)[0])),s=rkSeason(),tg=rkLbTag(s);
+  const ev=await rkEvSign({d,pk},RKLBK,[['d',tg],['t',tg],['t','twwc-lb']],JSON.stringify({v:1,s,hide:1,gone:1}));
+  const ok=(await Promise.all(rel.map(u=>rkRelaySend(u,ev,6000)))).some(Boolean);if(ok){x.done=1;RKLB.t=0}}
+  rkLbLs('twlbRetire',L)}catch(e){}finally{RKLB.ret=0}if(!RKLB.t&&(document.getElementById('rkboard')||document.getElementById('rkhub')))setTimeout(()=>rkLbLoad(true),300)}
+setTimeout(()=>{try{rkLbDevCheck();rkLbRetireRun()}catch(e){}},3000);
+try{addEventListener('online',()=>{try{rkLbRetireRun()}catch(e){}})}catch(e){}
+{const l0=rkLbLoad;rkLbLoad=function(){try{if(rkLbRetireList().some(x=>!x.done))rkLbRetireRun()}catch(e){}return l0.apply(this,arguments)}}
 /* ===== LAST 5 SECONDS COUNTDOWN =====
    Every game with a time limit shows a big 5-4-3-2-1 countdown with a tick each second when time is almost up:
    - Wildcard turn timers (rooms with a timer, and Ranked's 15-second turns): only on your own turn. The host uses the
@@ -22916,6 +22953,8 @@ Object.assign(defST,{tacd:'on'});if(ST.tacd==null)ST.tacd='on';
 const TCD={el:null,id:'',sec:0,src:'',wc:null,g:{k:'',t0:0}};
 {const s0=wcStep;wcStep=function(){const r=s0.apply(this,arguments);try{const G=WX.G;
  if(G&&WX.host&&G.phase!=='over'&&WX.cfg&&WX.cfg.timer&&$('wct')){const cur=G.P[G.turn];if(cur&&['you','local','net'].includes(cur.kind)&&!(WX.mode==='pp'&&G.turn!==WX.me))TCD.wc={k:G.turn+':'+G.turns,t0:Date.now(),dur:WX.cfg.timer*1000}}}catch(e){}return r}}
+/* a move hides it at once (the driver would only notice up to 0.1 s later) */
+{const a0=wcApply;wcApply=function(){const r=a0.apply(this,arguments);try{taStep()}catch(e){}return r}}
 {const f0=wcFx;wcFx=function(k){if(k==='tick'&&ST.tacd!=='off'&&TCD.src==='wc')return;return f0.apply(this,arguments)}}
 /* the running clock that is almost out, if any: {src,id,left (seconds),x,y in stage pixels or anchor element,quiet} */
 function taSource(){

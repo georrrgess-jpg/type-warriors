@@ -22939,6 +22939,15 @@ async function rkLbRetireRun(){if(RKLB.ret)return;const rel=rkLbRelays();let L=r
 setTimeout(()=>{try{rkLbDevCheck();rkLbRetireRun()}catch(e){}},3000);
 try{addEventListener('online',()=>{try{rkLbRetireRun()}catch(e){}})}catch(e){}
 {const l0=rkLbLoad;rkLbLoad=function(){try{if(rkLbRetireList().some(x=>!x.done))rkLbRetireRun()}catch(e){}return l0.apply(this,arguments)}}
+/* resets made before this fix: every reset first keeps a "Before erase" backup of the erased save (49_savesafe), which
+   still holds that save's key. Erased saves that had posted an entry are retired too, unless that save is the one in use
+   (it was restored). Checked at start; each key is listed once. */
+function rkLbScanErased(){try{const cur=P&&P.rk&&P.rk.nsk||'';let L=rkLbRetireList(),add=0;
+ for(const r of sgList()){if(!r.ok||r.why!=='Before erase')continue;let o=null;try{o=JSON.parse(JSON.parse(sgGet(BKP+r.id)).data)}catch(e){continue}
+  const k=o&&o.rk&&typeof o.rk==='object'?o.rk:null;if(!k||!/^[0-9a-f]{64}$/.test(k.nsk||'')||!k.lbSent||k.nsk===cur||L.some(x=>x.nsk===k.nsk))continue;
+  L.push({nsk:k.nsk,s:k.season|0,t:Date.now()});add++}
+ if(add){rkLbLs('twlbRetire',L);rkLbRetireRun()}}catch(e){}}
+setTimeout(rkLbScanErased,3500);
 /* ===== LAST 5 SECONDS COUNTDOWN =====
    Every game with a time limit shows a big 5-4-3-2-1 countdown with a tick each second when time is almost up:
    - Wildcard turn timers (rooms with a timer, and Ranked's 15-second turns): only on your own turn. The host uses the

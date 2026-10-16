@@ -23699,7 +23699,7 @@ WCBKX.rkcelest={base:'#4a1a8a',art(){const cx=150,cy=219;
    Performance (measured at 4x CPU throttle): a hover change moves at most the hovered card and its two direct
    neighbours, glow and veil switch instantly instead of fading, nothing breathes while idle, and no card keeps a
    permanent layer (will-change made idle frames slower); only transform and opacity ever animate. */
-const WCHL={hv:null,src:null,pt:null,L:[],bs:[],tap:null,down:null,ft:0,gt:0};
+const WCHL_SETTLE=110,WCHL={hv:null,src:null,pt:null,L:[],bs:[],tap:null,down:null,ft:0,gt:0};
 /* lift (px), scale and tilt factor per card state; the CSS below is generated from this table so JS and CSS agree */
 const WCHV={ok:[-26,1,1],okb:[-12,1,1],okhv:[-50,1.06,.2],hv:[-20,1,.55],pend:[-38,1.06,.3],pendhv:[-46,1.07,0],rest:[0,1,1]};
 /* resting slots: x,y0 = card top-left offset from the hand line (top 718), r = tilt in degrees. The arc is scaled down
@@ -23710,15 +23710,16 @@ function wcHandLay(n){const w=112,maxW=n<=7?800:n<=12?900:960,step=n>1?Math.min(
  return S.map(s=>({x:s.x,y0:s.a*k,r:s.r}))}
 wcHandSlots=function(G){const cards=wcDisp(),L=wcHandLay(cards.length);return cards.map((c,i)=>({c,x:L[i].x,y:718+L[i].y0,r:L[i].r}))};
 const wchBig=b=>!!(b.parentNode&&b.parentNode.classList&&b.parentNode.classList.contains('wchbig'));
-function wchS(b,nohv){const c=b.classList,h=!nohv&&c.contains('hv');return c.contains('pend')?(h?WCHV.pendhv:WCHV.pend):h?(c.contains('ok')?WCHV.okhv:WCHV.hv):c.contains('ok')?(wchBig(b)?WCHV.okb:WCHV.ok):WCHV.rest}
+function wchS(b,nohv){const c=b.classList,h=!nohv&&c.contains('hv')&&!c.contains('no');/* unplayable cards never lift */return c.contains('pend')?(h?WCHV.pendhv:WCHV.pend):h?(c.contains('ok')?WCHV.okhv:WCHV.hv):c.contains('ok')?(wchBig(b)?WCHV.okb:WCHV.ok):WCHV.rest}
 /* how far a card stands up at rest and when hovered */
-const wchBase=b=>-wchS(b,1)[0],wchUp=b=>{const c=b.classList;return -(c.contains('pend')?WCHV.pendhv:c.contains('ok')?WCHV.okhv:WCHV.hv)[0]};
+const wchBase=b=>-wchS(b,1)[0],wchUp=b=>{const c=b.classList;if(c.contains('no'))return 0;return -(c.contains('pend')?WCHV.pendhv:c.contains('ok')?WCHV.okhv:WCHV.hv)[0]};
 /* which card owns stage point (sx,sy)? Card i owns the strip from its left edge to the next card's left edge (the part
    you can see at rest); the current card keeps a margin on each side so jitter on a boundary can't flip it. Above card
    i's top, a raised left neighbour still shows, so that corner belongs to the neighbour. */
 function wchPick(sx,sy,cur){const L=WCHL.L,bs=WCHL.bs,n=L.length;if(!n)return -1;const w=112,st=n>1?L[1].x-L[0].x:w,H=Math.min(14,st*.3);
  const right=i=>i<n-1?L[i+1].x:L[i].x+w,top=i=>718+L[i].y0-wchBase(bs[i]),bot=i=>718+L[i].y0+194;
- if(cur>=0&&cur<n&&sx>=L[cur].x-H&&sx<right(cur)+H&&sy>=718+L[cur].y0-wchUp(bs[cur])-14&&sy<=bot(cur))return cur;
+ const Hc=cur>=0&&cur<n&&wchUp(bs[cur])>0?H:0;
+ if(cur>=0&&cur<n&&sx>=L[cur].x-Hc&&sx<right(cur)+Hc&&sy>=718+L[cur].y0-wchUp(bs[cur])-14&&sy<=bot(cur))return cur;
  if(sx<L[0].x-6||sx>=L[n-1].x+w+6)return -1;let i=0;while(i<n-1&&sx>=L[i+1].x)i++;
  if(sy>=top(i)-4&&sy<=bot(i))return i;
  return i>0&&sx<L[i-1].x+w&&sy>=top(i-1)-4&&sy<top(i)-4?i-1:-1}
@@ -23739,11 +23740,15 @@ function wchSet(i,src,quiet){const bs=WCHL.bs,b=bs[i]||null,id=b?b.dataset.id:nu
  /* the status pill rises when a raised card would reach it, and stays up until the pointer leaves the hand (no bobbing
     during a sweep); measured before any class changes so the read never forces an extra layout */
  const T=$('wct');if(T){const was=T.classList.contains('wchup');let up=was;if(!b)up=false;else if(!was&&ok){const s=$('wcstat'),w=s?s.offsetWidth:0,x=WCHL.L[i].x;up=w>0&&x<800+w/2+10&&x+112>800-w/2-10}if(up!==was)T.classList.toggle('wchup',up)}
+ /* a pointer sweep only lifts the card under the cursor; the neighbours part (and the sheen and tick play) once the
+    pointer rests on one card for SETTLE ms, so a fast sweep never sets three cards moving per step */
+ const lifts=!!b&&!b.classList.contains('no'),part=k=>(ok&&Math.abs(k-i)===1?Math.sign(k-i)*P:0).toFixed(1)+'px',settle=!quiet&&src==='ptr';clearTimeout(WCHL.stm);
  bs.forEach((e,k)=>{const on=k===i;if(e.classList.contains('hv')!==on){e.classList.toggle('hv',on);clearTimeout(e._zt);
   /* a card being let go stays on top while it sinks (a timed class: a delayed z-index transition would restyle every frame) */
-  if(!on){e.classList.remove('wchs','wchs2');e.classList.add('wchz');e._zt=setTimeout(()=>e.classList.remove('wchz'),200)}else e.classList.remove('wchz')}const px=(ok&&Math.abs(k-i)===1?Math.sign(k-i)*P:0).toFixed(1)+'px';if(e._px!==px){e._px=px;e.style.setProperty('--hcp',px)}});
+  if(!on){e.classList.remove('wchs','wchs2');if(lifts&&!e.classList.contains('no')){e.classList.add('wchz');e._zt=setTimeout(()=>e.classList.remove('wchz'),200)}else e.classList.remove('wchz')}else e.classList.remove('wchz')}const px=settle?'0.0px':part(k);if(e._px!==px){e._px=px;e.style.setProperty('--hcp',px)}});
+ if(settle&&b)WCHL.stm=setTimeout(()=>{if(WCHL.hv!==id||!b.isConnected)return;bs.forEach((e,k)=>{const px=part(k);if(e._px!==px){e._px=px;e.style.setProperty('--hcp',px)}});wchGlint(b,src)},WCHL_SETTLE);
  const hit=document.querySelector('#wchand .wchit');if(hit)hit.classList.toggle('ok',!!(b&&b.classList.contains('ok')));
- if(b&&!quiet)wchGlint(b,src)}
+ if(b&&!quiet&&!settle)wchGlint(b,src)}
 function wchMove(cx,cy,src){const p=wchStage(cx,cy);if(!p)return;const cur=WCHL.bs.findIndex(b=>b.dataset.id===WCHL.hv);wchSet(wchPick(p.x,p.y,cur),src)}
 /* pointer, touch and keyboard wiring, attached once per #wchand element */
 function wchWire(h){if(h._wch)return;h._wch=1;const isHit=e=>e.target.classList&&e.target.classList.contains('wchit');
@@ -23786,7 +23791,8 @@ function wchWire(h){if(h._wch)return;h._wch=1;const isHit=e=>e.target.classList&
 .wcx #wchand .wchit{position:absolute;z-index:70;touch-action:none;-webkit-tap-highlight-color:transparent;cursor:default;background:transparent}
 .wcx #wchand .wchit.ok{cursor:pointer}
 .wcx #wchand .wchc{pointer-events:none;cursor:default;transform:translate(calc(var(--x) + var(--hcp)),calc(var(--y) + var(--hcl))) rotate(calc(var(--r) * var(--hck))) scale(var(--hcs));
- transition:transform .38s var(--sp);box-shadow:0 12px 20px -6px #000c,0 3px 6px #0007;filter:none}
+ transition:transform .26s cubic-bezier(.3,.7,.35,1);box-shadow:0 12px 20px -6px #000c,0 3px 6px #0007;filter:none}
+.wcx #wchand .wchc.hv{transition:transform .19s cubic-bezier(.2,.9,.3,1)}
 .wcx #wchand.wchfl .wchc{transition:transform .52s cubic-bezier(.22,1.22,.36,1)}
 .wcx #wchand .wchc.wchz{z-index:49}
 .wcx #wchand .wchc.ok{${V('ok')};box-shadow:0 0 0 2.5px color-mix(in srgb,var(--ec) 45%,#fff),0 14px 22px -6px #000d,0 3px 6px #0007}
@@ -23812,7 +23818,8 @@ function wchWire(h){if(h._wch)return;h._wch=1;const isHit=e=>e.target.classList&
 @keyframes wchyHt{0%,100%{translate:0 0}45%{translate:0 -26px}}
 /* unplayable: a flat dark veil (no desaturation, so a yellow card stays gold and doesn't turn to mud) */
 .wcx #wchand .wchc::after{content:'';position:absolute;inset:0;border-radius:12px;pointer-events:none;background:#0d0826;opacity:0}
-.wcx #wchand .wchc.no::after{opacity:.52}.wcx #wchand .wchc.no.hv::after{opacity:.12}
+.wcx #wchand .wchc.no::after{opacity:.52}
+.wcx #wchand .wchc.no.hv{--hcl:0px;--hcs:1;--hck:1;z-index:var(--z)}
 .wcx #wchand .wcsh{position:absolute;inset:0;border-radius:12px;overflow:hidden;pointer-events:none}
 .wcx #wchand .wcsh::before{content:'';position:absolute;top:-25%;bottom:-25%;left:0;width:42%;opacity:0;transform:translateX(-130%) skewX(-16deg);
  background:linear-gradient(90deg,#fff0,#fff5 45%,#fffc 50%,#fff5 55%,#fff0)}

@@ -24539,7 +24539,8 @@ function fsP(){if(!P.fish||typeof P.fish!=='object')P.fish={};const F=P.fish;
 const fsLv=()=>{const u=fsP().up;return (u.line||0)+(u.lure||0)+(u.hook||0)};
 const fsRodName=()=>{const l=fsLv();let n=FSRODN[0][1];for(const [k,v] of FSRODN)if(l>=k)n=v;return n};
 const fsFound=()=>FIDS.filter(id=>fsP().b[id]&&fsP().b[id].n).length;
-const FSCREEL=30;/* creel capacity */
+const FSCREEL=30;/* base creel capacity; fsCreelCap() (update 6, 90r) adds the creel tiers */
+function fsCreelCap(){return FSCREEL}
 /* odds for a cast, as {c,u,r,l} percentages (sums to 100) */
 function fsOdds(lure,moon,loc){lure=lure==null?fsP().up.lure||0:lure;moon=moon||fsMoon().m;const luck=[1,1.08,1.16,1.26,1.38,1.5][lure];
  if(loc===undefined)loc=typeof fsLoc==='function'&&P.fish?fsLoc():'pond';const hasM=!!(FSPOOL[loc]||[]).some(i=>FISH[i].r==='m');
@@ -24572,7 +24573,7 @@ function fsRecord(c,secs,letters){const F=fsP(),b=F.b[c.id]||(F.b[c.id]={n:0,big
  save();return{first,record:rec&&!first,rel}}
 /* sell or keep */
 function fsSell(c){const v=fsValue(c);P.gold+=v;fsSt('gold',v,'add');try{stat('gold',v,'add')}catch(e){}save();return v}
-function fsKeep(c){const F=fsP();if(F.cr.length>=FSCREEL)return false;F.cr.push({id:c.id,cm:c.cm,g:c.g?1:0,ft:c.ft!=null?c.ft:(c.id===fsMoon().feat?1:0)});save();return true}
+function fsKeep(c){const F=fsP();if(F.cr.length>=fsCreelCap())return false;F.cr.push({id:c.id,cm:c.cm,g:c.g?1:0,ft:c.ft!=null?c.ft:(c.id===fsMoon().feat?1:0)});save();return true}
 function fsSellCreel(i){const F=fsP(),c=F.cr[i];if(!c)return 0;F.cr.splice(i,1);return fsSell(c)}
 /* rod looks: can it be crafted from the creel? turning in uses the smallest kept fish of each kind first */
 function fsCanSkin(k){const S0=FSKIN[k],F=fsP();if(F.sk[k])return false;return Object.entries(S0.k).every(([id,n])=>F.cr.filter(c=>c.id===id).length>=n)}
@@ -29853,7 +29854,11 @@ function fsHero(g,t,V){const H=FSHERO,s=H.s,lg=V.lg||0;
    An icy mountain lake under the northern lights. bg paints the still scene once (sky, peaks, pine forests, the log cabin,
    the snowy pier, shores, snowbanks); back(t) adds the waving aurora (clipped so it stays behind the peaks, pines and the
    cabin), its shimmering reflection on the lake, chimney smoke, bobbing ice floes, lanterns and twinkling stars; front(t)
-   adds gentle snowfall and a few drifting sparkles. Every moving part is a sprite cached once (no per-frame gradients). */
+   adds gentle snowfall and a few drifting sparkles. Every moving part is a sprite cached once (no per-frame gradients).
+   Performance: the aurora is a seamless 20 s loop of LF_AN pre-baked keyframes (each one already holds the still sky behind it
+   and is cut to the skyline), so a frame costs two opaque blits and a crossfade, with no clip and no live re-render. The
+   keyframes are baked lazily, at most one per frame after the first two, and the big source sprites are freed once all
+   are ready. The lake reflection is drawn without a clip; a cut-out of the pier/post pixels is laid back over it. */
 let lf_D=null;
 const lf_r=s=>{const x=Math.sin(s*78.233+3.17)*43758.5453;return x-Math.floor(x)};
 function lf_cv(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.lineJoin='round';x.lineCap='round';return[c,x]}
@@ -30096,7 +30101,24 @@ function lf_bg(g){lf_SK.fill(FSW_Y);const D={};
  /* foreground snow drift along the bottom edge */
  g.fillStyle='#141e44';g.beginPath();g.moveTo(0,900);for(let x=0;x<=1600;x+=40)g.quadraticCurveTo(x+20,884-lf_r(x+11)*18-Math.max(0,Math.sin(x*.004))*10,x+40,890-lf_r(x+12)*8);g.lineTo(1600,900);g.fill();
  g.strokeStyle='#5a6aa880';g.lineWidth=2;g.beginPath();for(let x=0;x<=1600;x+=40){g.moveTo(x,890-lf_r(x-28)*8);g.quadraticCurveTo(x+20,884-lf_r(x+11)*18-Math.max(0,Math.sin(x*.004))*10,x+40,890-lf_r(x+12)*8)}g.stroke();
- lf_build(D);lf_D=D}
+ lf_build(D);
+ /* the still sky behind the aurora (each keyframe starts from it) and the non-water pixels that sit over the reflection */
+ {const[c,x]=lf_cv(LF_AW,LF_AH);x.drawImage(g.canvas,LF_AX,0,LF_AW,LF_AH,0,0,LF_AW,LF_AH);D.sky=c}
+ {const[c,x]=lf_cv(LF_OW,LF_OH);x.drawImage(g.canvas,LF_OX,LF_OY,LF_OW,LF_OH,0,0,LF_OW,LF_OH);x.translate(-LF_OX,-LF_OY);x.globalCompositeOperation='destination-out';x.fillStyle='#000';x.fill(D.wp,'evenodd');D.oc=c}
+ D.ak=new Array(LF_AN).fill(null);D.akn=0;lf_D=D}
+/* ---------- aurora keyframes ---------- */
+const LF_AN=12,LF_AT=20,LF_AX=236,LF_AW=1364,LF_AH=372;/* keyframes per loop, loop seconds, baked rect (covers every visible aurora pixel) */
+const LF_OX=288,LF_OY=520,LF_OW=324,LF_OH=250;/* pier/post cut-out over the reflection's left end */
+/* curtains at time t: the old live renderer, with every speed a whole multiple of the loop so frame LF_AN meets frame 0 */
+function lf_aurFrame(D,i){const t=i*LF_AT/LF_AN,w=TAU/LF_AT;
+ if(!D.ac){const[c,x]=lf_cv(1600,460);D.ac=c;D.acx=x}
+ const a=D.acx;a.setTransform(1,0,0,1,0,0);a.globalAlpha=1;a.globalCompositeOperation='source-over';a.clearRect(0,0,1600,460);a.globalCompositeOperation='lighter';
+ const curt=(src,sw,amp,k,ph,al,drift)=>{const dx=Math.sin(t*w+ph)*drift,Y0=src.y0,HH=src.y1-src.y0;for(let x0=Math.max(0,src.x0-40);x0<Math.min(1600,src.x1+40);x0+=sw){const x1=x0+sw,f=x=>amp*Math.sin(x*k-t*w+ph)+amp*.5*Math.sin(x*k*2.3+t*w+ph*2),y0=f(x0),y1=f(x1);
+   a.globalAlpha=al*(.82+.18*Math.sin(x0*.0045-t*w*2+ph));let s0=x0+dx,ww=sw,d0=0;if(s0<0){d0=-s0;ww+=s0;s0=0}if(s0+ww>1600)ww=1600-s0;a.setTransform(1,(y1-y0)/sw,0,1,x0,y0);
+   let mh=0;for(let k2=Math.max(0,x0>>2);k2<=Math.min(400,(x1>>2)+1);k2++)mh=Math.max(mh,lf_SK[k2]);const hh=Math.min(HH,mh-Math.min(y0,y1)+3-Y0);if(hh>2&&ww>1)a.drawImage(src,s0,Y0,ww,hh,d0,Y0,ww,hh)}a.setTransform(1,0,0,1,0,0)};
+ curt(D.aB,120,10,.006,1.3,.85+.15*Math.sin(t*w*2+1),10);curt(D.aA,120,13,.005,0,.9+.1*Math.sin(t*w*2),12);a.globalAlpha=1;a.globalCompositeOperation='source-over';
+ const[c,x]=lf_cv(LF_AW,LF_AH);x.drawImage(D.sky,0,0);x.translate(-LF_AX,0);x.clip(D.sk);x.globalCompositeOperation='lighter';x.drawImage(D.ac,0,0);
+ D.ak[i]=c;if(++D.akn>=LF_AN){D.ac=D.acx=D.aA=D.aB=D.sky=null}}
 /* ---------- cached sprites and clip paths for the live layers ---------- */
 function lf_aurSprite(curves){const[c,x]=lf_cv(1600,460);x.globalCompositeOperation='lighter';let y0=460,y1=0,X0=1600,X1=0;
  const strip=cols=>{const[sc,sx]=lf_cv(1,256);const q=sx.createLinearGradient(0,0,0,256);cols.forEach((v,i)=>q.addColorStop(v[0],v[1]));sx.fillStyle=q;sx.fillRect(0,0,1,256);return sc};
@@ -30126,7 +30148,11 @@ function lf_build(D){
  wp.lineTo(196,700);wp.lineTo(110,678);wp.lineTo(608,672);wp.lineTo(608,626);wp.lineTo(320,621);wp.closePath();
  [253,581].forEach(x=>wp.rect(x,522,16,98));D.wp=wp;
  /* glow sprites */
- D.gw=lf_glow('#ffa040',64);{const[c,x]=lf_cv(128,128);const q=x.createRadialGradient(64,64,0,64,64,64);q.addColorStop(0,'#ffa53aff');q.addColorStop(1,'#ffa53a00');x.fillStyle=q;x.fillRect(0,0,128,128);D.gl2=c}{const[c,x]=lf_cv(96,96);const q=x.createRadialGradient(48,48,0,48,48,48);q.addColorStop(0,'#fff0b8ff');q.addColorStop(.4,'#ffd070a0');q.addColorStop(1,'#ffc06000');x.fillStyle=q;x.fillRect(0,0,96,96);D.gl3=c}D.gy=lf_glow('#ffe6a0',32);D.gc=lf_glow('#9ff0ff',32);
+ /* glows are made at the exact size they are drawn, so each frame is a 1:1 blit (no scaling); the lantern halo's flicker
+    in size steps through 5 pre-made sizes */
+ D.gw=lf_glow('#ffa040',80);D.gw2=lf_glow('#ffa040',44);
+ D.gl2=[0,1,2,3,4].map(q=>{const R=Math.round(130*(.72+.07*q)),[c,x]=lf_cv(R*2,R*2);const g2=x.createRadialGradient(R,R,0,R,R,R);g2.addColorStop(0,'#ffa53aff');g2.addColorStop(1,'#ffa53a00');x.fillStyle=g2;x.fillRect(0,0,R*2,R*2);return c});
+ {const[c,x]=lf_cv(100,100);const q=x.createRadialGradient(50,50,0,50,50,50);q.addColorStop(0,'#fff0b8ff');q.addColorStop(.4,'#ffd070a0');q.addColorStop(1,'#ffc06000');x.fillStyle=q;x.fillRect(0,0,100,100);D.gl3=c}D.gy=lf_glow('#ffe6a0',32);D.gc=lf_glow('#9ff0ff',32);
  /* lantern sprite with a snow cap (anchor at 30,50) */
  {const[c,x]=lf_cv(60,90);const X=30,Y=56;x.fillStyle='#2a1a10';x.fillRect(X-14,Y-26,28,6);x.beginPath();x.moveTo(X-10,Y-26);x.lineTo(X,Y-38);x.lineTo(X+10,Y-26);x.fill();
   x.fillStyle=fkLin(x,0,Y-20,0,Y+16,['#fff2b8','#ffae3a']);x.fillRect(X-10,Y-20,20,34);x.lineWidth=3;x.strokeStyle='#2a1a10';x.strokeRect(X-10,Y-20,20,34);x.beginPath();x.moveTo(X,Y-20);x.lineTo(X,Y+14);x.stroke();x.fillStyle='#2a1a10';x.fillRect(X-13,Y+14,26,5);
@@ -30145,26 +30171,23 @@ function lf_build(D){
  D.fk=[fl(2),fl(3),fl(4.2)];D.fs=[];for(let i=0;i<100;i++){const k=i<68?0:i<92?1:2;D.fs.push({x:lf_r(i+3000)*1680,y:lf_r(i+3100)*960,k,vy:[22,36,54][k]*(.8+lf_r(i+3200)*.4),vx:[6,10,15][k],sw:10+lf_r(i+3300)*24,p:lf_r(i+3400)*TAU,a:[.75,.85,.9][k]*(.6+lf_r(i+3500)*.4)})}}
 /* ---------- back: drawn every frame behind the hero ---------- */
 function lf_back(g,t){const D=lf_D;if(!D)return;
- /* aurora curtains, waving (re-rendered into a cache ~16 times a second; it moves slowly), clipped behind peaks/pines/cabin */
- if(!D.ac){const[c,x]=lf_cv(1600,460);D.ac=c;D.acx=x;D.at=-99}
- if(Math.abs(t-D.at)>.06){D.at=t;const a=D.acx;a.setTransform(1,0,0,1,0,0);a.clearRect(0,0,1600,460);a.globalCompositeOperation='lighter';
-  const curt=(src,sw,amp,k,sp,ph,al,drift)=>{const dx=Math.sin(t*.13+ph)*drift,Y0=src.y0,HH=src.y1-src.y0;for(let x0=Math.max(0,src.x0-40);x0<Math.min(1600,src.x1+40);x0+=sw){const x1=x0+sw,f=x=>amp*Math.sin(x*k-t*sp+ph)+amp*.5*Math.sin(x*k*2.3+t*sp*1.4+ph*2),y0=f(x0),y1=f(x1);
-    a.globalAlpha=al*(.82+.18*Math.sin(x0*.0045-t*.7+ph));let s0=x0+dx,w=sw,d0=0;if(s0<0){d0=-s0;w+=s0;s0=0}if(s0+w>1600)w=1600-s0;a.setTransform(1,(y1-y0)/sw,0,1,x0,y0);
-    let mh=0;for(let k2=Math.max(0,x0>>2);k2<=Math.min(400,(x1>>2)+1);k2++)mh=Math.max(mh,lf_SK[k2]);const hh=Math.min(HH,mh-Math.min(y0,y1)+3-Y0);if(hh>2&&w>1)a.drawImage(src,s0,Y0,w,hh,d0,Y0,w,hh)}a.setTransform(1,0,0,1,0,0)};
-  curt(D.aB,120,10,.006,.45,1.3,.85+.15*Math.sin(t*.5+1),24);curt(D.aA,120,13,.005,.38,0,.9+.1*Math.sin(t*.6),30);a.globalAlpha=1}
- /* only the painted part of the aurora (x 260-1594, y 16-370, plus drift) */
- g.save();g.clip(D.sk);g.globalCompositeOperation='lighter';g.drawImage(D.ac,220,0,1380,390,220,0,1380,390);g.restore();g.globalAlpha=1;
+ /* aurora curtains, waving: crossfade between two baked keyframes (they hold the sky and are cut to the skyline, so no clip) */
+ {const u=((t/LF_AT)%1+1)%1*LF_AN,i=Math.floor(u)%LF_AN,j=(i+1)%LF_AN,f=u-Math.floor(u);
+  if(!D.ak[i])lf_aurFrame(D,i);if(!D.ak[j])lf_aurFrame(D,j);else if(D.akn<LF_AN){for(let k=2;k<LF_AN;k++){const m=(i+k)%LF_AN;if(!D.ak[m]){lf_aurFrame(D,m);break}}}
+  g.drawImage(D.ak[i],LF_AX,0);if(f>.004){g.globalAlpha=f;g.drawImage(D.ak[j],LF_AX,0);g.globalAlpha=1}}
  /* twinkling stars (two batches) */
  for(let b=0;b<2;b++){g.globalAlpha=.45+.45*Math.sin(t*(1.3+b*.6)+b*2);g.fillStyle=b?'#d8fff0':'#ffffff';g.beginPath();for(let i=b;i<20;i+=2){const x=lf_r(i+1300)*1600,y=lf_r(i+1600)*(FSW_Y-200),r=2+lf_r(i+1900)*2.6;g.moveTo(x,y-r);g.quadraticCurveTo(x+r*.16,y-r*.16,x+r,y);g.quadraticCurveTo(x+r*.16,y+r*.16,x,y+r);g.quadraticCurveTo(x-r*.16,y+r*.16,x-r,y);g.quadraticCurveTo(x-r*.16,y-r*.16,x,y-r)}g.fill()}g.globalAlpha=1;
  /* chimney smoke */
  for(let i=0;i<5;i++){const p=(t*.12+i/5)%1,s=18+p*70;g.globalAlpha=(1-p)*.75*Math.min(1,p*6);g.drawImage(D.sm,220+p*60+Math.sin(t*.8+i*1.7)*10*p-s/2,160-p*170-s/2,s,s)}g.globalAlpha=1;
  /* aurora reflection on the lake, broken into wobbling strips */
- g.save();g.clip(D.wp,'evenodd');g.globalCompositeOperation='lighter';const ra=.62+.12*Math.sin(t*.6);
+ g.save();g.globalCompositeOperation='lighter';const ra=.62+.12*Math.sin(t*.6);
  for(let i=0;i<10;i++){const y0=i*21,ox=Math.sin(t*1.1+i*1.3)*(3+i*.9);g.globalAlpha=ra*(.85+.15*Math.sin(t*1.7+i*2.1));g.drawImage(D.rf,0,y0,1040,21,300+ox,FSW_Y+5+y0,1040,21)}
  /* shimmer streaks */
  g.globalAlpha=.5;g.fillStyle='#9affd8';g.beginPath();for(let i=0;i<22;i++){const u=i/22,y=FSW_Y+14+u*u*230,w=(16+u*110)*(.55+.45*Math.sin(t*1.3+i*1.7)),x=420+lf_r(i+40)*820+Math.sin(t*.7+i*2.3)*(8+u*30);g.rect(x-w/2,y,w,1.6+u*1.6)}g.fill();
  g.globalAlpha=.35;g.fillStyle='#ffc8f0';g.beginPath();for(let i=0;i<8;i++){const y=FSW_Y+10+i*9,w=30+30*Math.sin(t*1.1+i),x=900+lf_r(i+80)*380+Math.sin(t*.6+i)*20;g.rect(x-w/2,y,w,1.4)}g.fill();
  g.restore();g.globalAlpha=1;
+ /* lay the pier, post and bank pixels back over the reflection (same result as clipping it to the open water) */
+ g.drawImage(D.oc,LF_OX,LF_OY);
  /* slow ripple rings */
  g.strokeStyle='#bfe8ff';g.lineWidth=1.4;for(let i=0;i<4;i++){const p=(t*.16+i*.25)%1,x=700+lf_r(i+70)*560,y=600+lf_r(i+71)*220,r=10+p*56;g.globalAlpha=(1-p)*.22;g.beginPath();g.ellipse(x,y,r,r*.28,0,0,TAU);g.stroke()}g.globalAlpha=1;
  /* bobbing ice floes */
@@ -30182,9 +30205,9 @@ function lf_back(g,t){const D=lf_D;if(!D)return;
  g.strokeStyle=FKO;g.lineWidth=5;g.beginPath();g.moveTo(260,552);g.quadraticCurveTo(424,592,588,552);g.stroke();g.strokeStyle='#c8a46a';g.lineWidth=2.6;g.stroke();
  g.fillStyle='#f4f8ff';g.beginPath();[.2,.38,.55,.74].forEach(u=>{const x=(1-u)*(1-u)*260+2*u*(1-u)*424+u*u*588,y=(1-u)*(1-u)*552+2*u*(1-u)*592+u*u*552;g.moveTo(x+9,y-1);g.ellipse(x,y-2,9,4,0,0,TAU)});g.fill();
  /* lanterns (flicker) */
- [[260,514,0],[588,514,1],[122,500,2]].forEach(([x,y,i])=>{const f=.86+.14*Math.sin(t*9+i*3)*Math.sin(t*5.3+i);g.globalCompositeOperation='lighter';g.globalAlpha=.55*f;const R=130*f;g.drawImage(D.gl2,x-R,y-R,R*2,R*2);g.globalAlpha=.6*f;g.drawImage(D.gl3,x-50,y-52,100,100);g.globalCompositeOperation='source-over';g.globalAlpha=1;g.drawImage(D.lan,x-30,y-56+2)});
+ [[260,514,0],[588,514,1],[122,500,2]].forEach(([x,y,i])=>{const f=.86+.14*Math.sin(t*9+i*3)*Math.sin(t*5.3+i);g.globalCompositeOperation='lighter';g.globalAlpha=.55*f;const h=D.gl2[Math.max(0,Math.min(4,Math.round((f-.72)/.07)))],R=h.width/2;g.drawImage(h,x-R,y-R);g.globalAlpha=.6*f;g.drawImage(D.gl3,x-50,y-52);g.globalCompositeOperation='source-over';g.globalAlpha=1;g.drawImage(D.lan,x-30,y-56+2)});
  /* window light breathing */
- g.globalCompositeOperation='lighter';g.globalAlpha=.22+.08*Math.sin(t*2.3)*Math.sin(t*3.7);g.drawImage(D.gw,186-80,495-80,160,160);g.drawImage(D.gw,136-44,336-44,88,88);g.globalCompositeOperation='source-over';g.globalAlpha=1}
+ g.globalCompositeOperation='lighter';g.globalAlpha=.22+.08*Math.sin(t*2.3)*Math.sin(t*3.7);g.drawImage(D.gw,186-80,495-80);g.drawImage(D.gw2,136-44,336-44);g.globalCompositeOperation='source-over';g.globalAlpha=1}
 /* ---------- front: snowfall and sparkles over everything ---------- */
 function lf_front(g,t){const D=lf_D;if(!D)return;
  D.fs.forEach(F=>{const c=D.fk[F.k],x=((F.x+t*F.vx+Math.sin(t*.8+F.p)*F.sw)%1680+1680)%1680-40,y=((F.y+t*F.vy)%960+960)%960-30;g.globalAlpha=F.a;g.drawImage(c,x-c.width/2,y-c.width/2)});g.globalAlpha=1;
@@ -30195,6 +30218,7 @@ FSLOCART.frost={bg:lf_bg,back:lf_back,front:lf_front};
    glowing mushrooms and crystal clusters cling to the rocks, the water glows with bioluminescence. On the left a carved
    rock arch with hanging lanterns; the hero fishes from a rock ledge with planks and rope (same footprint as the pond dock).
    bg is painted once; back/front run every frame and only draw cached sprites and a handful of light shapes.
+   The big breathing glows (moon, mushrooms, lanterns) are pre-made at their drawn size so each one is a 1:1 blit.
    Private helpers are prefixed lg_. */
 let lg_S=null;
 const lg_hx=a=>Math.round(Math.max(0,Math.min(1,a))*255).toString(16).padStart(2,'0');
@@ -30518,7 +30542,11 @@ function lg_dock(g,CY,VI,TE){const D=FSDOCK;
  g.strokeStyle='#d8b878';g.lineWidth=3;g.stroke();
  lg_lantern(g,LG_LANT[2].x,LG_LANT[2].y,LG_LANT[2].s);lg_lantern(g,LG_LANT[3].x,LG_LANT[3].y,LG_LANT[3].s)}
 /* ---------- cached sprites for the live layers ---------- */
-function lg_init(){const S={gc:lg_spr('#4ae8ff'),gv:lg_spr('#b070ff'),gw:lg_spr('#ffa040'),gt:lg_spr('#3affc0'),gm:lg_spr('#fff2c8'),mc:lg_mote('#7af4ff'),mv:lg_mote('#d29aff'),mg:lg_mote('#9affd0'),mp:lg_mote('#ff9ae6')};
+function lg_init(){const S={gc:lg_spr('#4ae8ff'),mc:lg_mote('#7af4ff'),mv:lg_mote('#d29aff'),mg:lg_mote('#9affd0'),mp:lg_mote('#ff9ae6')};
+ /* the big breathing glows are made at the exact size they are drawn (a 1:1 blit costs well under half of an upscaled one):
+    moon, mushrooms; the lantern halos flicker in size through 5 pre-made steps */
+ S.gp=[['#fff2c8',LG_MOON.x,LG_MOON.y,120],['#3affc0',1458,392,150],['#b070ff',1390,452,90],['#4ae8ff',250,150,70],['#4ae8ff',22,578,80],['#b070ff',430,264,80]].map(([c,x,y,r])=>({c:lg_spr(c,r*2),x:x-r,y:y-r}));
+ S.lw=[70,95].map(R=>[0,1,2,3,4].map(q=>lg_spr('#ffa040',2*Math.round(R*(.7+.075*q)))));
  /* waterfall sheet: soft streaks, 2H tall and repeating every H so it can scroll smoothly with one draw */
  {const F=LG_FALL,H=F.y1-F.y0,W=F.w1*2+8,c=document.createElement('canvas');c.width=W;c.height=H*2;const g=c.getContext('2d');
   for(let i=0;i<9;i++){const x=6+lg_r(i+2901)*(W-12),w=5+lg_r(i+2951)*6;g.fillStyle='#bff8ff';g.globalAlpha=.08;g.fillRect(x-w/2,0,w,H*2)}g.globalAlpha=1;
@@ -30554,7 +30582,8 @@ FSLOCART.grotto={
   LG_REEDS.forEach(([x,y,sc],i)=>{g.save();g.translate(x,y);g.scale(sc,sc);g.transform(1,0,Math.sin(t*1.1+i*2)*.05,1,0,0);g.drawImage(S.reed[i],-85,-170);g.restore()});
   g.save();g.globalCompositeOperation='lighter';
   const gl=(s,x,y,r,a)=>{g.globalAlpha=Math.max(0,Math.min(1,a));g.drawImage(s,x-r,y-r,r*2,r*2)};
-  gl(S.gm,LG_MOON.x,LG_MOON.y,120,.18+.06*Math.sin(t*.7));
+  const gp=(i,a)=>{const G=S.gp[i];g.globalAlpha=Math.max(0,Math.min(1,a));g.drawImage(G.c,G.x,G.y)};
+  gp(0,.18+.06*Math.sin(t*.7));
   /* waterfall: two scrolling copies of the sheet */
   /* waterfall: streaks scroll smoothly down inside the tapered sheet, glints slide down, mist puffs rise and rings spread from the splash */
   {const F=LG_FALL,H=F.y1-F.y0,o=(t*165)%H,w=S.fall.width;g.save();lg_fallPath(g,1.05,F.y1-6);g.clip();g.globalAlpha=.9;g.drawImage(S.fall,0,H-o,w,H,F.x-w/2,F.y0,w,H);g.restore();
@@ -30565,9 +30594,9 @@ FSLOCART.grotto={
    g.globalCompositeOperation='source-over';g.fillStyle='#f4feff';for(let i=0;i<3;i++){const ph=t*2.2+i*2.1;g.globalAlpha=.75;g.beginPath();g.ellipse(F.x+(i-1)*16+Math.sin(ph)*3,F.y1-1+Math.sin(ph*1.3)*1.5,9+Math.sin(ph)*2,4.2,0,0,TAU);g.fill()}
    g.globalCompositeOperation='lighter'}
   /* mushroom glows breathing */
-  gl(S.gt,1458,392,150,.12+.06*Math.sin(t*1.1));gl(S.gv,1390,452,90,.24+.1*Math.sin(t*1.4+1));gl(S.gc,250,150,70,.22+.1*Math.sin(t*1.3+2));gl(S.gc,22,578,80,.2+.1*Math.sin(t*1.2+3));gl(S.gv,430,264,80,.16+.08*Math.sin(t*.9+4));
+  gp(1,.12+.06*Math.sin(t*1.1));gp(2,.24+.1*Math.sin(t*1.4+1));gp(3,.22+.1*Math.sin(t*1.3+2));gp(4,.2+.1*Math.sin(t*1.2+3));gp(5,.16+.08*Math.sin(t*.9+4));
   /* lanterns flicker */
-  LG_LANT.forEach((L,i)=>{const f=.85+.15*Math.sin(t*9+i*7)*Math.sin(t*5.3+i);gl(S.gw,L.x,L.y-4,(i<2?70:95)*f,.42*f)});
+  LG_LANT.forEach((L,i)=>{const f=.85+.15*Math.sin(t*9+i*7)*Math.sin(t*5.3+i),h=S.lw[i<2?0:1][Math.max(0,Math.min(4,Math.round((f-.7)/.075)))],r=h.width/2;g.globalAlpha=.42*f;g.drawImage(h,L.x-r,L.y-4-r)});
   /* moonlight shimmer on the water */
   g.fillStyle='#f2f6ff';for(let i=0;i<5;i++){const u=(i+.5)/5,y=FSW_Y+12+u*112,w=(12+u*34)*(.55+.45*Math.sin(t*1.3+i*1.7)),x=LG_MOON.x+Math.sin(t*.9+i*2.3)*(3+u*12);g.globalAlpha=(.62-u*.3)*(.4+.6*Math.max(0,Math.sin(t*2+i*1.3)));g.beginPath();g.ellipse(x,y,w/2,1.2+u*.9,0,0,TAU);g.fill()}
   /* bioluminescent ripple rings */
@@ -30678,7 +30707,7 @@ function fsDecide(keep){const c=FS.pend;if(!c||FS.st!=='reveal')return false;if(
    fish needed for a rod look you haven't made are kept while "Save fish for rod looks" is on (the default) */
 function fsKeepWhy(c){if(!c)return'';const F=fsP();if(FSR[c.rk].k>=2)return FSR[c.rk].n+' catch';if(c.info&&c.info.first)return'New species!';if(c.g)return'Giant!';
  if(F.look!==0)for(const k of FSKINK){const n=FSKIN[k].k[c.id];if(!F.sk[k]&&n){const have=F.cr.filter(x=>x.id===c.id).length;if(have<n)return`For the ${FSKIN[k].n} rod (${have}/${n})`}}return''}
-const fsDefKeep=c=>!!c&&fsP().cr.length<FSCREEL&&!!fsKeepWhy(c);
+const fsDefKeep=c=>!!c&&fsP().cr.length<fsCreelCap()&&!!fsKeepWhy(c);
 /* ---------- per frame ---------- */
 function fsFrame(g){const now=fsNow(),dt=Math.min(.05,now-(FS.T||now));FS.T=now;const el=now-FS.t0,V=FS.view,rm=fsRM();V.rm=rm;V.skin=fsSkin();V.lg=0;V.bend=0;V.slack=.4;V.rodA=-.62;V.cheer=0;V.dim=0;V.moonUp=0;V.shake=0;V.bob=null;V.lineTo=null;V.vib=0;V.noLine=0;V.bobA=1;
  if(V.petHop){V.petHop+=dt*2.6;if(V.petHop>=1)V.petHop=0}
@@ -30828,7 +30857,11 @@ function fsMoonIcon(g,x,y,r,ph,t){fkGlow(g,x,y,r*1.5,'#c8b8ff',.35+.1*Math.sin(t
  if(lit>.98){g.beginPath();g.arc(x,y,r,0,TAU);g.fill()}else if(lit>.02){g.beginPath();g.arc(x,y,r,-Math.PI/2,Math.PI/2,dir<0);const w=r*(1-2*lit);g.ellipse(x,y,Math.abs(w),r,0,Math.PI/2,-Math.PI/2,(w>0)===(dir>0));g.fill()}
  g.restore();g.lineWidth=2.4;g.strokeStyle='#1b1024';g.beginPath();g.arc(x,y,r,0,TAU);g.stroke()}
 function fsRodIcon(){const c=$('fsric');if(!c)return;const g=c.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,120,70);fsRod(g,24,58,-.42,0,96,0,fsSkin());}
-function fsThumb(cv,id,sil,t,sc){const g=cv.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);fishFit(g,id,cv.width/2,cv.height/2,cv.width*.94,cv.height*.94,{t:t||.4,sil:sil?(sc||'#0a0620'):0})}
+/* still thumbnails are cached per fish, size and silhouette colour, so redrawing the 45-card bestiary on a catch reveal is a quick copy (update 6) */
+const FSTHC=new Map();
+function fsThumb(cv,id,sil,t,sc){const g=cv.getContext('2d');g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cv.width,cv.height);const S=sil?(sc||'#0a0620'):0;
+ if(!t||t===.4){const k=id+'|'+S+'|'+cv.width+'x'+cv.height;let c=FSTHC.get(k);if(!c){c=document.createElement('canvas');c.width=cv.width;c.height=cv.height;fishFit(c.getContext('2d'),id,cv.width/2,cv.height/2,cv.width*.94,cv.height*.94,{t:.4,sil:S});FSTHC.set(k,c)}g.drawImage(c,0,0);return}
+ fishFit(g,id,cv.width/2,cv.height/2,cv.width*.94,cv.height*.94,{t,sil:S})}
 /* ---------- HUD ---------- */
 function fsHudRefresh(){const gd=$('fsgold');if(gd)gd.textContent=P.gold.toLocaleString();const n=fsFound();const fo=$('fsfound');if(fo)fo.textContent=`${n} / ${FIDS.length}`;
  const rc=$('fsrodc');if(rc)rc.textContent=`${n} / ${FIDS.length} species`;const bi=$('fsbari');if(bi)bi.style.width=(n/FIDS.length*100)+'%';const rn=$('fsrodn');if(rn)rn.textContent=fsRodName();
@@ -30854,7 +30887,7 @@ function fsBanner(t,sub,col,dur,rk){const b=$('fsban');if(!b)return;b.className=
 function fsToast(m,gold){const b=$('fstoast');if(!b)return;b.innerHTML=(gold?fsCoin:'')+fsEsc(m);b.classList.remove('on');void b.offsetWidth;b.classList.add('on');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('on'),2400)}
 /* ---------- the catch preview ---------- */
 function fsPreview(c){const p=$('fspv');if(!p)return;if(!c){p.hidden=true;p.innerHTML='';fsHudState();return}
- const f=FISH[c.id],R=FSR[c.rk],I=c.info||{},dk=fsDefKeep(c),full=fsP().cr.length>=FSCREEL,mid=(f.len[0]+f.len[1])/2;
+ const f=FISH[c.id],R=FSR[c.rk],I=c.info||{},dk=fsDefKeep(c),full=fsP().cr.length>=fsCreelCap(),mid=(f.len[0]+f.len[1])/2;
  const tags=[I.first?'<span class="fstag new">NEW!</span>':'',I.record?'<span class="fstag rec">NEW RECORD</span>':'',c.g?'<span class="fstag gi">GIANT</span>':'',c.id===fsMoon().feat?'<span class="fstag ft">FEATURED +50%</span>':''].join('');
  p.hidden=false;p.style.setProperty('--rc',R.c);p.className='fspv fsr-'+c.rk;
  p.innerHTML=`<h4>Catch preview</h4><div class="fspvc"><canvas id="fspvcv" width="300" height="190"></canvas><div class="fspvt"><b>${f.n}</b>${fsPill(c.rk)}<span class="fscm">${c.cm} cm <small>${c.cm>mid*1.15?'· big one!':c.cm<mid*.8?'· a little one':''}</small></span><span class="fstags">${tags}</span></div></div>
@@ -30881,7 +30914,7 @@ function fsBestHTML(){const F=fsP(),ids=FIDS.filter(id=>FSU.flt==='all'||FISH[id
  <div class="fsflt">${[['all','All'],...FSRK.map(k=>[k,FSR[k].n])].map(([k,l])=>`<button data-flt="${k}" class="${FSU.flt===k?'on':''}" style="--rc:${k==='all'?'#8a7ad8':FSR[k].c}">${l}</button>`).join('')}</div>
  <div class="fsgrid">${ids.map(id=>{const f=FISH[id],b=F.b[id],got=b&&b.n;return `<button class="fscard${got?'':' unk'}${FS.pend&&FS.pend.id===id?' cur':''}" data-fish="${id}" style="--rc:${FSR[f.r].c}" aria-label="${got?f.n:'Undiscovered fish'}, ${FSR[f.r].n}"><canvas width="180" height="96"></canvas><b>${got?f.n:'???'}</b>${fsPill(f.r)}${!got&&f.r==='m'?'<i class="fsq" aria-hidden="true">?</i>':''}${got?`<small>×${b.n} · best ${b.big} cm${b.g?' · <span class="fscrown">♛</span>':''}</small>`:f.r==='m'&&f.loc?`<small>Only at ${FSLOCS[f.loc].n}</small>`:'<small>Not caught yet</small>'}</button>`}).join('')}</div>`}
 function fsCreelHTML(){const F=fsP(),L=F.cr.map((c,i)=>({c,i})).sort((a,b)=>FSR[FISH[b.c.id].r].k-FSR[FISH[a.c.id].r].k||fsValue(b.c)-fsValue(a.c)),tot=F.cr.reduce((a,c)=>a+fsValue(c),0);
- return `<div class="fsbh"><h3>Your Creel</h3><span>${F.cr.length} / ${FSCREEL} fish</span></div>
+ return `<div class="fsbh"><h3>Your Creel</h3><span>${F.cr.length} / ${fsCreelCap()} fish</span></div>
  <p class="fsnote">Kept fish wait here. Sell them any time, or turn them in for rod looks in the Rod Workshop.</p><label class="fsauto fsauto2"><input type="checkbox" id="fsauto2" ${F.auto?'checked':''}> Auto-sell Common &amp; Uncommon catches <small>(new species and giants are still kept)</small></label><label class="fsauto fsauto2"><input type="checkbox" id="fslook" ${F.look!==0?'checked':''}> Save fish I need for rod looks</label>
  ${F.cr.length?`<button class="fssa" id="fssa">${fsCoin}Sell all · ${tot.toLocaleString()}</button>`:''}
  <div class="fslist">${L.length?L.map(({c,i})=>{const f=FISH[c.id];return `<div class="fsrow" data-ci="${i}" style="--rc:${FSR[f.r].c}"><canvas width="96" height="56"></canvas><span><b>${f.n}${c.g?' <span class="fscrown">♛</span>':''}</b><small>${FSR[f.r].n} · ${c.cm} cm</small></span><button data-sell="${i}">${fsCoin}${fsValue(c).toLocaleString()}</button></div>`}).join(''):'<p class="fsempty">Your creel is empty. Choose <b>Keep</b> after a catch to store a fish here.</p>'}</div>`}
@@ -31731,7 +31764,7 @@ function fsHub(){S.mode='fish';S.view='fishhub';FS.on=false;fsP();const F=fsP(),
   <div class="fshtl">
    <button class="fsht2 fsg" id="fshj" style="--c:#ffd45a"><span class="fshic"><canvas id="fshjc" width="120" height="96"></canvas></span><b>Angler's Journal</b><small>${n} / ${FIDS.length} fish found</small><span class="fshpr"><i style="width:${n/FIDS.length*100}%"></i></span></button>
    <button class="fsht2 fsg" id="fshw" style="--c:#a898ff"><span class="fshic"><canvas id="fshwc" width="120" height="96"></canvas></span><b>Rod Workshop</b><small>${FSTIERN[tier]} · Lv ${fsLv()}/15</small>${upCan||skCan?'<i class="fshdot">!</i>':''}</button>
-   <button class="fsht2 fsg" id="fshc" style="--c:#7ad8ff"><span class="fshic"><canvas id="fshcc" width="120" height="96"></canvas></span><b>Creel</b><small>${cr} / ${FSCREEL} kept${cr?` · ${crv.toLocaleString()} gold`:''}</small></button>
+   <button class="fsht2 fsg" id="fshc" style="--c:#7ad8ff"><span class="fshic"><canvas id="fshcc" width="120" height="96"></canvas></span><b>Creel</b><small>${cr} / ${fsCreelCap()} kept${cr?` · ${crv.toLocaleString()} gold`:''}</small></button>
    <button class="fsht2 fsg" id="fshs" style="--c:#7affb4"><span class="fshic"><canvas id="fshsc" width="120" height="96"></canvas></span><b>Stats</b><small>${(s.caught||0).toLocaleString()} caught · best streak ${s.best||0}</small></button>
   </div></section>
  <div class="fsmod" id="fsmod" hidden></div></div>`,'fshx');
@@ -32653,7 +32686,7 @@ function fsHub(){S.mode='fish';S.view='fishhub';FS.on=false;fsP();const F=fsP(),
  <nav class="fsh2tiles">
   <button class="fsh2t2" id="fshj" style="--c:#ffd45a"><canvas width="104" height="88" data-ic="journal"></canvas><span><b>Angler's Journal</b><small>${n} / ${FIDS.length} fish discovered</small><span class="fshpr"><i style="width:${n/FIDS.length*100}%"></i></span></span><i class="fsch">›</i></button>
   <button class="fsh2t2" id="fshw" style="--c:#a898ff"><canvas width="104" height="88" data-ic="rod"></canvas><span><b>Rod Workshop</b><small>${FSTIERN[tier]} · Lv ${lv}/15</small>${lv>=15?'<em class="fsmaxb">MAX</em>':`<small class="fsnx">${next?`next rod at Lv ${next}`:''}</small>`}</span><i class="fsch">›</i>${upCan||skCan?'<i class="fshdot">!</i>':''}</button>
-  <button class="fsh2t2" id="fshc" style="--c:#7ad8ff"><canvas width="104" height="88" data-ic="basket"></canvas><span><b>Fish Basket</b><small>Creel · ${cr} / ${FSCREEL}${cr?` · ${crv.toLocaleString()} gold`:''}</small></span><i class="fsch">›</i></button>
+  <button class="fsh2t2" id="fshc" style="--c:#7ad8ff"><canvas width="104" height="88" data-ic="basket"></canvas><span><b>Fish Basket</b><small>Creel · ${cr} / ${fsCreelCap()}${cr?` · ${crv.toLocaleString()} gold`:''}</small></span><i class="fsch">›</i></button>
   <button class="fsh2t2" id="fshs" style="--c:#7affb4"><canvas width="104" height="88" data-ic="stats"></canvas><span><b>Stats</b><small>${(s.caught||0).toLocaleString()} caught · best streak ${s.best||0}</small></span><i class="fsch">›</i></button>
  </nav><div class="fsmod" id="fsmod" hidden></div></div>`,'fshx');
  S.back=()=>{fsModal(null);title()};{const cn=$('cn');if(cn)cn.classList.add('dkhid')}
@@ -33342,6 +33375,955 @@ function fsMythicView(V,el,d){const T=my_T,rm=!!V.rm,dn=my_ss(0,.7,el)*(1-my_ss(
  B(65,.8,'sawtooth',.25,.92);B(131,.7,'triangle',.45,.92);[523,659,784,1047].forEach(f=>B(f,1,'triangle',.32,.92));B(2093,.6,'sine',.22,.95);
  [1568,1865,2093,2489,2794,3136,3729].forEach((f,i)=>B(f,.4,'sine',.2,1.2+i*.035));[784,988,1175,1568].forEach(f=>B(f,1.5,'sine',.2,1.22));
  [1047,1319,1568,2093].forEach((f,i)=>B(f,.65,'triangle',.36,2.6+i*.1));[2637,3136,3951].forEach((f,i)=>B(f,.9,'sine',.16,3.05+i*.06))}}
+/* ===== MOONLIT FISHING update 6: art (creel tiers, baits, trophy plaques, medals, hub icons) =====
+   fsCreelArt(g,tier,x,y,s,t,fill)  the fish basket, tiers 0..4 (Wicker, Sturdy, Frostkeeper, Enchanted, Moonlit Treasure);
+                                    fits about +-110 x -100..95 at s=1; fill 0..1 = fish poking out of the top
+   fsBaitArt(g,kind,x,y,s,t)        bait icons (worm, moth, roe, shrimp, spore, none), about +-50 at s=1
+   fsPlaque(g,cx,cy,w,h,rk,t,empty) trophy-wall mount board, trim shows the rarity rk; empty = dusty with a dashed outline
+   fsMedal(g,kind,x,y,s,t,got)      achievement medal about +-40 at s=1; got=false is a dim locked silhouette
+   fsIcon kinds added: trophy, board, bait, creel0..creel4.
+   Performance: every static layer is painted once into a cached offscreen sprite (keyed by args and pixel scale, LRU),
+   only the small animated bits (glows, runes, wisps, sparkles, wings, worms) are drawn live. Glows are cached sprites too. */
+const UA_O='#1b1024',UA_O2='#12081f';
+const UA_SPR=new Map(),UA_GW=new Map(),UA_GC=new Map();
+const ua_ps=g=>{const k=g.getTransform();return Math.max(Math.hypot(k.a,k.b),Math.hypot(k.c,k.d))||1};
+let UA_SPX=0;
+/* cached sprite of fn painted over the local box (x0,y0,w,h); resolution follows the current pixel scale in 1/4 steps */
+function ua_spr(g,key,x0,y0,w,h,fn){const b=Math.min(4,Math.max(.5,Math.ceil(ua_ps(g)*4-.05)/4)),id=key+'@'+b;let c=UA_SPR.get(id);
+ if(!c){c=document.createElement('canvas');c.width=Math.ceil(w*b);c.height=Math.ceil(h*b);const x=c.getContext('2d');x.setTransform(b,0,0,b,-x0*b,-y0*b);x.lineJoin='round';x.lineCap='round';
+  try{fn(x)}catch(e){console.error('u6art',key,e)}UA_SPX+=c.width*c.height;
+  /* keep the cache under ~10M pixels (about 40MB) and 120 sprites: drop the least recently used */
+  while((UA_SPX>1e7||UA_SPR.size>=120)&&UA_SPR.size){const k0=UA_SPR.keys().next().value,o=UA_SPR.get(k0);UA_SPX-=o.width*o.height;UA_SPR.delete(k0)}}else UA_SPR.delete(id);
+ UA_SPR.set(id,c);g.drawImage(c,x0,y0,w,h)}
+/* cheap additive glow from a cached radial sprite */
+function ua_glow(g,x,y,r,c,a){if(r<=0||a<=0)return;let s=UA_GW.get(c);if(!s){s=document.createElement('canvas');s.width=s.height=64;const x2=s.getContext('2d'),q=x2.createRadialGradient(32,32,0,32,32,32);
+  q.addColorStop(0,c+'ff');q.addColorStop(.3,c+'a0');q.addColorStop(.62,c+'38');q.addColorStop(1,c+'00');x2.fillStyle=q;x2.fillRect(0,0,64,64);UA_GW.set(c,s)}
+ const o=g.globalCompositeOperation,oa=g.globalAlpha;g.globalCompositeOperation='lighter';g.globalAlpha=oa*Math.min(1,a);g.drawImage(s,x-r,y-r,r*2,r*2);g.globalCompositeOperation=o;g.globalAlpha=oa}
+const ua_gc=(k,f)=>{let q=UA_GC.get(k);if(!q){q=f();UA_GC.set(k,q)}return q};
+function ua_mix(h,a){const n=parseInt(h.slice(1,7),16);let r=n>>16,gg=n>>8&255,b=n&255;const T=a<0?0:255,p=Math.abs(a);r=Math.round(r+(T-r)*p);gg=Math.round(gg+(T-gg)*p);b=Math.round(b+(T-b)*p);return '#'+((1<<24)+(r<<16)+(gg<<8)+b).toString(16).slice(1)}
+function ua_grey(h,p){const n=parseInt(h.slice(1,7),16);let r=n>>16,gg=n>>8&255,b=n&255;const l=(r*.3+gg*.55+b*.15);r=Math.round(r+(l-r)*p);gg=Math.round(gg+(l-gg)*p);b=Math.round(b+(l-b)*p);return '#'+((1<<24)+(r<<16)+(gg<<8)+b).toString(16).slice(1)}
+const UA_MET={gold:['#fff6c8','#ffd45a','#d8901e','#8a5210'],brass:['#ffeab0','#e0b050','#a06a1e','#5e380c'],silver:['#ffffff','#dde4f4','#9aa6c8','#5a6488'],
+ steel:['#ffffff','#d4e4f6','#8aa0c4','#4a5a80'],bronze:['#ffdcb0','#e0985a','#a85e28','#5e3014'],prism:['#fff0ff','#ffb0ec','#c870e0','#6a3a9a']};
+const ua_met=(c,x0,y0,x1,y1,m)=>{const M=UA_MET[m]||UA_MET.gold;return fkLin(c,x0,y0,x1,y1,[M[0],M[1],M[2],M[1]])};
+/* a stroked "tube" with an outline, used for straps, hooks, handles */
+function ua_tube(c,path,w,col,hi,ow){path();c.strokeStyle=UA_O;c.lineWidth=w+(ow||3.4);c.stroke();path();c.strokeStyle=col;c.lineWidth=w;c.stroke();
+ if(hi){c.save();c.translate(-w*.12,-w*.22);path();c.strokeStyle=hi;c.lineWidth=Math.max(1,w*.28);c.stroke();c.restore()}}
+function ua_dot(c,x,y,r,f,lw){c.beginPath();c.arc(x,y,r,0,TAU);c.fillStyle=f;c.fill();if(lw){c.lineWidth=lw;c.strokeStyle=UA_O;c.stroke()}}
+function ua_rivet(c,x,y,r,m){ua_dot(c,x,y,r,fkRad(c,x,y,r,[UA_MET[m||'brass'][0],UA_MET[m||'brass'][1],UA_MET[m||'brass'][3]]),Math.max(1,r*.45))}
+/* six-armed frost crystal */
+function ua_flake(c,x,y,r,col,sh){c.save();c.translate(x,y);for(const pass of [0,1]){c.strokeStyle=pass?col:sh;c.lineWidth=pass?r*.16:r*.32;c.beginPath();
+ for(let i=0;i<6;i++){const a=i*Math.PI/3,ca=Math.cos(a),sa=Math.sin(a);c.moveTo(0,0);c.lineTo(ca*r,sa*r);const m=r*.55,b=r*.28;
+  c.moveTo(ca*m,sa*m);c.lineTo(ca*m+Math.cos(a+.8)*b,sa*m+Math.sin(a+.8)*b);c.moveTo(ca*m,sa*m);c.lineTo(ca*m+Math.cos(a-.8)*b,sa*m+Math.sin(a-.8)*b)}c.stroke()}c.restore()}
+/* faceted gem (diamond cut) centred at x,y, radius r, colours [light, mid, dark] */
+function ua_gem(c,x,y,r,C,lw){c.save();c.translate(x,y);const p=()=>{c.beginPath();c.moveTo(-r,-r*.25);c.lineTo(-r*.55,-r*.8);c.lineTo(r*.55,-r*.8);c.lineTo(r,-r*.25);c.lineTo(0,r);c.closePath()};
+ p();c.fillStyle=fkLin(c,-r,-r,r,r,C);c.fill();c.lineWidth=lw||Math.max(1.4,r*.22);c.strokeStyle=UA_O;c.stroke();
+ c.fillStyle='rgba(255,255,255,.55)';c.beginPath();c.moveTo(-r*.55,-r*.8);c.lineTo(-r*.2,-r*.25);c.lineTo(-r,-r*.25);c.closePath();c.fill();
+ c.fillStyle='rgba(0,0,0,.22)';c.beginPath();c.moveTo(r,-r*.25);c.lineTo(r*.2,-r*.25);c.lineTo(0,r);c.closePath();c.fill();
+ c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=Math.max(.8,r*.1);c.beginPath();c.moveTo(-r,-r*.25);c.lineTo(r,-r*.25);c.moveTo(-r*.2,-r*.25);c.lineTo(0,r);c.stroke();c.restore()}
+
+/* ====================================================================================================================
+   CREEL
+   ==================================================================================================================== */
+/* body shape per tier: rim half-width w at rim y with ellipse ry, bulge mw, bottom half-width bw at by, corner radius, bottom sag */
+const UA_CP=[{w:90,y:-28,ry:15,mw:99,bw:78,by:86,cr:18,sag:7},{w:92,y:-30,ry:15,mw:99,bw:83,by:85,cr:12,sag:6},{w:92,y:-24,ry:14,mw:95,bw:90,by:84,cr:8,sag:6},
+ {w:80,y:-30,ry:13,mw:108,bw:64,by:86,cr:22,sag:8},{w:96,y:-20,ry:13,mw:99,bw:95,by:82,cr:8,sag:5}];
+/* which fish poke out of each tier (falls back to a simple stub fish if an art module is missing) */
+const UA_CF=[['ember','reed','copper','moss','willow'],['copper','whisker','ember','bramble','lily'],['frost','herring','char','smelt','narwhal'],
+ ['glass','rose','tetra','cavefish','lant'],['moonfin','aurora','sun','tidecrown','arowana']];
+/* fish slots: x, y (relative to rim y), rotation, scale, mirror. drawn in the order 3,4,1,2,0 */
+const UA_SLOT=[[2,-30,-1.5,.42,0],[-36,-22,1.82,.38,1],[40,-24,-1.18,.39,1],[-64,-12,-1.98,.33,0],[66,-13,1.3,.33,0]];
+function ua_bodyPath(c,P){const {w,y,ry,mw,bw,by,cr,sag}=P,y3=y+(by-y)*.36;c.beginPath();c.moveTo(-w,y);c.bezierCurveTo(-mw,y3,-bw,by-cr*2.4,-bw,by-cr);
+ c.quadraticCurveTo(-bw,by,-bw+cr,by+sag*.3);c.quadraticCurveTo(0,by+sag,bw-cr,by+sag*.3);c.quadraticCurveTo(bw,by,bw,by-cr);c.bezierCurveTo(bw,by-cr*2.4,mw,y3,w,y);c.ellipse(0,y,w,P.ry,0,0,Math.PI,false);c.closePath()}
+/* points of a horizontal ring around the basket (front half), base yy, half-width W, sag k */
+function ua_ringPts(yy,W,k,a0,a1,n){const o=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;o.push(W*Math.sin(a),yy+k*Math.cos(a))}return o}
+function ua_poly(c,p,close){c.beginPath();c.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)c.lineTo(p[i],p[i+1]);if(close)c.closePath()}
+/* woven wicker clipped to the body (caller clips): continuous horizontal weavers, upright stakes showing where a weaver passes behind */
+function ua_weave(c,P,rh,S){const W=P.mw+6,top=P.y-P.ry,bot=P.by+P.sag+4,nS=S.nS,da=3.1/nS;
+ c.fillStyle=S.base;c.fillRect(-W-4,top-4,W*2+8,bot-top+8);
+ const SA=[];for(let i=0;i<=nS;i++)SA.push(-1.55+i*da);
+ for(const a of SA){const x=W*Math.sin(a),sw=Math.max(1.5,7*Math.cos(a));c.fillStyle=S.stake[1];c.fillRect(x-sw/2,top,sw,bot-top)}
+ for(let j=0,yy=P.y-P.ry*.25;yy<bot;j++,yy+=rh){const k=P.ry*(1-.15*(yy-P.y)/(P.by-P.y)),p=ua_ringPts(yy,W,k,-1.62,1.62,28),sh=(j*37%5)/5;
+  ua_poly(c,p);c.strokeStyle=UA_O2;c.globalAlpha=.85;c.lineWidth=rh+.6;c.stroke();c.globalAlpha=1;c.strokeStyle=sh>.6?S.over[2]||S.over[0]:S.over[0];c.lineWidth=rh-2.4;c.stroke();
+  c.save();c.translate(0,rh*.2);ua_poly(c,p);c.strokeStyle=S.over[1];c.lineWidth=rh*.32;c.stroke();c.restore();
+  c.save();c.translate(0,-rh*.2);ua_poly(c,p);c.strokeStyle=S.hi;c.globalAlpha=.75;c.lineWidth=1.5;c.stroke();c.restore();
+  for(let i=0;i<SA.length;i++){if((i+j)%2)continue;const a=SA[i],x=W*Math.sin(a),y=yy+k*Math.cos(a),sw=Math.max(1.2,7.4*Math.cos(a));if(sw<2)continue;
+   c.beginPath();c.roundRect(x-sw/2,y-rh/2-1.2,sw,rh+2.4,sw*.45);c.fillStyle=S.stake[0];c.fill();c.lineWidth=1.5;c.strokeStyle=UA_O2+'cc';c.stroke();
+   c.fillStyle=S.hi;c.globalAlpha=.55;c.fillRect(x-sw*.3,y-rh/2,Math.max(.8,sw*.22),rh);c.globalAlpha=1;c.fillStyle='rgba(0,0,0,.25)';c.fillRect(x+sw*.12,y-rh/2,sw*.3,rh)}}}
+/* rounded cylinder shading, top occlusion under the rim and a darker base (caller clips) */
+function ua_cylShade(c,P,cold){const W=P.mw+8,sh=cold?'40,60,120':'26,10,40';
+ c.fillStyle=ua_gc('cs'+W+cold,()=>fkLin(c,-W,0,W,0,[`rgba(${sh},.62)`,`rgba(${sh},.12)`,'rgba(255,244,214,.16)','rgba(255,244,214,0)',`rgba(${sh},.08)`,`rgba(${sh},.34)`,`rgba(${sh},.7)`]));
+ c.fillRect(-W,P.y-P.ry-6,W*2,P.by-P.y+P.ry+20);
+ c.fillStyle=fkLin(c,0,P.y,0,P.y+P.ry+26,[`rgba(${sh},.55)`,`rgba(${sh},0)`]);c.fillRect(-W,P.y-P.ry,W*2,P.ry*2+26);
+ c.fillStyle=fkLin(c,0,P.by-34,0,P.by+P.sag,[`rgba(${sh},0)`,`rgba(${sh},.45)`]);c.fillRect(-W,P.by-34,W*2,40+P.sag)}
+/* rim band along the ellipse (a0..a1), styles per tier */
+const UA_RIM=[{th:10,c:'#d8a466',hi:'#fff0c8',lo:'#8a5626',tick:'rgba(74,38,10,.6)'},{th:12,c:'#6a361a',hi:'#c88a5a',lo:'#3a1a0a',stitch:'#e0b070'},
+ {th:11,c:'#cfe4f8',hi:'#ffffff',lo:'#7aa0cc'},{th:10,c:'#9a8ad8',hi:'#f0ecff',lo:'#4a3c90',tick:'rgba(30,16,70,.55)'},{th:12,c:'#f0b83a',hi:'#fff4b8',lo:'#9a5a10',bead:1}];
+function ua_rimArc(c,tr,P,a0,a1){const R=UA_RIM[tr],{w,y,ry}=P,th=R.th,arc=(dy)=>{c.beginPath();c.ellipse(0,y+(dy||0),w,ry,0,a0,a1)};
+ c.lineCap='butt';arc();c.strokeStyle=UA_O;c.lineWidth=th+4;c.stroke();arc();c.strokeStyle=R.c;c.lineWidth=th;c.stroke();
+ arc(th*.26);c.strokeStyle=R.lo;c.lineWidth=th*.36;c.stroke();arc(-th*.24);c.strokeStyle=R.hi;c.globalAlpha=.75;c.lineWidth=th*.24;c.stroke();c.globalAlpha=1;
+ if(R.tick){c.strokeStyle=R.tick;c.lineWidth=1.6;c.beginPath();for(let a=a0+.08;a<a1;a+=.15){const px=w*Math.cos(a),py=y+ry*Math.sin(a);c.moveTo(px-3,py-th*.42);c.lineTo(px+3,py+th*.42)}c.stroke()}
+ if(R.stitch){arc();c.setLineDash([3,3.4]);c.strokeStyle=R.stitch;c.lineWidth=1.2;c.stroke();c.setLineDash([])}
+ if(R.bead){for(let a=a0+.1;a<a1;a+=.2){const px=w*Math.cos(a),py=y+ry*Math.sin(a);ua_dot(c,px,py,2.1,'#fff2b0',0);ua_dot(c,px+.4,py+.6,1.1,'#b8741a',0)}}
+ c.lineCap='round'}
+function ua_fishIn(c,id,x,y,rot,sc,mir){c.save();c.translate(x,y);c.rotate(rot);c.scale(mir?-sc:sc,sc);
+ if(typeof FISHART!=='undefined'&&FISHART[id])fishDraw(c,id,{t:1.2});
+ else{fkPath(c,[-60,0,-20,-40,50,-30,98,0,50,30,-20,40]);fkFill(c,fkLin(c,0,-40,0,40,['#ffd08a','#e8783a']),5);c.beginPath();c.moveTo(-55,0);c.lineTo(-100,-34);c.lineTo(-100,34);c.closePath();fkFill(c,'#e8783a',5);fkEye(c,58,-6,10)}
+ c.restore()}
+function ua_ice(c,x,y,s,r){c.save();c.translate(x,y);c.rotate(r);const h=s*.5;
+ c.beginPath();c.moveTo(-s,-h*.4);c.lineTo(0,-h*1.1);c.lineTo(s,-h*.4);c.lineTo(s,h*.9);c.lineTo(0,h*1.5);c.lineTo(-s,h*.9);c.closePath();c.fillStyle='rgba(110,190,245,.95)';c.fill();c.lineWidth=2;c.strokeStyle=UA_O;c.stroke();
+ c.fillStyle='rgba(240,250,255,.95)';c.beginPath();c.moveTo(-s,-h*.4);c.lineTo(0,-h*1.1);c.lineTo(s,-h*.4);c.lineTo(0,h*.25);c.closePath();c.fill();
+ c.fillStyle='rgba(30,90,180,.5)';c.beginPath();c.moveTo(0,h*.25);c.lineTo(s,-h*.4);c.lineTo(s,h*.9);c.lineTo(0,h*1.5);c.closePath();c.fill();
+ c.strokeStyle='rgba(255,255,255,.9)';c.lineWidth=1.2;c.beginPath();c.moveTo(-s*.7,h*.1);c.lineTo(-s*.7,h*.8);c.stroke();c.restore()}
+function ua_coin(c,x,y,r){c.beginPath();c.ellipse(x,y+1.6,r,r*.5,0,0,TAU);c.fillStyle='#8a5210';c.fill();c.lineWidth=1.6;c.strokeStyle=UA_O;c.stroke();
+ c.beginPath();c.ellipse(x,y,r,r*.5,0,0,TAU);c.fillStyle=fkLin(c,x-r,y-r*.5,x+r,y+r*.5,['#fff6c8','#ffd45a','#d8901e']);c.fill();c.stroke();
+ c.beginPath();c.ellipse(x,y,r*.6,r*.28,0,0,TAU);c.strokeStyle='#b8741a';c.lineWidth=1;c.stroke()}
+function ua_fern(c,x,y,dx,h,s){c.save();c.translate(x,y);c.scale(s,1);c.strokeStyle='#1e4a1a';c.lineWidth=2.4;c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(dx*.2,-h*.7,dx,-h);c.stroke();
+ for(let i=1;i<=6;i++){const u=i/7,px=dx*u*u*.9+dx*.1*u,py=-h*(u*1.15-u*u*.3),r=5.5*(1-u*.6);for(const sd of [-1,1]){c.save();c.translate(px,py);c.rotate(-.9*sd+(dx>0?.3:-.3));
+  c.beginPath();c.ellipse(sd*r*.9,0,r,r*.42,0,0,TAU);c.fillStyle=i%2?'#6ab84e':'#4e9a3c';c.fill();c.lineWidth=1.3;c.strokeStyle=UA_O;c.stroke();c.restore()}}c.restore()}
+/* ---- back layer: handles and lids ---- */
+function ua_crBack(c,tr,P){const {w,y}=P;
+ if(tr===0||tr===1||tr===3){const pts=()=>{c.beginPath();c.moveTo(-w+8,y+4);c.bezierCurveTo(-w+2,-119,w-2,-119,w-8,y+4)};
+  if(tr===0){c.lineCap='butt';ua_tube(c,pts,8,fkLin(c,0,-98,0,y,['#d8a468','#9a6430']),'rgba(255,236,190,.55)');c.lineCap='round'}
+  else if(tr===1){c.lineCap='butt';ua_tube(c,pts,12,fkLin(c,0,-98,0,y,['#6a361c','#3e1c0a']),'rgba(220,150,100,.4)');pts();c.setLineDash([3,3.2]);c.strokeStyle='#e0b070';c.lineWidth=1.2;c.stroke();c.setLineDash([]);c.lineCap='round'}
+  else{ua_tube(c,pts,9,'#4a2488','rgba(220,190,255,.5)');pts();c.setLineDash([6,5]);c.strokeStyle='#8a5ad8';c.lineWidth=6;c.stroke();c.setLineDash([]);
+   pts();c.setLineDash([2,9]);c.lineDashOffset=-5;c.strokeStyle='#5af0ff';c.lineWidth=2;c.stroke();c.setLineDash([]);c.lineDashOffset=0;
+   ua_gem(c,0,-94,9,['#e8ffff','#5af0ff','#2a6ab8'])}}
+ if(tr===2){/* the lid, swung open behind: we see its shaded underside, a frosted top edge with a snow drift, steel hinges */
+  const H=56,lid=k=>{c.beginPath();c.moveTo(-w+3+k,y);c.lineTo(-w+12+k,y-H+k*1.1);c.quadraticCurveTo(0,y-H-16+k*1.3,w-12-k,y-H+k*1.1);c.lineTo(w-3-k,y);c.ellipse(0,y,w-3-k,P.ry,0,0,Math.PI,true);c.closePath()};
+  lid(0);c.fillStyle=fkLin(c,0,y-H-16,0,y,['#d8ecfc','#a8c6e6','#7a9ccc']);c.fill();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke();
+  lid(9);c.fillStyle=fkLin(c,0,y-H,0,y,['#8aaad4','#5e80b4','#3e5a8e']);c.fill();c.lineWidth=2;c.strokeStyle='rgba(20,30,70,.7)';c.stroke();
+  c.save();lid(9);c.clip();c.strokeStyle='rgba(20,40,90,.45)';c.lineWidth=1.6;for(let i=-3;i<=3;i++){const bx=i*(w-12)/3.6,tx=i*(w-24)/3.6;c.beginPath();c.moveTo(bx,y+2);c.lineTo(tx,y-H);c.stroke()}
+   c.strokeStyle='rgba(220,240,255,.28)';c.lineWidth=1;for(let i=-3;i<=3;i++){const bx=i*(w-12)/3.6+2.4,tx=i*(w-24)/3.6+2;c.beginPath();c.moveTo(bx,y+2);c.lineTo(tx,y-H);c.stroke()}
+   c.fillStyle='rgba(235,248,255,.5)';for(let i=0;i<22;i++){c.beginPath();c.arc(-w+18+((i*41)%(w*2-36)),y-H+6+((i*23)%40),.7+(i%3)*.4,0,TAU);c.fill()}
+   c.fillStyle=fkLin(c,0,y-24,0,y+4,['rgba(20,30,80,0)','rgba(20,30,80,.5)']);c.fillRect(-w,y-24,w*2,30);c.restore();
+  /* hinges */for(const sx of [-48,48]){c.fillStyle=ua_met(c,sx-6,0,sx+6,0,'steel');c.beginPath();c.roundRect(sx-5.5,y-34,11,30,3);c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke();ua_rivet(c,sx,y-28,1.8,'steel');ua_rivet(c,sx,y-17,1.8,'steel')}
+  /* snow drift along the top edge */const sn=[];for(let i=0;i<=12;i++){const u=i/12,x=(-w+16)+u*(w*2-32),yy=y-H-16*Math.sin(Math.PI*u)*1.0+3;sn.push([x,yy,4+((i*7)%5)*1.1])}
+  for(const pass of [0,1])for(const [sx,sy,r] of sn){c.beginPath();c.arc(sx,sy,r,0,TAU);if(pass){c.fillStyle=fkLin(c,0,sy-r,0,sy+r,['#ffffff','#e4f2ff']);c.fill()}else{c.lineWidth=3.4;c.strokeStyle=UA_O;c.stroke()}}
+  c.fillStyle='rgba(150,190,230,.5)';for(const [sx,sy,r] of sn){c.beginPath();c.arc(sx,sy+r*.35,r*.6,0,Math.PI);c.fill()}
+}
+ if(tr===4){/* ball feet */for(const sx of [-1,1]){const fx=sx*(P.bw-14),fy=P.by+4;c.beginPath();c.ellipse(fx,fy,10,7,0,0,TAU);c.fillStyle=fkRad(c,fx,fy,10,['#fff2b0','#e8a21e','#7a4a0a']);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke()}
+  const lid=k=>{const ww=w-2-k,yy=y-74+k*1.2;c.beginPath();c.moveTo(-ww,y);c.bezierCurveTo(-ww,y-46,-ww*.62,yy,0,yy);c.bezierCurveTo(ww*.62,yy,ww,y-46,ww,y);c.ellipse(0,y,ww,P.ry,0,0,Math.PI,true);c.closePath()};
+  lid(0);c.fillStyle=ua_met(c,-w,y-74,w,y,'gold');c.fill();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke();
+  lid(9);c.fillStyle=fkLin(c,0,y-64,0,y,['#3a2a8a','#22175c','#140c3a']);c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke();
+  c.save();lid(9);c.clip();c.fillStyle='rgba(255,236,170,.85)';const st=[[-50,-40],[-24,-58],[8,-50],[36,-60],[60,-34],[-66,-18],[-10,-30],[30,-24],[50,-10],[-36,-12]];
+   for(const [sx,sy] of st){fkSpark(c,sx,y+sy,2.6,'#ffe9a0',.9)}
+   /* quilted velvet lines */c.strokeStyle='rgba(120,100,220,.35)';c.lineWidth=1.2;for(let i=-3;i<=3;i++){c.beginPath();c.moveTo(i*24,y+4);c.quadraticCurveTo(i*20,y-40,i*14,y-70);c.stroke()}
+   c.fillStyle=fkLin(c,0,y-30,0,y+4,['rgba(255,190,80,0)','rgba(255,190,80,.4)']);c.fillRect(-w,y-30,w*2,40);c.restore();
+  /* gold filigree on the lid rim */
+  c.strokeStyle='#fff2b0';c.lineWidth=1.2;c.beginPath();c.moveTo(-w+6,y-8);c.bezierCurveTo(-w+6,y-48,-w*.6,y-70,0,y-70);c.bezierCurveTo(w*.6,y-70,w-6,y-48,w-6,y-8);c.setLineDash([2,4]);c.stroke();c.setLineDash([]);
+  ua_gem(c,0,y-71,6,['#fff0ff','#ff7ad8','#a02a8a'])}}
+/* ---- inside the opening ---- */
+function ua_crInside(c,tr,P){const {w,y,ry}=P,IN=[['#7a4c24','#2a1408'],['#6a3c1c','#1e0e06'],['#6a8ec0','#1e3462'],['#5a3492','#12062a'],['#ffe0a0','#a85a14']][tr];
+ c.beginPath();c.ellipse(0,y,w-1,ry,0,0,TAU);c.fillStyle=fkLin(c,0,y-ry,0,y+ry,IN);c.fill();
+ if(tr===4){c.save();c.beginPath();c.ellipse(0,y,w-1,ry,0,0,TAU);c.clip();c.fillStyle=fkRad(c,0,y+4,w*.8,['#fff6c8','#ffc23a00']);c.fillRect(-w,y-ry,w*2,ry*2);c.restore()}
+ ua_rimArc(c,tr,P,Math.PI,TAU)}
+/* ---- inside filler in front of the fish (ferns, ice, coins) ---- */
+function ua_crFill(c,tr,P){const {y,ry}=P;
+ if(tr===0||tr===1){ua_fern(c,-72,y+ry*.5,-14,26,1);ua_fern(c,-50,y+ry*.8,-6,20,1);ua_fern(c,58,y+ry*.75,8,22,1);ua_fern(c,76,y+ry*.45,14,24,1)}
+ if(tr===2){const X=[-76,-58,-40,-20,0,20,40,58,76],Y=[2,-2,6,1,8,2,6,-1,3];X.forEach((x,i)=>{const yy=y-3+Y[i]+(Math.abs(x)<50?3:0);ua_ice(c,x,yy,11+(i%3)*2,(i%2?.3:-.25))});
+  c.fillStyle='rgba(235,248,255,.9)';for(let i=0;i<14;i++){const x=-70+i*11,yy=y+9+((i*7)%5);c.beginPath();c.arc(x,yy,1.6+(i%3)*.6,0,TAU);c.fill()}}
+ if(tr===4){const X=[-80,-66,-52,-36,-20,-4,12,28,44,60,74],Y=[3,0,5,1,7,3,8,2,6,1,4];X.forEach((x,i)=>ua_coin(c,x,y+Y[i]+(Math.abs(x)<55?3:0),7));
+  ua_gem(c,-28,y+4,6,['#ffd0d8','#ff3a5a','#8a0a2a']);ua_gem(c,34,y+6,6,['#d8f0ff','#3a8aff','#1a2a8a']);ua_dot(c,6,y+12,3.4,fkRad(c,6,y+12,3.4,['#ffffff','#f0e0ff','#a898c8']),1.4);ua_dot(c,12,y+13,3,fkRad(c,12,y+13,3,['#ffffff','#f0e0ff','#a898c8']),1.4)}}
+/* ---- the body ---- */
+function ua_crBody(c,tr,P){const bp=()=>ua_bodyPath(c,P);c.save();bp();c.clip();
+ if(tr===0)ua_weave(c,P,10,{base:'#3a2010',over:['#ecc07e','#b07638','#e2b06a'],stake:['#c8904c','#6a4018'],hi:'#fff2cc',nS:13});
+ else if(tr===1)ua_weave(c,P,8,{base:'#22100a',over:['#cf9450','#8e5424','#c4883e'],stake:['#9a6028','#4a2810'],hi:'#ffdca0',nS:17});
+ else if(tr===3)ua_weave(c,P,10,{base:'#0e0424',over:['#8a5ae0','#4e2698','#7a4cd0'],stake:['#5a34b0','#2a1060'],hi:'#e4d0ff',nS:14});
+ else if(tr===2){const W=P.mw+6,top=P.y-P.ry-4,bot=P.by+P.sag+4,N=9;c.fillStyle=fkLin(c,0,top,0,bot,['#f6fcff','#cfe4f6','#94b8de']);c.fillRect(-W,top,W*2,bot-top);
+  for(let i=0;i<=N;i++){const a=-Math.PI/2+i*Math.PI/N,x=W*Math.sin(a);if(i>0){const xa=W*Math.sin(a-Math.PI/N);c.fillStyle=i%2?'rgba(255,255,255,.12)':'rgba(60,100,170,.08)';c.fillRect(xa,top,x-xa,bot-top);
+    c.strokeStyle='rgba(80,120,180,.28)';c.lineWidth=1;for(let k=1;k<3;k++){const gx=xa+(x-xa)*k/3;c.beginPath();c.moveTo(gx,top);c.bezierCurveTo(gx+2,top+40,gx-2,top+70,gx+1,bot);c.stroke()}}
+   c.strokeStyle='rgba(30,50,100,.6)';c.lineWidth=1.8;c.beginPath();c.moveTo(x,top);c.lineTo(x,bot);c.stroke();c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1;c.beginPath();c.moveTo(x+1.6,top);c.lineTo(x+1.6,bot);c.stroke()}
+  c.fillStyle=fkLin(c,0,P.by-18,0,P.by+8,['rgba(255,255,255,0)','rgba(255,255,255,.85)']);c.fillRect(-W,P.by-18,W*2,30);
+  c.fillStyle='rgba(255,255,255,.75)';for(let i=0;i<40;i++){const x=-W+((i*53)%(W*2)),yy=P.by-4-((i*29)%22);c.beginPath();c.arc(x,yy,.8+(i%3)*.5,0,TAU);c.fill()}}
+ else{const W=P.mw+6,top=P.y-P.ry-4,bot=P.by+P.sag+4;c.fillStyle=fkLin(c,0,top,0,bot,['#4a3c9a','#2a1f6c','#160e40']);c.fillRect(-W,top,W*2,bot-top);
+  for(let yy=P.y+8;yy<bot;yy+=21){const p=ua_ringPts(yy,W,P.ry,-1.6,1.6,16);ua_poly(c,p);c.strokeStyle='rgba(8,4,24,.7)';c.lineWidth=2;c.stroke();c.save();c.translate(0,2);ua_poly(c,p);c.strokeStyle='rgba(150,130,255,.25)';c.lineWidth=1.2;c.stroke();c.restore()}
+  c.strokeStyle='rgba(160,140,255,.12)';c.lineWidth=1;for(let i=0;i<14;i++){const yy=P.y+14+i*5.5,x0=-80+((i*37)%50);c.beginPath();c.moveTo(x0,yy+P.ry*.6);c.quadraticCurveTo(x0+30,yy+P.ry*.9,x0+60,yy+P.ry*.6);c.stroke()}}
+ ua_cylShade(c,P,tr===2);c.restore();bp();c.lineWidth=3.6;c.strokeStyle=UA_O;c.lineJoin='round';c.stroke()}
+/* horizontal band around the body (clipped by the caller) */
+function ua_band(c,P,yb,h,fill,edge,stitch){const W=P.mw+8,top=ua_ringPts(yb-h/2,W,P.ry,-1.6,1.6,20),bot=ua_ringPts(yb+h/2,W,P.ry,1.6,-1.6,20);
+ ua_poly(c,top.concat(bot),true);c.fillStyle=fill;c.fill();
+ ua_poly(c,top);c.strokeStyle=UA_O;c.lineWidth=3;c.stroke();ua_poly(c,bot);c.stroke();
+ if(edge){c.save();c.translate(0,2.2);ua_poly(c,top);c.strokeStyle=edge;c.lineWidth=1.8;c.stroke();c.restore();c.save();c.translate(0,-2.2);ua_poly(c,bot);c.strokeStyle='rgba(0,0,0,.35)';c.lineWidth=2;c.stroke();c.restore()}
+ if(stitch){c.setLineDash([3,3.2]);c.strokeStyle=stitch;c.lineWidth=1.1;c.save();c.translate(0,3.2);ua_poly(c,top);c.stroke();c.restore();c.save();c.translate(0,-3.2);ua_poly(c,bot);c.stroke();c.restore();c.setLineDash([])}}
+const ua_ringY=(P,yb,x,W)=>yb+P.ry*Math.sqrt(Math.max(0,1-(x/W)*(x/W)));
+/* runes on the enchanted creel's band (shared by the sprite and the live pulse) */
+const UA_GLYPH=[[[0,-1,0,1],[0,-.9,.6,-.35,0,.2]],[[-.5,-1,.5,1],[.5,-1,-.5,1]],[[0,1,0,-1],[-.6,-.35,0,-1,.6,-.35]],[[0,-1,.6,0,0,1,-.6,0,0,-1]],[[-.5,-1,-.5,1],[.5,-1,.5,1],[-.5,-.3,.5,.35]],[[0,-1,0,1],[-.55,-.6,.55,-.1],[-.55,.15,.55,.65]]];
+const UA_RUNES=[-1.08,-.72,-.36,.36,.72,1.08].map((a,i)=>({x:92*Math.sin(a),y:12+13*Math.cos(a)+1,sx:6*Math.cos(a)+.8,sy:6.6,gl:UA_GLYPH[i],col:i%2?'#ff6ae0':'#5af0ff'}));
+function ua_rune(c,R){c.beginPath();for(const l of R.gl){c.moveTo(R.x+l[0]*R.sx,R.y+l[1]*R.sy);for(let k=2;k<l.length;k+=2)c.lineTo(R.x+l[k]*R.sx,R.y+l[k+1]*R.sy)}c.stroke()}
+/* filigree scroll (spiral end) */
+function ua_scroll(c,x,y,r,dir,a0){c.beginPath();for(let i=0;i<=24;i++){const u=i/24,a=a0+dir*u*Math.PI*2.1,rr=r*(1-u*.78);const px=x+Math.cos(a)*rr,py=y+Math.sin(a)*rr;i?c.lineTo(px,py):c.moveTo(px,py)}}
+function ua_gold(c,path,w){path();c.strokeStyle=UA_O;c.lineWidth=(w||2)+2.4;c.stroke();path();c.strokeStyle='#ffd45a';c.lineWidth=w||2;c.stroke();c.save();c.translate(-.4,-.6);path();c.strokeStyle='#fff6c8';c.lineWidth=(w||2)*.4;c.stroke();c.restore()}
+/* ---- front rim and per-tier decorations ---- */
+function ua_crFront(c,tr,P){const {w,y,ry}=P,bp=()=>ua_bodyPath(c,P);
+ if(tr===1){c.save();bp();c.clip();const W=P.mw+6;ua_band(c,P,36,13,fkLin(c,0,30,0,62,['#6a361a','#3e1c0a']),'rgba(220,150,100,.45)','#e0b070');
+  for(const sx of [-46,46]){const t0=ua_ringY(P,y,sx,w)-2;c.fillStyle=fkLin(c,sx-7,0,sx+7,0,['#7a4222','#4a2410','#331606']);c.fillRect(sx-7,t0,14,P.by+10-t0);
+   c.strokeStyle=UA_O;c.lineWidth=2.6;c.beginPath();c.moveTo(sx-7,t0);c.lineTo(sx-7,P.by+12);c.moveTo(sx+7,t0);c.lineTo(sx+7,P.by+12);c.stroke();
+   c.setLineDash([3,3.2]);c.strokeStyle='#e0b070';c.lineWidth=1.1;c.beginPath();c.moveTo(sx-4,t0);c.lineTo(sx-4,P.by+12);c.moveTo(sx+4,t0);c.lineTo(sx+4,P.by+12);c.stroke();c.setLineDash([])}
+  for(const sd of [-1,1]){const cx=sd*(P.bw-3),cy=P.by+3;c.beginPath();c.arc(cx,cy,28,0,TAU);c.fillStyle=fkRad(c,cx,cy,28,['#fff0b8','#e0b050','#8a5a18']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+   c.beginPath();c.arc(cx,cy,22,0,TAU);c.strokeStyle='rgba(120,70,10,.6)';c.lineWidth=1.4;c.stroke();ua_rivet(c,cx-sd*16,cy-14,2.4);ua_rivet(c,cx-sd*20,cy-2,2.4);ua_rivet(c,cx-sd*6,cy-20,2.4)}
+  c.restore();bp();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke()}
+ if(tr===2){c.save();bp();c.clip();for(const yb of [-2,56])ua_band(c,P,yb,10,fkLin(c,0,yb,0,yb+P.ry+10,['#ffffff','#a8bcd8','#6a7ea8']),'rgba(255,255,255,.8)');
+  for(const yb of [-2,56])for(const fx of [-.86,-.55,-.2,.2,.55,.86]){const x=fx*(P.mw+6);ua_rivet(c,x,ua_ringY(P,yb,x,P.mw+6),1.9,'steel')}
+  ua_flake(c,-50,30,10,'#ffffff','rgba(60,110,180,.45)');ua_flake(c,50,22,8,'#ffffff','rgba(60,110,180,.45)');ua_flake(c,-8,40,6,'#ffffff','rgba(60,110,180,.45)');ua_flake(c,66,68,5,'#ffffff','rgba(60,110,180,.45)');ua_flake(c,-70,72,5,'#ffffff','rgba(60,110,180,.45)');
+  c.restore();bp();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke()}
+ if(tr===3){c.save();bp();c.clip();ua_band(c,P,12,22,fkLin(c,0,0,0,40,['#2e1458','#160628']),'#d8d0ff');
+  c.strokeStyle='#d0c8f8';c.lineWidth=1.3;c.save();c.translate(0,-9.5);ua_poly(c,ua_ringPts(12,P.mw+8,P.ry,-1.6,1.6,20));c.stroke();c.restore();c.save();c.translate(0,9.5);ua_poly(c,ua_ringPts(12,P.mw+8,P.ry,-1.6,1.6,20));c.stroke();c.restore();
+  c.lineWidth=2.2;for(const R of UA_RUNES){c.strokeStyle=R.col==='#5af0ff'?'#2a7a9a':'#8a2a7a';ua_rune(c,R)}
+  /* silver tips on the base */for(const sd of [-1,1]){const cx=sd*(P.bw-4),cy=P.by;c.beginPath();c.arc(cx,cy,20,0,TAU);c.fillStyle=fkRad(c,cx,cy,20,['#ffffff','#b8b0e8','#5a4ca0']);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke()}
+  c.restore();bp();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.arc(0,26,10,0,TAU);c.fillStyle=ua_met(c,-10,16,10,36,'silver');c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();ua_gem(c,0,25.5,7,['#ffe0ff','#ff5ad8','#7a1a8a'],1.8)}
+ if(tr===4){c.save();bp();c.clip();
+  for(const sx of [-62,62]){const t0=ua_ringY(P,y,sx,w)-2;c.fillStyle=fkLin(c,sx-7,0,sx+7,0,['#fff2b0','#ffd45a','#c8841a','#ffd45a']);c.fillRect(sx-7,t0,14,P.by+12-t0);
+   c.strokeStyle=UA_O;c.lineWidth=2.6;c.beginPath();c.moveTo(sx-7,t0);c.lineTo(sx-7,P.by+12);c.moveTo(sx+7,t0);c.lineTo(sx+7,P.by+12);c.stroke();for(let yy=t0+10;yy<P.by;yy+=16)ua_rivet(c,sx,yy,2,'gold')}
+  for(const sd of [-1,1]){const cx=sd*(P.bw+2),cy=P.by+2;c.beginPath();c.moveTo(cx,cy-36);c.quadraticCurveTo(cx-sd*14,cy-30,cx-sd*16,cy-16);c.quadraticCurveTo(cx-sd*30,cy-14,cx-sd*36,cy+4);c.lineTo(cx,cy+8);c.closePath();
+   c.fillStyle=ua_met(c,cx-20,cy-36,cx+10,cy+8,'gold');c.fill();c.lineWidth=2.8;c.strokeStyle=UA_O;c.stroke();ua_rivet(c,cx-sd*8,cy-8,2.2,'gold')}
+  /* filigree flanking the emblem */
+  for(const sd of [-1,1]){ua_gold(c,()=>{c.beginPath();c.moveTo(sd*24,36);c.bezierCurveTo(sd*34,22,sd*46,24,sd*50,34);c.bezierCurveTo(sd*54,44,sd*44,50,sd*40,44)},1.8);
+   ua_gold(c,()=>{c.beginPath();c.moveTo(sd*24,40);c.bezierCurveTo(sd*30,56,sd*44,60,sd*50,52)},1.6);ua_gold(c,()=>ua_scroll(c,sd*42,40,5,sd,sd>0?0:Math.PI),1.4);
+   ua_gold(c,()=>{c.beginPath();c.moveTo(sd*80,4);c.bezierCurveTo(sd*72,20,sd*84,36,sd*76,52)},1.5);ua_gold(c,()=>ua_scroll(c,sd*76,58,4,-sd,-Math.PI/2),1.3)}
+  c.restore();bp();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke();
+  /* moon medallion */
+  const mx=0,my=34;c.beginPath();c.arc(mx,my,21,0,TAU);c.fillStyle=ua_met(c,-21,13,21,55,'gold');c.fill();c.lineWidth=3.2;c.strokeStyle=UA_O;c.stroke();
+  for(let i=0;i<16;i++){const a=i/16*TAU;ua_dot(c,mx+Math.cos(a)*18,my+Math.sin(a)*18,1.3,'#fff2b0',0)}
+  c.beginPath();c.arc(mx,my,15,0,TAU);c.fillStyle=fkRad(c,mx,my,15,['#3a4ab8','#1a1a6a','#0c0a30']);c.fill();c.lineWidth=2;c.strokeStyle=UA_O;c.stroke();
+  c.save();c.beginPath();c.arc(mx-2,my,11,0,TAU);c.arc(mx+4,my-3,9.5,0,TAU,true);c.fillStyle=fkLin(c,mx-12,my-10,mx+6,my+10,['#fffbe0','#ffe08a','#d8a02a']);c.fill('evenodd');c.restore();
+  c.beginPath();c.arc(mx-2,my,11,Math.PI*.38,Math.PI*1.62);c.strokeStyle='rgba(120,70,10,.6)';c.lineWidth=1;c.stroke();
+  ua_gem(c,mx+6,my-1,5.5,['#f0ffff','#7ae8ff','#2a7ab8'],1.6);fkSpark(c,mx-8,my-10,2.6,'#ffffff',.9);
+  /* side ring handles */for(const sd of [-1,1]){const hx=sd*(P.w+1),hy=y+30;c.beginPath();c.ellipse(hx,hy,5,9,0,0,TAU);c.strokeStyle=UA_O;c.lineWidth=6.5;c.stroke();c.strokeStyle='#ffd45a';c.lineWidth=3.4;c.stroke();ua_rivet(c,hx-sd*2,hy-9,3,'gold')}}
+ /* front rim on top of everything below it */
+ ua_rimArc(c,tr,P,0,Math.PI);
+ if(tr===0){for(const sd of [-1,1]){const hx=sd*(w-7),hy=y+7;c.save();c.translate(hx,hy);c.rotate(sd*.3);c.beginPath();c.ellipse(0,0,6,8,0,0,TAU);c.fillStyle='#c08a50';c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke();
+   c.strokeStyle='rgba(80,40,10,.7)';c.lineWidth=1.2;c.beginPath();for(let k=-1;k<=1;k++){c.moveTo(-5,k*3.5-1);c.lineTo(5,k*3.5+1)}c.stroke();c.restore()}}
+ if(tr===1){for(let a=.2;a<Math.PI;a+=.32)ua_rivet(c,w*Math.cos(a),y+ry*Math.sin(a),1.9);
+  for(const sx of [-46,46]){const yb=ua_ringY(P,36,sx,P.mw+8);c.fillStyle=ua_met(c,sx-9,yb-9,sx+9,yb+9,'brass');c.beginPath();c.roundRect(sx-9,yb-9,18,18,3);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+   c.fillStyle='#4a2410';c.fillRect(sx-5,yb-5,10,10);c.strokeStyle=UA_O;c.lineWidth=1.4;c.strokeRect(sx-5,yb-5,10,10);c.strokeStyle='#ffe7a0';c.lineWidth=2;c.beginPath();c.moveTo(sx,yb-5);c.lineTo(sx,yb+3);c.stroke();
+   const ty=ua_ringY(P,y,sx,w);c.fillStyle='#4a2410';c.beginPath();c.roundRect(sx-7,ty-9,14,16,3);c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke();ua_rivet(c,sx,ty-1,2.4)}
+  for(const sd of [-1,1]){const hx=sd*(w-6),hy=y+6;c.beginPath();c.arc(hx,hy,6,0,TAU);c.strokeStyle=UA_O;c.lineWidth=6;c.stroke();c.strokeStyle='#e0b050';c.lineWidth=3;c.stroke();ua_rivet(c,hx,hy+7,2.6)}}
+ if(tr===2){/* snow drifting on the rim */const pts=[];for(let i=0,a=.1;a<Math.PI;a+=.15,i++)pts.push([w*Math.cos(a),y+ry*Math.sin(a)-4.5,3.6+((i*5)%4)*1.3]);
+  for(const pass of [0,1])for(const [sx,sy,r] of pts){c.beginPath();c.arc(sx,sy,r,0,TAU);if(pass){c.fillStyle=fkLin(c,0,sy-r,0,sy+r,['#ffffff','#e2f0ff']);c.fill()}else{c.lineWidth=3.2;c.strokeStyle=UA_O;c.stroke()}}
+  c.fillStyle='rgba(140,185,230,.45)';for(const [sx,sy,r] of pts){c.beginPath();c.arc(sx,sy+r*.3,r*.62,0,Math.PI);c.fill()}
+  /* icicles */const IC=[[.32,10],[.62,22],[1.0,14],[1.28,27],[1.72,17],[2.05,24],[2.42,11],[2.75,18]];
+  for(const [a,L] of IC){const px=w*Math.cos(a),py=y+ry*Math.sin(a)+4;c.beginPath();c.moveTo(px-4.6,py);c.quadraticCurveTo(px-1.2,py+L*.6,px+.6,py+L);c.quadraticCurveTo(px+1.6,py+L*.5,px+4.6,py);c.closePath();
+   c.fillStyle=fkLin(c,0,py,0,py+L,['#ffffff','#a8e2ff','#5ab4ec']);c.fill();c.lineWidth=1.8;c.strokeStyle=UA_O;c.stroke();c.strokeStyle='rgba(255,255,255,.95)';c.lineWidth=1.1;c.beginPath();c.moveTo(px-2,py+2);c.lineTo(px-.6,py+L*.62);c.stroke()}
+  /* steel latch */c.fillStyle=ua_met(c,-9,y+ry,9,y+ry+22,'steel');c.beginPath();c.roundRect(-8,y+ry+2,16,22,4);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.arc(0,y+ry+17,4,0,TAU);c.fillStyle='#2a3a5a';c.fill();c.lineWidth=1.6;c.stroke();ua_rivet(c,0,y+ry+7,1.8,'steel');
+  for(const sd of [-1,1]){const hx=sd*(P.w+3),hy=y+26;c.beginPath();c.arc(hx,hy,7,-Math.PI/2,Math.PI/2,sd<0);c.strokeStyle=UA_O;c.lineWidth=6.5;c.stroke();c.strokeStyle='#d4e4f6';c.lineWidth=3.2;c.stroke();ua_rivet(c,hx-sd*1,hy-7,2.4,'steel');ua_rivet(c,hx-sd*1,hy+7,2.4,'steel')}}
+ if(tr===3){for(let a=.25;a<Math.PI;a+=.42)ua_gem(c,w*Math.cos(a),y+ry*Math.sin(a),3.2,['#f0ffff','#5af0ff','#2a5aa8'],1.2);
+  for(const sd of [-1,1]){const hx=sd*(w-6),hy=y+6;c.beginPath();c.arc(hx,hy,5.5,0,TAU);c.fillStyle=ua_met(c,hx-5,hy-5,hx+5,hy+5,'silver');c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke()}}
+ if(tr===4){for(const sd of [-1,1]){const cx=sd*w,cy=y;c.beginPath();c.moveTo(cx-sd*2,cy-6);c.lineTo(cx-sd*22,cy+4);c.quadraticCurveTo(cx-sd*12,cy+14,cx-sd*4,cy+30);c.lineTo(cx+sd*3,cy+20);c.closePath();
+  c.fillStyle=ua_met(c,cx-16,cy-6,cx+8,cy+30,'gold');c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();ua_rivet(c,cx-sd*6,cy+8,1.9,'gold')}}}
+function ua_creelSprite(c,tr,n){const P=UA_CP[tr];
+ if(tr===4)ua_glow(c,0,-6,104,'#ffc23a',.2);if(tr===2)ua_glow(c,0,6,104,'#bfe8ff',.12);if(tr===3)ua_glow(c,0,-4,104,'#8a5aff',.1);
+ c.fillStyle='rgba(8,4,20,.42)';c.beginPath();c.ellipse(0,P.by+P.sag*.6+2,P.bw+16,7,0,0,TAU);c.fill();
+ ua_crBack(c,tr,P);ua_crInside(c,tr,P);const F=UA_CF[tr];
+ for(const i of [3,4,1,2,0])if(i<n){const q=UA_SLOT[i];ua_fishIn(c,F[i],q[0]*(P.w/90),P.y+q[1],q[2],q[3],q[4])}
+ ua_crFill(c,tr,P);if(tr===3)ua_glow(c,0,P.y,62,'#b07aff',.2);if(tr===4)ua_glow(c,0,P.y,70,'#ffd45a',.16);ua_crBody(c,tr,P);ua_crFront(c,tr,P)}
+/* live layers */
+function ua_wisps(g,t,front){for(let i=0;i<3;i++){const a=t*1.15+i*2.094,d=Math.sin(a);if((d>0)!==!!front)continue;const x=Math.cos(a)*104,y=-6+d*24+Math.sin(t*2.3+i*1.7)*7,col=i%2?'#ff6ae0':'#5af0ff',k=front?1:.55;
+ g.fillStyle=col;for(let j=3;j>0;j--){const b=a-j*.17;g.globalAlpha=.45*k*(1-j/4);g.beginPath();g.arc(Math.cos(b)*104,-6+Math.sin(b)*24+Math.sin(t*2.3-j*.3+i*1.7)*7,2.6-j*.5,0,TAU);g.fill()}g.globalAlpha=1;
+ ua_glow(g,x,y,15,col,.5*k);ua_dot(g,x,y,2.4,'#ffffff',0)}}
+function fsCreelArt(g,tier,x,y,s,t,fill){tier=Math.max(0,Math.min(4,tier|0));fill=Math.max(0,Math.min(1,+fill||0));t=t||0;s=s||1;
+ const n=fill<=0?0:Math.min(5,1+Math.floor(fill*4.999)),P=UA_CP[tier];g.save();g.translate(x,y);g.scale(s,s);
+ if(tier===3)ua_wisps(g,t,0);
+ ua_spr(g,'cr'+tier+n,-118,-106,236,206,c=>ua_creelSprite(c,tier,n));
+ if((tier===0||tier===1)&&n){for(let i=0;i<2;i++){const u=(t*.7+i*.5)%1,dx=i?22:-30;g.fillStyle=`rgba(170,220,255,${(1-u)*.85})`;g.beginPath();g.ellipse(dx,P.by+6+u*8,1.8,2.6,0,0,TAU);g.fill()}}
+ if(tier===2){for(let i=0;i<4;i++){const u=((t*.09+i*.25)%1),xx=-120+u*240,a=.32*Math.sin(Math.PI*u);ua_glow(g,xx,P.by-2+Math.sin(t+i)*3,30,'#e8f6ff',a)}
+  for(let i=0;i<3;i++){const u=((t*.35+i*.33)%1);ua_glow(g,-40+i*40+Math.sin(t+i*2)*8,P.y-4-u*40,16+u*10,'#f0faff',.28*(1-u)*Math.min(1,u*5))}
+  for(let i=0;i<3;i++){const a=Math.max(0,Math.sin(t*2.6+i*2.1));if(a>.05)fkSpark(g,[-56,0,58][i],P.y+[-2,4,-3][i],2+a*4,'#ffffff',a)}}
+ if(tier===3){ua_glow(g,0,P.y-4,34,'#c8a0ff',.1+.08*Math.sin(t*2));ua_glow(g,0,-94,20,'#5af0ff',.35+.15*Math.sin(t*3));
+  g.lineCap='round';g.lineJoin='round';for(let i=0;i<UA_RUNES.length;i++){const R=UA_RUNES[i],p=.5+.5*Math.sin(t*2.2-i*.9);ua_glow(g,R.x,R.y,11,R.col,.18+.4*p);
+   g.globalAlpha=.45+.55*p;g.strokeStyle=R.col;g.lineWidth=2.4;ua_rune(g,R);g.globalAlpha=p*.85;g.strokeStyle='#ffffff';g.lineWidth=.9;ua_rune(g,R);g.globalAlpha=1}
+  ua_glow(g,0,26,14,'#ff5ad8',.25+.2*Math.sin(t*2.6));ua_wisps(g,t,1)}
+ if(tier===4){ua_glow(g,6,33,18,'#9ff0ff',.3+.22*Math.sin(t*2.2));ua_glow(g,0,P.y-4,40,'#ffd45a',.08+.07*Math.sin(t*1.3));
+  const SP=[[-96,-40],[90,-66],[-70,-88],[104,10],[-104,40],[60,-92]];for(let i=0;i<SP.length;i++){const a=Math.max(0,Math.sin(t*2.4+i*1.9));if(a>.05)fkSpark(g,SP[i][0],SP[i][1],2+a*5,'#fff6c8',a)}
+  const a2=Math.max(0,Math.sin(t*3.1));if(a2>.05)fkSpark(g,10,27,2+a2*5,'#ffffff',a2)}
+ g.restore()}
+
+/* ====================================================================================================================
+   BAIT
+   ==================================================================================================================== */
+function ua_jarPath(c){c.beginPath();c.moveTo(-17,-28);c.lineTo(-17,-21);c.quadraticCurveTo(-28,-19,-28,-6);c.lineTo(-28,30);c.quadraticCurveTo(-28,40,-18,40);c.lineTo(18,40);c.quadraticCurveTo(28,40,28,30);c.lineTo(28,-6);c.quadraticCurveTo(28,-19,17,-21);c.lineTo(17,-28);c.closePath()}
+function ua_baitBack(c,k){
+ c.fillStyle='rgba(8,4,20,.4)';c.beginPath();c.ellipse(0,42,34,6,0,0,TAU);c.fill();
+ if(k==='worm'){ua_jarPath(c);c.fillStyle='rgba(170,220,255,.16)';c.fill();c.save();ua_jarPath(c);c.clip();
+  c.beginPath();c.moveTo(-30,6);c.quadraticCurveTo(-14,0,0,5);c.quadraticCurveTo(14,10,30,4);c.lineTo(30,44);c.lineTo(-30,44);c.closePath();c.fillStyle=fkLin(c,0,2,0,42,['#5a3820','#3a2010','#22100a']);c.fill();
+  c.fillStyle='rgba(255,220,170,.18)';for(let i=0;i<26;i++){c.beginPath();c.arc(-24+((i*17)%48),10+((i*23)%28),.8+(i%3)*.5,0,TAU);c.fill()}
+  ua_dot(c,-12,30,3,'#7a6a5a',1.2);ua_dot(c,14,34,2.4,'#8a7a6a',1.2);
+  ua_glow(c,12,22,16,'#5aff8a',.35);ua_glow(c,-14,26,14,'#5aff8a',.3);ua_glow(c,0,26,30,'#5aff8a',.14);ua_worm(c,[10,30,24,28,22,12,6,16],5,.8);ua_worm(c,[-18,34,-24,22,-4,18,-12,25],4.4,.7);c.restore()}
+ if(k==='roe'){/* scallop shell: the upper half fans out behind the eggs, the lower half is the dish */
+  const fan=()=>{c.beginPath();c.moveTo(0,36);for(let i=0;i<=9;i++){const a0=-Math.PI*.93+i*Math.PI*.86/9,a1=a0+Math.PI*.86/9,r=50;if(i<9){const am=(a0+a1)/2;c.lineTo(Math.cos(a0)*r,36+Math.sin(a0)*r);c.quadraticCurveTo(Math.cos(am)*(r+7),36+Math.sin(am)*(r+7),Math.cos(a1)*r,36+Math.sin(a1)*r)}}c.closePath()};
+  fan();c.fillStyle=fkRad(c,0,36,56,['#fff6ee','#ffd6d0','#f0a0b0','#c86a8a']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+  c.save();fan();c.clip();for(let i=0;i<=9;i++){const a=-Math.PI*.93+i*Math.PI*.86/9;c.strokeStyle='rgba(150,60,90,.45)';c.lineWidth=1.6;c.beginPath();c.moveTo(0,36);c.lineTo(Math.cos(a)*60,36+Math.sin(a)*60);c.stroke();
+   c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=1;c.beginPath();c.moveTo(0,36);c.lineTo(Math.cos(a+.07)*60,36+Math.sin(a+.07)*60);c.stroke()}c.restore();
+  const E=[[0,-22,8.5],[-9,-9,9],[9,-9,9],[-20,4,9],[0,3,9.5],[20,4,9],[-30,17,8],[-11,17,9],[10,17,9],[29,17,8]];
+  for(const [x,y,r] of E){c.beginPath();c.arc(x,y,r,0,TAU);c.fillStyle=fkRad(c,x,y,r,['#fffbe8','#ffd890','#ff9a96','#c8487a']);c.fill();c.lineWidth=2.2;c.strokeStyle=UA_O;c.stroke();
+   ua_dot(c,x+r*.18,y+r*.15,r*.48,'rgba(255,220,140,.6)',0);fkSpark(c,x+r*.12,y+r*.1,r*.46,'#fffbe0',1);ua_dot(c,x-r*.38,y-r*.42,r*.24,'#ffffff',0)}
+  c.save();c.translate(0,30);c.beginPath();c.moveTo(-40,-2);c.quadraticCurveTo(-34,12,0,14);c.quadraticCurveTo(34,12,40,-2);c.quadraticCurveTo(0,7,-40,-2);c.closePath();
+  c.fillStyle=fkLin(c,0,-2,0,14,['#ffe8e4','#f4b4bc','#d07a92']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();c.strokeStyle='rgba(150,60,90,.5)';c.lineWidth=1.3;
+  for(let i=-4;i<=4;i++){c.beginPath();c.moveTo(i*8.6,1+Math.abs(i)*.2);c.quadraticCurveTo(i*6,8,i*3,13);c.stroke()}c.beginPath();c.moveTo(-40,-2);c.quadraticCurveTo(0,7,40,-2);c.strokeStyle='#fff6f0';c.lineWidth=1.8;c.stroke();c.restore()}
+ if(k==='shrimp'){const cx=4,cy=2,R=19,seg=(a0,a1,th,col)=>{const ro=R+th/2,ri=R-th/2;c.beginPath();c.arc(cx,cy,ro,a0,a1);c.arc(cx,cy,ri,a1,a0,true);c.closePath();
+   const am=(a0+a1)/2;c.fillStyle=fkLin(c,cx+Math.cos(am)*ro,cy+Math.sin(am)*ro,cx+Math.cos(am)*ri,cy+Math.sin(am)*ri,col);c.fill();c.lineWidth=2.2;c.strokeStyle=UA_O;c.stroke();
+   c.beginPath();c.arc(cx,cy,ro-2.2,a0+.05,a1-.05);c.strokeStyle='rgba(255,255,255,.8)';c.lineWidth=1.4;c.stroke()};
+  /* tail fan */const ta=Math.PI*.6,tx=cx+Math.cos(ta)*R,ty=cy+Math.sin(ta)*R;c.save();c.translate(tx,ty);for(const [a,l] of [[2.2,17],[2.75,19],[3.3,17]]){c.save();c.rotate(a);c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(l*.6,-6,l,0);c.quadraticCurveTo(l*.6,6,0,0);c.fillStyle=fkLin(c,0,0,l,0,['#9ad4f8','#d8f2ff']);c.fill();c.lineWidth=2;c.strokeStyle=UA_O;c.stroke();c.restore()}c.restore();
+  /* swimmerets and walking legs */c.strokeStyle=UA_O;c.lineWidth=3.4;c.beginPath();for(let i=0;i<5;i++){const a=Math.PI*(.4-i*.2),x=cx+Math.cos(a)*(R-7),y=cy+Math.sin(a)*(R-7);c.moveTo(x,y);c.lineTo(cx+Math.cos(a)*(R-14),cy+Math.sin(a)*(R-14)+3)}
+  for(let i=0;i<3;i++){const x=-18+i*5;c.moveTo(x,4);c.lineTo(x-3,14)}c.stroke();c.strokeStyle='#9ad4f8';c.lineWidth=1.6;c.stroke();
+  /* abdomen plates, tail to head */const cols=['#f4fcff','#a8dcfa','#3c8ad2'];for(let i=0;i<6;i++){const a1=Math.PI*.62-i*.5,a0=a1-.58;seg(a0,a1,8.5+i*1.4,cols)}
+  ua_flake(c,cx+Math.cos(.15)*R,cy+Math.sin(.15)*R,4.2,'#ffffff','rgba(40,90,170,.5)');ua_flake(c,cx+Math.cos(1.1)*R,cy+Math.sin(1.1)*R,3,'#ffffff','rgba(40,90,170,.5)');
+  /* carapace (head) with the rostrum */c.beginPath();c.moveTo(cx+Math.cos(-1.0)*(R+9),cy+Math.sin(-1.0)*(R+9));c.quadraticCurveTo(-6,-30,-26,-12);c.lineTo(-44,-16);c.lineTo(-28,-6);c.quadraticCurveTo(-24,6,-10,6);c.lineTo(cx+Math.cos(-1.25)*(R-9),cy+Math.sin(-1.25)*(R-9));c.closePath();
+  c.fillStyle=fkLin(c,-20,-24,-10,8,['#ffffff','#b4e2fc','#4a96dc']);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+  c.strokeStyle='rgba(255,255,255,.85)';c.lineWidth=1.4;c.beginPath();c.moveTo(-22,-14);c.quadraticCurveTo(-12,-21,-2,-19);c.stroke();c.strokeStyle='rgba(30,80,150,.45)';c.lineWidth=1.2;c.beginPath();c.moveTo(-6,-16);c.quadraticCurveTo(-10,-6,-8,4);c.stroke();
+  ua_dot(c,-20,-10,4,'#0c0612',1.4);ua_dot(c,-21.2,-11.3,1.4,'#ffffff',0);ua_flake(c,-6,-10,3.2,'#ffffff','rgba(40,90,170,.5)')}
+ if(k==='spore'){/* spill trail on the ground */for(let i=0;i<12;i++){const x=8+i*3.4,y=36+((i*5)%4)-(i>8?1:0);ua_dot(c,x,y,1.4+((i*3)%3)*.6,'#8ff8ff',0)}
+  /* a tiny glowcap growing beside */c.save();c.translate(-34,36);c.fillStyle='#e8f8f0';c.beginPath();c.roundRect(-2,-9,4,9,1.5);c.fill();c.lineWidth=1.6;c.strokeStyle=UA_O;c.stroke();c.beginPath();c.arc(0,-9,7,Math.PI,TAU);c.closePath();c.fillStyle=fkLin(c,0,-16,0,-9,['#c8ffff','#3ad8e8']);c.fill();c.stroke();ua_dot(c,-2.4,-12,1.2,'#ffffff',0);c.restore();
+  c.save();c.translate(-6,15);c.rotate(-.3);const pb=()=>{c.beginPath();c.moveTo(12,-8);c.bezierCurveTo(4,-20,-12,-25,-26,-21);c.quadraticCurveTo(-42,-14,-40,2);c.quadraticCurveTo(-39,22,-20,24);c.bezierCurveTo(-6,26,6,18,12,8);c.closePath()};
+  pb();c.fillStyle=fkLin(c,-30,-24,0,24,['#7a6ad0','#4a3c98','#241a5a']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+  c.save();pb();c.clip();c.fillStyle='rgba(10,4,30,.3)';c.beginPath();c.ellipse(-12,16,30,10,0,0,TAU);c.fill();
+   /* cloth folds gathering into the neck */c.strokeStyle='rgba(16,8,40,.5)';c.lineWidth=1.6;for(const [ex,ey] of [[-30,-14],[-34,4],[-24,18],[-10,20]]){c.beginPath();c.moveTo(10,0);c.quadraticCurveTo((10+ex)/2,ey*.4,ex,ey);c.stroke()}
+   c.strokeStyle='rgba(200,190,255,.3)';c.lineWidth=1.2;for(const [ex,ey] of [[-28,-10],[-32,8]]){c.beginPath();c.moveTo(8,-1);c.quadraticCurveTo((8+ex)/2,ey*.4-2,ex,ey-2);c.stroke()}
+   /* embroidered glowcap */c.fillStyle='#e8f8f0';c.fillRect(-23,0,3,6);c.fillStyle='#8ff8ff';c.beginPath();c.arc(-21.5,1,6,Math.PI,TAU);c.closePath();c.fill();c.lineWidth=1.2;c.strokeStyle=UA_O;c.stroke();ua_dot(c,-23.5,-1.5,1.1,'#ffffff',0);c.restore();
+  c.fillStyle='rgba(230,220,255,.3)';c.beginPath();c.ellipse(-24,-14,9,3.4,-.2,0,TAU);c.fill();
+  /* gathered neck and a wavy open mouth */c.fillStyle='#5a4ca0';c.beginPath();c.moveTo(9,-9);c.lineTo(16,-6);c.lineTo(16,6);c.lineTo(9,9);c.closePath();c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+  const fr=()=>{c.beginPath();c.moveTo(15,-6);c.quadraticCurveTo(20,-12,22,-16);for(let i=0;i<5;i++){const y0=-16+i*6.4,y1=y0+6.4;c.quadraticCurveTo(30,(y0+y1)/2,i===4?22:25,y1)}c.quadraticCurveTo(20,12,15,6);c.closePath()};
+  fr();c.fillStyle=fkLin(c,15,0,30,0,['#4a3c98','#8a7ae0']);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.ellipse(25,0,3.6,12,0,0,TAU);c.fillStyle=fkRad(c,25,0,12,['#f0ffff','#5af0ff','#0e4a5a']);c.fill();c.lineWidth=1.8;c.strokeStyle=UA_O;c.stroke();
+  c.strokeStyle=UA_O;c.lineWidth=5.6;c.beginPath();c.moveTo(12.5,-9);c.lineTo(12.5,9);c.stroke();c.strokeStyle='#ffd45a';c.lineWidth=3;c.stroke();
+  c.strokeStyle=UA_O;c.lineWidth=3.6;c.beginPath();c.moveTo(12,8);c.bezierCurveTo(9,18,2,22,-4,26);c.stroke();c.strokeStyle='#ffd45a';c.lineWidth=1.8;c.stroke();ua_dot(c,-5,27,3,'#ffd45a',1.4);c.restore()}}
+function ua_baitFront(c,k){
+ if(k==='worm'){ua_jarPath(c);c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+  c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=3;c.beginPath();c.moveTo(-21,-6);c.lineTo(-21,28);c.stroke();c.lineWidth=1.6;c.beginPath();c.moveTo(-14,-12);c.lineTo(-14,-2);c.moveTo(21,4);c.lineTo(21,30);c.stroke();
+  c.beginPath();c.ellipse(0,-28,17,4,0,0,TAU);c.fillStyle='rgba(200,235,255,.35)';c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+  /* twine around the neck */c.strokeStyle='#c8a070';c.lineWidth=3;c.beginPath();c.moveTo(-18,-22);c.quadraticCurveTo(0,-19,18,-22);c.stroke();
+  /* the cork lying beside */c.save();c.translate(31,34);c.rotate(-.5);c.beginPath();c.roundRect(-7,-9,14,18,3);c.fillStyle=fkLin(c,-7,0,7,0,['#e8c08a','#b88a50','#8a5a2a']);c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.ellipse(0,-9,7,2.6,0,0,TAU);c.fillStyle='#f0d0a0';c.fill();c.lineWidth=1.8;c.stroke();c.restore()}
+ if(k==='moth'){/* fuzzy body with stripes, feathery antennae */c.save();c.translate(0,-6);
+  c.strokeStyle=UA_O;c.lineWidth=3.6;c.beginPath();c.moveTo(-2,-20);c.quadraticCurveTo(-8,-32,-16,-36);c.moveTo(2,-20);c.quadraticCurveTo(8,-32,16,-36);c.stroke();
+  c.strokeStyle='#f4ecd8';c.lineWidth=1.8;c.stroke();c.strokeStyle='#f4ecd8';c.lineWidth=1;c.beginPath();for(let i=1;i<5;i++){const u=i/5;for(const sd of [-1,1]){const x=sd*(2+u*13),y=-20-u*15;c.moveTo(x,y);c.lineTo(x+sd*3,y+2.5);c.moveTo(x,y);c.lineTo(x-sd*1,y-3)}}c.stroke();
+  c.beginPath();c.ellipse(0,-1,7,19,0,0,TAU);c.fillStyle=fkLin(c,-7,0,7,0,['#fffaf0','#f0e4c8','#c8b490']);c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+  c.strokeStyle='rgba(150,120,90,.55)';c.lineWidth=1.3;c.beginPath();for(let i=0;i<4;i++){c.moveTo(-6,4+i*4.5);c.quadraticCurveTo(0,6+i*4.5,6,4+i*4.5)}c.stroke();
+  ua_dot(c,0,-17,6,fkRad(c,0,-17,6,['#ffffff','#f0e4c8','#c8b490']),2.2);ua_dot(c,-2.4,-18,1.5,UA_O,0);ua_dot(c,2.4,-18,1.5,UA_O,0);c.restore()}}
+function ua_mothWing(g){g.lineJoin='round';
+ g.beginPath();g.moveTo(2,-4);g.bezierCurveTo(14,-34,42,-36,44,-22);g.bezierCurveTo(46,-10,30,0,4,4);g.closePath();g.fillStyle=fkLin(g,0,-34,40,6,['#ffffff','#e4eefc','#b8c8ee','#a898e0']);g.fill();g.lineWidth=2.6;g.strokeStyle=UA_O;g.stroke();
+ g.beginPath();g.moveTo(3,4);g.bezierCurveTo(22,6,30,18,26,28);g.quadraticCurveTo(24,40,20,50);g.quadraticCurveTo(12,36,10,30);g.quadraticCurveTo(2,22,2,8);g.closePath();g.fillStyle=fkLin(g,0,4,20,50,['#f4f8ff','#c8d6f4','#9a8ad8']);g.fill();g.stroke();
+ g.strokeStyle='rgba(120,110,190,.5)';g.lineWidth=1.1;g.beginPath();g.moveTo(4,0);g.lineTo(38,-24);g.moveTo(4,0);g.lineTo(30,-10);g.moveTo(4,6);g.lineTo(22,26);g.stroke();
+ g.beginPath();g.arc(28,-18,5,0,TAU);g.fillStyle='#fff2c0';g.fill();g.lineWidth=1.6;g.strokeStyle=UA_O;g.stroke();g.beginPath();g.arc(29.5,-19,3.4,0,TAU);g.fillStyle='#b8a8e8';g.fill();
+ g.beginPath();g.arc(18,20,3,0,TAU);g.fillStyle='#fff2c0';g.fill();g.lineWidth=1.3;g.stroke()}
+function ua_hook(c,col){const p=()=>{c.beginPath();c.moveTo(0,-30);c.lineTo(0,18);c.arc(12,18,12,Math.PI,0,true);c.lineTo(24,4)};
+ c.lineCap='round';p();c.strokeStyle=UA_O;c.lineWidth=7;c.stroke();p();c.strokeStyle=col||'#c8d4ec';c.lineWidth=3.8;c.stroke();c.save();c.translate(-1,-1);p();c.strokeStyle='rgba(255,255,255,.85)';c.lineWidth=1.2;c.stroke();c.restore();
+ c.beginPath();c.moveTo(24,1);c.lineTo(28,10);c.lineTo(23,9);c.closePath();c.fillStyle=col||'#c8d4ec';c.fill();c.lineWidth=2;c.strokeStyle=UA_O;c.stroke();
+ c.beginPath();c.arc(0,-34,4.5,0,TAU);c.strokeStyle=UA_O;c.lineWidth=6.5;c.stroke();c.strokeStyle=col||'#c8d4ec';c.lineWidth=3;c.stroke()}
+function ua_worm(g,pts,w,a,nd){const p=()=>{g.beginPath();g.moveTo(pts[0],pts[1]);g.bezierCurveTo(pts[2],pts[3],pts[4],pts[5],pts[6],pts[7])};
+ g.globalAlpha=a==null?1:a;g.lineCap='round';p();g.strokeStyle=UA_O;g.lineWidth=w+3.2;g.stroke();p();g.strokeStyle='#7affa0';g.lineWidth=w;g.stroke();
+ if(!nd){p();g.setLineDash([1.2,3.6]);g.strokeStyle='rgba(20,90,40,.55)';g.lineWidth=w;g.stroke();g.setLineDash([])}g.save();g.translate(-.8,-1.2);p();g.strokeStyle='#e8ffe0';g.lineWidth=w*.28;g.stroke();g.restore();
+ ua_dot(g,pts[6],pts[7],w*.62,'#9affb0',0);g.globalAlpha=1}
+function fsBaitArt(g,kind,x,y,s,t){t=t||0;s=s||1;g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';g.lineCap='round';
+ if(kind==='worm'){ua_spr(g,'bw',-46,-50,92,96,c=>ua_baitBack(c,'worm'));ua_glow(g,0,22,20,'#5aff8a',.08+.08*Math.sin(t*2));
+  const w1=Math.sin(t*2.2)*4,w2=Math.cos(t*1.7)*3;ua_worm(g,[-4,10,-12+w2,-6,6+w1,-22,4+w1*1.4,-40+Math.sin(t*2.2+1)*2],5.6,1,1);ua_glow(g,4+w1*1.4,-40,14,'#5aff8a',.4+.15*Math.sin(t*3));
+  ua_spr(g,'bwf',-46,-50,92,96,c=>ua_baitFront(c,'worm'))}
+ else if(kind==='moth'){const by=Math.sin(t*1.8)*2.5;g.translate(0,by);ua_glow(g,0,-6,52,'#dfe8ff',.34+.08*Math.sin(t*2.4));
+  g.strokeStyle='rgba(240,236,216,.8)';g.lineWidth=1.2;g.beginPath();g.moveTo(0,-50-by);g.lineTo(0,-38);g.stroke();
+  g.save();g.translate(0,6);g.scale(.9,.9);ua_spr(g,'bmh',-14,-44,50,82,c=>ua_hook(c,'#d8e0f4'));g.restore();
+  const f=.62+.38*Math.abs(Math.cos(t*4.2));for(const sd of [-1,1]){g.save();g.translate(0,-10);g.scale(sd*f,1);ua_spr(g,'bmw',-2,-40,52,94,ua_mothWing);g.restore()}
+  ua_spr(g,'bmb',-24,-50,48,74,c=>ua_baitFront(c,'moth'));
+  for(let i=0;i<3;i++){const u=(t*.5+i/3)%1;fkSpark(g,-26+i*26+Math.sin(t+i)*6,20+u*20,1.5+2*Math.sin(Math.PI*u),'#ffffff',Math.sin(Math.PI*u))}}
+ else if(kind==='roe'){ua_glow(g,0,0,50,'#ffb090',.26+.08*Math.sin(t*2));ua_spr(g,'br',-48,-46,96,96,c=>ua_baitBack(c,'roe'));
+  const E=[[0,-22,8.5],[-9,-9,9],[9,-9,9],[-20,4,9],[0,3,9.5],[20,4,9],[-30,17,8],[-11,17,9],[10,17,9],[29,17,8]];
+  for(let i=0;i<E.length;i++){const a=.5+.5*Math.sin(t*2.6+i*1.3);if(a>.55){const [ex,ey,r]=E[i];ua_glow(g,ex,ey,r*1.4,'#ffe2a0',(a-.55)*.9);fkSpark(g,ex+r*.15,ey+r*.12,r*(.3+.25*a),'#ffffff',a)}}
+  const u=(t*.4)%1;fkSpark(g,24,-24+Math.sin(t)*2,2+3*Math.sin(Math.PI*u),'#fff6c8',Math.sin(Math.PI*u))}
+ else if(kind==='shrimp'){ua_glow(g,0,0,46,'#9ad8ff',.2+.05*Math.sin(t*2));g.save();g.translate(0,Math.round(Math.sin(t*1.8)*3)/2);
+  const aw=Math.sin(t*2.6)*4;for(const k of [0,1]){g.beginPath();g.moveTo(-28,-12+k*3);g.bezierCurveTo(-44,-30-k*2,-20-aw,-50+k*6,14+aw*(k?1:.5),-44+k*8);g.strokeStyle=UA_O;g.lineWidth=3.6;g.stroke();g.strokeStyle='#c8ecff';g.lineWidth=1.6;g.stroke()}
+  ua_spr(g,'bs',-48,-46,96,96,c=>ua_baitBack(c,'shrimp'));g.restore();
+  for(let i=0;i<4;i++){const a=Math.max(0,Math.sin(t*2.2+i*1.6));if(a>.05)fkSpark(g,[-30,30,34,-36][i],[18,-26,24,-6][i],1.6+a*3.6,'#ffffff',a)}}
+ else if(kind==='spore'){ua_spr(g,'bp',-48,-48,96,96,c=>ua_baitBack(c,'spore'));const mx=22,my=0;ua_glow(g,mx,my,22,'#5af0ff',.4+.14*Math.sin(t*2.4));
+  for(let i=0;i<9;i++){const u=(t*.32+i/9)%1,px=mx+4+Math.sin(u*6+i*2)*8+u*(i%2?12:-8),py=my-6-u*42,a=Math.sin(Math.PI*u);ua_glow(g,px,py,7,'#5af0ff',.55*a);ua_dot(g,px,py,1.5+(1-u)*.9,'#e8ffff',0)}
+  for(let i=0;i<4;i++){const a=.5+.5*Math.sin(t*2+i*2);ua_glow(g,12+i*10,37,8,'#5af0ff',.35*a)}}
+ else{const r=Math.sin(t*1.3)*.12;g.strokeStyle='rgba(240,236,216,.8)';g.lineWidth=1.3;g.beginPath();g.moveTo(0,-52);g.lineTo(Math.sin(r)*12,-40);g.stroke();
+  g.save();g.translate(0,-50);g.rotate(r);g.translate(-6,52);ua_spr(g,'bnh',-14,-44,50,82,c=>ua_hook(c));g.restore();
+  const a=Math.max(0,Math.sin(t*2.2));if(a>.05)fkSpark(g,10,26,2+a*3.5,'#ffffff',a)}
+ g.restore()}
+
+/* ====================================================================================================================
+   TROPHY PLAQUE
+   ==================================================================================================================== */
+function ua_plqPath(c,w,h,k){const hw=w/2*k,hh=h/2*k;fkPath(c,[-1.02,-.6,-.96,-1.02,-.56,-.86,0,-1.1,.56,-.86,.96,-1.02,1.02,-.6,1.04,.22,.8,.74,.3,1,0,1.06,-.3,1,-.8,.74,-1.04,.22].map((v,i)=>v*(i%2?hh:hw)))}
+const UA_TRIM={c:'#cfd6e6',u:'#6ee08a',r:'#5ab8ff',l:'#ffc23a',m:'#ff5ad8'};
+function ua_plaqueSprite(c,w,h,rk,empty){const tc0=(typeof FSR!=='undefined'&&FSR[rk]&&FSR[rk].c)||UA_TRIM[rk]||'#cfd6e6',tc=empty?ua_grey(ua_mix(tc0,-.25),.7):tc0;
+ /* shadow */c.save();c.translate(4,7);ua_plqPath(c,w,h,1);c.fillStyle='rgba(10,4,20,.5)';c.fill();c.restore();
+ /* trim */ua_plqPath(c,w,h,1);c.fillStyle=fkLin(c,-w/2,-h/2,w/2,h/2,[ua_mix(tc,.55),tc,ua_mix(tc,-.35),ua_mix(tc,-.6)]);c.fill();c.lineWidth=3.6;c.strokeStyle=UA_O;c.stroke();
+ c.save();ua_plqPath(c,w,h,1);c.clip();c.translate(2,3);ua_plqPath(c,w,h,1);c.strokeStyle='rgba(255,255,255,.5)';c.lineWidth=3;c.stroke();c.restore();
+ if(rk==='r'&&!empty){for(let i=0;i<18;i++){const a=i/18*TAU,x=Math.cos(a)*w*.47,y=Math.sin(a)*h*.44;if(Math.abs(x)>w*.36||y<-h*.38)ua_dot(c,x*.98,y,2.6,fkRad(c,x,y,2.6,['#ffffff','#c8d8f0','#6a7aa0']),1.2)}}
+ /* wood board */const k=.86,wb=()=>ua_plqPath(c,w,h,k);wb();
+ c.fillStyle=empty?fkLin(c,-w/2,-h/2,w/2,h/2,['#6a5a50','#4a3e38','#2e2622']):fkLin(c,-w/2,-h/2,w/2,h/2,['#8a4c26','#5a2c14','#341608']);c.fill();
+ c.save();wb();c.clip();c.lineWidth=1.4;for(let i=0;i<16;i++){const yy=-h/2+i*h/15+((i*13)%7)-3;c.strokeStyle=i%3?'rgba(20,6,0,.32)':'rgba(255,200,140,.10)';c.beginPath();c.moveTo(-w/2,yy);c.bezierCurveTo(-w*.2,yy+((i*29)%9)-4,w*.1,yy-((i*17)%9)+4,w/2,yy+((i*7)%5)-2);c.stroke()}
+  c.strokeStyle='rgba(20,6,0,.3)';c.beginPath();c.ellipse(w*.22,h*.05,w*.05,h*.03,0,0,TAU);c.stroke();c.beginPath();c.ellipse(w*.22,h*.05,w*.025,h*.014,0,0,TAU);c.stroke();
+  c.translate(2.5,3.5);wb();c.strokeStyle=empty?'rgba(220,210,190,.25)':'rgba(255,214,160,.35)';c.lineWidth=5;c.stroke();c.translate(-5,-7);wb();c.strokeStyle='rgba(10,2,0,.45)';c.lineWidth=5;c.stroke();c.translate(2.5,3.5);
+  c.fillStyle=empty?'rgba(255,255,255,.04)':'rgba(255,240,220,.10)';c.beginPath();c.ellipse(-w*.16,-h*.3,w*.26,h*.08,-.15,0,TAU);c.fill();
+  if(empty){c.fillStyle=fkLin(c,0,-h/2,0,h/2,['rgba(210,200,180,.16)','rgba(210,200,180,.04)']);c.fillRect(-w/2,-h/2,w,h);c.fillStyle='rgba(225,215,195,.35)';for(let i=0;i<70;i++){c.beginPath();c.arc(-w*.42+((i*67)%(w*.84)),-h*.42+((i*41)%(h*.8)),.6+(i%4)*.35,0,TAU);c.fill()}}
+  c.restore();wb();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+ /* carved groove */c.save();ua_plqPath(c,w,h,.78);c.strokeStyle='rgba(10,2,0,.5)';c.lineWidth=2;c.stroke();c.translate(.8,1.2);ua_plqPath(c,w,h,.78);c.strokeStyle=empty?'rgba(220,210,190,.12)':'rgba(255,210,150,.2)';c.lineWidth=1;c.stroke();c.restore();
+ /* rarity decorations */
+ if(!empty&&rk==='u'){for(const sd of [-1,1]){c.beginPath();c.moveTo(0,-h*.49);c.quadraticCurveTo(sd*w*.1,-h*.53,sd*w*.2,-h*.45);c.strokeStyle=UA_O;c.lineWidth=4;c.stroke();c.strokeStyle='#3a9a5a';c.lineWidth=2;c.stroke();
+   for(let i=0;i<3;i++){const u=.3+i*.3,x=sd*w*.2*u,y=-h*.49-h*.035*Math.sin(Math.PI*u)+u*h*.02;c.save();c.translate(x,y);c.rotate(sd*(i%2?-.5:.9)-(i%2?Math.PI/2:0));c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(5,-5,11,0);c.quadraticCurveTo(5,5,0,0);c.fillStyle=i%2?'#9af0aa':'#5ac87a';c.fill();c.lineWidth=1.5;c.strokeStyle=UA_O;c.stroke();
+    c.beginPath();c.moveTo(1,0);c.lineTo(9,0);c.strokeStyle='rgba(20,80,40,.6)';c.lineWidth=.8;c.stroke();c.restore()}}ua_dot(c,0,-h*.49,4,fkRad(c,0,-h*.49,4,['#ffffff','#9af0aa','#2a8a4a']),1.6)}
+ if(!empty&&rk==='l'){for(const sd of [-1,1]){ua_gold(c,()=>{c.beginPath();c.moveTo(0,-h*.5);c.bezierCurveTo(sd*w*.06,-h*.56,sd*w*.14,-h*.5,sd*w*.17,-h*.44)},2.2);ua_gold(c,()=>ua_scroll(c,sd*w*.19,-h*.455,6,sd,sd>0?Math.PI:0),1.8);
+   ua_gold(c,()=>{c.beginPath();c.moveTo(sd*w*.42,-h*.42);c.bezierCurveTo(sd*w*.5,-h*.3,sd*w*.5,-h*.18,sd*w*.47,-h*.1)},2);ua_gold(c,()=>ua_scroll(c,sd*w*.44,-h*.42,5,-sd,-Math.PI/2),1.6);
+   ua_gold(c,()=>{c.beginPath();c.moveTo(sd*w*.12,h*.48);c.bezierCurveTo(sd*w*.22,h*.46,sd*w*.3,h*.4,sd*w*.34,h*.33)},2);ua_gold(c,()=>ua_scroll(c,sd*w*.35,h*.31,5,sd,Math.PI/2),1.6)}
+  c.save();c.translate(0,-h*.51);c.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?4:10;c.lineTo(Math.cos(a)*r,Math.sin(a)*r)}c.closePath();c.fillStyle=ua_met(c,-10,-10,10,10,'gold');c.fill();c.lineWidth=2.2;c.strokeStyle=UA_O;c.stroke();c.restore()}
+ if(!empty&&rk==='m'){for(const sd of [-1,1]){ua_gold(c,()=>{c.beginPath();c.moveTo(sd*w*.06,-h*.5);c.bezierCurveTo(sd*w*.12,-h*.55,sd*w*.2,-h*.49,sd*w*.22,-h*.44)},2)}
+  const GM=[[0,-h*.5,10,0],[-w*.44,-h*.44,6.5,1],[w*.44,-h*.44,6.5,2],[-w*.47,h*.16,6,3],[w*.47,h*.16,6,4],[-w*.22,h*.44,5,2],[w*.22,h*.44,5,1]],PC=[['#ffe0ff','#ff5ad8','#8a1a8a'],['#e0ffff','#5af0ff','#2a5ab8'],['#fffbe0','#ffd45a','#c8641a'],['#e8ffe8','#6ef08a','#1a7a4a'],['#f0e0ff','#a87aff','#4a2aa8']];
+  for(const [x,y,r,ci] of GM){c.beginPath();c.arc(x,y,r+3,0,TAU);c.fillStyle=ua_met(c,x-r,y-r,x+r,y+r,'gold');c.fill();c.lineWidth=2;c.strokeStyle=UA_O;c.stroke();ua_gem(c,x,y+.5,r,PC[ci],1.6)}}
+ /* side screws on the trim */for(const sd of [-1,1]){const x=sd*w*.465,y=-h*.04;ua_dot(c,x,y,5.2,fkRad(c,x,y,5.2,['#fff4c8','#d8a640','#6a4410']),2);c.strokeStyle='rgba(60,30,0,.8)';c.lineWidth=1.6;c.beginPath();c.moveTo(x-3,y-2);c.lineTo(x+3,y+2);c.stroke()}
+ /* nameplate */{const nw=w*.4,nh=h*.13,ny=h*.335;c.beginPath();c.roundRect(-nw/2+2,ny-nh/2+4,nw,nh,5);c.fillStyle='rgba(10,4,20,.45)';c.fill();
+  c.beginPath();c.moveTo(-nw/2,ny-nh/2+5);c.quadraticCurveTo(-nw/2,ny-nh/2,-nw/2+6,ny-nh/2);c.lineTo(nw/2-6,ny-nh/2);c.quadraticCurveTo(nw/2,ny-nh/2,nw/2,ny-nh/2+5);c.lineTo(nw/2+5,ny);c.lineTo(nw/2,ny+nh/2-5);c.quadraticCurveTo(nw/2,ny+nh/2,nw/2-6,ny+nh/2);c.lineTo(-nw/2+6,ny+nh/2);c.quadraticCurveTo(-nw/2,ny+nh/2,-nw/2,ny+nh/2-5);c.lineTo(-nw/2-5,ny);c.closePath();
+  c.fillStyle=empty?fkLin(c,0,ny-nh/2,0,ny+nh/2,['#bca880','#8a7650','#5e4c30']):fkLin(c,0,ny-nh/2,0,ny+nh/2,['#fff0b8','#e0b050','#a06a1e','#d8a640']);c.fill();c.lineWidth=2.8;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.roundRect(-nw/2+6,ny-nh/2+4,nw-12,nh-8,3);c.strokeStyle='rgba(110,60,10,.55)';c.lineWidth=1.2;c.stroke();c.strokeStyle='rgba(255,250,220,.5)';c.beginPath();c.moveTo(-nw/2+8,ny-nh/2+3);c.lineTo(nw/2-8,ny-nh/2+3);c.stroke();
+  for(const sd of [-1,1])ua_dot(c,sd*(nw/2-2),ny,2,'#6a4410',1)}
+ if(empty){/* cobweb in the upper-left of the board */c.save();c.translate(-w*.36,-h*.33);c.strokeStyle='rgba(230,225,215,.4)';c.lineWidth=.9;c.beginPath();for(let i=0;i<5;i++){const a=i*Math.PI/8;c.moveTo(0,0);c.lineTo(Math.cos(a)*w*.13,Math.sin(a)*w*.13)}
+   for(let r=8;r<w*.13;r+=7){for(let i=0;i<4;i++){const a0=i*Math.PI/8,a1=(i+1)*Math.PI/8;c.moveTo(Math.cos(a0)*r,Math.sin(a0)*r);c.quadraticCurveTo(Math.cos((a0+a1)/2)*r*.8,Math.sin((a0+a1)/2)*r*.8,Math.cos(a1)*r,Math.sin(a1)*r)}}c.stroke();c.restore();
+  /* faint dashed fish outline */c.save();c.translate(0,-h*.08);const fs=w/260;c.scale(fs,fs);c.beginPath();c.moveTo(-58,0);c.bezierCurveTo(-30,-44,40,-50,82,-8);c.quadraticCurveTo(90,0,82,8);c.bezierCurveTo(40,50,-30,44,-58,0);c.lineTo(-92,-30);c.quadraticCurveTo(-80,0,-92,30);c.closePath();
+   c.setLineDash([8,7]);c.strokeStyle='rgba(235,220,195,.32)';c.lineWidth=3;c.stroke();c.setLineDash([]);c.beginPath();c.arc(58,-8,6,0,TAU);c.strokeStyle='rgba(235,220,195,.22)';c.lineWidth=2;c.stroke();c.restore();
+  /* brass cup hook */c.save();c.translate(0,-h*.34);ua_dot(c,0,0,5,fkRad(c,0,0,5,['#fff0b8','#c8963a','#6a4410']),2);c.beginPath();c.moveTo(0,3);c.lineTo(0,12);c.arc(6,12,6,Math.PI,0,true);c.lineTo(12,8);
+   c.strokeStyle=UA_O;c.lineWidth=5.4;c.stroke();c.strokeStyle='#e0b050';c.lineWidth=2.6;c.stroke();c.restore()}}
+function ua_plqSheen(g,w,h,t,rk){const u=(t*.24)%1;if(u>.5)return;const x=-w*.8+u/.5*w*1.6;g.save();ua_plqPath(g,w,h,1);g.clip();
+ g.translate(x,0);g.rotate(.45);g.globalCompositeOperation='lighter';g.fillStyle=ua_gc('psh',()=>fkLin(g,-24,0,24,0,['rgba(255,250,220,0)','rgba(255,250,220,.36)','rgba(255,250,220,0)']));g.fillRect(-24,-h,48,h*2);g.restore()}
+function fsPlaque(g,cx,cy,w,h,rk,t,empty){w=w||260;h=h||200;t=t||0;rk=rk||'c';g.save();g.translate(cx,cy);
+ const W=Math.round(w),H=Math.round(h);ua_spr(g,'pq'+rk+(empty?'e':'')+W+'x'+H,-W/2-8,-H/2-10,W+22,H+24,c=>ua_plaqueSprite(c,W,H,rk,!!empty));
+ if(!empty&&(rk==='l'||rk==='m')){ua_plqSheen(g,W,H,t,rk);
+  if(rk==='l'){const a=Math.max(0,Math.sin(t*2.4));if(a>.05)fkSpark(g,0,-H*.51,4+a*6,'#fff6c8',a);const b=Math.max(0,Math.sin(t*2.4+2.4));if(b>.05)fkSpark(g,W*.19,-H*.455,2+b*4,'#ffffff',b)}
+  else{const GM=[[0,-H*.5],[-W*.44,-H*.44],[W*.44,-H*.44],[-W*.47,H*.16],[W*.47,H*.16],[-W*.22,H*.44],[W*.22,H*.44]],C=['#ff5ad8','#5af0ff','#ffd45a','#6ef08a','#a87aff'];
+   for(let i=0;i<GM.length;i++){const a=.5+.5*Math.sin(t*2.6+i*1.1);ua_glow(g,GM[i][0],GM[i][1],9+a*5,C[(i+Math.floor(t*.7))%5],.18+.3*a);if(a>.8)fkSpark(g,GM[i][0]+2,GM[i][1]-2,(a-.8)*30,'#ffffff',(a-.8)*5)}}}
+ g.restore()}
+
+/* ====================================================================================================================
+   MEDALS
+   ==================================================================================================================== */
+const UA_MD={catch:['bronze','#1f8fb0','#2a7ad8','#ffd45a'],species:['silver','#2a9a5a','#2a9a5a','#f4ecd8'],rare:['silver','#1e3a8a','#3a8aff','#c8e4ff'],legend:['gold','#a8203a','#ffc23a','#a8203a'],
+ myth:['prism','#4a1a7a','#ff5ad8','#7ae8ff'],giant:['silver','#1a6a8a','#3ac8a0','#f4ecd8'],streak:['bronze','#8a1a1a','#ff6a2a','#ffd45a'],spots:['bronze','#2a7a5a','#e8364e','#f4ecd8'],
+ bounty:['gold','#6a3a1a','#c8282a','#ffd45a'],creel:['bronze','#2a1f5c','#c8904a','#5a4ca0'],trophy:['gold','#22306a','#5a4ca0','#ffc23a'],bait:['bronze','#3a6a2a','#7aff9a','#5a3a1a'],
+ gold:['gold','#4a2a7a','#ffd45a','#2a1f5c'],speed:['silver','#1a3a9a','#ffe04a','#2a5ad8']};
+const UA_FLAT='#4a4288',UA_FLAT2='#383068';
+/* emblems drawn around (0,0), radius ~14; P(col) returns the colour (or the flat silhouette tone when not earned) */
+function ua_fishShape(c,x,y,s,rot){c.save();c.translate(x,y);c.rotate(rot||0);c.scale(s,s);c.beginPath();c.moveTo(-6,0);c.bezierCurveTo(-2,-8,8,-9,13,-1);c.quadraticCurveTo(14,0,13,1);c.bezierCurveTo(8,9,-2,8,-6,0);c.lineTo(-13,-6);c.quadraticCurveTo(-10,0,-13,6);c.closePath();c.restore()}
+const UA_EMB={
+ catch(c,P,L){ua_fishShape(c,0,0,1.05,-.15);c.fillStyle=P(()=>fkLin(c,0,-9,0,9,['#ffd08a','#ff8a3a','#c8401a']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();if(P.got){ua_dot(c,8,-3,2.2,'#fff',1);ua_dot(c,8.4,-3,1,UA_O,0);c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1.2;c.beginPath();c.arc(1,-1,6,Math.PI*1.1,Math.PI*1.6);c.stroke()}},
+ species(c,P,L){c.beginPath();c.moveTo(0,-7);c.quadraticCurveTo(-7,-11,-14,-8);c.lineTo(-14,9);c.quadraticCurveTo(-7,6,0,10);c.quadraticCurveTo(7,6,14,9);c.lineTo(14,-8);c.quadraticCurveTo(7,-11,0,-7);c.closePath();c.fillStyle=P('#fff6e0');c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.moveTo(0,-7);c.lineTo(0,10);c.stroke();if(P.got){c.strokeStyle='#b89a6a';c.lineWidth=1;c.beginPath();for(let i=0;i<3;i++){c.moveTo(-11,-3+i*4);c.lineTo(-3,-2+i*4);c.moveTo(3,-2+i*4);c.lineTo(11,-3+i*4)}c.stroke();
+   c.fillStyle='#e8364e';c.beginPath();c.moveTo(7,-9);c.lineTo(11,-9);c.lineTo(11,1);c.lineTo(9,-1);c.lineTo(7,1);c.closePath();c.fill();c.lineWidth=1.2;c.strokeStyle=UA_O;c.stroke()}},
+ rare(c,P,L){if(P.got)ua_gem(c,0,0,12,['#d8f0ff','#3a8aff','#1a2a8a'],L);else{c.beginPath();c.moveTo(-12,-3);c.lineTo(-6.6,-9.6);c.lineTo(6.6,-9.6);c.lineTo(12,-3);c.lineTo(0,12);c.closePath();c.fillStyle=UA_FLAT;c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke()}},
+ legend(c,P,L){c.beginPath();c.moveTo(-13,7);c.lineTo(-14,-7);c.lineTo(-7,-1);c.lineTo(0,-11);c.lineTo(7,-1);c.lineTo(14,-7);c.lineTo(13,7);c.closePath();c.fillStyle=P(()=>ua_met(c,-14,-11,14,9,'gold'));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.roundRect(-13.5,6,27,5,1.5);c.fill();c.stroke();for(const [x,y] of [[-14,-7],[0,-11],[14,-7]])ua_dot(c,x,y,2.3,P('#fff6c8'),1.4);if(P.got){ua_gem(c,0,2,3.4,['#ffd0d8','#ff3a5a','#8a0a2a'],1.2);ua_dot(c,-7,8.5,1.3,'#3a8aff',0);ua_dot(c,7,8.5,1.3,'#3a8aff',0)}},
+ myth(c,P,L){c.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,r=i%2?5.6:14;c.lineTo(Math.cos(a)*r,Math.sin(a)*r)}c.closePath();c.fillStyle=P(()=>fkLin(c,-14,-14,14,14,['#fff0ff','#ff7ae0','#c86aff','#7ae8ff']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  if(P.got){c.strokeStyle='rgba(255,255,255,.7)';c.lineWidth=1;c.beginPath();for(let i=0;i<5;i++){const a=-Math.PI/2+i*Math.PI*2/5;c.moveTo(0,0);c.lineTo(Math.cos(a)*12,Math.sin(a)*12)}c.stroke();ua_dot(c,0,0,2.4,'#ffffff',0)}},
+ giant(c,P,L){ua_fishShape(c,-2,-2,.85,0);c.fillStyle=P(()=>fkLin(c,0,-9,0,6,['#bff0ff','#5ab8e8','#2a6ab8']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();if(P.got)ua_dot(c,5,-4.5,1.6,'#fff',1);
+  c.beginPath();c.roundRect(-14,8,28,6,1.5);c.fillStyle=P('#ffd45a');c.fill();c.lineWidth=L*.8;c.stroke();c.strokeStyle=P.got?'#7a4a0a':UA_O;c.lineWidth=1;c.beginPath();for(let i=-12;i<=12;i+=4){c.moveTo(i,8);c.lineTo(i,i%8?10.5:12)}c.stroke();
+  c.beginPath();c.moveTo(12,4);c.lineTo(12,-10);c.moveTo(8,-6);c.lineTo(12,-11);c.lineTo(16,-6);c.strokeStyle=UA_O;c.lineWidth=4.6;c.stroke();c.strokeStyle=P('#7affb4');c.lineWidth=2.2;c.stroke()},
+ streak(c,P,L){c.beginPath();c.moveTo(0,13);c.bezierCurveTo(-12,12,-13,0,-6,-6);c.quadraticCurveTo(-5,-1,-2,0);c.quadraticCurveTo(-4,-9,4,-14);c.quadraticCurveTo(2,-6,8,-2);c.quadraticCurveTo(13,4,9,10);c.quadraticCurveTo(6,13,0,13);c.closePath();
+  c.fillStyle=P(()=>fkLin(c,0,-14,0,13,['#ffe04a','#ff8a2a','#e8362a']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();if(P.got){c.beginPath();c.moveTo(0,11);c.bezierCurveTo(-6,10,-6,3,-2,0);c.quadraticCurveTo(1,4,3,1);c.quadraticCurveTo(7,7,0,11);c.fillStyle='#fff6b0';c.fill()}},
+ spots(c,P,L){if(P.got){c.beginPath();c.ellipse(0,12,7,2.4,0,0,TAU);c.fillStyle='rgba(0,0,0,.35)';c.fill()}c.beginPath();c.moveTo(0,12);c.bezierCurveTo(-4,5,-10,0,-10,-4);c.arc(0,-4,10,Math.PI,0);c.bezierCurveTo(10,0,4,5,0,12);c.closePath();c.fillStyle=P(()=>fkLin(c,-10,-14,10,10,['#ff8a9a','#e8364e','#a01a2e']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  ua_dot(c,0,-4,3.8,P('#fff6e0'),1.6);if(P.got){c.strokeStyle='rgba(255,255,255,.6)';c.lineWidth=1.3;c.beginPath();c.arc(0,-4,7.5,Math.PI*1.1,Math.PI*1.5);c.stroke()}},
+ bounty(c,P,L){c.beginPath();c.moveTo(-10,-10);c.lineTo(10,-10);c.lineTo(10,9);c.lineTo(-10,9);c.closePath();c.fillStyle=P('#f4e2b8');c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  for(const yy of [-11,10]){c.beginPath();c.roundRect(-13,yy-3,26,6,3);c.fillStyle=P('#d8bc84');c.fill();c.stroke()}if(P.got){c.strokeStyle='#a88a5a';c.lineWidth=1;c.beginPath();for(let i=0;i<3;i++){c.moveTo(-7,-4+i*4);c.lineTo(i===2?0:7,-4+i*4)}c.stroke()}
+  c.beginPath();for(let i=0;i<12;i++){const a=i/12*TAU,r=i%2?4.6:5.6;c.lineTo(7+Math.cos(a)*r,6+Math.sin(a)*r)}c.closePath();c.fillStyle=P('#c8282a');c.fill();c.lineWidth=L*.8;c.stroke();if(P.got)ua_dot(c,7,6,2.2,'#e8545a',0)},
+ creel(c,P,L){c.beginPath();c.arc(0,-3,9,Math.PI*1.05,Math.PI*1.95);c.strokeStyle=UA_O;c.lineWidth=4.8;c.stroke();c.strokeStyle=P('#8a5a28');c.lineWidth=2.2;c.stroke();
+  c.beginPath();c.moveTo(-13,-3);c.lineTo(13,-3);c.lineTo(10,12);c.quadraticCurveTo(0,14,-10,12);c.closePath();c.fillStyle=P(()=>fkLin(c,0,-3,0,13,['#e8b878','#a06a30']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  if(P.got){c.strokeStyle='rgba(90,50,20,.7)';c.lineWidth=1.1;c.beginPath();for(let i=0;i<3;i++){c.moveTo(-12,1.5+i*3.6);c.quadraticCurveTo(0,3+i*3.6,12,1.5+i*3.6)}for(let i=-2;i<=2;i++){c.moveTo(i*4.5,-3);c.lineTo(i*3.8,13)}c.stroke()}
+  c.beginPath();c.roundRect(-14,-6,28,4.5,2);c.fillStyle=P('#c8904a');c.fill();c.lineWidth=L*.8;c.strokeStyle=UA_O;c.stroke()},
+ trophy(c,P,L){c.beginPath();c.moveTo(-12,-10);c.lineTo(12,-10);c.lineTo(12,1);c.quadraticCurveTo(10,10,0,14);c.quadraticCurveTo(-10,10,-12,1);c.closePath();c.fillStyle=P(()=>ua_met(c,-12,-10,12,14,'gold'));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.moveTo(-8.5,-7);c.lineTo(8.5,-7);c.lineTo(8.5,1);c.quadraticCurveTo(7,7.5,0,10.5);c.quadraticCurveTo(-7,7.5,-8.5,1);c.closePath();c.fillStyle=P(()=>fkLin(c,0,-7,0,10,['#8a4c26','#4a2412']));c.fill();c.lineWidth=1.2;c.stroke();
+  ua_fishShape(c,0,-.5,.5,0);c.fillStyle=P('#7ad8ff');c.fill();c.lineWidth=1;c.strokeStyle=UA_O;c.stroke()},
+ bait(c,P,L){c.save();c.translate(-2,0);c.beginPath();c.moveTo(0,-13);c.lineTo(0,5);c.arc(5,5,5,Math.PI,0,true);c.lineTo(10,0);c.strokeStyle=UA_O;c.lineWidth=5;c.stroke();c.strokeStyle=P('#d8e0f4');c.lineWidth=2.4;c.stroke();
+  c.beginPath();c.arc(0,-14,2.4,0,TAU);c.strokeStyle=UA_O;c.lineWidth=4.2;c.stroke();c.strokeStyle=P('#d8e0f4');c.lineWidth=1.8;c.stroke();
+  c.beginPath();c.moveTo(-6,-6);c.bezierCurveTo(6,-8,6,-2,-5,0);c.bezierCurveTo(-12,2,-6,8,2,6);c.strokeStyle=UA_O;c.lineWidth=6.4;c.stroke();c.strokeStyle=P('#ff9ab0');c.lineWidth=3.6;c.stroke();if(P.got){c.strokeStyle='rgba(255,255,255,.55)';c.lineWidth=1;c.stroke()}c.restore()},
+ gold(c,P,L){for(let i=0;i<3;i++){const y=9-i*5;c.beginPath();c.ellipse(-3,y+2,9,3.6,0,0,TAU);c.fillStyle=P('#b8741a');c.fill();c.lineWidth=L*.8;c.strokeStyle=UA_O;c.stroke();c.beginPath();c.ellipse(-3,y,9,3.6,0,0,TAU);c.fillStyle=P(()=>fkLin(c,-12,y-4,6,y+4,['#fff6c8','#ffd45a','#d8901e']));c.fill();c.stroke()}
+  c.beginPath();c.ellipse(8,2,5.5,8.5,.15,0,TAU);c.fillStyle=P(()=>fkLin(c,3,-6,13,10,['#fff6c8','#ffd45a','#c8841a']));c.fill();c.lineWidth=L*.8;c.stroke();if(P.got){c.beginPath();c.ellipse(8,2,3.2,5.6,.15,0,TAU);c.strokeStyle='#b8741a';c.lineWidth=1;c.stroke()}},
+ speed(c,P,L){c.beginPath();c.moveTo(3,-14);c.lineTo(-9,2);c.lineTo(-1,2);c.lineTo(-4,14);c.lineTo(9,-3);c.lineTo(1,-3);c.closePath();c.fillStyle=P(()=>fkLin(c,0,-14,0,14,['#fffbd0','#ffe04a','#f0a018']));c.fill();c.lineWidth=L;c.strokeStyle=UA_O;c.stroke();
+  if(P.got){c.strokeStyle='rgba(255,255,255,.75)';c.lineWidth=1.1;c.beginPath();c.moveTo(1.5,-10);c.lineTo(-5.5,0);c.stroke()}}};
+function ua_medalSprite(c,kind,got){const D=UA_MD[kind]||UA_MD.catch,M=got?(UA_MET[D[0]]||UA_MET.gold):['#5a5294','#3e3672','#2a2452','#1c1838'],R=27,cy=7;
+ /* ribbon */const rb=()=>{c.beginPath();c.moveTo(-15,-42);c.lineTo(15,-42);c.lineTo(10,-12);c.lineTo(-10,-12);c.closePath()};
+ rb();c.fillStyle=got?D[2]:'#2a2452';c.fill();c.save();rb();c.clip();c.fillStyle=got?D[3]:'#221c44';c.fillRect(-4.5,-44,9,34);c.fillStyle=got?'rgba(255,255,255,.18)':'rgba(255,255,255,.04)';c.fillRect(-15,-44,4,34);
+  c.fillStyle='rgba(0,0,0,.25)';c.fillRect(8,-44,8,34);c.fillStyle=fkLin(c,0,-24,0,-12,['rgba(0,0,0,0)','rgba(0,0,0,.35)']);c.fillRect(-16,-24,32,12);c.restore();rb();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+ c.beginPath();c.arc(0,-17,4,0,TAU);c.strokeStyle=UA_O;c.lineWidth=5.4;c.stroke();c.strokeStyle=M[1];c.lineWidth=2.4;c.stroke();
+ if(got&&D[0]==='prism')ua_glow(c,0,cy,40,'#ff5ad8',.25);
+ /* medal rim with beads, enamel, inner ring */
+ c.beginPath();c.arc(0,cy,R,0,TAU);c.fillStyle=fkLin(c,-R,cy-R,R,cy+R,[M[0],M[1],M[2],M[3]]);c.fill();c.lineWidth=3.4;c.strokeStyle=UA_O;c.stroke();
+ for(let i=0;i<24;i++){const a=i/24*TAU;ua_dot(c,Math.cos(a)*(R-3.4),cy+Math.sin(a)*(R-3.4),1.25,got?M[0]:'#6a62a4',0)}
+ c.beginPath();c.arc(0,cy,R-6.5,0,TAU);c.fillStyle=got?fkRad(c,0,cy,R-6.5,[ua_mix(D[1],.35),D[1],ua_mix(D[1],-.45)]):fkRad(c,0,cy,R-6.5,['#221c44','#17122e','#100c22']);c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke();
+ c.beginPath();c.arc(0,cy,R-8.4,0,TAU);c.strokeStyle=got?ua_mix(D[1],.3):'#2a2452';c.lineWidth=1;c.stroke();
+ if(got){c.save();c.beginPath();c.arc(0,cy,R-6.5,0,TAU);c.clip();c.fillStyle='rgba(255,255,255,.14)';c.beginPath();c.ellipse(-6,cy-12,16,8,-.4,0,TAU);c.fill();c.restore()}
+ /* emblem */const P=got?(x=>typeof x==='function'?x():x):(()=>UA_FLAT);P.got=got;c.save();c.translate(0,cy);c.lineJoin='round';c.lineCap='round';(UA_EMB[kind]||UA_EMB.catch)(c,P,2.2);c.restore();
+ if(got){c.strokeStyle='rgba(255,255,255,.65)';c.lineWidth=1.6;c.beginPath();c.arc(0,cy,R-1.6,Math.PI*1.1,Math.PI*1.45);c.stroke()}
+ else{/* lock */c.save();c.translate(17,cy+19);c.beginPath();c.arc(0,-4,4.6,Math.PI,0);c.strokeStyle=UA_O;c.lineWidth=5;c.stroke();c.strokeStyle='#9a92c8';c.lineWidth=2.4;c.stroke();
+  c.beginPath();c.roundRect(-7,-4,14,11,2.5);c.fillStyle=fkLin(c,0,-4,0,7,['#a8a0d8','#6a62a4']);c.fill();c.lineWidth=2.2;c.strokeStyle=UA_O;c.stroke();ua_dot(c,0,0.5,1.7,UA_O,0);c.fillStyle=UA_O;c.fillRect(-.7,1,1.4,3.4);c.restore()}}
+function fsMedal(g,kind,x,y,s,t,got){t=t||0;s=s||1;got=!!got;g.save();g.translate(x,y);g.scale(s,s);
+ const D=UA_MD[kind]||UA_MD.catch;if(got&&kind==='myth')ua_glow(g,0,7,44,'#ff5ad8',.12+.08*Math.sin(t*2.2));
+ ua_spr(g,'md'+kind+(got?1:0),-44,-46,88,88,c=>ua_medalSprite(c,kind,got));
+ if(got){const u=((t*.28)+(kind.length*.13))%1;if(u<.3){g.save();g.beginPath();g.arc(0,7,27,0,TAU);g.clip();g.translate(-40+u/.3*80,7);g.rotate(.5);g.globalCompositeOperation='lighter';
+   g.fillStyle=ua_gc('mdsh',()=>fkLin(g,-9,0,9,0,['rgba(255,255,240,0)','rgba(255,255,240,.45)','rgba(255,255,240,0)']));g.fillRect(-9,-40,18,80);g.restore()}
+  const a=Math.max(0,Math.sin(t*2.3+kind.length));if(a>.1)fkSpark(g,19,-12,2+a*4,'#ffffff',a)}
+ g.restore()}
+
+/* ====================================================================================================================
+   HUB ICONS (wraps fsIcon from 90m)
+   ==================================================================================================================== */
+function ua_cup(c,x,y,s){c.save();c.translate(x,y);c.scale(s,s);for(const sd of [-1,1]){c.beginPath();c.arc(sd*11,-8,5.5,sd>0?-Math.PI/2:Math.PI/2,sd>0?Math.PI/2:Math.PI*1.5,false);c.strokeStyle=UA_O;c.lineWidth=5.4;c.stroke();c.strokeStyle='#ffd45a';c.lineWidth=2.6;c.stroke()}
+ c.beginPath();c.moveTo(-12,-16);c.lineTo(12,-16);c.quadraticCurveTo(12,2,2,5);c.lineTo(2,10);c.lineTo(-2,10);c.lineTo(-2,5);c.quadraticCurveTo(-12,2,-12,-16);c.closePath();c.fillStyle=ua_met(c,-12,-16,12,10,'gold');c.fill();c.lineWidth=2.6;c.strokeStyle=UA_O;c.stroke();
+ c.beginPath();c.roundRect(-9,9,18,6,2);c.fillStyle=fkLin(c,0,9,0,15,['#8a4c26','#4a2412']);c.fill();c.stroke();c.beginPath();c.ellipse(0,-16,12,2.8,0,0,TAU);c.fillStyle='#fff2b0';c.fill();c.lineWidth=2;c.stroke();
+ c.strokeStyle='rgba(255,255,255,.75)';c.lineWidth=1.4;c.beginPath();c.moveTo(-7,-12);c.quadraticCurveTo(-7,-4,-3,0);c.stroke();c.restore()}
+function ua_note(c,x,y,w,h,rot,pin,draw){c.save();c.translate(x,y);c.rotate(rot);c.fillStyle='rgba(10,4,20,.35)';c.fillRect(-w/2+2,-h/2+3,w,h);
+ c.beginPath();c.moveTo(-w/2,-h/2);c.lineTo(w/2,-h/2);c.lineTo(w/2,h/2-4);c.lineTo(w/2-5,h/2);c.lineTo(-w/2,h/2);c.closePath();c.fillStyle=fkLin(c,0,-h/2,0,h/2,['#fff6dc','#ead2a0']);c.fill();c.lineWidth=2;c.strokeStyle=UA_O;c.stroke();
+ if(draw)draw(c,w,h);ua_dot(c,0,-h/2+3,3,pin,1.4);ua_dot(c,-.8,-h/2+2.2,1,'rgba(255,255,255,.8)',0);c.restore()}
+function ua_iconSprite(c,kind){
+ if(kind==='trophy'){c.save();c.translate(-4,-4);ua_plaqueSprite(c,78,62,'l',false);fishFit(c,'moonfin',0,-4,62,34,{t:1.1});c.restore();ua_cup(c,28,22,.95)}
+ if(kind==='board'){/* posts and roof */c.fillStyle=fkLin(c,0,-30,0,40,['#6a3a1c','#3a1a0a']);for(const sx of [-38,32]){c.beginPath();c.roundRect(sx,-24,6,64,2);c.fill();c.lineWidth=2.4;c.strokeStyle=UA_O;c.stroke()}
+  c.beginPath();c.roundRect(-36,-22,72,50,4);c.fillStyle=fkLin(c,0,-22,0,28,['#a86a3a','#7a4622']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+  c.save();c.beginPath();c.roundRect(-36,-22,72,50,4);c.clip();c.strokeStyle='rgba(40,16,4,.5)';c.lineWidth=1.4;for(let i=1;i<4;i++){c.beginPath();c.moveTo(-36,-22+i*12.5);c.lineTo(36,-22+i*12.5);c.stroke()}c.restore();
+  c.beginPath();c.roundRect(-36,-22,72,50,4);c.strokeStyle='#5a2e14';c.lineWidth=1;c.stroke();
+  c.beginPath();c.moveTo(-44,-20);c.lineTo(0,-38);c.lineTo(44,-20);c.lineTo(38,-16);c.lineTo(0,-31);c.lineTo(-38,-16);c.closePath();c.fillStyle=fkLin(c,0,-38,0,-16,['#c85a3a','#8a2a1a']);c.fill();c.lineWidth=2.8;c.strokeStyle=UA_O;c.stroke();
+  c.strokeStyle='rgba(255,200,170,.5)';c.lineWidth=1.2;c.beginPath();c.moveTo(-36,-20);c.lineTo(0,-35);c.stroke();ua_rivet(c,0,-33,2.2,'brass');
+  ua_note(c,-19,-3,22,28,-.12,'#e8364e',(c,w,h)=>{ua_fishShape(c,0,1,.62,0);c.fillStyle='#5ab8ff';c.fill();c.lineWidth=1.1;c.strokeStyle=UA_O;c.stroke();c.strokeStyle='#a88a5a';c.lineWidth=1;c.beginPath();c.moveTo(-7,9);c.lineTo(7,9);c.stroke()});
+  ua_note(c,5,2,22,32,.07,'#ffd45a',(c,w,h)=>{c.strokeStyle='#8a2a1a';c.lineWidth=2;c.beginPath();c.moveTo(-6,-8);c.lineTo(6,-8);c.stroke();c.strokeStyle='#a88a5a';c.lineWidth=1;c.beginPath();for(let i=0;i<3;i++){c.moveTo(-7,-2+i*4);c.lineTo(7,-2+i*4)}c.stroke();
+   c.beginPath();for(let i=0;i<12;i++){const a=i/12*TAU,r=i%2?4.4:5.4;c.lineTo(4+Math.cos(a)*r,11+Math.sin(a)*r)}c.closePath();c.fillStyle='#c8282a';c.fill();c.lineWidth=1.4;c.strokeStyle=UA_O;c.stroke();ua_dot(c,4,11,2,'#e8545a',0)})}
+ if(kind==='bait'){/* lid leaning behind */c.save();c.translate(-14,-12);c.rotate(-.35);c.beginPath();c.ellipse(0,0,22,9,0,0,TAU);c.fillStyle=ua_met(c,-22,-9,22,9,'steel');c.fill();c.lineWidth=2.8;c.strokeStyle=UA_O;c.stroke();
+   c.beginPath();c.ellipse(0,0,15,5.5,0,0,TAU);c.strokeStyle='rgba(40,60,100,.5)';c.lineWidth=1.4;c.stroke();c.restore();
+  c.fillStyle='rgba(8,4,20,.4)';c.beginPath();c.ellipse(2,32,32,5,0,0,TAU);c.fill();
+  const bp=()=>{c.beginPath();c.moveTo(-28,-2);c.lineTo(-28,24);c.ellipse(2,24,30,8,0,Math.PI,0,true);c.lineTo(32,-2);c.closePath()};
+  bp();c.fillStyle=fkLin(c,-28,0,32,0,['#6a7aa0','#d4e4f6','#9aaccc','#4a5a80']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+  c.save();bp();c.clip();c.beginPath();c.moveTo(-30,6);c.ellipse(2,6,31,8,0,Math.PI,0,true);c.lineTo(34,18);c.ellipse(2,18,31,8,0,0,Math.PI,false);c.closePath();c.fillStyle=fkLin(c,-28,0,32,0,['#8a1a1a','#e8364e','#a8202a']);c.fill();
+   c.strokeStyle=UA_O;c.lineWidth=1.6;c.beginPath();c.ellipse(2,6,31,8,0,0,Math.PI);c.stroke();c.beginPath();c.ellipse(2,18,31,8,0,0,Math.PI);c.stroke();
+   c.beginPath();c.moveTo(-8,14);c.bezierCurveTo(-2,8,4,20,12,12);c.strokeStyle='#ffd45a';c.lineWidth=2.4;c.stroke();c.restore();
+  c.beginPath();c.ellipse(2,-2,30,8,0,0,TAU);c.fillStyle=fkLin(c,0,-10,0,6,['#c8d8ec','#7a8eb0']);c.fill();c.lineWidth=3;c.strokeStyle=UA_O;c.stroke();
+  c.beginPath();c.ellipse(2,-1,26,6,0,0,TAU);c.fillStyle=fkLin(c,0,-7,0,5,['#3a2010','#5a3820']);c.fill();c.lineWidth=1.6;c.stroke();
+  c.fillStyle='rgba(255,220,170,.2)';for(let i=0;i<10;i++){c.beginPath();c.arc(-18+i*4.2,-1+((i*5)%4)-1,.8,0,TAU);c.fill()}}}
+{const o=fsIcon;fsIcon=function(g,kind,x,y,s,t){t=t||0;
+ if(typeof kind==='string'&&/^creel[0-4]$/.test(kind)){g.save();g.translate(x,y);g.scale(s,s);fsCreelArt(g,+kind[5],0,2,.4,t,.6);g.restore();return}
+ if(kind==='trophy'||kind==='board'||kind==='bait'){g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';g.lineCap='round';
+  if(kind==='trophy')ua_glow(g,0,-4,46,'#ffd45a',.14);if(kind==='bait')ua_glow(g,2,-4,40,'#5aff8a',.12+.05*Math.sin(t*2));
+  ua_spr(g,'ic'+kind,-48,-44,96,88,c=>ua_iconSprite(c,kind));
+  if(kind==='trophy'){ua_plqSheen(g,78,62,t,'l');g.save();g.translate(-4,-4);const a=Math.max(0,Math.sin(t*2.4));if(a>.05)fkSpark(g,0,-32,3+a*4,'#fff6c8',a);g.restore();fkSpark(g,38,4,3+2*Math.abs(Math.sin(t*3)),'#fff6c0',.9)}
+  if(kind==='board'){const r=Math.sin(t*2.2)*.06;ua_note(g,25,-6,18,22,.16+r,'#5ab8ff',(c)=>{c.strokeStyle='#a88a5a';c.lineWidth=1;c.beginPath();for(let i=0;i<3;i++){c.moveTo(-5,-3+i*4);c.lineTo(5,-3+i*4)}c.stroke();ua_dot(c,0,-7.5,0,'#000',0)});
+   const a=Math.max(0,Math.sin(t*2.6));if(a>.05)fkSpark(g,13,9,2+a*4,'#fff6c0',a)}
+  if(kind==='bait'){const w1=Math.sin(t*2.4)*4,w2=Math.cos(t*1.9)*3;ua_worm(g,[0,0,-6+w2,-14,12+w1,-20,8+w1*1.3,-34+Math.sin(t*2.4+1)*2],4.4,1,1);ua_glow(g,8+w1*1.3,-34,14,'#5aff8a',.4+.15*Math.sin(t*3));
+   ua_worm(g,[-14,1,-18,-6,-10,-10,-8,-16],3.2,.9,1);fkSpark(g,28,-22,3+2*Math.abs(Math.sin(t*3)),'#e8fff0',.9)}
+  g.restore();return}
+ return o.apply(this,arguments)}}
+/* ===== MOONLIT FISHING update 6: creel tiers, daily bounties, baits, trophy hall, Mythic badges =====
+   Save additions on P.fish: crl (creel tier 0-4), bty (daily bounties), bait {inv,on}, tro (8 mounted species), ach (claimed feats),
+   s.ft / s.lc (fishing seconds and landings since update 6, for the bounty pace model), s.rs (landed/escaped per rarity), s.bait (bait casts used).
+   Art comes from 90q (fsCreelArt, fsBaitArt, fsPlaque, fsMedal, fsIcon kinds); every call has a fallback so this module works alone. */
+const FSU6={hubMod:0,q:[],qt:0};
+const fsU6rnd=seed=>{let a=seed>>>0;return()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}};
+const fsR5=v=>Math.max(5,Math.round(v/5)*5);
+/* ---------- creel tiers: bought with gold; each tier holds more fish and adds a perk ---------- */
+const FSCRT=[
+ {n:'Wicker Creel',cap:30,c:0,b:0,pk:'A plain willow basket.'},
+ {n:'Sturdy Creel',cap:40,c:350,b:0,pk:'Sort tools: order your fish by rarity, value, size or newest.'},
+ {n:'Frostkeeper Creel',cap:55,c:1000,b:.05,pk:'Rarity filters, and ice keeps fish fresh: +5% value when sold from the basket.'},
+ {n:'Enchanted Creel',cap:75,c:2500,b:.10,pk:'+10% value, and "Sell extras" sells duplicates but keeps your best of each.'},
+ {n:'Moonlit Treasure Creel',cap:100,c:6000,b:.15,pk:'+15% value, and crafting bait needs one fewer fish.'}];
+const fsCrT=()=>Math.max(0,Math.min(FSCRT.length-1,fsP().crl|0));
+function fsCreelCap(){return FSCRT[fsCrT()].cap}
+function fsCreelBuy(){const i=fsCrT()+1,T=FSCRT[i];if(!T||P.gold<T.c)return false;P.gold-=T.c;fsP().crl=i;fsSt('spent',T.c,'add');save();return true}
+/* stored fish carry kp:1 so the tier's value bonus applies only when selling from the basket (old entries are marked when first valued) */
+function fsKeep(c){const F=fsP();if(F.cr.length>=fsCreelCap())return false;F.cr.push({id:c.id,cm:c.cm,g:c.g?1:0,ft:c.ft!=null?c.ft:(c.id===fsMoon().feat?1:0),kp:1,t:Date.now()});save();return true}
+{const v0=fsValue;fsValue=function(c){if(c&&!c.kp&&P.fish&&Array.isArray(P.fish.cr)&&P.fish.cr.indexOf(c)>=0)c.kp=1;const v=v0.apply(this,arguments);return c&&c.kp?Math.max(1,Math.round(v*(1+FSCRT[fsCrT()].b))):v}}
+function fsSellCreel(i){const F=fsP(),c=F.cr[i];if(!c)return 0;c.kp=1;F.cr.splice(i,1);return fsSell(c)}
+/* fish worth keeping no matter what: rare or better, and fish saved for an unmade rod look */
+function fsCrNeeded(F){const need={};if(F.look!==0)for(const k of FSKINK)if(!F.sk[k])for(const [id,n] of Object.entries(FSKIN[k].k))need[id]=Math.max(need[id]||0,n);return need}
+/* "Sell extras" (Enchanted Creel): keep the most valuable fish of each species, rod-look fish and anything Rare or better; sell the rest */
+function fsSellExtras(){const F=fsP(),need=fsCrNeeded(F),by={};F.cr.forEach(c=>{(by[c.id]=by[c.id]||[]).push(c)});const keep=new Set();
+ for(const [id,L] of Object.entries(by)){L.sort((a,b)=>fsValue(b)-fsValue(a));const n=Math.max(1,need[id]||0);L.slice(0,n).forEach(c=>keep.add(c));if(FSR[FISH[id].r].k>=2)L.forEach(c=>keep.add(c))}
+ let v=0,n=0;const out=[];F.cr.forEach(c=>{if(keep.has(c))out.push(c);else{c.kp=1;v+=fsSell(c);n++}});F.cr=out;save();return{v,n}}
+/* ---------- baits: one is used up per cast while equipped ---------- */
+const FSBAIT={
+ worm:{n:'Glow Worms',d:'Uncommon fish bite 60% more often.',m:{u:1.6},cast:10,cost:30,cr:{rk:'c',n:4},c:'#7aff9a'},
+ moth:{n:'Moonmoth Lure',d:'Rare fish bite twice as often.',m:{r:2},cast:10,cost:90,cr:{rk:'u',n:3},c:'#bfe8ff'},
+ roe:{n:'Starlight Roe',d:'Legendary fish bite 2.5× as often, and a Mythic twice as often.',m:{l:2.5,m:2},cast:8,cost:300,cr:{rk:'r',n:3},c:'#ffc2e0'},
+ shrimp:{n:'Frost Shrimp',loc:'frost',d:'At Frostfall Lake, its own fish bite 2.5× as often as visitors from other waters.',cast:10,cost:45,cr:{loc:'frost',n:3},c:'#8ad8ff'},
+ spore:{n:'Glowcap Spores',loc:'grotto',d:'At Glowcap Grotto, its own fish bite 2.5× as often as visitors from other waters.',cast:10,cost:45,cr:{loc:'grotto',n:3},c:'#5af0e0'}};
+const FSBAITK=Object.keys(FSBAIT);
+function fsBaitP(){const F=fsP();if(!F.bait||typeof F.bait!=='object')F.bait={inv:{},on:''};F.bait.inv=F.bait.inv||{};if(F.bait.on&&!FSBAIT[F.bait.on])F.bait.on='';return F.bait}
+/* the bait that will work on the next cast here (or null) */
+function fsBaitAct(){const B=fsBaitP(),k=B.on,K=FSBAIT[k];if(!K||!(B.inv[k]>0))return null;if(K.loc&&K.loc!==fsLoc())return null;return Object.assign({k},K)}
+function fsBaitBuy(k){const K=FSBAIT[k];if(!K||P.gold<K.cost)return false;P.gold-=K.cost;const B=fsBaitP();B.inv[k]=(B.inv[k]||0)+K.cast;if(!B.on)B.on=k;fsSt('spent',K.cost,'add');save();return true}
+/* crafting turns in the least valuable matching fish from the creel (never fish saved for rod looks) */
+function fsBaitNeed(k){return Math.max(1,FSBAIT[k].cr.n-(fsCrT()>=4?1:0))}
+function fsBaitFish(k){const R=FSBAIT[k].cr,F=fsP(),need=fsCrNeeded(F),cnt={};F.cr.forEach(c=>cnt[c.id]=(cnt[c.id]||0)+1);
+ return F.cr.filter(c=>{const f=FISH[c.id];if(R.rk&&f.r!==R.rk)return false;if(R.loc&&(f.loc!==R.loc||FSR[f.r].k>1))return false;return true}).sort((a,b)=>fsValue(a)-fsValue(b)).filter(c=>{if(need[c.id]&&cnt[c.id]<=need[c.id])return false;return true})}
+function fsBaitCraft(k){const n=fsBaitNeed(k),L=fsBaitFish(k).slice(0,n);if(L.length<n)return false;const F=fsP();F.cr=F.cr.filter(c=>!L.includes(c));const B=fsBaitP();B.inv[k]=(B.inv[k]||0)+FSBAIT[k].cast;if(!B.on)B.on=k;save();return true}
+let FSBAITM=null;
+{const o0=fsOdds;fsOdds=function(){const r=o0.apply(this,arguments);if(!FSBAITM)return r;const m=FSBAITM,x={};for(const k of ['u','r','l','m'])x[k]=r[k]*(m[k]||1);x.c=Math.max(5,100-x.u-x.r-x.l-x.m);const s=x.c+x.u+x.r+x.l+x.m;for(const k in x)x[k]=x[k]/s*100;return x}}
+{const r0=fsRoll;fsRoll=function(rnd){const b=FS.on?fsBaitAct():null;if(!b)return r0.apply(this,arguments);FSBAITM=b.m||null;let c;try{c=r0.apply(this,arguments)}finally{FSBAITM=null}
+  if(b.loc&&FSR[c.rk].k<4){/* spot bait: pick the species again inside the rolled rarity with the spot's own fish weighted x2.5, keeping the size roll */
+   const rr=rnd||Math.random,M=fsMoon(),ids=(FSPOOL[fsLoc()]||[]).filter(id=>FISH[id].r===c.rk);if(ids.length>1){const ws=ids.map(id=>FISH[id].w*(id===M.feat?2:1)*(FISH[id].loc===b.loc?2.5:1)),tot=ws.reduce((a,v)=>a+v,0);let y=rr()*tot,id=ids[0];for(let i=0;i<ids.length;i++){if(y<ws[i]){id=ids[i];break}y-=ws[i]}
+    if(id!==c.id){const f0=FISH[c.id],f1=FISH[id],u=(c.cm-f0.len[0])/Math.max(.1,f0.len[1]-f0.len[0]);c.id=id;c.cm=Math.round((f1.len[0]+(f1.len[1]-f1.len[0])*Math.max(0,Math.min(1,u)))*10)/10}}}
+  const B=fsBaitP();B.inv[b.k]=Math.max(0,(B.inv[b.k]||0)-1);fsSt('bait',1,'add');if(!B.inv[b.k]){FSU6.baitOut=b.k}c.bait=b.k;save();return c}}
+/* ---------- the pace model: how many fish this player lands per minute, and how often each rarity gets away ---------- */
+const FSU6SUCC={c:.96,u:.92,r:.6,l:.35,m:.25};
+function fsPace(){const s=fsP().s,ft=s.ft||0,lc=s.lc||0;const L=ft>=300&&lc>=10?lc/(ft/60):4.2;const succ={};for(const k of FSRK){const a=(s.rs&&s.rs[k])||[0,0],n=a[0]+a[1];succ[k]=n>=8?Math.max(.2,Math.min(1,a[0]/n)):FSU6SUCC[k]}const ms=s.rs&&s.rs.c&&s.rs.c[0]+s.rs.c[1]>=20;
+ return{ms,L:Math.max(2.2,Math.min(7,L)),succ,lure:fsP().up.lure||0,hook:fsP().up.hook||0}}
+/* share of landed fish at a spot that match pred(id,rk) -> 0..1 (neutral moon, no bait) */
+function fsShareAt(loc,pred,M){const o=fsOdds(M.lure,{},loc),pl=FSPOOL[loc]||[];let num=0,den=0;for(const rk of FSRK){const ids=pl.filter(i=>FISH[i].r===rk);if(!ids.length)continue;const pr=o[rk]/100*M.succ[rk];den+=pr;const W=ids.reduce((a,i)=>a+FISH[i].w,0);for(const i of ids)num+=pr*FISH[i].w/W*pred(i,rk)}return den?num/den:0}
+function fsLandRate(loc,M){const o=fsOdds(M.lure,{},loc);let s=0;for(const rk of FSRK)s+=o[rk]/100*M.succ[rk];return s}
+/* ---------- daily bounties: three tavern requests a day, sized from the pace model so each takes a few real minutes ---------- */
+const FSBTYD=[{n:'Easy',T:3.5,c:'#7affb4'},{n:'Medium',T:6.5,c:'#7ad8ff'},{n:'Hard',T:11,c:'#ffb45a'}];
+function fsBtyOpen(){return FSLOCK.filter(k=>fsLocOpen(k)&&(FSPOOL[k]||[]).length)}
+function fsBtyCands(d,M,rng,avoid){const D=FSBTYD[d],T=D.T,open=fsBtyOpen(),out=[],L=M.L;
+ /* count requests ask for at least 2 so a single lucky (or unlucky) bite doesn't decide them; one-off rare events (a Giant, a lone Rare) are never asked for */
+ const add=(o,sh)=>{if(!(sh>0)||!(o.n>=2))return;o.min=o.n/(L*sh);if(o.min>=T*.55&&o.min<=T*1.5){o.d=d;out.push(o)}};
+ /* one species (Common, or Uncommon from Medium up); it counts at any spot, and the hint names the spot where it bites best */
+ FIDS.forEach(id=>{const rk=FISH[id].r;if(rk==='l'||rk==='m'||rk==='r')return;if(rk==='u'&&d<1)return;if(avoid.ids.includes(id))return;
+  let best=0,bl='';open.forEach(loc=>{if(!FSPOOL[loc].includes(id))return;const sh=fsShareAt(loc,i=>i===id?1:0,M);if(sh>best){best=sh;bl=loc}});if(!best)return;
+  const n=Math.min(10,Math.round(T*L*best));if(d>0&&n<3)return;add({k:'sp',id,loc:bl,n},best)});
+ /* a rarity or rarer, anywhere */
+ /* Rare requests only once this player has shown they can land Rares (slow typists lose many of them) */
+ const rOk=(()=>{const a=fsP().s.rs&&fsP().s.rs.r;return a&&a[0]>=3&&a[0]/(a[0]+a[1])>=.4||fsU6Rare(fsP())>=3})();
+ ['u','r'].forEach(rk=>{if(rk==='u'&&d<1||rk==='r'&&(d<2||!rOk))return;let best=0,bl='pond';open.forEach(loc=>{const sh=fsShareAt(loc,(i,r)=>FSR[r].k>=FSR[rk].k?1:0,M);if(sh>best){best=sh;bl=loc}});add({k:'rk',rk,loc:bl,n:Math.round(T*L*best)},best)});
+ /* any fish at a spot (Medium/Hard prefer the new spots) */
+ open.forEach(loc=>{if(d>0&&loc==='pond'&&open.length>1)return;add({k:'cnt',loc,n:Math.round(T*L)},1)});
+ /* big fish: top quarter of the species' size range (giants count) */
+ {const pg=.04+M.hook*.006,hk=M.hook*.04;let n=0;for(let i=0;i<3000;i++){const b=(rng()+rng()+rng())/3;if(Math.min(.92,b*(1+hk))>=.75)n++}const q=pg+(1-pg)*n/3000;add({k:'big',n:Math.min(6,Math.round(T*L*q))},q)}
+ /* a run of catches without one getting away (sized from this player's own catch rate) */
+ if(d>0&&M.ms){/* runs are very sensitive to how often fish get away, so they are only asked for once this player's own rate is known */const loc=fsLoc(),s=Math.min(.995,fsLandRate(loc,M)),cpm=L/s;let n=5;for(let k=5;k<=12;k++){const casts=(1-Math.pow(s,k))/((1-s)*Math.pow(s,k));if(casts/cpm<=T*.7)n=k}/* one slip resets a run, so the spread is wide: aim well under the target */const casts=(1-Math.pow(s,n))/((1-s)*Math.pow(s,n)),min=casts/cpm;
+  if(min>=T*.55&&min<=T*1.5)out.push({k:'run',n,min,d})}
+ /* total value of fish landed (they don't have to be sold) */
+ if(d>0){let best=0,bl='pond';open.forEach(loc=>{const o=fsOdds(M.lure,{},loc),pl=FSPOOL[loc];let num=0,den=0;for(const rk of FSRK){const ids=pl.filter(i=>FISH[i].r===rk);if(!ids.length)continue;const pr=o[rk]/100*M.succ[rk];den+=pr;const W=ids.reduce((a,i)=>a+FISH[i].w,0);for(const i of ids)num+=pr*FISH[i].w/W*FISH[i].v}const v=den?num/den:0;if(v>best){best=v;bl=loc}});
+  const n=Math.max(20,Math.round(T*L*best*.9/10)*10);out.push({k:'val',n,loc:bl,min:n/(L*best),d})}
+ return out.filter(o=>!avoid.k.includes(o.k))}
+function fsBtyPick(d,M,rng,avoid){const C=fsBtyCands(d,M,rng,avoid);if(!C.length){const L=M.L,T=FSBTYD[d].T;return{k:'cnt',loc:'pond',n:Math.max(3,Math.round(T*L)),min:T,d}}
+ /* choose a kind first (so species requests don't crowd everything out), then one request of that kind */
+ const kinds=[...new Set(C.map(o=>o.k))],k=kinds[Math.floor(rng()*kinds.length)],L2=C.filter(o=>o.k===k);return L2[Math.floor(rng()*L2.length)]}
+function fsBtyMake(o){const rw=fsR5(16*o.min+20);return{d:o.d,k:o.k,id:o.id||'',loc:o.loc||'',rk:o.rk||'',n:o.n,got:0,rw,min:Math.round(o.min*10)/10,done:0}}
+function fsBtyGen(day,salt){const M=fsPace(),rng=fsU6rnd(day*7919+(salt||0)*104729+17),av={k:[],ids:[]},L=[];
+ for(let d=0;d<3;d++){const o=fsBtyPick(d,M,rng,av);av.k.push(o.k);if(o.id)av.ids.push(o.id);L.push(fsBtyMake(o))}return L}
+function fsBtyGet(){const F=fsP(),day=fsDayN();let B=F.bty;if(!B||typeof B!=='object')B=F.bty={st:0,sd:-9,best:0,tot:0};
+ if(B.day!==day){B.day=day;B.L=fsBtyGen(day,0);B.rr=0;B.all=0;B.run=0;if(B.sd<day-1)B.st=0;save()}return B}
+function fsBtyStreak(){const B=fsBtyGet();return B.sd>=fsDayN()-1?B.st:0}
+const fsBtyBonus=()=>{const s=fsBtyStreak();return 100+25*Math.min(4,s)};
+/* swap one unfinished request for a different one (one free swap a day) */
+function fsBtySwap(i){const B=fsBtyGet(),b=B.L[i];if(!b||b.done||B.rr)return false;const M=fsPace(),rng=fsU6rnd(B.day*7919+(i+1)*31337+911),av={k:B.L.map(x=>x.k),ids:B.L.map(x=>x.id).filter(Boolean)};
+ B.L[i]=fsBtyMake(fsBtyPick(b.d,M,rng,av));B.rr=1;save();return true}
+function fsBtyText(b){const L=FSLOCS[b.loc],at=L?L.n:'';switch(b.k){
+ case 'sp':return{t:`Catch ${b.n} ${FISH[b.id].n}`,s:`Bites best at ${at}`};
+ case 'rk':return{t:`Catch ${b.n} ${FSR[b.rk].n} or rarer fish`,s:'Any spot'};
+ case 'cnt':return{t:`Catch ${b.n} fish at ${at}`,s:'Any kind of fish'};
+ case 'big':return{t:`Land ${b.n} big fish`,s:'Top quarter of their size range'};
+ case 'gnt':return{t:b.n>1?`Land ${b.n} Giants`:'Land a Giant',s:'The biggest 4% of any fish'};
+ case 'run':return{t:`Catch ${b.n} fish in a row`,s:'Without one getting away'};
+ case 'val':return{t:`Land fish worth ${b.n.toLocaleString()} gold`,s:'Their total value; sold or kept'};}return{t:'',s:''}}
+function fsBtyShort(b){switch(b.k){case 'sp':return `${b.n} ${FISH[b.id].n}`;case 'rk':return `${b.n} ${FSR[b.rk].n}+ fish`;case 'cnt':return `${b.n} fish · ${FSLOCS[b.loc].n.split(' ')[0]}`;case 'big':return `${b.n} big fish`;case 'gnt':return b.n>1?`${b.n} Giants`:'A Giant';case 'run':return `${b.n} in a row`;case 'val':return `${b.n.toLocaleString()} gold of fish`}return''}
+function fsBtyDone(B,b){b.done=1;b.got=b.n;P.gold+=b.rw;fsSt('bgold',b.rw,'add');B.tot=(B.tot||0)+1;FSU6.q.push({t:'Bounty complete!',s:`${fsBtyText(b).t} · +${b.rw} gold`,c:FSBTYD[b.d].c});
+ if(!B.all&&B.L.every(x=>x.done)){B.all=1;const bonus=fsBtyBonus(),day=B.day;B.st=B.sd===day-1?(B.st||0)+1:1;B.sd=day;B.best=Math.max(B.best||0,B.st);P.gold+=bonus;fsSt('bgold',bonus,'add');
+  FSU6.q.push({t:'All bounties done!',s:`Board bonus +${bonus} gold · ${B.st}-day streak`,c:'#ffd45a',big:1})}}
+function fsBtyOnCatch(c){const B=fsBtyGet(),loc=fsLoc(),f=FISH[c.id],rel=(c.cm-f.len[0])/Math.max(.1,f.len[1]-f.len[0]);B.run=(B.run||0)+1;let ch=0;
+ B.L.forEach(b=>{if(b.done)return;let inc=0;
+  if(b.k==='sp')inc=c.id===b.id?1:0;else if(b.k==='rk')inc=FSR[c.rk].k>=FSR[b.rk].k?1:0;else if(b.k==='cnt')inc=loc===b.loc?1:0;else if(b.k==='big')inc=rel>=.75||c.g?1:0;else if(b.k==='gnt')inc=c.g?1:0;
+  else if(b.k==='val'){const k=Object.assign({},c);delete k.kp;inc=fsValue(k)}else if(b.k==='run'){if(B.run>b.got){b.got=B.run;ch=1}}
+  if(inc){b.got+=inc;ch=1}if(b.got>=b.n)fsBtyDone(B,b)});return ch}
+/* ---------- hooks into catching ---------- */
+{const r0=fsRecord;fsRecord=function(c){const out=r0.apply(this,arguments);try{const F=fsP(),s=F.s;s.lc=(s.lc||0)+1;s.rs=s.rs||{};const a=s.rs[c.rk]||(s.rs[c.rk]=[0,0]);a[0]++;
+  s.at=s.at||{};s.at[fsLoc()]=1;if(FS.on)fsBtyOnCatch(c);save();fsU6PondRefresh()}catch(e){console.error(e)}return out}}
+{const e0=fsEscape;fsEscape=function(){try{const c=FS.cur,s=fsP().s;if(c){s.rs=s.rs||{};const a=s.rs[c.rk]||(s.rs[c.rk]=[0,0]);a[1]++}const B=fsBtyGet();B.run=0}catch(e){}return e0.apply(this,arguments)}}
+{const c0=fsCast;fsCast=function(){if(FS.st==='idle'&&!FS.tut){const now=Date.now(),s=fsP().s;if(FSU6.lc&&now-FSU6.lc<90000)s.ft=(s.ft||0)+(now-FSU6.lc)/1000;FSU6.lc=now}return c0.apply(this,arguments)}}
+{const s0=fsSet;fsSet=function(st){const r=s0.apply(this,arguments);if(st==='idle')try{fsU6Flush()}catch(e){}return r}}
+{const s0=fsStart;fsStart=function(){const r=s0.apply(this,arguments);FSU6.lc=0;FSU6.q=[];try{fsBtyGet();setTimeout(fsU6PondHud,0)}catch(e){console.error(e)}return r}}
+/* show finished-bounty news once the catch is dealt with */
+function fsU6Flush(){if(!FS.on){FSU6.q=[];return}if(FSU6.baitOut){const k=FSU6.baitOut;FSU6.baitOut=0;FSU6.q.push({t:'Out of bait',s:`Your ${FSBAIT[k].n} ran out. Press B for more.`,c:'#c4badf',quiet:1})}
+ if(!FSU6.q.length||FSU6.qt)return;const n=FSU6.q.shift();try{fsBanner(n.t,n.s,n.c,n.big?2.6:2.1)}catch(e){}if(!n.quiet){try{fsSfx('buy');if(n.big)setTimeout(()=>{try{fsSfx('r')}catch(e){}},260)}catch(e){}}
+ const el=$('fsbt');if(el&&!n.quiet){el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}try{fsHudRefresh()}catch(e){}
+ FSU6.qt=setTimeout(()=>{FSU6.qt=0;if(FS.on&&FS.st==='idle')fsU6Flush()},n.big?2700:2200)}
+/* ---------- art fallbacks (90q paints the real thing) ---------- */
+function fsU6Creel(g,t,x,y,s,tt,fill){if(typeof fsCreelArt==='function')return fsCreelArt(g,t,x,y,s,tt,fill);g.save();g.translate(x,y);g.scale(s,s);fsIcon(g,'basket',0,0,2.2,tt);g.restore()}
+function fsU6Bait(g,k,x,y,s,t){if(typeof fsBaitArt==='function')return fsBaitArt(g,k,x,y,s,t);g.save();g.translate(x,y);g.scale(s,s);g.beginPath();g.arc(0,0,34,0,TAU);g.fillStyle=(FSBAIT[k]||{c:'#5a4ca0'}).c;g.fill();g.lineWidth=4;g.strokeStyle='#1b1024';g.stroke();g.restore()}
+function fsU6Medal(g,k,x,y,s,t,got){if(typeof fsMedal==='function')return fsMedal(g,k,x,y,s,t,got);g.save();g.translate(x,y);g.scale(s,s);g.beginPath();g.arc(0,0,32,0,TAU);g.fillStyle=got?'#ffc23a':'#2a2050';g.fill();g.lineWidth=4;g.strokeStyle='#1b1024';g.stroke();g.restore()}
+function fsU6Plaque(g,cx,cy,w,h,rk,t,empty){if(typeof fsPlaque==='function')return fsPlaque(g,cx,cy,w,h,rk,t,empty);g.save();g.beginPath();g.ellipse(cx,cy,w*.48,h*.46,0,0,TAU);g.fillStyle='#5a3620';g.fill();g.lineWidth=5;g.strokeStyle=empty?'#3a2a20':FSR[rk||'c'].c;g.stroke();g.restore()}
+const FSFLAME='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5 1-8z" fill="#ff9a3a" stroke="#1b1024" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 12c1 2 3 3 3 5a3 3 0 0 1-6 0c0-1 1-2 1-3 1 1 2 0 2-2z" fill="#ffe27a"/></svg>';
+/* ---------- the pond HUD: a small bounty tracker under the spot card and a bait chip above the rod ---------- */
+function fsU6PondHud(){const x=$('fsx');if(!x||S.view!=='fish'||!FS.on)return;if(!$('fsbt')){const d=document.createElement('div');d.className='fsbt fsg';d.id='fsbt';x.appendChild(d)}
+ if(!$('fsbc')){const b=document.createElement('button');b.className='fsbc fsg';b.id='fsbc';b.title='Bait pouch (B)';x.appendChild(b);b.onclick=()=>fsBaitOpen()}fsU6PondRefresh()}
+function fsU6PondRefresh(){const el=$('fsbt'),bc=$('fsbc');if(!el&&!bc)return;const F=fsP();
+ if(el){const B=fsBtyGet(),dn=B.L.filter(b=>b.done).length,st=fsBtyStreak();el.classList.toggle('min',!!B.hide);el.classList.toggle('all',dn===3);
+  el.innerHTML=`<button class="fsbt-h" id="fsbth" aria-expanded="${!B.hide}"><b>Daily Bounties</b><span>${dn} / 3</span>${st?`<em title="${st}-day streak">${FSFLAME}${st}</em>`:''}<i>▾</i></button>
+  <ol>${B.L.map(b=>{const p=Math.min(1,b.got/b.n),run=b.k==='run'&&!b.done&&B.run?` <small>(now ${B.run})</small>`:'';return `<li class="${b.done?'ok':''}" style="--bc:${FSBTYD[b.d].c}"><i class="fsbt-d" aria-hidden="true">${b.done?'✓':''}</i><span>${fsEsc(fsBtyShort(b))}${run}</span><b>${b.done?'Paid':`${(b.k==='val'?Math.min(b.got,b.n).toLocaleString():Math.min(b.got,b.n))}/${b.k==='val'?b.n.toLocaleString():b.n}`}</b><u style="width:${(p*100).toFixed(1)}%"></u></li>`}).join('')}</ol>`;
+  $('fsbth').onclick=()=>{B.hide=B.hide?0:1;save();fsU6PondRefresh()};el.querySelector('ol').onclick=()=>{if(FS.st==='idle'||FS.st==='reveal')fsBountyModal('pond')}}
+ if(bc){const a=fsBaitAct(),B=fsBaitP(),k=B.on,K=FSBAIT[k],n=K?B.inv[k]||0:0;
+  bc.classList.toggle('on',!!a);bc.innerHTML=`<canvas width="64" height="64" aria-hidden="true"></canvas><span><b>${K?K.n:'No bait'}</b><small>${!K?'Choose a bait':!n?'None left · get more':K.loc&&K.loc!==fsLoc()?`Works at ${FSLOCS[K.loc].n}`:`${n} cast${n>1?'s':''} left`}</small></span><kbd>B</kbd>`;
+  const g=bc.querySelector('canvas').getContext('2d');g.clearRect(0,0,64,64);fsU6Bait(g,K?k:'none',32,32,.56,.6)}}
+{const h0=fsHudRefresh;fsHudRefresh=function(){const r=h0.apply(this,arguments);try{fsU6PondRefresh()}catch(e){}return r}}
+function fsBaitOpen(){if(S.view==='fish'&&FS.on&&FS.st!=='idle'&&FS.st!=='reveal'){fsToast('Finish this catch first, then change your bait.');return}fsBaitModal(S.view==='fish'?'pond':'hub')}
+document.addEventListener('keydown',e=>{if(S.mode!=='fish'||e.ctrlKey||e.metaKey||e.altKey||e.repeat)return;const m=$('fsmod');if(m&&!m.hidden)return;const k=e.key.toLowerCase();
+ if(S.view==='fish'&&FS.on&&!FS.tut&&FS.st==='idle'&&k==='b'){e.preventDefault();e.stopImmediatePropagation();fsBaitOpen()}
+ else if(S.view==='fishhub'){if(k==='b'){e.preventDefault();e.stopImmediatePropagation();fsBaitModal('hub')}else if(k==='t'){e.preventDefault();e.stopImmediatePropagation();fsTrophy()}else if(k==='o'){e.preventDefault();e.stopImmediatePropagation();fsBountyModal('hub')}}},true);
+/* closing a modal from the hub re-renders it so the tiles show fresh numbers */
+function fsU6Close(from){fsModal(null);if(from==='hub')fsHub();else if(from==='trophy')fsTrophy();else{try{fsHudRefresh()}catch(e){}}}
+function fsU6Modal(h,from){fsModal(h);const m=$('fsmod');if(!m)return;m.onclick=e=>{if(e.target===m)fsU6Close(from)};const x=$('fsx2');if(x)x.onclick=()=>fsU6Close(from)}
+/* ---------- the bait pouch ---------- */
+function fsBaitModal(from){const B=fsBaitP(),F=fsP(),here=fsLoc();
+ const rows=FSBAITK.map(k=>{const K=FSBAIT[k],have=B.inv[k]||0,on=B.on===k,need=fsBaitNeed(k),got=fsBaitFish(k).length,what=K.cr.rk?`${FSR[K.cr.rk].n} fish`:`${FSLOCS[K.cr.loc].n} fish`,lock=K.loc&&!fsLocOpen(K.loc);
+  return `<div class="fsbm-r${on?' on':''}${lock?' lk':''}" style="--bc:${K.c}"><canvas width="104" height="104" data-bait="${k}" aria-hidden="true"></canvas>
+   <div class="fsbm-t"><b>${K.n}${K.loc?` <em>${FSLOCS[K.loc].n} only</em>`:''}</b><small>${K.d}</small><span class="fsbm-have${have?'':' no'}">${have?`${have} cast${have>1?'s':''} in your pouch`:'None in your pouch'}${on?' · <i>equipped</i>':''}</span></div>
+   <div class="fsbm-b">${lock?`<span class="fsbm-lk">Unlock ${FSLOCS[K.loc].n} first</span>`:`<button data-buy="${k}" ${P.gold<K.cost?'disabled':''}><span class="fsbm-c">${fsCoin}${K.cost}</span><small>buy ${K.cast} casts</small></button>
+    <button data-craft="${k}" class="cr" ${got>=need?'':'disabled'}>Craft<small>${need} ${what} (${Math.min(got,need)}/${need})</small></button>
+    <button data-eq="${k}" class="eq${on?' on':''}" ${have||on?'':'disabled'}>${on?'Unequip':'Equip'}</button>`}</div></div>`}).join('');
+ fsU6Modal(`<div class="fsbm fsg"><button class="fsx2" id="fsx2" aria-label="Close">✕</button><h3 class="fsu6h">Bait Pouch</h3>
+  <p class="fsbm-s">Equip one bait at a time. Each cast uses one, and it changes which fish bite. Craft bait from fish in your basket (fish saved for rod looks are never used)${fsCrT()>=4?'. Your Moonlit Treasure Creel saves one fish per craft':''}.</p>
+  <div class="fsbm-l">${rows}</div><p class="fsbm-f">You are fishing at <b>${FSLOCS[here].n}</b>. Bait is used up only while it is equipped.</p></div>`,from);
+ const m=$('fsmod');m.querySelectorAll('canvas[data-bait]').forEach(cv=>{const k=cv.dataset.bait,g=cv.getContext('2d');const dr=t=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,104,104);fsU6Bait(g,k,52,52,.9,t)};dr(.6);if(!fsRM())LIVE.push({cv,fn:t=>dr(t),slow:3})});
+ const re=()=>{fsBaitModal(from);try{fsHudRefresh()}catch(e){}};
+ m.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const k=b.dataset.buy;if(fsBaitBuy(k)){fsSfx('buy');try{fsToast(`Bought ${FSBAIT[k].cast} casts of ${FSBAIT[k].n}.`,1)}catch(e){}re()}});
+ m.querySelectorAll('[data-craft]').forEach(b=>b.onclick=()=>{const k=b.dataset.craft;if(fsBaitCraft(k)){fsSfx('r');try{fsToast(`Crafted ${FSBAIT[k].cast} casts of ${FSBAIT[k].n}.`)}catch(e){}re()}});
+ m.querySelectorAll('[data-eq]').forEach(b=>b.onclick=()=>{const k=b.dataset.eq,B2=fsBaitP();B2.on=B2.on===k?'':k;save();try{beep(760,.05,'triangle',.12)}catch(e){}re()})}
+/* ---------- the bounty board ---------- */
+const FSBTYMED={sp:'catch',rk:'rare',cnt:'spots',big:'giant',gnt:'giant',run:'streak',val:'gold'};
+function fsBtyLeft(){const n=new Date(),m=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1),s=Math.max(0,(m-n)/1000|0),h=s/3600|0,mi=(s%3600)/60|0;return h?`${h}h ${mi}m`:`${mi}m`}
+function fsBountyModal(from){const B=fsBtyGet(),st=fsBtyStreak(),dn=B.L.filter(b=>b.done).length,tot=Math.round(B.L.reduce((a,b)=>a+b.min,0)),M=fsPace();
+ const notes=B.L.map((b,i)=>{const D=FSBTYD[b.d],T=fsBtyText(b),p=Math.min(1,b.got/b.n);
+  return `<div class="fsbb-n${b.done?' ok':''}" style="--bc:${D.c};--r:${[-1.6,.9,-.6][i]}deg"><i class="fsbb-pin" aria-hidden="true"></i><em class="fsbb-dif">${D.n}</em>
+   <canvas width="150" height="96" data-bn="${i}" aria-hidden="true"></canvas><b>${fsEsc(T.t)}</b><small>${fsEsc(T.s)}</small><span class="fsbb-min">About ${Math.max(2,Math.round(b.min))} min of fishing</span>
+   <div class="fsbb-bar" aria-hidden="true"><i style="width:${(p*100).toFixed(1)}%"></i></div><span class="fsbb-pr">${b.k==='run'&&!b.done?`Best ${b.got} · now ${B.run||0} / ${b.n}`:`${Math.min(b.got,b.n).toLocaleString()} / ${b.n.toLocaleString()}`}</span>
+   <span class="fsbb-rw">${fsCoin}${b.rw}</span>${b.done?'<span class="fsbb-ok">PAID</span>':!B.rr?`<button class="fsbb-sw" data-swap="${i}" title="Swap this request for a different one (one free swap a day)">Swap</button>`:''}</div>`}).join('');
+ fsU6Modal(`<div class="fsbb"><button class="fsx2" id="fsx2" aria-label="Close">✕</button><div class="fsbb-hd"><canvas width="104" height="88" id="fsbbic" aria-hidden="true"></canvas><div><h3 class="fsu6h">Tavern Bounty Board</h3>
+  <p>Three new requests every day, sized to how fast you fish: about <b>${tot} minutes</b> for all three. Fish you catch for a bounty still sell as normal.</p></div>
+  <div class="fsbb-st${st?' on':''}">${FSFLAME}<b>${st}</b><small>day streak</small></div></div>
+  <div class="fsbb-ns">${notes}</div>
+  <div class="fsbb-ft"><span>${B.all?`All done today! <b>+${100+25*Math.min(4,Math.max(0,st-1))} gold</b> board bonus paid.`:`Finish all three for a <b>+${fsBtyBonus()} gold</b> board bonus${st?` (streak bonus included)`:''}. Keep a daily streak for up to +200.`}</span>
+  <span>${B.rr?'Swap used today · ':'One free swap a day · '}New bounties in <b>${fsBtyLeft()}</b></span></div></div>`,from);
+ const m=$('fsmod');{const c=$('fsbbic');if(c){const g=c.getContext('2d');g.clearRect(0,0,104,88);fsIcon(g,'board',52,46,1,.5)}}
+ m.querySelectorAll('canvas[data-bn]').forEach(cv=>{const b=B.L[+cv.dataset.bn],g=cv.getContext('2d');g.clearRect(0,0,150,96);
+  if(b.k==='sp')fishFit(g,b.id,75,48,138,84,{t:.4,glow:0});else fsU6Medal(g,FSBTYMED[b.k],75,48,1.05,.4,true)});
+ m.querySelectorAll('[data-swap]').forEach(x=>x.onclick=()=>{if(fsBtySwap(+x.dataset.swap)){try{beep(640,.05,'triangle',.14)}catch(e){}fsBountyModal(from);try{fsU6PondRefresh()}catch(e){}}})}
+/* ---------- the creel tab (pond side panel and the hub's Fish Basket) ---------- */
+const FSCRS=['—','Sort tools','Filters · +5% value','+10% value · Sell extras','+15% value · cheaper bait'];
+function fsCreelHTML(){const F=fsP(),t=fsCrT(),T=FSCRT[t],nx=FSCRT[t+1],cap=fsCreelCap(),so=t>=1?FSU.cso||'rk':'rk',fl=t>=2?FSU.cfl||'all':'all';
+ let L=F.cr.map((c,i)=>({c,i}));if(fl!=='all')L=L.filter(o=>FISH[o.c.id].r===fl);
+ const rk=o=>FSR[FISH[o.c.id].r].k;L.sort(so==='val'?(a,b)=>fsValue(b.c)-fsValue(a.c):so==='cm'?(a,b)=>(b.c.cm-FISH[b.c.id].len[0])/(FISH[b.c.id].len[1]-FISH[b.c.id].len[0])-(a.c.cm-FISH[a.c.id].len[0])/(FISH[a.c.id].len[1]-FISH[a.c.id].len[0]):so==='new'?(a,b)=>(b.c.t||0)-(a.c.t||0)||b.i-a.i:(a,b)=>rk(b)-rk(a)||fsValue(b.c)-fsValue(a.c));
+ const tot=F.cr.reduce((a,c)=>a+fsValue(c),0),full=F.cr.length>=cap;
+ return `<div class="fscr6 t${t}${FSU.cjust?' just':''}"><canvas id="fscr6c" width="150" height="132" aria-hidden="true"></canvas><div class="fscr6-t"><b>${T.n}</b><span class="${full?'full':''}">${F.cr.length} / ${cap} fish${full?' · full':''}</span><i class="fscr6-bar" aria-hidden="true"><i style="width:${Math.min(100,F.cr.length/cap*100).toFixed(1)}%"></i></i><small>${t?FSCRS[t]:'Upgrade for more room and perks'}</small></div></div>
+ ${nx?`<button class="fscr6-up" id="fscr6up" ${P.gold<nx.c?'disabled':''}><span><small>Upgrade to the</small><b>${nx.n}</b><small>${nx.cap} slots · ${FSCRS[t+1]}</small></span><em>${fsCoin}${nx.c.toLocaleString()}</em></button>`:'<div class="fscr6-max">♛ The finest creel there is</div>'}
+ <p class="fsnote">Kept fish wait here. Sell them any time${T.b?` (<b>+${Math.round(T.b*100)}% value</b> from your ${T.n})`:''}, turn them in for rod looks, or craft them into bait.</p><label class="fsauto fsauto2"><input type="checkbox" id="fsauto2" ${F.auto?'checked':''}> Auto-sell Common &amp; Uncommon catches <small>(new species and giants are still kept)</small></label><label class="fsauto fsauto2"><input type="checkbox" id="fslook" ${F.look!==0?'checked':''}> Save fish I need for rod looks</label>
+ ${F.cr.length?`<div class="fsflt fscr6-so" role="group" aria-label="Sort">${t>=1?[['rk','Rarity'],['val','Value'],['cm','Size'],['new','Newest']].map(([k,l])=>`<button data-cso="${k}" class="${so===k?'on':''}" style="--rc:#8a7ad8">${l}</button>`).join(''):'<span class="fscr6-lk">Sorting unlocks with the Sturdy Creel</span>'}</div>
+ ${t>=2?`<div class="fsflt fscr6-fl" role="group" aria-label="Filter">${[['all','All'],...FSRK.map(k=>[k,FSR[k].n])].map(([k,l])=>`<button data-cfl="${k}" class="${fl===k?'on':''}" style="--rc:${k==='all'?'#8a7ad8':FSR[k].c}">${l}</button>`).join('')}</div>`:''}
+ <div class="fscr6-sell"><button class="fssa" id="fssa">${fsCoin}Sell all · ${tot.toLocaleString()}</button>${t>=3?'<button class="fssa fscr6-ex" id="fscr6ex" title="Sell duplicates; keeps the most valuable of each species, rod-look fish and anything Rare or better">Sell extras</button>':''}</div>`:''}
+ <div class="fslist">${L.length?L.map(({c,i})=>{const f=FISH[c.id];return `<div class="fsrow" data-ci="${i}" style="--rc:${FSR[f.r].c}"><canvas width="96" height="56"></canvas><span><b>${f.n}${c.g?' <span class="fscrown">♛</span>':''}</b><small>${FSR[f.r].n} · ${c.cm} cm</small></span><button data-sell="${i}">${fsCoin}${fsValue(c).toLocaleString()}</button></div>`}).join(''):F.cr.length?'<p class="fsempty">No fish of that rarity in your creel.</p>':'<p class="fsempty">Your creel is empty. Choose <b>Keep</b> after a catch to store a fish here.</p>'}</div>`}
+{const t0=fsTabs;fsTabs=function(){const r=t0.apply(this,arguments);try{if(FSU.tab==='c')fsU6CreelBind()}catch(e){console.error(e)}return r}}
+function fsU6CreelBind(){const b=$('fsbody');if(!b)return;const F=fsP(),t=fsCrT();FSU.cjust=0;
+ const cv=$('fscr6c');if(cv){const g=cv.getContext('2d');const dr=tt=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,150,132);fsU6Creel(g,t,75,70,.6,tt,Math.min(1,F.cr.length/fsCreelCap()))};dr(1);if(t>=2&&!fsRM())LIVE.push({cv,fn:dr,slow:3})}
+ const up=$('fscr6up');if(up)up.onclick=()=>{const t0=fsCrT();if(fsCreelBuy()){fsSfx('buy');setTimeout(()=>{try{fsSfx('r')}catch(e){}},200);FSU.cjust=1;try{fsToast(`Your basket is now the ${FSCRT[t0+1].n}: ${FSCRT[t0+1].cap} slots!`,1)}catch(e){}try{fsHudRefresh()}catch(e){}fsTabs()}};
+ b.querySelectorAll('[data-cso]').forEach(x=>x.onclick=()=>{FSU.cso=x.dataset.cso;fsTabs()});b.querySelectorAll('[data-cfl]').forEach(x=>x.onclick=()=>{FSU.cfl=x.dataset.cfl;fsTabs()});
+ const ex=$('fscr6ex');if(ex)ex.onclick=()=>{if(!ex.dataset.ok){ex.dataset.ok=1;ex.textContent='Tap again to sell extras';setTimeout(()=>{if(ex.isConnected){delete ex.dataset.ok;ex.textContent='Sell extras'}},2600);return}
+  const r=fsSellExtras();fsSfx('sell');try{fsToast(r.n?`Sold ${r.n} extra fish for ${r.v.toLocaleString()} gold.`:'No extras to sell: you only have your best of each.',!!r.n)}catch(e){}try{fsHudRefresh()}catch(e){}fsTabs()};
+ const sc=$('fscrn');if(sc)sc.textContent=F.cr.length?`${F.cr.length}`:''}
+/* ---------- achievements (claimed in the Trophy Hall) ---------- */
+const fsU6Rare=F=>FIDS.reduce((a,id)=>a+(FSR[FISH[id].r].k>=2&&F.b[id]?F.b[id].n||0:0),0);
+const fsU6Spots=F=>['pond','frost','grotto'].filter(k=>(F.s.at&&F.s.at[k])||FIDS.some(id=>F.b[id]&&F.b[id].n&&(k==='pond'?!FISH[id].loc:FISH[id].loc===k))).length;
+const FSACH=[
+ {k:'c10',m:'catch',n:'First Nibbles',d:'Catch 10 fish',g:10,v:F=>F.s.caught||0,rw:50},
+ {k:'c100',m:'catch',n:'Steady Hands',d:'Catch 100 fish',g:100,v:F=>F.s.caught||0,rw:150},
+ {k:'c500',m:'catch',n:'Old Salt',d:'Catch 500 fish',g:500,v:F=>F.s.caught||0,rw:500},
+ {k:'s15',m:'species',n:'Naturalist',d:'Discover 15 species',g:15,v:()=>fsFound(),rw:100},
+ {k:'s30',m:'species',n:'Scholar of the Deep',d:'Discover 30 species',g:30,v:()=>fsFound(),rw:300},
+ {k:'sall',m:'species',n:'Complete Bestiary',d:`Discover all ${FIDS.length} species`,g:FIDS.length,v:()=>fsFound(),rw:1500},
+ {k:'rare',m:'rare',n:'Blue Ribbon',d:'Catch 10 Rare or rarer fish',g:10,v:fsU6Rare,rw:150},
+ {k:'leg',m:'legend',n:'Legend Hunter',d:'Catch a Legendary fish',g:1,v:F=>F.s.leg||0,rw:300},
+ {k:'myth',m:'myth',n:'Myth Made Real',d:'Catch a Mythic fish',g:1,v:F=>F.s.myth||0,rw:1000},
+ {k:'giant',m:'giant',n:'Tall Tales',d:'Catch 5 Giants',g:5,v:F=>F.s.giant||0,rw:200},
+ {k:'run',m:'streak',n:'Unbroken Line',d:'Catch 15 fish in a row',g:15,v:F=>F.s.best||0,rw:200},
+ {k:'spots',m:'spots',n:'Wanderer',d:'Catch fish at all three spots',g:3,v:fsU6Spots,rw:200},
+ {k:'bty',m:'bounty',n:'Odd-Jobber',d:'Complete 10 daily bounties',g:10,v:F=>(F.bty&&F.bty.tot)||0,rw:200},
+ {k:'bst',m:'bounty',n:'Regular at the Board',d:'Finish every bounty 5 days in a row',g:5,v:F=>(F.bty&&F.bty.best)||0,rw:400},
+ {k:'creel',m:'creel',n:'Bigger Basket',d:'Upgrade your creel 3 times (Enchanted Creel)',g:3,v:()=>fsCrT(),rw:200},
+ {k:'tro',m:'trophy',n:'Hall of Fame',d:'Mount 8 trophies',g:8,v:F=>(F.tro||[]).filter(Boolean).length,rw:150},
+ {k:'bait',m:'bait',n:'Tackle Box',d:'Fish 50 casts with bait',g:50,v:F=>F.s.bait||0,rw:100},
+ {k:'gold',m:'gold',n:'Fishmonger',d:'Earn 10,000 gold from fish',g:10000,v:F=>F.s.gold||0,rw:400},
+ {k:'fast',m:'speed',n:'Lightning Reel',d:'Reel in a fish at 70 WPM',g:70,v:F=>Math.round((F.s.fast||0)*12),rw:200}];
+function fsAchP(){const F=fsP();if(!F.ach||typeof F.ach!=='object')F.ach={};return F.ach}
+const fsAchCan=()=>{const F=fsP(),A=fsAchP();return FSACH.filter(a=>!A[a.k]&&a.v(F)>=a.g)};
+function fsAchClaim(k){const a=FSACH.find(x=>x.k===k),F=fsP(),A=fsAchP();if(!a||A[k]||a.v(F)<a.g)return 0;A[k]=1;P.gold+=a.rw;fsSt('agold',a.rw,'add');save();return a.rw}
+/* ---------- the trophy wall: eight mounts for your best catches (each shows that species' record) ---------- */
+function fsTroP(){const F=fsP();if(!Array.isArray(F.tro))F.tro=[];while(F.tro.length<8)F.tro.push('');F.tro=F.tro.slice(0,8).map(id=>FISH[id]&&F.b[id]&&F.b[id].n?id:'');return F.tro}
+const fsTroScore=id=>{const f=FISH[id],b=fsP().b[id];return FSR[f.r].k*10+(b.big-f.len[0])/(f.len[1]-f.len[0])+(b.g?.5:0)};
+function fsTroFill(){const T=fsTroP(),F=fsP(),L=FIDS.filter(id=>F.b[id]&&F.b[id].n&&!T.includes(id)).sort((a,b)=>fsTroScore(b)-fsTroScore(a));let n=0;for(let i=0;i<8;i++)if(!T[i]&&L.length){T[i]=L.shift();n++}save();return n}
+const FSTROD=d=>{try{return new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}catch(e){return''}};
+function fsTrophy(tab){S.mode='fish';S.view='fishtrophy';FS.on=false;if(tab)FSU.ttab=tab;const tb=FSU.ttab||'wall',F=fsP(),T=fsTroP(),can=fsAchCan().length,A=fsAchP();let body='';
+ if(tb==='wall')body=`<div class="ftr-wall">${T.map((id,i)=>{if(!id)return `<button class="ftr-m e" data-slot="${i}" aria-label="Empty mount ${i+1}: choose a trophy"><canvas width="300" height="230" aria-hidden="true"></canvas><span class="ftr-np"><b>Empty mount</b><small>Choose a catch to mount</small></span></button>`;
+   const f=FISH[id],b=F.b[id];return `<button class="ftr-m r-${f.r}" data-slot="${i}" style="--rc:${FSR[f.r].c}" aria-label="${f.n}, record ${b.big} centimetres. Change trophy"><canvas width="300" height="230" aria-hidden="true"></canvas><span class="ftr-np"><b>${f.n}</b><small><i class="ftr-rd" style="--rc:${FSR[f.r].c}"></i>${FSR[f.r].n} · ${b.big} cm${b.g?' · ♛':''}${b.bigT?` · ${FSTROD(b.bigT)}`:''}</small></span></button>`}).join('')}</div>`;
+ else if(tb==='ach')body=`<div class="ftr-al">${FSACH.map(a=>{const v=a.v(F),got=v>=a.g,cl=!!A[a.k],p=Math.min(1,v/a.g);return `<div class="ftr-a${got?' got':''}${cl?' cl':''}"><canvas width="96" height="96" data-med="${a.m}" data-got="${got?1:0}" aria-hidden="true"></canvas><div><b>${a.n}</b><small>${a.d}</small><i class="ftr-ab" aria-hidden="true"><i style="width:${(p*100).toFixed(1)}%"></i></i><span>${Math.min(v,a.g).toLocaleString()} / ${a.g.toLocaleString()}</span></div>${cl?'<em class="ftr-ok">✓ Claimed</em>':got?`<button data-claim="${a.k}">Claim ${fsCoin}${a.rw}</button>`:`<em class="ftr-rw">${fsCoin}${a.rw}</em>`}</div>`}).join('')}</div>`;
+ else{const s=F.s,B=F.bty||{},cau=s.caught||0,rate=cau?Math.round(cau/Math.max(1,cau+(s.esc||0))*100):0;
+  const R=[['Fish caught',cau.toLocaleString(),`${(s.cast||0).toLocaleString()} casts`],['Catch rate',cau?rate+'%':'—',`${(s.esc||0).toLocaleString()} got away`],['Species found',`${fsFound()} / ${FIDS.length}`,'in the Bestiary'],
+   ['Legendary · Mythic',`${s.leg||0} · ${s.myth||0}`,'the rarest catches'],['Giants caught',(s.giant||0).toLocaleString(),'the biggest 4%'],['Best streak',(s.best||0).toLocaleString(),'catches in a row'],
+   ['Fastest reel',s.fast?Math.round(s.fast*12)+' WPM':'—','typing speed on one catch'],['Gold from fish',(s.gold||0).toLocaleString(),'from selling fish'],['Bounties done',(B.tot||0).toLocaleString(),`best streak ${B.best||0} day${B.best===1?'':'s'}`],
+   ['Bounty gold',(s.bgold||0).toLocaleString(),'rewards and board bonuses'],['Bait casts',(s.bait||0).toLocaleString(),'fished with bait'],['Your creel',FSCRT[fsCrT()].n.replace(' Creel',''),`${fsCreelCap()} slots`]];
+  const best=FSRK.map(rk=>{const L=FIDS.filter(id=>FISH[id].r===rk&&F.b[id]&&F.b[id].n);if(!L.length)return{rk};const id=L.sort((a,b)=>(F.b[b].big-FISH[b].len[0])/(FISH[b].len[1]-FISH[b].len[0])-(F.b[a].big-FISH[a].len[0])/(FISH[a].len[1]-FISH[a].len[0]))[0];return{rk,id}});
+  body=`<div class="ftr-rec"><div class="ftr-rs">${R.map(([a,b,c])=>`<div><small>${a}</small><b>${fsEsc(b)}</b><em>${fsEsc(c)}</em></div>`).join('')}</div>
+   <div class="ftr-rb"><h4>Biggest for its kind</h4>${best.map(o=>o.id?`<div class="ftr-rbi" style="--rc:${FSR[o.rk].c}"><canvas width="120" height="64" data-rbi="${o.id}" aria-hidden="true"></canvas><span><small>${FSR[o.rk].n}</small><b>${FISH[o.id].n}</b><em>${F.b[o.id].big} cm · top ${Math.max(1,Math.round((1-(F.b[o.id].big-FISH[o.id].len[0])/(FISH[o.id].len[1]-FISH[o.id].len[0]))*100))}% of its range</em></span></div>`:`<div class="ftr-rbi no" style="--rc:${FSR[o.rk].c}"><span><small>${FSR[o.rk].n}</small><b>None yet</b></span></div>`).join('')}</div></div>`}
+ show(`<div class="fsx ftr" id="fsx"><i class="ftr-lamp l" aria-hidden="true"></i><i class="ftr-lamp r" aria-hidden="true"></i>
+  <div class="fstr"><span class="fsgold fsg">${fsCoin}<b id="fsgold">${P.gold.toLocaleString()}</b></span><button class="fsback fsg" id="fsback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Back <kbd>Esc</kbd></button></div>
+  <h2 class="fswh ftr-h">Trophy Hall</h2><p class="ftr-sub">${tb==='wall'?'Mount your finest catches. Each trophy shows your record for that species.':tb==='ach'?'Feats of a true angler. Claim gold for each one.':'Every number from the water.'}</p>
+  <nav class="ftr-tabs" role="tablist">${[['wall','Trophy Wall'],['ach','Achievements'],['rec','Records']].map(([k,n])=>`<button role="tab" data-ttab="${k}" aria-selected="${tb===k}">${n}${k==='ach'?` <small>${FSACH.filter(a=>A[a.k]).length}/${FSACH.length}</small>${can?'<i class="fshdot">!</i>':''}`:''}</button>`).join('')}</nav>
+  ${tb==='wall'?`<button class="ftr-fill" id="ftrfill" ${T.some(x=>!x)&&FIDS.some(id=>F.b[id]&&F.b[id].n&&!T.includes(id))?'':'disabled'}>Fill empty mounts with my best</button>`:tb==='ach'&&can?`<button class="ftr-fill" id="ftrclaim">Claim all · ${fsCoin}${fsAchCan().reduce((a,x)=>a+x.rw,0).toLocaleString()}</button>`:''}
+  <section class="ftr-body">${body}</section><div class="fsmod" id="fsmod" hidden></div></div>`,'fshx');
+ {const back=FSU.tback||fsHub;S.back=()=>{FSU.tback=null;back()};$('fsback').onclick=S.back}{const cn=$('cn');if(cn)cn.classList.add('dkhid')}
+ ov.querySelectorAll('[data-ttab]').forEach(b=>b.onclick=()=>{try{beep(640,.04,'triangle',.12)}catch(e){}fsTrophy(b.dataset.ttab)});
+ if(tb==='wall'){ov.querySelectorAll('.ftr-m').forEach(m=>{const i=+m.dataset.slot,id=T[i],cv=m.querySelector('canvas'),g=cv.getContext('2d'),rk=id?FISH[id].r:'c';
+   const dr=t=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,300,230);fsU6Plaque(g,150,112,280,210,rk,t,!id);if(id)fishFit(g,id,150,112-210*.08,280*.8,210*.55,{t:.4,glow:FSR[rk].k>=2?.35:0})};dr(.5);
+   if(id&&FSR[rk].k>=3&&!fsRM())LIVE.push({cv,fn:dr,slow:3,ph:i});m.onclick=()=>fsTroPick(i)});
+  const fb=$('ftrfill');if(fb)fb.onclick=()=>{const n=fsTroFill();if(n){fsSfx('buy');fsTrophy('wall')}}}
+ else if(tb==='ach'){ov.querySelectorAll('canvas[data-med]').forEach(cv=>{const g=cv.getContext('2d');g.clearRect(0,0,96,96);fsU6Medal(g,cv.dataset.med,48,48,1.1,.4,cv.dataset.got==='1')});
+  ov.querySelectorAll('[data-claim]').forEach(b=>b.onclick=()=>{const v=fsAchClaim(b.dataset.claim);if(v){fsSfx('buy');fsTrophy('ach')}});
+  const ca=$('ftrclaim');if(ca)ca.onclick=()=>{let v=0;fsAchCan().forEach(a=>v+=fsAchClaim(a.k));if(v){fsSfx('buy');setTimeout(()=>{try{fsSfx('r')}catch(e){}},220);fsTrophy('ach')}}}
+ else ov.querySelectorAll('canvas[data-rbi]').forEach(cv=>fsThumb(cv,cv.dataset.rbi,false));
+ setTimeout(()=>{const b=ov.querySelector('[data-ttab][aria-selected="true"]');try{b&&b.focus({preventScroll:true})}catch(e){}},60)}
+function fsTroPick(i){const F=fsP(),T=fsTroP(),cur=T[i],L=FIDS.filter(id=>F.b[id]&&F.b[id].n).sort((a,b)=>fsTroScore(b)-fsTroScore(a));
+ fsU6Modal(`<div class="ftr-pk fsg"><button class="fsx2" id="fsx2" aria-label="Close">✕</button><h3 class="fsu6h">${cur?'Change trophy':'Mount a trophy'}</h3><p class="fsbm-s">Pick a species. The mount shows your record catch, and it updates when you beat it.</p>
+  <div class="ftr-pl">${L.length?L.map(id=>{const f=FISH[id],b=F.b[id],on=T.indexOf(id);return `<button class="ftr-pi${id===cur?' cur':''}" data-pick="${id}" style="--rc:${FSR[f.r].c}"><canvas width="150" height="80" aria-hidden="true"></canvas><b>${f.n}</b><small>${b.big} cm${b.g?' · ♛':''}</small>${on>=0?`<em>${id===cur?'On this mount':'On the wall'}</em>`:''}</button>`}).join(''):'<p class="fsempty">Catch a fish first, then mount it here.</p>'}</div>
+  ${cur?'<button class="ftr-down" id="ftrdown">Take this trophy down</button>':''}</div>`,'trophy');
+ const m=$('fsmod');m.querySelectorAll('[data-pick]').forEach(b=>{const id=b.dataset.pick;fsThumb(b.querySelector('canvas'),id,false);b.onclick=()=>{const j=T.indexOf(id);if(j>=0&&j!==i)T[j]=T[i];T[i]=id;save();fsSfx('buy');fsModal(null);fsTrophy('wall')}});
+ const d=$('ftrdown');if(d)d.onclick=()=>{T[i]='';save();fsModal(null);fsTrophy('wall')}}
+document.addEventListener('keydown',e=>{if(S.mode!=='fish'||S.view!=='fishtrophy'||e.ctrlKey||e.metaKey||e.altKey)return;const m=$('fsmod');
+ if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();if(m&&!m.hidden)fsModal(null);else if(S.back)S.back()}},true);
+/* ---------- the menu: a bounty strip and bait button under Tonight; the Trophy Hall replaces the Stats tile ---------- */
+function fsU6HubHTML(h){const F=fsP(),B=fsBtyGet(),t=fsCrT(),T=fsTroP(),A=fsAchP(),can=fsAchCan().length,st=fsBtyStreak(),dn=B.L.filter(b=>b.done).length;
+ const bk=fsBaitP(),K=FSBAIT[bk.on],n=K?bk.inv[bk.on]||0:0;
+ const strip=`<div class="fsh6"><button class="fsh6b fsg" id="fsh6b" title="Daily bounties (O)"><canvas width="104" height="88" data-ic="board" aria-hidden="true"></canvas><span class="fsh6t"><b>Daily Bounties <small>${dn} / 3 done</small>${st?`<em>${FSFLAME}${st}-day streak</em>`:''}</b>
+  ${B.L.map(b=>{const p=Math.min(1,b.got/b.n);return `<span class="fsh6r${b.done?' ok':''}" style="--bc:${FSBTYD[b.d].c}"><i aria-hidden="true">${b.done?'✓':''}</i><span>${fsEsc(fsBtyShort(b))}</span><u aria-hidden="true"><u style="width:${(p*100).toFixed(1)}%"></u></u><em>${b.done?'Paid':fsCoin+b.rw}</em></span>`}).join('')}</span><i class="fsch">›</i></button>
+  <button class="fsh6k fsg${K&&n?' on':''}" id="fsh6k" title="Bait pouch (B)"><canvas width="96" height="96" id="fsh6kc" aria-hidden="true"></canvas><b>Bait</b><small>${K?(n?`${K.n.split(' ')[0]} ×${n}`:'None left'):'None'}</small></button></div>`;
+ h=h.replace('<nav class="fsh2tiles">',strip+'<nav class="fsh2tiles">');
+ h=h.replace(/<button class="fsh2t2" id="fshs"[\s\S]*?<\/button>/,`<button class="fsh2t2" id="fshs" style="--c:#ffb45a"><canvas width="104" height="88" data-ic="trophy"></canvas><span><b>Trophy Hall</b><small>${T.filter(Boolean).length} / 8 mounted · ${FSACH.filter(a=>A[a.k]).length}/${FSACH.length} feats</small></span><i class="fsch">›</i>${can?'<i class="fshdot">!</i>':''}</button>`);
+ if(typeof fsCreelArt==='function')h=h.replace('data-ic="basket"',`data-ic="creel${t}"`);
+ h=h.replace(/(<b>Fish Basket<\/b><small>[^<]*<\/small>)/,`$1<small class="fsnx">${FSCRT[t+1]&&P.gold>=FSCRT[t+1].c?`${FSCRT[t].n.replace(' Creel','')} · upgrade ready`:FSCRT[t].n}</small>`);
+ return h}
+{const s0=show;show=function(h){if(FSU6.hubMod&&typeof h==='string'){FSU6.hubMod=0;try{arguments[0]=fsU6HubHTML(h)}catch(e){console.error(e)}}return s0.apply(this,arguments)}}
+{const h0=fsHub;fsHub=function(){FSU6.hubMod=1;let r;try{r=h0.apply(this,arguments)}finally{FSU6.hubMod=0}try{fsU6HubAfter()}catch(e){console.error(e)}return r}}
+function fsU6HubAfter(){const s=$('fshs');if(s)s.onclick=()=>fsTrophy();const b=$('fsh6b');if(b)b.onclick=()=>fsBountyModal('hub');const k=$('fsh6k');if(k)k.onclick=()=>fsBaitModal('hub');
+ const c=$('fsh6kc');if(c){const g=c.getContext('2d'),B=fsBaitP(),bk=FSBAIT[B.on]?B.on:'none';const dr=t=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,96,96);fsU6Bait(g,bk,48,48,.84,t)};dr(.6);if(!fsRM())LIVE.push({cv:c,fn:dr,slow:3,ph:2})}}
+/* ---------- Fishing Spots: each new spot shows its one Mythic (a silhouette until you catch it) ---------- */
+const fsSpotMyth=k=>(FSPOOL[k]||[]).find(id=>FISH[id].r==='m')||'';
+{const c0=fsdgCard;fsdgCard=function(k){let h=c0.apply(this,arguments);try{const id=fsSpotMyth(k);if(id){const b=fsP().b[id],got=!!(b&&b.n);
+  h=h.replace(/<\/button>\s*$/,`<span class="fsdg-my${got?' got':''}" title="Only one Mythic lives here: ${got?FISH[id].n:'not found yet'}"><span class="fsdg-myc"><canvas width="96" height="96" data-my="${id}" data-got="${got?1:0}" aria-hidden="true"></canvas>${got?'':'<i aria-hidden="true">?</i>'}</span><em>1 Mythic here</em></span></button>`);
+  h=h.replace('aria-label="','aria-label="One Mythic fish lives here. ')}}catch(e){}return h}}
+{const p0=fsdgPanel;fsdgPanel=function(){let h=p0.apply(this,arguments);try{const k=FSDG.sel,id=fsSpotMyth(k);if(id){const b=fsP().b[id],got=!!(b&&b.n);
+  h=h.replace('class="fsdg-pin2"','class="fsdg-pin2 my"').replace('<button class="fsdg-go"',`<div class="fsdg-myp${got?' got':''}"><span class="fsdg-myc"><canvas width="96" height="96" data-my="${id}" data-got="${got?1:0}" aria-hidden="true"></canvas>${got?'':'<i aria-hidden="true">?</i>'}</span><span class="fsdg-myt"><small>Only one Mythic lives here</small><b>${got?FISH[id].n:'Unknown Mythic'}</b><em>${got?`Caught ×${b.n} · it can bite again`:'Roughly 1 in 800 casts here'}</em></span></div><button class="fsdg-go"`)}}catch(e){}return h}}
+function fsdgMyDraw(){ov.querySelectorAll('canvas[data-my]').forEach(cv=>{if(cv.dataset.dn)return;cv.dataset.dn=1;const g=cv.getContext('2d'),got=cv.dataset.got==='1';g.clearRect(0,0,96,96);
+ fishFit(g,cv.dataset.my,48,50,90,66,{t:.4,sil:got?0:'#1c0a34',glow:got?.4:0})})}
+{const m0=fsMap;fsMap=function(){const r=m0.apply(this,arguments);try{fsdgMyDraw()}catch(e){}return r}}
+{const s0=fsdgSelect;fsdgSelect=function(){const r=s0.apply(this,arguments);try{fsdgMyDraw()}catch(e){}return r}}
+{const b0=fsdgBindPanel;fsdgBindPanel=function(){const r=b0.apply(this,arguments);try{fsdgMyDraw()}catch(e){}return r}}
+/* ---------- styles (static gradients only; animations use transform/opacity) ---------- */
+{const st=document.createElement('style');st.textContent=`
+.fsu6h{margin:0 0 4px;font:400 40px/1 'Pirata One',Georgia,serif;color:var(--gold);text-shadow:0 3px 0 #1b1024}
+@keyframes fsBtPop{0%{transform:scale(1)}30%{transform:scale(1.05)}100%{transform:scale(1)}}
+.fsh6{position:absolute;left:48px;top:606px;width:690px;height:108px;display:flex;gap:12px;animation:fsIn .6s .28s var(--sp) both}
+.fsh6b{flex:1;min-width:0;display:flex;align-items:center;gap:6px;padding:6px 12px 6px 2px;color:#fff8e8;text-align:left;cursor:pointer;transition:transform .15s}
+.fsh6b:hover,.fsh6k:hover{transform:translateY(-3px)}
+.fsh6b canvas{flex:none;width:84px;height:71px}
+.fsh6t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.fsh6t>b{display:flex;align-items:center;gap:8px;font:800 17px var(--ui)}.fsh6t>b small{font:600 12px var(--ui);color:#c4badf}
+.fsh6t>b em{margin-left:auto;display:flex;align-items:center;gap:3px;font:800 12px var(--ui);color:#ffb45a;font-style:normal}.fsh6t>b em svg{width:16px;height:16px}
+.fsh6r{display:grid;grid-template-columns:16px 1fr 84px 58px;align-items:center;gap:8px;height:19px;font:600 13px var(--ui);color:#e8e0ff}
+.fsh6r>i{width:14px;height:14px;border-radius:50%;border:2px solid var(--bc);font:900 9px/10px var(--ui);text-align:center;font-style:normal;color:#1b1024}
+.fsh6r.ok>i{background:var(--bc)}.fsh6r>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fsh6r.ok>span{opacity:.6}
+.fsh6r>u{display:block;height:7px;border-radius:4px;background:#0a0620;border:1px solid #3a3070;overflow:hidden}.fsh6r>u>u{display:block;height:100%;background:var(--bc)}
+.fsh6r>em{display:flex;align-items:center;justify-content:flex-end;gap:3px;font:800 12px var(--ui);color:#ffd45a;font-style:normal;white-space:nowrap}.fsh6r>em svg,.fsh6r>em img{width:13px;height:13px}
+.fsh6k{flex:none;width:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;color:#fff8e8;cursor:pointer;transition:transform .15s}
+.fsh6k canvas{width:62px;height:62px}.fsh6k b{font:800 15px var(--ui)}.fsh6k small{font:600 12px var(--ui);color:#c4badf;white-space:nowrap}.fsh6k.on{border-color:#7aff9a}
+.fsbt{position:absolute;left:22px;top:140px;width:330px;padding:8px 10px 10px;border-radius:16px;z-index:2;animation:fsIn .5s .2s var(--sp) both}
+.fsbt.pop{animation:fsBtPop .6s var(--sp)}.fsbt.all{border-color:#ffd45a99}
+.fsbt-h{display:flex;align-items:center;gap:8px;width:100%;padding:0 2px 5px;border:none;background:none;color:#fff8e8;font:800 15px var(--ui);cursor:pointer}
+.fsbt-h span{font:700 13px var(--ui);color:#c4badf}.fsbt-h em{display:flex;align-items:center;gap:2px;font:800 13px var(--ui);color:#ffb45a;font-style:normal}.fsbt-h em svg{width:15px;height:15px}
+.fsbt-h i{margin-left:auto;font-style:normal;transition:transform .2s}.fsbt.min .fsbt-h i{transform:rotate(-90deg)}.fsbt.min ol{display:none}.fsbt.min .fsbt-h{padding-bottom:0}
+.fsbt ol{list-style:none;margin:0;padding:0;display:grid;gap:5px;cursor:pointer}
+.fsbt li{position:relative;display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:7px;padding:4px 8px 6px;border-radius:9px;background:#0b0724b0;font:600 13px var(--ui);color:#e8e0ff;overflow:hidden}
+.fsbt li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fsbt li span small{color:#a89ed0}.fsbt li b{font:800 12px var(--ui);color:var(--bc)}
+.fsbt li u{position:absolute;left:0;bottom:0;height:3px;background:var(--bc)}
+.fsbt-d{width:14px;height:14px;border-radius:50%;border:2px solid var(--bc);font:900 9px/10px var(--ui);text-align:center;font-style:normal;color:#1b1024}
+.fsbt li.ok .fsbt-d{background:var(--bc)}.fsbt li.ok span{opacity:.6}
+.fsbc{position:absolute;left:22px;bottom:96px;width:300px;height:58px;display:flex;align-items:center;gap:8px;padding:0 12px 0 6px;color:#fff8e8;cursor:pointer;text-align:left;border-radius:16px;animation:fsIn .5s .15s var(--sp) both;transition:transform .15s}
+.fsbc:hover{transform:translateY(-2px)}.fsbc.on{border-color:#7aff9a}.fsbc canvas{width:48px;height:48px;flex:none}
+.fsbc span{display:flex;flex-direction:column;min-width:0}.fsbc b{font:800 14px var(--ui)}.fsbc small{font:600 12px var(--ui);color:#c4badf;white-space:nowrap}.fsbc kbd{margin-left:auto}
+.fsbm{position:relative;width:920px;max-height:830px;display:flex;flex-direction:column;padding:20px 22px;animation:fsWb .35s var(--sp) both}
+.fsbm-s{margin:0 0 12px;font:500 14px var(--ui);color:#cfc6ee;max-width:820px}
+.fsbm-l{display:flex;flex-direction:column;gap:8px;overflow:auto}
+.fsbm-r{display:grid;grid-template-columns:96px 1fr auto;align-items:center;gap:14px;padding:8px 12px 8px 8px;border-radius:16px;background:#120c34cc;border:2px solid #3a3070}
+.fsbm-r.on{border-color:var(--bc);background:linear-gradient(90deg,color-mix(in srgb,var(--bc) 18%,#120c34),#120c34cc 60%)}.fsbm-r.lk{opacity:.6}
+.fsbm-r canvas{width:96px;height:96px}
+.fsbm-t b{display:block;font:800 18px var(--ui);color:#fff8e8}.fsbm-t b em{font:700 11px var(--ui);color:var(--bc);padding:2px 7px;border-radius:8px;background:#0a0620;border:1px solid var(--bc);font-style:normal;vertical-align:middle}
+.fsbm-t small{display:block;font:500 13px var(--ui);color:#c4badf;margin:2px 0 4px}
+.fsbm-have{font:700 13px var(--ui);color:#9affc8}.fsbm-have.no{color:#8a80b0}.fsbm-have i{color:var(--bc);font-style:normal}
+.fsbm-b{display:flex;gap:8px;align-items:stretch}
+.fsbm-b button{min-width:108px;height:60px;padding:0 12px;border-radius:12px;border:2px solid #1b1024;font:800 15px var(--ui);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;background:linear-gradient(180deg,#ffe27a,#f2b631);color:#3a2006;box-shadow:0 3px 0 #9a6a10;transition:transform .12s}
+.fsbm-b button small{font:600 11px var(--ui);opacity:.85;white-space:nowrap}
+.fsbm-b button.cr{max-width:170px;background:linear-gradient(180deg,#8ae0ff,#3a8ad8);color:#06203a;box-shadow:0 3px 0 #1a4a8a}.fsbm-b button.cr small{white-space:normal;text-align:center;line-height:1.15}
+.fsbm-b button.eq{background:#2a2060;color:#fff;border-color:#5a4ca0;box-shadow:none}.fsbm-b button.eq.on{background:#3a2a10;border-color:#ffd45a;color:#ffd45a}
+.fsbm-b button:disabled{background:#2a2450;color:#8a80b0;box-shadow:none;cursor:not-allowed;border-color:#3a3070}.fsbm-b button:not(:disabled):hover{transform:translateY(-2px)}
+.fsbm-c{display:flex;align-items:center;gap:4px}.fsbm-b button.cr{min-width:150px}
+.fsbm-lk{font:700 13px var(--ui);color:#8a80b0;align-self:center}.fsbm-f{margin:10px 0 0;font:500 13px var(--ui);color:#a89ed0}
+.fsbb{position:relative;width:1180px;padding:22px 26px 18px;border-radius:24px;border:3px solid #1b1024;background:repeating-linear-gradient(180deg,#0000 0 62px,#00000030 62px 65px),linear-gradient(180deg,#6e4632,#3e2618);box-shadow:inset 0 0 0 3px #8a5a3a,inset 0 0 0 6px #e6b93e33,0 20px 50px #000c;animation:fsWb .35s var(--sp) both}
+.fsbb-hd{display:flex;align-items:center;gap:14px;margin-bottom:14px}.fsbb-hd canvas{width:104px;height:88px;flex:none}.fsbb-hd p{margin:0;font:500 14px var(--ui);color:#f4e4c8;max-width:740px}.fsbb-hd p b{color:#ffd45a}
+.fsbb-st{margin-left:auto;margin-right:34px;display:flex;flex-direction:column;align-items:center;padding:8px 18px;border-radius:14px;background:#1b1024cc;border:2px solid #5a3a20;color:#a89a8a}.fsbb-st svg{width:30px;height:30px;opacity:.35}.fsbb-st.on svg{opacity:1}.fsbb-st b{font:800 26px/1.1 var(--ui);color:#fff8e8}.fsbb-st small{font:600 12px var(--ui)}
+.fsbb-ns{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:8px 6px 12px}
+.fsbb-n{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px;padding:28px 18px 16px;border-radius:6px;background:linear-gradient(180deg,#fbf0d4,#eedbb0);color:#3a2414;transform:rotate(var(--r));box-shadow:0 10px 18px #0008,inset 0 0 30px #c8a06a55;border:2px solid #1b1024}
+.fsbb-n.ok{background:linear-gradient(180deg,#eef8e2,#d4e8bc)}
+.fsbb-pin{position:absolute;top:-10px;left:50%;width:20px;height:20px;margin-left:-10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ff8a8a,#c8203a 60%,#7a1020);border:2px solid #1b1024}
+.fsbb-dif{position:absolute;top:10px;left:12px;font:800 11px var(--ui);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:8px;background:#1b1024;color:var(--bc);font-style:normal}
+.fsbb-n canvas{width:150px;height:96px}.fsbb-n b{font:400 27px/1.05 'Pirata One',Georgia,serif;color:#3a1a08}.fsbb-n small{font:600 13px var(--ui);color:#6a4a2a}.fsbb-min{font:700 12px var(--ui);color:#8a5a2a}
+.fsbb-bar{width:100%;height:12px;margin-top:6px;border-radius:7px;background:#3a241433;border:2px solid #1b1024;overflow:hidden}.fsbb-bar i{display:block;height:100%;background:linear-gradient(90deg,#2ac87a,#7affb4)}
+.fsbb-pr{font:800 14px var(--ui);color:#3a2414}.fsbb-rw{display:flex;align-items:center;gap:4px;font:800 18px var(--ui);color:#8a5a00}
+.fsbb-ok{position:absolute;right:12px;top:44px;transform:rotate(-14deg);padding:3px 12px;border:3px solid #2a8a4a;border-radius:8px;color:#2a8a4a;font:800 20px var(--ui);letter-spacing:.1em}
+.fsbb-sw{position:absolute;right:10px;top:8px;height:26px;padding:0 10px;border-radius:8px;border:2px solid #1b1024;background:#f6e2b0;color:#5a3a1a;font:800 12px var(--ui);cursor:pointer}.fsbb-sw:hover{background:#ffd45a}
+.fsbb-ft{display:flex;justify-content:space-between;gap:16px;margin-top:10px;padding:10px 14px;border-radius:12px;background:#1b1024cc;font:600 14px var(--ui);color:#f4e4c8}.fsbb-ft b{color:#ffd45a}
+.fscr6{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 4px;margin-bottom:8px;border-radius:16px;background:#120c34cc;border:1.5px solid #3a3070}.fscr6.just{animation:fsBtPop .7s var(--sp)}
+.fscr6 canvas{width:112px;height:98px;flex:none}
+.fscr6-t{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}.fscr6-t b{font:400 25px/1 'Pirata One',Georgia,serif;color:var(--gold)}.fscr6-t>span{font:700 14px var(--ui);color:#e8e0ff}.fscr6-t>span.full{color:#ff8a8a}.fscr6-t small{font:600 12px var(--ui);color:#9affc8}
+.fscr6-bar{display:block;height:9px;border-radius:5px;background:#0a0620;border:1px solid #3a3070;overflow:hidden}.fscr6-bar i{display:block;height:100%;background:linear-gradient(90deg,#3a8ad8,#7ad8ff)}
+.fscr6-up{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;margin-bottom:8px;border-radius:14px;border:2px solid #1b1024;background:linear-gradient(180deg,#3a2e80,#241a5c);color:#fff8e8;text-align:left;cursor:pointer;box-shadow:0 3px 0 #120c34;transition:transform .12s}
+.fscr6-up span{display:flex;flex-direction:column}.fscr6-up span small{font:600 11px var(--ui);color:#c4badf}.fscr6-up b{font:800 15px var(--ui)}
+.fscr6-up em{display:flex;align-items:center;gap:4px;padding:6px 10px;border-radius:10px;background:linear-gradient(180deg,#ffe27a,#f2b631);color:#3a2006;font:800 14px var(--ui);font-style:normal;white-space:nowrap}
+.fscr6-up:disabled{cursor:not-allowed;opacity:.6}.fscr6-up:not(:disabled):hover{transform:translateY(-2px)}
+.fscr6-max{padding:8px;margin-bottom:8px;border-radius:12px;background:#2a1a08cc;border:1.5px solid #ffd45a66;color:#ffd45a;font:800 14px var(--ui);text-align:center}
+.fscr6-lk{font:600 12px var(--ui);color:#8a80b0;padding:4px 2px}
+#fsbody .fscr6-so,#fsbody .fscr6-fl{margin:6px 0}#fsbody .fscr6-so button{flex:1 1 calc(25% - 4px)}
+.fscr6-sell{display:flex;gap:6px}.fscr6-sell .fssa{flex:1;min-width:0}.fscr6-sell .fscr6-ex{flex:0 0 auto;padding:0 12px;background:linear-gradient(180deg,#d08aff,#8a3ad8);color:#fff;border-color:#1b1024}
+.fsx.ftr{background:radial-gradient(60% 45% at 50% 0%,#ffb45a26,#0000 70%),repeating-linear-gradient(180deg,#0000 0 88px,#0000004d 88px 92px),repeating-linear-gradient(90deg,#ffffff05 0 2px,#00000010 2px 11px),linear-gradient(180deg,#4a2c1c,#2a160c 70%,#1a0c06)}
+.ftr-lamp{position:absolute;top:110px;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,#ffc87a30,#ffc87a00 70%);pointer-events:none}.ftr-lamp.l{left:-140px}.ftr-lamp.r{right:-140px}
+.ftr-sub{position:absolute;left:66px;top:96px;margin:0;font:600 15px var(--ui);color:#f4e4c8}
+.ftr-tabs{position:absolute;left:50%;top:28px;transform:translateX(-50%);display:flex;gap:6px;padding:6px;border-radius:16px;background:#1b1024cc;border:2px solid #5a3a20}
+.ftr-tabs button{position:relative;height:44px;padding:0 18px;border-radius:11px;border:none;background:none;color:#e8d8c0;font:800 16px var(--ui);cursor:pointer}.ftr-tabs button[aria-selected=true]{background:linear-gradient(180deg,#ffe27a,#f2b631);color:#3a2006}.ftr-tabs small{font:700 12px var(--ui);opacity:.75}
+.ftr-fill{position:absolute;right:48px;top:96px;height:40px;padding:0 16px;border-radius:12px;border:2px solid #1b1024;background:linear-gradient(180deg,#ffe27a,#f2b631);color:#3a2006;font:800 14px var(--ui);cursor:pointer;box-shadow:0 3px 0 #9a6a10;display:flex;align-items:center;gap:4px}.ftr-fill:disabled{background:#3a2a20;color:#a08a70;box-shadow:none;cursor:not-allowed}
+.ftr-body{position:absolute;left:48px;right:48px;top:150px;bottom:28px}
+.ftr-wall{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:14px 20px;height:100%;padding:16px 22px;border-radius:24px;background:repeating-linear-gradient(90deg,#0000 0 120px,#00000026 120px 123px),linear-gradient(180deg,#5a3624,#3a2014);border:3px solid #1b1024;box-shadow:inset 0 0 0 3px #7a4a2e,inset 0 0 60px #0008}
+.ftr-m{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0;border:none;background:none;cursor:pointer;color:#fff8e8;transition:transform .18s}.ftr-m:hover{transform:translateY(-4px)}
+.ftr-m canvas{width:300px;height:230px}
+.ftr-np{position:relative;margin-top:-46px;display:flex;flex-direction:column;align-items:center;min-width:230px;padding:5px 14px;border-radius:8px;background:linear-gradient(180deg,#f2d27a,#c8962e);border:2px solid #1b1024;box-shadow:0 3px 0 #6a4a10;color:#2a1606}
+.ftr-np b{font:400 22px/1.05 'Pirata One',Georgia,serif}.ftr-np small{display:flex;align-items:center;gap:5px;font:700 12px var(--ui);color:#4a2e10}.ftr-rd{width:10px;height:10px;border-radius:50%;background:var(--rc);border:1.5px solid #1b1024}
+.ftr-m.e .ftr-np{background:#3a2a20;color:#c8b090;box-shadow:none;border-color:#2a1a10}.ftr-m.e .ftr-np small{color:#a08a70}
+.ftr-al{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;height:100%;overflow:auto;padding:2px 6px 2px 2px;align-content:start}
+.ftr-a{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:12px;padding:5px 12px 5px 8px;border-radius:16px;background:linear-gradient(180deg,#221a5aee,#100a30f4);border:2px solid #3a3070}
+.ftr-a canvas{width:62px;height:62px}.ftr-a b{display:block;font:800 16px var(--ui);color:#fff8e8}.ftr-a small{display:block;font:500 12px var(--ui);color:#c4badf}.ftr-a span{font:700 11px var(--ui);color:#a89ed0}
+.ftr-ab{display:block;height:7px;margin:5px 0 2px;border-radius:4px;background:#0a0620;border:1px solid #3a3070;overflow:hidden}.ftr-ab i{display:block;height:100%;background:linear-gradient(90deg,#c8803a,#ffd45a)}
+.ftr-a.got{border-color:#ffd45a88}.ftr-a.cl{opacity:.8}
+.ftr-a button{height:40px;padding:0 12px;border-radius:11px;border:2px solid #1b1024;background:linear-gradient(180deg,#ffe27a,#f2b631);color:#3a2006;font:800 13px var(--ui);display:flex;align-items:center;gap:3px;cursor:pointer;box-shadow:0 3px 0 #9a6a10;white-space:nowrap}
+.ftr-ok{font:800 13px var(--ui);color:#7affb4;font-style:normal;white-space:nowrap}.ftr-rw{display:flex;align-items:center;gap:3px;font:700 13px var(--ui);color:#a89ed0;font-style:normal}
+.ftr-rec{display:grid;grid-template-columns:1fr 520px;gap:20px;height:100%}
+.ftr-rs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:start}.ftr-rs div{padding:14px 16px;border-radius:16px;background:linear-gradient(180deg,#221a5aee,#100a30f4);border:2px solid #3a3070;display:flex;flex-direction:column;gap:2px}
+.ftr-rs small{font:700 12px var(--ui);color:#c4badf;text-transform:uppercase;letter-spacing:.06em}.ftr-rs b{font:800 26px var(--ui);color:#fff8e8}.ftr-rs em{font:500 12px var(--ui);color:#a89ed0;font-style:normal}
+.ftr-rb{align-self:start;padding:14px 16px;border-radius:20px;background:linear-gradient(180deg,#221a5aee,#100a30f4);border:2px solid #3a3070;display:flex;flex-direction:column;gap:8px}.ftr-rb h4{margin:0 0 4px;padding-left:4px;font:400 30px 'Pirata One',Georgia,serif;color:var(--gold)}
+.ftr-rbi{display:flex;align-items:center;gap:12px;padding:6px 10px;border-radius:14px;background:#0b0724b8;border-left:4px solid var(--rc)}.ftr-rbi canvas{width:120px;height:64px}.ftr-rbi span{display:flex;flex-direction:column}
+.ftr-rbi small{font:800 11px var(--ui);color:var(--rc);text-transform:uppercase;letter-spacing:.06em}.ftr-rbi b{font:800 17px var(--ui);color:#fff8e8}.ftr-rbi em{font:500 12px var(--ui);color:#c4badf;font-style:normal}.ftr-rbi.no{opacity:.55;min-height:64px}
+.ftr-pk{position:relative;width:1000px;max-height:800px;display:flex;flex-direction:column;padding:20px 22px;animation:fsWb .35s var(--sp) both}
+.ftr-pl{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;overflow:auto;padding:2px}
+.ftr-pi{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;border-radius:14px;border:2px solid #3a3070;background:#120c34cc;color:#fff8e8;cursor:pointer;transition:transform .12s}.ftr-pi:hover{border-color:var(--rc);transform:translateY(-2px)}.ftr-pi.cur{border-color:#ffd45a}
+.ftr-pi canvas{width:150px;height:80px}.ftr-pi b{font:800 13px var(--ui)}.ftr-pi small{font:600 12px var(--ui);color:#c4badf}.ftr-pi em{position:absolute;top:6px;right:6px;font:700 10px var(--ui);padding:2px 6px;border-radius:6px;background:#2a1a08;color:#ffd45a;font-style:normal}
+.ftr-down{margin-top:12px;align-self:flex-start;height:40px;padding:0 16px;border-radius:12px;border:2px solid #5a4ca0;background:#1c1446;color:#ffb0b0;font:800 14px var(--ui);cursor:pointer}
+.fsdg-my{position:absolute;right:14px;top:56px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:3;pointer-events:none}
+.fsdg-myc{position:relative;display:block;flex:none;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#5a1a6a,#200a34 70%);border:3px solid #1b1024;box-shadow:0 0 0 2px #ff5ad8,0 6px 14px #000a}
+.fsdg-myc canvas{position:absolute;inset:0;width:100%;height:100%}
+.fsdg-myc i{position:absolute;inset:0;display:grid;place-items:center;font:400 46px/1 'Pirata One',Georgia,serif;color:#ff8ae8;text-shadow:0 2px 0 #1b1024;font-style:normal;animation:fsdgMyQ 2.4s ease-in-out infinite}
+@keyframes fsdgMyQ{50%{transform:scale(1.1);opacity:.75}}
+.fsdg-my em{padding:3px 9px;border-radius:9px;background:linear-gradient(180deg,#ff7ae0,#c82aa8);border:2px solid #1b1024;color:#fff;font:800 11px var(--ui);letter-spacing:.06em;text-transform:uppercase;font-style:normal;white-space:nowrap;box-shadow:0 3px 0 #6a0a5a}
+.fsdg-my.got .fsdg-myc,.fsdg-myp.got .fsdg-myc{box-shadow:0 0 0 2px #ffd45a,0 6px 14px #000a}
+.fsdg-pin2.my{grid-template-columns:132px 1fr auto auto;gap:22px}.fsdg-pin2.my .fsdg-prow .fsdg-bar{width:300px}.fsdg-pin2 .fsdg-myc canvas{width:100%;height:100%;border:none;border-radius:0;box-shadow:none}
+.fsdg-myp{display:flex;align-items:center;gap:10px;flex:none}.fsdg-myp .fsdg-myc{width:72px;height:72px}.fsdg-myp .fsdg-myc i{font-size:38px}
+.fsdg-myt{display:flex;flex-direction:column;max-width:220px}.fsdg-myt small{font:800 11px var(--ui);color:#ff8ae8;letter-spacing:.06em;text-transform:uppercase}.fsdg-myt b{font:800 17px var(--ui);color:#fff8e8}.fsdg-myt em{font:500 12px var(--ui);color:#c4badf;font-style:normal}
+@media (prefers-reduced-motion:reduce){.fsdg-myc i,.fsbt.pop,.fscr6.just{animation:none}}
+`;document.head.appendChild(st)}
 /* ===== HERO PATH FINISHERS: one signature attack animation per path =====
    Knight "Final Verdict" (a leaping slam with a golden crescent and a shockwave), Archer "Verdant Volley" (a fan of
    glowing arrows), Mage "Arcane Beam" (rune circles charge a beam), Rogue "Shadow Flurry" (a blur of violet strikes).

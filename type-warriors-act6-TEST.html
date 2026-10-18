@@ -34096,7 +34096,7 @@ fsJournal=function(id){S.mode='fish';S.view='fishjournal';FS.on=false;const F=fs
  <button class="fsback fsg fsjbk" id="fsback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Back <kbd>Esc</kbd></button></div>`,'fshx');
  S.back=()=>{FSH.jback=null;back()};$('fsback').onclick=S.back;{const cn=$('cn');if(cn)cn.classList.add('dkhid')}
  const bd=$('fsjb');LIVE.push({cv:bd,fn:fsBackdrop(bd,'rgba(6,3,20,.62)'),slow:3});
- const sp=$('fjspots');sp.innerHTML=[['all','All spots'],...FSLOCK.filter(k=>!FSLOCS[k].soon).map(k=>[k,FSLOCS[k].n])].map(([k,n])=>`<button data-jl="${k}" class="${FSH.jloc===k?'on':''}" style="--lc:${k==='all'?'#c8a87a':FSLOCS[k].c}">${n}${k!=='all'&&!fsLocOpen(k)?' <small>🔒</small>':''}</button>`).join('');
+ const sp=$('fjspots');const FJSN={pond:'Pond',frost:'Frostfall',grotto:'Grotto',cove:'Cove'};sp.innerHTML=[['all','All spots'],...FSLOCK.filter(k=>!FSLOCS[k].soon).map(k=>[k,FJSN[k]||FSLOCS[k].n.split(' ')[0]])].map(([k,n])=>`<button data-jl="${k}" class="${FSH.jloc===k?'on':''}" style="--lc:${k==='all'?'#c8a87a':FSLOCS[k].c}" title="${k==='all'?'All fishing spots':FSLOCS[k].n}" aria-label="${k==='all'?'All fishing spots':FSLOCS[k].n}${k!=='all'&&!fsLocOpen(k)?' (locked)':''}">${n}${k!=='all'&&!fsLocOpen(k)?' <small>🔒</small>':''}</button>`).join('');
  sp.querySelectorAll('[data-jl]').forEach(b=>b.onclick=()=>{FSH.jloc=b.dataset.jl;FSH.jgp=0;sp.querySelectorAll('[data-jl]').forEach(x=>x.classList.toggle('on',x===b));fsJGrid();fsJNav()});
  $('fsjp').onclick=()=>fsJStep(-1);$('fsjn').onclick=()=>fsJStep(1);
  {const L=fsJList(),k=L.indexOf(FSH.jsel);if(k>=0)FSH.jgp=Math.floor(k/12)}
@@ -34162,7 +34162,7 @@ fsJPage=function(dir){const r=$('fsjr');if(!r)return;const id=FSH.jsel,f=FISH[id
 .fj-cnt{display:flex;flex-direction:column;align-items:center;gap:4px;margin:30px 34px 0 0}.fj-cnt span{font:700 14px 'Cinzel',Georgia,serif;letter-spacing:.06em;color:#5a3a24;text-transform:uppercase}
 .fj-cnt em,.fj-orn{display:flex;align-items:center;gap:6px;color:#9a7a5a}.fj-cnt em i,.fj-orn i{width:56px;height:1.5px;background:currentColor}.fj-cnt svg,.fj-orn svg{width:26px;height:12px}
 .fj-sprig{position:absolute;right:16px;top:30px;width:30px;height:56px;color:#a8845a;opacity:.8}
-.fj-spots{display:flex;gap:6px;padding:12px 30px 0}.fj-spots button{height:26px;padding:0 11px;border-radius:13px;border:1.5px solid #c8a87a;background:#f6ead0;color:#5a3a24;font:700 11.5px 'Cinzel',Georgia,serif;cursor:pointer}.fj-spots button.on{background:#5a2a14;color:#ffe9a0;border-color:#5a2a14}.fj-spots small{font-size:10px}
+.fj-spots{display:flex;gap:6px;padding:12px 30px 0}.fj-spots button{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.fj-spots button{height:26px;padding:0 8px;border-radius:13px;border:1.5px solid #c8a87a;background:#f6ead0;color:#5a3a24;font:700 11.5px 'Cinzel',Georgia,serif;cursor:pointer}.fj-spots button.on{background:#5a2a14;color:#ffe9a0;border-color:#5a2a14}.fj-spots small{font-size:10px}
 .fj-grid{position:absolute;left:30px;right:30px;top:184px;height:298px;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(var(--rows),1fr);gap:10px}
 .fj-grid.in .fj-c{animation:fjIn .32s var(--sp) both}.fj-grid.in .fj-c:nth-child(4n+2){animation-delay:.03s}.fj-grid.in .fj-c:nth-child(4n+3){animation-delay:.06s}.fj-grid.in .fj-c:nth-child(4n+4){animation-delay:.09s}@keyframes fjIn{from{opacity:0;transform:translateY(8px) scale(.96)}}
 .fsj2 .fj-c{position:relative;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 6px 8px;border-radius:12px;border:2px solid #d0b088;background:linear-gradient(180deg,#f8eed6,#efdfbb);box-shadow:inset 0 0 0 3px #fbf3de,0 2px 0 #c8a87a66;color:#3a2414;cursor:pointer;transition:transform .16s var(--sp)}
@@ -35849,8 +35849,8 @@ function odPageArt(g,w,h,t){const R=od_rng(73),m=Math.max(6,Math.min(w,h)*.035),
 /* Not every bite is a fish. Now and then the line brings up an old boot (1 in 80 casts), a message in a bottle (1 in 120),
    a sunken chest (1 in 250) or a lost ring (1 in 600). They are reeled in with words from a treasure list and land through
    the normal catch flow (each has a FISHART entry from 90s2 and a FISH entry that is NOT in FIDS, so no bestiary or bounty
-   counts them), then show their own card. Bottles carry the 8 pages of the lighthouse keeper's story; the 8th page opens the
-   secret spot, Lighthouse Cove. Rings are returned to their owners at the Tavern Bounty Board ("Lost & Found"); ten boots earn
+   counts them), then show their own card. Bottles carry the 4 pages of the lighthouse keeper's story; the 4th page opens the
+   secret spot, Lighthouse Cove (1 in 50 casts while pages are missing, and one is guaranteed after 80 dry casts). Rings are returned to their owners at the Tavern Bounty Board ("Lost & Found"); ten boots earn
    the "Bootlegger" title. Save: P.fish.odd {boot,bottle,chest,ring,pg,rings:[owner],ret:[owner],gold,title}. */
 const FSODD={
  boot:{n:'Old Boot',p:1/80,rk:'c',c:'#b89a6a',d:'Soggy, smelly and very much not a fish.'},
@@ -35863,16 +35863,15 @@ FSODDK.forEach(k=>{const O=FSODD[k];FISH['odd'+k]={n:O.n,r:O.rk,len:k==='boot'?[
 const FSODDW=[['anchor','cork','coin','rope','sail','gull','pearl','kelp','mast','keel','crab','shell','tide','reef','salt','buoy','oar','dock'],
  ['lantern','compass','doubloon','galleon','seaweed','treasure','captain','harbour','cutlass','sextant','spyglass','barnacle','parchment','shipwreck','lighthouse']];
 const FSPAGES=[
- 'Day 1. I am Elias Thornwick, keeper of the Stormreach light. Each night I trim the wick and watch the sea. Tonight the water under the cliff glowed back at me.',
- 'Day 9. Something answers my lamp from beneath the waves: a soft green light, swimming slow circles below the rocks. The fish follow it like sheep follow a shepherd.',
+ 'Day 1. I am Elias Thornwick, keeper of the Stormreach light. Each night I trim the wick and watch the sea. Tonight the water under the cliff glowed back at me, and the fish followed the glow like sheep follow a shepherd.',
+ 'Day 23. A storm drove the merchant ship Gilded Gull onto the reef. I lit every lamp I had, and every sailor reached the hidden cove beneath my lighthouse alive. No map shows it. Only lamplight finds it.',
  'To whoever finds this: the old lighthouse keeper never left Stormreach. On the night of the new moon, cast where his lamp still glows…',
- 'Day 23. A storm drove the merchant ship Gilded Gull onto the reef. I lit every lamp I had. I could not save the ship, but every sailor reached my cove alive.',
- 'Day 30. There is a cove beneath the lighthouse that no map shows. Its only door is the sea, and only lamplight finds it.',
- 'Day 41. My lamp is failing. I have been teaching the green light to carry it. I think it understands. It is a fish, and yet it waits for me at the steps each night.',
- 'Last entry. If my lamp goes dark, the light below will keep it burning. Follow the beam, fisher. Bring a patient line and a kind heart.',
  'Tucked behind the last page is a rough map: a lighthouse, a ring of rocks, a rickety pier… and an X where the beam meets the water. You know where to go now.'];
-const FSPAGEBY=['Elias Thornwick','Elias Thornwick','an unknown hand','Elias Thornwick','Elias Thornwick','Elias Thornwick','Elias Thornwick','a hand-drawn map'];
-const FSNOTES=['A keeper\'s shopping list: lamp oil, three candles, sardines (for the green light).','A child\'s drawing of a glowing fish carrying a lantern.','"The beam turns once a minute. The fish turn with it." — E.T.','A recipe for fish stew, with "NOT the green one!" underlined twice.','A sailor\'s thank-you note: "To the keeper of the cove, for my life."'];
+const FSPGN=FSPAGES.length;
+const FSPAGEBY=['Elias Thornwick','Elias Thornwick','an unknown hand','a hand-drawn map'];
+const FSNOTES=['"Day 41. My lamp is failing. I have been teaching the green light to carry it. It is a fish, and yet it waits for me at the steps each night." — E.T.','"Last entry. If my lamp goes dark, the light below will keep it burning. Bring a patient line and a kind heart." — E.T.','A keeper\'s shopping list: lamp oil, three candles, sardines (for the green light).','A child\'s drawing of a glowing fish carrying a lantern.','"The beam turns once a minute. The fish turn with it." — E.T.','A recipe for fish stew, with "NOT the green one!" underlined twice.','A sailor\'s thank-you note: "To the keeper of the cove, for my life."'];
+/* until the cove is found, bottles bite more often (1 in 50 casts) and one is guaranteed after 80 casts without one */
+const FSBOTP=1/50,FSBOTPITY=80;
 const FSRINGS=[
  {n:'Old Bertha the cook',e:'To my Bertie, forty years and counting',g:250,gift:{worm:10},thx:'Bertha bursts into happy tears and sends you a pie and ten casts of Glow Worms.'},
  {n:'Captain Rook',e:'Fair winds — R.',g:300,gift:{moth:10},thx:'The old captain salutes you and hands over ten Moonmoth Lures from his sea chest.'},
@@ -35880,14 +35879,15 @@ const FSRINGS=[
  {n:'Sir Percival',e:'Courage, always',g:300,gift:{spore:10},thx:'Sir Percival bows deeply and gives you ten casts of Glowcap Spores.'},
  {n:'Mira the miller',e:'Mira & Tobin, forever',g:250,gift:{roe:4},thx:'Mira hugs you so hard your hat falls off, then gives you four Starlight Roe.'},
  {n:'The Mayor of Stormreach',e:'Property of the Mayor. Do NOT lose again.',g:400,gift:{roe:8},thx:'The Mayor pretends he never lost it, and quietly pays you well, plus eight Starlight Roe.'}];
-function fsOddP(){const F=fsP();if(!F.odd||typeof F.odd!=='object')F.odd={};const O=F.odd;FSODDK.forEach(k=>O[k]=O[k]|0);O.pg=Math.min(8,O.pg|0);O.rings=Array.isArray(O.rings)?O.rings:[];O.ret=Array.isArray(O.ret)?O.ret:[];O.gold=O.gold|0;return O}
-const fsCoveOpen=()=>fsOddP().pg>=8;
+function fsOddP(){const F=fsP();if(!F.odd||typeof F.odd!=='object')F.odd={};const O=F.odd;FSODDK.forEach(k=>O[k]=O[k]|0);O.pg=Math.min(FSPGN,O.pg|0);O.rings=Array.isArray(O.rings)?O.rings:[];O.ret=Array.isArray(O.ret)?O.ret:[];O.gold=O.gold|0;return O}
+const fsCoveOpen=()=>fsOddP().pg>=FSPGN;
 /* the secret spot opens with the eighth page, not with species */
-function fsLocOpen(k){const L=FSLOCS[k];if(!L||L.soon)return false;if(L.secret)return!!(P.fish&&fsOddP().pg>=8);return fsFound()>=L.need}
+function fsLocOpen(k){const L=FSLOCS[k];if(!L||L.soon)return false;if(L.secret)return!!(P.fish&&fsOddP().pg>=FSPGN);return fsFound()>=L.need}
 /* ---------- rolling an odd catch (never in the first casts, never during the tutorial) ---------- */
 let FSODDSCALE=1;
-function fsOddRoll(rnd){rnd=rnd||Math.random;const F=fsP();if((F.s.cast||0)<8)return null;let x=rnd();
- for(const k of FSODDK){const p=FSODD[k].p*FSODDSCALE;if(x<p){const id='odd'+k,f=FISH[id];return{id,rk:FSODD[k].rk,cm:Math.round((f.len[0]+(f.len[1]-f.len[0])*rnd())*10)/10,g:false,odd:k}}x-=p}return null}
+function fsOddRoll(rnd){rnd=rnd||Math.random;const F=fsP();if((F.s.cast||0)<8)return null;const O=fsOddP(),hunt=O.pg<FSPGN;let x=rnd();
+ if(hunt){O.dry=(O.dry|0)+1;if(O.dry>=FSBOTPITY)x=FSODD.boot.p*FSODDSCALE+1e-9}
+ for(const k of FSODDK){const p=(k==='bottle'&&hunt?FSBOTP:FSODD[k].p)*FSODDSCALE;if(x<p){const id='odd'+k,f=FISH[id];if(k==='bottle')O.dry=0;return{id,rk:FSODD[k].rk,cm:Math.round((f.len[0]+(f.len[1]-f.len[0])*rnd())*10)/10,g:false,odd:k}}x-=p}return null}
 {const r0=fsRoll;fsRoll=function(rnd){if(FS.on&&!FS.tut){const o=fsOddRoll();if(o)return o}return r0.apply(this,arguments)}}
 {const w0=fsWords;fsWords=function(rk){const c=FS.cur;if(c&&c.odd&&(FS.st==='wait'||FS.st==='reel'||FS.st==='stage'||FS.st==='cast')){const st=FSR[rk].st,L=FSODDW[c.odd==='chest'||c.odd==='ring'?1:0],out=[];for(let i=0;i<st;i++){const p=L.filter(w=>!out.includes(w));out.push(p[Math.random()*p.length|0])}return out}return w0.apply(this,arguments)}}
 /* "Something's on the line… not a fish!" bubble by the bobber */
@@ -35902,15 +35902,15 @@ function fsOddBubble(){const x=$('fsx');if(!x||!FS.bob)return;let b=$('fsodb');i
 {const v0=fsReveal;fsReveal=function(){const S0=FS.show;if(S0&&S0.c&&S0.c.odd){const c=S0.c;FS.show=null;FS.pend=null;let R;try{R=fsOddGive(c.odd)}catch(e){console.error(e);R={t:'',lines:[]}}FS.odd={c,R};fsSet('odd');try{fsOddCard(c,R)}catch(e){console.error(e)}return}return v0.apply(this,arguments)}}
 function fsOddGive(k){const O=fsOddP(),F=fsP();O[k]++;let R={k,gold:0,lines:[]};
  if(k==='boot'){P.gold+=1;R.gold=1;R.lines.push(`Boots fished: <b>${O.boot}</b>${O.boot<10?` / 10 toward the “Bootlegger” title`:''}`);if(O.boot===10){O.title='Bootlegger';R.title=1}}
- else if(k==='bottle'){if(O.pg<8){O.pg++;R.page=O.pg;if(O.pg===8){R.cove=1;FS.unlockNote='cove'}}else{const g=40;P.gold+=g;R.gold=g;R.note=FSNOTES[(O.bottle-9+FSNOTES.length*10)%FSNOTES.length]}}
+ else if(k==='bottle'){if(O.pg<FSPGN){O.pg++;R.page=O.pg;if(O.pg===FSPGN){R.cove=1;FS.unlockNote='cove'}}else{const g=40;P.gold+=g;R.gold=g;R.note=FSNOTES[(O.bottle-FSPGN-1+FSNOTES.length*10)%FSNOTES.length]}}
  else if(k==='chest'){const x=Math.random();if(x<.6){const g=80+Math.round(Math.random()*12)*10;P.gold+=g;R.gold=g;R.lines.push(`<b>${g}</b> gold coins, still shiny`)}
   else{const B=typeof fsBaitP==='function'?fsBaitP():null;const pool=x<.85?['worm','moth','shrimp','spore'].filter(b=>!FSBAIT[b].loc||fsLocOpen(FSBAIT[b].loc)):['roe'];const b=pool[Math.random()*pool.length|0],n=b==='roe'?6:10;
    if(B){B.inv[b]=(B.inv[b]||0)+n;if(!B.on)B.on=b}const g=b==='roe'?50:30;P.gold+=g;R.gold=g;R.bait={k:b,n};R.lines.push(`A crate of <b>${n} ${FSBAIT[b].n}</b>`,`<b>${g}</b> gold coins`)}}
  else if(k==='ring'){const left=FSRINGS.map((r,i)=>i).filter(i=>!O.rings.includes(i)&&!O.ret.includes(i));if(left.length){const i=left[0];O.rings.push(i);R.owner=i}else{P.gold+=250;R.gold=250;R.lines.push('Nobody is missing it any more. The tavern buys it for <b>250</b> gold.')}}
  O.gold+=R.gold;if(R.gold){fsSt('gold',R.gold,'add')}save();return R}
 function fsOddCard(c,R){const x=$('fsx');if(!x)return;const k=c.odd,O=FSODD[k],P0=fsOddP();let body='',art='';
- if(k==='bottle'&&R.page){body=`<div class="fsod-pg"><canvas width="520" height="250" id="fsodpc" aria-hidden="true"></canvas><p>“${fsEsc(FSPAGES[R.page-1])}”</p><em>— page ${R.page} of 8 · ${FSPAGEBY[R.page-1]}</em></div>
-  <p class="fsod-s">${R.cove?'<b>The last page!</b> A secret fishing spot is waiting: <b>Lighthouse Cove</b>. Find it on the Fishing Spots map.':`Collect all 8 pages to find a secret spot with its own Mythic. <b>${R.page} / 8</b> found.`}</p>`}
+ if(k==='bottle'&&R.page){body=`<div class="fsod-pg"><canvas width="520" height="250" id="fsodpc" aria-hidden="true"></canvas><p>“${fsEsc(FSPAGES[R.page-1])}”</p><em>— page ${R.page} of ${FSPGN} · ${FSPAGEBY[R.page-1]}</em></div>
+  <p class="fsod-s">${R.cove?'<b>The last page!</b> A secret fishing spot is waiting: <b>Lighthouse Cove</b>. Find it on the Fishing Spots map.':`Collect all ${FSPGN} pages to find a secret spot with its own Mythic. <b>${R.page} / ${FSPGN}</b> found.`}</p>`}
  else if(k==='bottle')body=`<div class="fsod-pg"><canvas width="520" height="250" id="fsodpc" aria-hidden="true"></canvas><p>${fsEsc(R.note||'')}</p><em>— a keeper's note · +${R.gold} gold</em></div>`;
  else if(k==='ring'&&R.owner!=null){const r=FSRINGS[R.owner];body=`<p class="fsod-eng">Engraved inside: <i>“${fsEsc(r.e)}”</i></p><p class="fsod-s">It belongs to <b>${r.n}</b>. Return it at the <b>Tavern Bounty Board</b> (Lost &amp; Found) for a reward.</p>`}
  else body=`<ul class="fsod-l">${R.lines.map(l=>`<li>${l}</li>`).join('')}</ul>${R.title?'<p class="fsod-s"><b>Title earned: “Bootlegger”!</b> It shows in your Trophy Hall.</p>':''}`;
@@ -35934,24 +35934,24 @@ function fsRingReturn(i){const O=fsOddP(),j=O.rings.indexOf(i);if(j<0)return nul
   s.querySelectorAll('[data-rret]').forEach(b=>b.onclick=()=>{const R=fsRingReturn(+b.dataset.rret);if(!R)return;try{fsSfx('buy');setTimeout(()=>fsSfx('r'),200)}catch(e){}b.parentNode.innerHTML=`<p class="fsbb-thx">${fsEsc(R.thx)} <b>+${R.g} gold</b></p>`;try{fsHudRefresh();const gd=$('fsgold');if(gd)gd.textContent=P.gold.toLocaleString()}catch(e){}})}catch(e){console.error(e)}return r}}
 /* ---------- achievements for the odd catches ---------- */
 FSACH.push({k:'boot',m:'catch',n:'Bootlegger',d:'Fish up 10 old boots',g:10,v:()=>fsOddP().boot,rw:100},
- {k:'pages',m:'bounty',n:'Message Received',d:'Collect all 8 bottle pages',g:8,v:()=>fsOddP().pg,rw:500},
+ {k:'pages',m:'bounty',n:'Message Received',d:`Collect all ${FSPGN} bottle pages`,g:FSPGN,v:()=>fsOddP().pg,rw:500},
  {k:'ringret',m:'gold',n:'Good Samaritan',d:'Return a lost ring',g:1,v:()=>fsOddP().ret.length,rw:150},
  {k:'chests',m:'gold',n:'Treasure Hunter',d:'Haul up 3 sunken chests',g:3,v:()=>fsOddP().chest,rw:200});
 /* ---------- the Trophy Hall's Curios tab: pages, boots, chests, rings ---------- */
 function fsCurHTML(){const O=fsOddP();
- return `<div class="ftr-cur"><section class="ftr-pages"><h4>The Keeper's Pages <small>${O.pg} / 8</small></h4><div class="ftr-pgl">${FSPAGES.map((p,i)=>i<O.pg?`<button class="ftr-pgb" data-pg="${i}"><b>${i+1}</b><span>${fsEsc(p.slice(0,58))}…</span></button>`:`<div class="ftr-pgb no"><b>${i+1}</b><span>A page still lost at sea</span></div>`).join('')}</div>
-  <p class="ftr-pgn">${O.pg>=8?'You found every page. Lighthouse Cove is yours to fish.':'Message bottles bite about once in 120 casts. Each one holds the next page.'}</p></section>
-  <section class="ftr-odds">${FSODDK.map(k=>`<div class="ftr-odd" style="--oc:${FSODD[k].c}"><canvas width="120" height="80" data-oddart="odd${k}" aria-hidden="true"></canvas><span><b>${FSODD[k].n}</b><small>${O[k]} found · ${k==='boot'?(O.title?'Title: Bootlegger':`${Math.min(O.boot,10)} / 10 toward Bootlegger`):k==='ring'?`${O.ret.length} returned${O.rings.length?` · ${O.rings.length} waiting at the board`:''}`:k==='chest'?'gold, crates and rare bait':'pages and keeper\'s notes'}</small></span><em>1 in ${Math.round(1/FSODD[k].p)}</em></div>`).join('')}
+ return `<div class="ftr-cur"><section class="ftr-pages"><h4>The Keeper's Pages <small>${O.pg} / ${FSPGN}</small></h4><div class="ftr-pgl">${FSPAGES.map((p,i)=>i<O.pg?`<button class="ftr-pgb" data-pg="${i}"><b>${i+1}</b><span>${fsEsc(p.slice(0,58))}…</span></button>`:`<div class="ftr-pgb no"><b>${i+1}</b><span>A page still lost at sea</span></div>`).join('')}</div>
+  <p class="ftr-pgn">${O.pg>=FSPGN?'You found every page. Lighthouse Cove is yours to fish.':`Message bottles bite about once in ${Math.round(1/FSBOTP)} casts (one is guaranteed within ${FSBOTPITY} casts). Each holds the next page.`}</p></section>
+  <section class="ftr-odds">${FSODDK.map(k=>`<div class="ftr-odd" style="--oc:${FSODD[k].c}"><canvas width="120" height="80" data-oddart="odd${k}" aria-hidden="true"></canvas><span><b>${FSODD[k].n}</b><small>${O[k]} found · ${k==='boot'?(O.title?'Title: Bootlegger':`${Math.min(O.boot,10)} / 10 toward Bootlegger`):k==='ring'?`${O.ret.length} returned${O.rings.length?` · ${O.rings.length} waiting at the board`:''}`:k==='chest'?'gold, crates and rare bait':'pages and keeper\'s notes'}</small></span><em>1 in ${Math.round(1/(k==='bottle'&&O.pg<FSPGN?FSBOTP:FSODD[k].p))}</em></div>`).join('')}
    <p class="ftr-pgn">Gold from odd catches: <b>${O.gold.toLocaleString()}</b>${O.title?` · <b class="ftr-title">“${O.title}”</b>`:''}</p></section></div>`}
 function fsCurBind(){ov.querySelectorAll('canvas[data-oddart]').forEach(cv=>fishFit(cv.getContext('2d'),cv.dataset.oddart,60,40,112,74,{t:.4}));
- ov.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{const i=+b.dataset.pg;fsU6Modal(`<div class="fsod fsg k-bottle fsod-m" style="--oc:#7affc8"><button class="fsx2" id="fsx2" aria-label="Close">✕</button><h3>Page ${i+1} of 8</h3><div class="fsod-pg"><canvas width="520" height="250" id="fsodpc" aria-hidden="true"></canvas><p>“${fsEsc(FSPAGES[i])}”</p><em>— ${FSPAGEBY[i]}</em></div></div>`,'trophy');const pc=$('fsodpc');if(pc){const pg=pc.getContext('2d');if(typeof odPageArt==='function')odPageArt(pg,520,250,0);else{pg.fillStyle='#f2e2bc';pg.fillRect(0,0,520,250)}}})}
+ ov.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{const i=+b.dataset.pg;fsU6Modal(`<div class="fsod fsg k-bottle fsod-m" style="--oc:#7affc8"><button class="fsx2" id="fsx2" aria-label="Close">✕</button><h3>Page ${i+1} of ${FSPGN}</h3><div class="fsod-pg"><canvas width="520" height="250" id="fsodpc" aria-hidden="true"></canvas><p>“${fsEsc(FSPAGES[i])}”</p><em>— ${FSPAGEBY[i]}</em></div></div>`,'trophy');const pc=$('fsodpc');if(pc){const pg=pc.getContext('2d');if(typeof odPageArt==='function')odPageArt(pg,520,250,0);else{pg.fillStyle='#f2e2bc';pg.fillRect(0,0,520,250)}}})}
 /* ---------- Fishing Spots: the secret card stays a mystery until the eighth page ---------- */
 {const s0=fsdgState;fsdgState=function(k){const s=s0.apply(this,arguments);if(s.L&&s.L.secret){s.secret=1;s.pg=fsOddP().pg}return s}}
 {const c0=fsdgCard;fsdgCard=function(k,i){let h=c0.apply(this,arguments);const L=FSLOCS[k];if(!L||!L.secret||fsCoveOpen())return h;const pg=fsOddP().pg;
-  h=h.replace(/<span class="fsdg-info">[\s\S]*<\/span><\/button>$/,`<span class="fsdg-info"><b>???</b><small>A secret spot, somewhere beyond the waves.</small><em>Collect 8 bottle pages</em><i class="fsdg-bar lk" aria-hidden="true"><i style="width:${pg/8*100}%"></i></i><span class="fsdg-sub">${pg} / 8 pages found</span></span></button>`)
-   .replace(/<span class="fsdg-ban lk">[\s\S]*?<\/span>/,`<span class="fsdg-ban lk">${FSDGLOCK}Secret</span>`).replace(/aria-label="[^"]*"/,`aria-label="A secret spot. Collect 8 bottle pages to find it. ${pg} of 8 found."`);return h}}
+  h=h.replace(/<span class="fsdg-info">[\s\S]*<\/span><\/button>$/,`<span class="fsdg-info"><b>???</b><small>A secret spot, somewhere beyond the waves.</small><em>Collect ${FSPGN} bottle pages</em><i class="fsdg-bar lk" aria-hidden="true"><i style="width:${pg/FSPGN*100}%"></i></i><span class="fsdg-sub">${pg} / ${FSPGN} pages found</span></span></button>`)
+   .replace(/<span class="fsdg-ban lk">[\s\S]*?<\/span>/,`<span class="fsdg-ban lk">${FSDGLOCK}Secret</span>`).replace(/aria-label="[^"]*"/,`aria-label="A secret spot. Collect ${FSPGN} bottle pages to find it. ${pg} of ${FSPGN} found."`);return h}}
 {const p0=fsdgPanel;fsdgPanel=function(){let h=p0.apply(this,arguments);const k=FSDG.sel,L=FSLOCS[k];if(!L||!L.secret||fsCoveOpen())return h;const pg=fsOddP().pg;
-  return h.replace(/<h3>[\s\S]*?<\/h3>/,'<h3>A secret spot</h3>').replace(/<p>[^<]*<\/p>/,'<p>Message bottles sometimes drift onto your line. Their pages tell where the keeper\'s lamp still glows.</p>').replace(/<p class="fsdg-pst">[\s\S]*?<\/p>/,`<p class="fsdg-pst">Collect all <b>8</b> bottle pages to find this spot.</p>`).replace(/<div class="fsdg-prow">[\s\S]*?<\/i><\/i><\/div>/,'').replace(/(Collect all <b>8<\/b> bottle pages to find this spot\.)/,`$1 <b>${pg} / 8</b> found.`)}}
+  return h.replace(/<h3>[\s\S]*?<\/h3>/,'<h3>A secret spot</h3>').replace(/<p>[^<]*<\/p>/,'<p>Message bottles sometimes drift onto your line. Their pages tell where the keeper\'s lamp still glows.</p>').replace(/<p class="fsdg-pst">[\s\S]*?<\/p>/,`<p class="fsdg-pst">Collect all <b>${FSPGN}</b> bottle pages to find this spot.</p>`).replace(/<div class="fsdg-prow">[\s\S]*?<\/i><\/i><\/div>/,'').replace(/(bottle pages to find this spot\.)/,`$1 <b>${pg} / ${FSPGN}</b> found.`)}}
 /* a hidden card shows the cove as a dark, foggy mystery (cached once; replaced when the cove opens) */
 {const a0=fsdgArt;fsdgArt=function(k){const L=FSLOCS[k];if(!L||!L.secret)return a0.apply(this,arguments);const key=fsCoveOpen()?'cove':'cove?';if(FSDG.art[key])return FSDG.art[key];
   let c;if(!FSLOCART.cove){c=document.createElement('canvas');c.width=738;c.height=800;const g=c.getContext('2d');g.fillStyle=fkLin(g,0,0,0,800,['#0a1430','#081022','#04060f']);g.fillRect(0,0,738,800)}else{delete FSDG.art[k];c=a0.call(this,k);delete FSDG.art[k]}

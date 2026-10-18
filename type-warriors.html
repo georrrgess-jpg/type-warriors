@@ -36397,6 +36397,17 @@ document.addEventListener('pointerdown',e=>{const q=$('fsbq');if(q&&!q.contains(
 .fsbc.out{border-color:#ff8a8a}.fsbc.out small{color:#ffb0b0}
 @media (prefers-reduced-motion:reduce){.fsbq{animation:none}}
 `;document.head.appendChild(st)}
+/* ---------- why a catch is worth keeping: a rod look it helps craft comes first ---------- */
+/* the unmade rod looks this fish counts toward, closest to finished first: [{k,have,n,left}] */
+function fsRodNeeds(c){const F=fsP(),out=[];for(const k of FSKINK){const n=FSKIN[k].k[c.id];if(F.sk[k]||!n)continue;const have=F.cr.filter(x=>x.id===c.id).length;if(have>=n)continue;
+  const left=Object.entries(FSKIN[k].k).reduce((a,[id,m])=>a+Math.max(0,m-F.cr.filter(x=>x.id===id).length),0);out.push({k,have,n,left})}
+ return out.sort((a,b)=>a.left-b.left)}
+/* The reason shown as "Worth keeping: …" (and used for the default Keep):
+   1. a rod look it helps complete (only while "Save fish I need for rod looks" is on, unless the fish is Rare or rarer and kept anyway)
+   2. its rarity (Rare / Legendary / Mythic catch), 3. a new species, 4. a giant */
+function fsKeepWhy(c){if(!c||!FISH[c.id]||c.odd)return'';const F=fsP(),rare=FSR[c.rk].k>=2;
+ const rods=(F.look!==0||rare)?fsRodNeeds(c):[];if(rods.length){const r=rods[0],more=rods.length-1;return`for the ${FSKIN[r.k].n} rod (${r.have}/${r.n})${more?` · +${more} more`:''}`}
+ if(rare)return FSR[c.rk].n+' catch';if(c.info&&c.info.first)return'New species!';if(c.g)return'Giant!';return''}
 /* ===== HERO PATH FINISHERS: one signature attack animation per path =====
    Knight "Final Verdict" (a leaping slam with a golden crescent and a shockwave), Archer "Verdant Volley" (a fan of
    glowing arrows), Mage "Arcane Beam" (rune circles charge a beam), Rogue "Shadow Flurry" (a blur of violet strikes).

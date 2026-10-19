@@ -24544,8 +24544,8 @@ const FSR={/* rarity: colour, base odds (%), reeling stages, line hearts, word p
  u:{n:'Uncommon',c:'#6ee08a',o:20,st:1,hp:1,k:1,pl:.40},
  r:{n:'Rare',c:'#5ab8ff',o:5,st:2,hp:1,k:2,pl:.40},
  l:{n:'Legendary',c:'#ffc23a',o:.25,st:3,hp:2,k:3,pl:.36},
- /* Mythic: one per new spot, only there; about 1 in 800 casts at its spot */
- m:{n:'Mythic',c:'#ff5ad8',o:.125,st:4,hp:2,k:4,pl:.34}};
+ /* Mythic: one per new spot, only there; about 1 in 320 casts at its spot (was 1 in 800 before update 8) */
+ m:{n:'Mythic',c:'#ff5ad8',o:.3125,st:4,hp:2,k:4,pl:.34}};
 const FSRK=['c','u','r','l','m'];
 /* the 30 fish (24 at the Tavern Pond, 6 more at the new spots). len = [min,max] in cm; v = base sale value in gold at average size; w = relative weight inside its rarity;
    home = where it is drawn swimming in the bestiary blurb; d = one short line of lore */
@@ -24673,7 +24673,9 @@ function fsRoll(rnd){rnd=rnd||Math.random;const F=fsP(),M=fsMoon(),o=fsOdds(F.up
  const uu=giant?Math.min(1,.92+rnd()*.08+hk*.2):Math.min(.92,u);const cm=Math.round((f.len[0]+(f.len[1]-f.len[0])*uu)*10)/10;
  return{id,rk,cm,g:giant}}
 /* sale value: base x size factor (bigger is worth more), giants x2 (x2.5 with a max Hook), featured fish +50% */
-function fsValue(c){const f=FISH[c.id],mid=(f.len[0]+f.len[1])/2,sz=Math.pow(Math.max(.4,c.cm/mid),1.25),hk=fsP().up.hook||0;let v=f.v*sz*(c.g?2:1);if(c.ft!=null?c.ft:c.id===fsMoon().feat)v*=1.5;return Math.max(1,Math.round(v))}
+/* update 8: every fish sells for 15% more */
+const FSPAY=1.15;
+function fsValue(c){const f=FISH[c.id],mid=(f.len[0]+f.len[1])/2,sz=Math.pow(Math.max(.4,c.cm/mid),1.25),hk=fsP().up.hook||0;let v=f.v*FSPAY*sz*(c.g?2:1);if(c.ft!=null?c.ft:c.id===fsMoon().feat)v*=1.5;return Math.max(1,Math.round(v))}
 /* words for a catch: one per stage, never repeating inside a fight */
 let FSRECENT=[];
 function fsWords(rk){const k=FSR[rk].k,st=FSR[rk].st,out=[];for(let i=0;i<st;i++){const pool=FSW[Math.min(3,k===4?(i===0?2:3):k===3?(i===st-1?3:2):k)].filter(w=>!out.includes(w)&&!FSRECENT.includes(w));const w=pool[Math.random()*pool.length|0]||FSW[Math.min(3,k)][0];out.push(w)}
@@ -35436,7 +35438,7 @@ const fsSpotMyth=k=>(FSPOOL[k]||[]).find(id=>FISH[id].r==='m')||'';
   h=h.replace(/<\/button>\s*$/,`<span class="fsdg-my${got?' got':''}" title="Only one Mythic lives here: ${got?FISH[id].n:'not found yet'}"><span class="fsdg-myc"><canvas width="96" height="96" data-my="${id}" data-got="${got?1:0}" aria-hidden="true"></canvas>${got?'':'<i aria-hidden="true">?</i>'}</span><em>1 Mythic here</em></span></button>`);
   h=h.replace('aria-label="','aria-label="One Mythic fish lives here. ')}}catch(e){}return h}}
 {const p0=fsdgPanel;fsdgPanel=function(){let h=p0.apply(this,arguments);try{const k=FSDG.sel,id=fsSpotMyth(k);if(id){const b=fsP().b[id],got=!!(b&&b.n);
-  h=h.replace('class="fsdg-pin2"','class="fsdg-pin2 my"').replace('<button class="fsdg-go"',`<div class="fsdg-myp${got?' got':''}"><span class="fsdg-myc"><canvas width="96" height="96" data-my="${id}" data-got="${got?1:0}" aria-hidden="true"></canvas>${got?'':'<i aria-hidden="true">?</i>'}</span><span class="fsdg-myt"><small>Only one Mythic lives here</small><b>${got?FISH[id].n:'Unknown Mythic'}</b><em>${got?`Caught ×${b.n} · it can bite again`:'Roughly 1 in 800 casts here'}</em></span></div><button class="fsdg-go"`)}}catch(e){}return h}}
+  h=h.replace('class="fsdg-pin2"','class="fsdg-pin2 my"').replace('<button class="fsdg-go"',`<div class="fsdg-myp${got?' got':''}"><span class="fsdg-myc"><canvas width="96" height="96" data-my="${id}" data-got="${got?1:0}" aria-hidden="true"></canvas>${got?'':'<i aria-hidden="true">?</i>'}</span><span class="fsdg-myt"><small>Only one Mythic lives here</small><b>${got?FISH[id].n:'Unknown Mythic'}</b><em>${got?`Caught ×${b.n} · it can bite again`:'Roughly 1 in ${Math.round(100/FSR.m.o)} casts here'}</em></span></div><button class="fsdg-go"`)}}catch(e){}return h}}
 function fsdgMyDraw(){ov.querySelectorAll('canvas[data-my]').forEach(cv=>{if(cv.dataset.dn)return;cv.dataset.dn=1;const g=cv.getContext('2d'),got=cv.dataset.got==='1';g.clearRect(0,0,96,96);
  fishFit(g,cv.dataset.my,48,50,90,66,{t:.4,sil:got?0:'#1c0a34',glow:got?.4:0})})}
 {const m0=fsMap;fsMap=function(){const r=m0.apply(this,arguments);try{fsdgMyDraw()}catch(e){}return r}}

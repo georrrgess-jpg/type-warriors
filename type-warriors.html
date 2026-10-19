@@ -4777,10 +4777,10 @@ function spawn(){const zi=zoneIdx(S.wave),z=lvDef(S.wave),md=z.mod,boss=S.round=
 function newBossLine(e,msg){e.w=S.dc?dcBossLine():bossLine(lvDef(S.wave),e.tier,e.used);e.used.push(e.w);e.tel=null;e.q=[];e.i=0;e.slip=0;e.vul=0;e.tmax=(S.camp>=28?1.65:S.camp>=27?1.3:1)*(S.camp>=7?1.08:1)*1.25*(6+e.w.length/(2.6+Math.min(2,S.d*.03)));e.tm=e.tmax;if(msg)float(e.x-30,GY-e.h-30,msg,'#ff5c6c')}
 function drop(e,kk){S.cr.push({x:e.x,y:e.y-e.h*.6,vy:-260,k:kk||(()=>{const q=Math.random();return e.boss?(q<.5?'a':q<.85?'w':'s'):(q<.4?'a':q<.95?'w':'s')})()})}
 const CN={w:'crates',a:'acr',s:'scr',p:'pcr',h:'hcr'},CT={w:'Weapon crate added!',a:'Armor crate added!',s:'SPECIAL crate added!',p:'Eclipse Chest added!',h:'Graveyard Crate added!'};
-const EGK=1.5;/* Endless gold multiplier on kill gold */
-function gain(n){if(S.prac||S.dc)return;n=Math.round((S.camp?n:n*(S.bg?BG_GOLD:EGK*(S.gy?GYK:1)))*S.gm);if(n<=0)return;S.gold+=n;P.gold+=n;stat('gold',n,'add');S.gp=.5}
+const EGK=.9,EGK_GY=1.5;/* Endless gold multiplier (cut from 1.5 in 8.3); the Graveyard keeps its old base */
+function gain(n){if(S.prac||S.dc)return;n=Math.round((S.camp?n:n*(S.bg?BG_GOLD:(S.gy?EGK_GY*GYK:EGK)))*S.gm);if(n<=0)return;S.gold+=n;P.gold+=n;stat('gold',n,'add');S.gp=.5}
 function collect(c){if(c.k==='p')c.k='a';P[CN[c.k]]++;S.runC=(S.runC||0)+1;try{if(!S.prac)btyAdd('crate',1)}catch(x){}save();if(c.k==='h')S.gyH=(S.gyH||0)+1;float(KX,GY-280,CT[c.k],c.k==='h'?'#7affc8':c.k==='s'?'#e08aff':'#ffb02e',34);beep(880,.15,'triangle',.8)}
-function roundGold(){const g=(S.camp?10+S.round*3+S.camp*2:14+Math.min(S.wave,60)*3.4)*(1+.25*U('treasure'));gain(g);float(W/2,360,'+'+Math.round((S.camp?g:g*EGK)*S.gm)+' gold','#ffd76a',40);stat('rounds',1,'add');if(U('rec')&&S.wave%3===0&&S.hp<S.max){S.hp++;float(KX,GY-300,'Recovered +1 HP','#7dffb0',34)}achCheck()}
+function roundGold(){const g=(S.camp?10+S.round*3+S.camp*2:14+Math.min(S.wave,60)*3.4)*(1+.25*U('treasure'));gain(g);float(W/2,360,'+'+Math.round((S.camp?g:g*(S.bg?BG_GOLD:S.gy?EGK_GY*GYK:EGK))*S.gm)+' gold','#ffd76a',40);stat('rounds',1,'add');if(U('rec')&&S.wave%3===0&&S.hp<S.max){S.hp++;float(KX,GY-300,'Recovered +1 HP','#7dffb0',34)}achCheck()}
 function kill(e,force){S.lunge=1;const m=mult();if(!(e.boss&&e.phs>1)&&!(e.boss&&!force)&&!e.mn&&!S.bg){P.bs[e.id]=(P.bs[e.id]||0)+1;mastKill(e,!force&&!e.bad)}
  if(e.boss&&!force&&e.ward>0){e.ward--;e.fl=.5;S.shake=Math.max(S.shake,12);burst(e.x,GY-e.h*.5,'#9fe8ff',30,{v:400});S.fx.push({k:'ring',x:e.x,y:GY-e.h*.5,t:0,ml:.5,c:'#9fe8ff',w:6,r0:20,r1:240});beep(1000,.1,'triangle',.8);newBossLine(e,'Ward shattered! Type again!');return}
  if(e.boss&&!force){e.vul=S.vm;e.fl=.3;e.slip=0;float(e.x,GY-e.h-30,'PRESS SPACE!','#ffc94a',44);beep(660,.12,'triangle',.7);return}
@@ -36479,6 +36479,10 @@ function fsRodNeeds(c){const F=fsP(),out=[];for(const k of FSKINK){const n=FSKIN
 function fsKeepWhy(c){if(!c||!FISH[c.id]||c.odd)return'';const F=fsP(),rare=FSR[c.rk].k>=2;
  const rods=(F.look!==0||rare)?fsRodNeeds(c):[];if(rods.length){const r=rods[0],more=rods.length-1;return`for the ${FSKIN[r.k].n} rod (${r.have}/${r.n})${more?` · +${more} more`:''}`}
  if(rare)return FSR[c.rk].n+' catch';if(c.info&&c.info.first)return'New species!';if(c.g)return'Giant!';return''}
+/* 8.3 fix: the Creel tab now updates as soon as a fish is kept or sold (it used to wait for a refresh) */
+function fsCrSig(){const c=fsP().cr||[];return c.length+':'+c.map(x=>x.id+(x.cm||'')).join(',')}
+{const t0=fsTabs;fsTabs=function(){const r=t0.apply(this,arguments);try{if(FSU.tab==='c')FSU.crSig=fsCrSig()}catch(e){}return r}}
+{const h0=fsHudRefresh;fsHudRefresh=function(){const r=h0.apply(this,arguments);try{const b=$('fsbody');if(S.view==='fish'&&FSU.tab==='c'&&b&&fsCrSig()!==FSU.crSig){const st=b.scrollTop;fsTabs();b.scrollTop=st}}catch(e){}return r}}
 /* ===== UPDATE 8.3: Moonlit Fishing notification, collage and secret code =====
    Pushed at the owner's request (with a collage and a secret code, like 8.2): an Updates entry, unread on the bell.
    The code MOONLURE83 (2,500 coins and 10 casts of Starlight Roe, once per save) is hidden at the end of the notes. */
@@ -36734,6 +36738,91 @@ function sigCard(){const tb=armory.tab||'Weapons';if(tb==='Armor')return;const p
 .ac2.sigf .sigbtn.off{filter:grayscale(.6);opacity:.75}.ac2.sigf .sigfin{display:block;margin-top:4px;font:600 11px var(--ui,Poppins),sans-serif;color:#d8d0f4;opacity:.85}`;document.head.appendChild(st)}
 /* How to play */
 try{HELP.Bosses.push(['Finishers','Finish a beaten boss with Space and your path plays its finisher: the Knight\'s Final Verdict slam, the Archer\'s Verdant Volley, the Mage\'s Arcane Beam or the Rogue\'s Shadow Flurry. Finish within 2 seconds for a Swift finish gold bonus. Fury Strike uses the same attacks.']);HELP.Progress.push(['Signature weapons','Each path has a signature weapon: Dawnbreaker, Verdant Tempest, Astral Conduit and Nightwhisper. Forge one in the Armory for 15,000 gold, or land 3 boss finishers with that path to forge it for free.'])}catch(e){}
+/* ===== 8.3 RAINBOW SHINY FX: a prismatic look for the 1 in 640 rainbow monsters =====
+   Behind the monster: a slow sunburst of spectrum rays, a prism ring at its feet and the far half of an orbit of
+   comet motes. In front: the near half of the orbit (so the motes circle through the monster), rising prism stars
+   and a faceted rainbow gem above its head. On arrival, prism rings and a flare announce it; on the kill, prism
+   shockwaves, a beam of light, spinning shards and a springy "RAINBOW!" title. Payout and odds are unchanged.
+   Canvas only, no ctx.filter or shadowBlur. The arrays are short and every effect is time-based on S.t.
+   Hooks: wraps drawEnemy (back layer), shinyFx (front layer), rainbowMake (arrival), rainbowCaught (kill) and
+   drawFxList (arrival and kill effects). Reduced motion: no shake, fewer shards, calmer motion. */
+const rbRM=()=>{try{return ccReduce()}catch(e){return false}};
+const rbHs=(h,l,a)=>`hsla(${Math.round(h)%360},100%,${l}%,${a})`;
+function rbConic(g,x,y,rot){if(!g.createConicGradient)return null;const q=g.createConicGradient(rot,x,y);for(let i=0;i<=6;i++)q.addColorStop(i/6,`hsl(${i*60},100%,64%)`);return q}
+function rbStar(g,x,y,r){g.beginPath();g.moveTo(x,y-r*2);g.quadraticCurveTo(x,y,x+r*2,y);g.quadraticCurveTo(x,y,x,y+r*2);g.quadraticCurveTo(x,y,x-r*2,y);g.quadraticCurveTo(x,y,x,y-r*2);g.fill()}
+/* comet motes on a tilted orbit; side -1 draws the far half (behind the body), +1 the near half */
+function rbOrbit(g,e,cy,side,al){const t=S.t,h=e.h,H=rbHue(e),N=10,rx=h*.62,ry=h*.17,sp=rbRM()?.7:1.6,big=h>150?1.35:1;
+ g.save();g.translate(e.x,cy+h*.06);g.rotate(-.16);
+ for(let i=0;i<N;i++){const a=t*sp+i*Math.PI*2/N,z=Math.sin(a);if((z<0)!==(side<0))continue;const hu=H+i*36;
+  for(let k=5;k>=0;k--){const b=a-k*.085,x=Math.cos(b)*rx,y=Math.sin(b)*ry,r=(4.6-k*.65)*big*(side<0?.8:1);if(r<=.4)continue;
+   g.globalAlpha=al*(side<0?.5:.95)*(1-k/6.5);g.fillStyle=k?rbHs(hu,62,1):'#ffffff';g.beginPath();g.arc(x,y,r,0,7);g.fill()}}
+ g.restore()}
+function rbBack(e,cy,al){const g=ctx,t=S.t,h=e.h,H=rbHue(e),rm=rbRM();al=al==null?1:al;g.save();
+ /* sunburst of spectrum rays */
+ g.translate(e.x,cy);g.rotate(t*(rm?.12:.35)+e.ph);
+ for(let i=0;i<12;i++){const a=i*Math.PI/6,len=h*(1+.2*Math.sin(t*2.6+i*1.7)),w=.075+.02*Math.sin(t*3+i),q=g.createRadialGradient(0,0,h*.12,0,0,len);
+  q.addColorStop(0,rbHs(H+i*30,70,.42));q.addColorStop(1,rbHs(H+i*30,60,0));g.fillStyle=q;g.globalAlpha=al;
+  g.beginPath();g.moveTo(0,0);g.lineTo(Math.cos(a-w)*len,Math.sin(a-w)*len);g.lineTo(Math.cos(a+w)*len,Math.sin(a+w)*len);g.closePath();g.fill()}
+ g.restore();g.save();
+ /* prism ring at the feet, with a pulse spreading out from it */
+ const fy=e.y-2,rx=h*.56,ry=Math.max(10,h*.11),cg=rbConic(g,e.x,fy,t*1.4);
+ g.strokeStyle=cg||rbHs(H,64,1);g.lineWidth=5;g.globalAlpha=al*.85;g.beginPath();g.ellipse(e.x,fy,rx,ry,0,0,7);g.stroke();
+ for(let j=0;j<2;j++){const u=(t*.7+j*.5+e.ph)%1;g.globalAlpha=al*(1-u)*.6;g.lineWidth=4*(1-u)+1;g.beginPath();g.ellipse(e.x,fy,rx*(.7+u*.8),ry*(.7+u*.8),0,0,7);g.stroke()}
+ g.restore();rbOrbit(g,e,cy,-1,al)}
+function rbGem(g,e,t,H){const h=e.h,sc=h>150?1.3:1.05,py=(()=>{try{return pillGeom(e).y}catch(x){return e.y-h-66}})(),by=py-30+Math.sin(t*4+e.ph)*4;g.save();g.translate(e.x,by);g.rotate(Math.sin(t*2+e.ph)*.1);g.scale(sc,sc);
+ /* a halo ring behind the gem */
+ const cg=rbConic(g,0,0,-t*2);g.globalAlpha=.75;g.strokeStyle=cg||rbHs(H,66,1);g.lineWidth=3;g.beginPath();g.arc(0,0,23+Math.sin(t*5)*1.5,0,7);g.stroke();
+ const P=[[-16,-5],[-8,-15],[8,-15],[16,-5],[0,18]],C=[0,-5];g.globalAlpha=1;
+ g.lineJoin='round';g.strokeStyle='#12081f';g.lineWidth=6;g.beginPath();P.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.stroke();
+ for(let k=0;k<5;k++){const a=P[k],b=P[(k+1)%5];g.fillStyle=rbHs(H+k*62,58+(k%2)*10,1);g.beginPath();g.moveTo(C[0],C[1]);g.lineTo(a[0],a[1]);g.lineTo(b[0],b[1]);g.closePath();g.fill()}
+ g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.moveTo(-8,-15);g.lineTo(0,-15);g.lineTo(-4,-6);g.lineTo(-12,-6);g.closePath();g.fill();
+ g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=1.2;g.beginPath();g.moveTo(-16,-5);g.lineTo(16,-5);g.stroke();
+ const gl=Math.max(0,Math.sin(t*2.6+e.ph));if(gl>.05){g.fillStyle='#fff';g.globalAlpha=gl;rbStar(g,10,-14,3.2*gl)}
+ g.restore()}
+function rbFront(e,cy){const g=ctx,t=S.t,h=e.h,H=rbHue(e),big=h>150?1.4:1;rbOrbit(g,e,cy,1,1);g.save();
+ /* prism stars drifting up through the body */
+ for(let i=0;i<9;i++){const u=(t*.42+i/9+e.ph)%1,a=Math.sin(u*Math.PI),x=e.x+Math.sin(i*2.1+t*.8)*h*.4,y=e.y-u*h*1.2,r=(3.6+(i%3)*1.8)*a*big;if(r<.6)continue;
+  g.globalAlpha=.9*a;g.fillStyle=rbHs(H+i*40,70,1);rbStar(g,x,y,r);g.fillStyle='#fff';rbStar(g,x,y,r*.42)}
+ g.restore();rbGem(g,e,t,H)}
+{const d0=drawEnemy;drawEnemy=function(e,al,dead){if(e&&e.rb&&!dead){try{rbBack(e,e.y-e.h*.5,al)}catch(x){}}return d0.apply(this,arguments)}}
+{const s0=shinyFx;shinyFx=function(e,cy){if(!e||!e.rb)return s0.apply(this,arguments);try{rbFront(e,cy)}catch(x){}}}
+/* arrival: prism rings and a flare that follow the monster in */
+{const m0=rainbowMake;rainbowMake=function(e,M){const r=m0.apply(this,arguments);try{(S.rbx||(S.rbx=[])).push({k:'arr',e,t0:S.t,D:1.6})}catch(x){}return r}}
+/* the kill: same payout and toast as before, with a grander show */
+rainbowCaught=function(e){P.gold+=RAINBOW_COINS;S.gold+=RAINBOW_COINS;stat('gold',RAINBOW_COINS,'add');P.rbc=(P.rbc||0)+1;S.gp=.5;
+ const cx=e.x,cy=e.y-e.h*.5,rm=rbRM(),n=rm?12:28,sh=[];
+ for(let i=0;i<n;i++){const a=i/n*Math.PI*2+Math.random()*.3,v=380+Math.random()*420;sh.push({vx:Math.cos(a)*v,vy:Math.sin(a)*v-260,r:Math.random()*6,vr:(Math.random()-.5)*14,s:7+Math.random()*9,h:i*360/n})}
+ (S.rbx||(S.rbx=[])).push({k:'boom',x:cx,y:cy,gy:e.y,top:e.y-e.h,t0:S.t,D:2.6,sh});
+ for(let i=0;i<6;i++)burst(cx,cy,`hsl(${i*60},100%,62%)`,rm?8:16,{v:460+i*40,s:4});
+ if(!rm)S.shake=Math.max(S.shake,18);S.flash=Math.max(S.flash||0,rm?.15:.35);
+ try{[[1568,0],[2093,70],[2637,140],[3136,210],[4186,320]].forEach(([f,d])=>setTimeout(()=>{beep(f,.26,'sine',.42);beep(f*1.5,.14,'triangle',.16)},d))}catch(x){}
+ try{toast({t:3,n:'Rainbow monster slain!',d:'A 1 in 640 catch.',g:RAINBOW_COINS,lb:'Rare catch'})}catch(x){}};
+const rbEase=u=>1-Math.pow(1-u,2.6);
+function rbPop(u){return u<.14?u/.14*1.22:1+.22*Math.exp(-7*(u-.14))*Math.cos((u-.14)*22)}
+function rbTitle(g,x,y,u,t){const fa=u>.78?(1-u)/.22:1;if(fa<=0)return;const s=rbPop(u*2.6>1?1:u*2.6),txt='RAINBOW!';
+ g.save();g.globalAlpha=fa;g.translate(x,y-u*40);g.scale(s,s);g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
+ g.font='84px "Pirata One",Georgia,serif';const ws=[...txt].map(c=>g.measureText(c).width),tw=ws.reduce((a,b)=>a+b,0);let lx=-tw/2;
+ [...txt].forEach((c,i)=>{const cx=lx+ws[i]/2,cy=Math.sin(t*6+i*.7)*6;lx+=ws[i];g.strokeStyle='#12081f';g.lineWidth=12;g.strokeText(c,cx,cy);
+  g.fillStyle=`hsl(${(t*200+i*45)%360},100%,66%)`;g.fillText(c,cx,cy);g.fillStyle='rgba(255,255,255,.5)';g.fillText(c,cx,cy-3)});
+ g.font='800 34px Poppins,system-ui,sans-serif';const ct='+'+RAINBOW_COINS.toLocaleString('en-US')+' coins';g.strokeStyle='#1b1024';g.lineWidth=8;g.strokeText(ct,0,64);g.fillStyle='#ffd76a';g.fillText(ct,0,64);
+ g.restore()}
+function rbxDraw(c){const L=S.rbx;if(!L||!L.length)return;const now=S.t;S.rbx=L.filter(q=>now>=q.t0&&now-q.t0<q.D);
+ for(const q of S.rbx){const el=now-q.t0,u=el/q.D;c.save();
+  if(q.k==='arr'){const e=q.e;if(!S.en||!S.en.includes(e)){c.restore();continue}const x=e.x,y=e.y-e.h*.5,h=e.h;
+   for(let i=0;i<3;i++){const v=(el-i*.22)/1;if(v<0||v>1)continue;const cg=rbConic(c,x,y,now*2+i);c.strokeStyle=cg||rbHs(rbHue(e)+i*120,64,1);c.globalAlpha=1-v;c.lineWidth=10*(1-v)+2;c.beginPath();c.arc(x,y,h*(.25+rbEase(v)*1.3),0,7);c.stroke()}
+   const f=Math.sin(Math.min(1,el/.7)*Math.PI);if(f>0){c.globalAlpha=f*.9;c.fillStyle='#ffffff';rbStar(c,x,y,h*.22*f);c.globalAlpha=f*.7;c.fillStyle=rbHs(rbHue(e),70,1);rbStar(c,x,y,h*.12*f)}}
+  else if(q.k==='boom'){const x=q.x,y=q.y;
+   /* a beam of spectrum light down onto the spot */
+   const bu=Math.min(1,el/.9);if(bu<1){const bw=150*(1-bu*.6),ba=(1-bu)*.5;for(let i=0;i<7;i++){c.globalAlpha=ba;c.fillStyle=`hsl(${i*51},100%,64%)`;c.fillRect(x-bw/2+i*bw/7,0,bw/7+1,q.gy)}
+    c.globalAlpha=(1-bu)*.7;c.fillStyle='#fff';c.fillRect(x-bw*.08,0,bw*.16,q.gy)}
+   /* prism shockwaves */
+   for(let i=0;i<3;i++){const v=(el-i*.13)/.9;if(v<0||v>1)continue;const cg=rbConic(c,x,y,now*3+i*2);c.strokeStyle=cg||`hsl(${i*120},100%,64%)`;c.globalAlpha=1-v;c.lineWidth=14*(1-v)+2;c.beginPath();c.arc(x,y,20+rbEase(v)*(320+i*90),0,7);c.stroke()}
+   /* spinning prism shards */
+   const sf=u>.55?1-(u-.55)/.45:1;for(const s of q.sh){const sx=x+s.vx*el*.9,sy=y+s.vy*el*.9+560*el*el*.5;if(sy>q.gy+40)continue;c.save();c.translate(sx,sy);c.rotate(s.r+s.vr*el);c.globalAlpha=sf;
+    c.fillStyle=`hsl(${(s.h+now*120)%360},100%,64%)`;c.strokeStyle='#ffffff';c.lineWidth=1.5;c.beginPath();c.moveTo(0,-s.s);c.lineTo(s.s*.55,0);c.lineTo(0,s.s);c.lineTo(-s.s*.55,0);c.closePath();c.fill();c.stroke();c.restore()}
+   rbTitle(c,Math.max(240,Math.min(W-240,x)),Math.max(150,q.top-120),u,now)}
+  c.restore()}}
+{const x0=drawFxList;drawFxList=function(c){const r=x0.apply(this,arguments);try{rbxDraw(c)}catch(e){}return r}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

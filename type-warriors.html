@@ -14231,6 +14231,74 @@ async function ccDevAct(a,k,w){const D=CC_DRAFT;
 .ccrow>div:first-child{flex:1;min-width:130px;display:flex;flex-direction:column}.ccrow b{font:700 14px var(--ui,Poppins,sans-serif);letter-spacing:.08em;color:#ffd76a}.ccrow small{color:#a9a2d4;font:500 11px var(--ui,Poppins,sans-serif)}
 .ccu{font:700 13px var(--ui,Poppins,sans-serif);color:#fff;background:#2a2348;border-radius:99px;padding:3px 10px}.ccrb{display:flex;gap:5px;flex-wrap:wrap}.dvb.dg{background:#6a1a2a;border-color:#ff6b86}
 `;document.head.appendChild(s)}
+/* ---------- Developer tools: more cheats (owner's request) ----------
+   Extra sections under DEV › Cheats: Player (level, prestige, class), Skill tree (points, max/reset, any node's rank),
+   Weapons & armor (give or give-and-equip any item, weapon mastery tier), Campaign (unlock / 3-star levels),
+   Pets (give, bond level, eggs), Moonlit Fishing and Wildcard. Everything edits the real save, like the other cheats. */
+const DVX={};
+const dvxOpt=(v,l,sel)=>`<option value="${v}"${sel?' selected':''}>${dvEsc(l)}</option>`;
+const dvxNum=(id,v,min,max,w)=>`<input id="${id}" type="number" min="${min}" max="${max}" value="${v}" style="width:${w||64}px">`;
+const dvxVal=(id,min,max)=>{const e=$(id);let v=Math.floor(+(e&&e.value)||0);return Math.max(min,Math.min(max,v))};
+function dvxGear(){const by={};for(const k in WP){const w=WP[k],p=PATHS[w.p]?w.p:'knight';(by[p]=by[p]||[]).push(k)}
+ return by}
+function dvxHTML(){const L=lvl(P.xp),sp=spTotal(),pk=Object.keys(PATHS),wsel=DVX.w&&WP[DVX.w]?DVX.w:P.weapon,asel=DVX.a&&AR[DVX.a]?DVX.a:P.armor,nsel=DVX.n&&NM[DVX.n]?DVX.n:ND[0].id;
+ const wBy=dvxGear(),pets=typeof PDEF==='object'?Object.keys(PDEF):[],psel=DVX.p&&PDEF[DVX.p]?DVX.p:(P.pet||pets[0]);
+ const sec=(t,h)=>`<div class="dvx"><h5>${t}</h5>${h}</div>`;
+ let h='';
+ h+=sec('Player',`<div class="dvrow"><span>Level <b>${L}</b> / ${MAXLV} · ${nf0(P.xp)} XP</span>${dvxNum('dvxlv',L,1,MAXLV)}${dvBtn('x:lv','Set level')}${dvBtn('x:lvmax','Max')}</div>
+  <div class="dvrow"><span>Prestige <b>${P.pres||0}</b> / ${PMAX}</span>${dvxNum('dvxpr',P.pres||0,0,PMAX)}${dvBtn('x:pr','Set prestige')}</div>
+  <div class="dvrow"><span>Class</span><select id="dvxpath">${pk.map(k=>dvxOpt(k,(PATHS[k].n||k)+(pathOpen(k)?'':' (Lv '+PATHS[k].lv+')'),k===P.path)).join('')}</select>${dvBtn('x:path','Switch class')}</div>`);
+ h+=sec('Skill tree',`<div class="dvrow"><span>Points: <b>${spLeft()}</b> free of ${sp} (bonus ${P.spb||0})</span>${dvBtn('x:sp5','+5 points')}${dvBtn('x:sp25','+25 points')}</div>
+  <div class="dvrow">${dvBtn('x:skmax','Max whole tree (free)')}${dvBtn('x:skclr','Reset tree (refund points)')}</div>
+  <div class="dvrow"><select id="dvxnode">${ND.map(n=>dvxOpt(n.id,`${n.n||n.id} · ${U(n.id)}/${n.max}`,n.id===nsel)).join('')}</select>${dvxNum('dvxnr',U(nsel),0,NM[nsel].max,52)}${dvBtn('x:node','Set rank')}</div>`);
+ h+=sec('Weapons &amp; armor',`<div class="dvrow"><select id="dvxw">${pk.map(p=>`<optgroup label="${dvEsc(PATHS[p].n||p)}">${(wBy[p]||[]).map(k=>dvxOpt(k,`${WP[k].n} · ${WP[k].r}${P.own[k]?' ✓':''}`,k===wsel)).join('')}</optgroup>`).join('')}</select>${dvBtn('x:wgive','Give')}${dvBtn('x:weq','Give & equip')}</div>
+  <div class="dvrow"><span>Mastery of this weapon: tier <b>${wTier(wsel)}</b> / 5</span><select id="dvxwt">${[0,1,2,3,4,5].map(t=>dvxOpt(t,'Tier '+t,t===wTier(wsel))).join('')}</select>${dvBtn('x:wtier','Set tier')}${dvBtn('x:wtall','All weapons tier 5')}</div>
+  <div class="dvrow"><select id="dvxa">${Object.keys(AR).map(k=>dvxOpt(k,`${AR[k].n} · ${AR[k].r||''}${P.ownA[k]?' ✓':''}`,k===asel)).join('')}</select>${dvBtn('x:agive','Give')}${dvBtn('x:aeq','Give & equip')}</div>
+  <div class="dvrow">${dvBtn('unlock','Own all gear')}${dvBtn('x:gearreset','Reset to starter gear')}</div>`);
+ h+=sec('Campaign',`<div class="dvrow"><span>Unlocked up to level <b>${P.camp}</b> / 30</span>${dvxNum('dvxcamp',P.camp,1,30)}${dvBtn('x:camp','Set')}${dvBtn('x:camp3','3 stars on all 30')}${dvBtn('x:campclr','Reset stars')}</div>`);
+ if(pets.length)h+=sec('Pets',`<div class="dvrow"><select id="dvxpet">${pets.map(k=>dvxOpt(k,`${PDEF[k].n||k}${P.pets[k]?' ✓ Lv '+petLv(k):''}`,k===psel)).join('')}</select>${dvBtn('x:petgive','Give')}${dvBtn('x:petall','Give all')}</div>
+  <div class="dvrow"><span>Bond level of this pet</span>${dvxNum('dvxpl',P.pets[psel]?petLv(psel):1,1,PBOND_MAX,52)}${dvBtn('x:petlv','Set')}${dvBtn('x:eggs','+1 egg of each rarity')}</div>`);
+ if(typeof fsP==='function'){const F=fsP();h+=sec('Moonlit Fishing',`<div class="dvrow"><span>${fsFound()} / ${FIDS.length} fish · rod Lv ${fsLv()} / 15${typeof fsCrT==='function'?' · creel tier '+(fsCrT()+1):''}</span></div>
+  <div class="dvrow">${dvBtn('x:fishall','Discover all fish')}${dvBtn('x:rodmax','Max rod')}${dvBtn('x:creelmax','Max creel')}${dvBtn('x:looks','All rod looks')}${dvBtn('x:cove','Unlock Lighthouse Cove')}${dvBtn('x:bait','+10 of every bait')}${dvBtn('x:bty','New daily bounties')}</div>`)}
+ if(typeof wcSt==='function'&&typeof WCBK==='object')h+=sec('Wildcard',`<div class="dvrow">${dvBtn('x:wcbacks','All card backs')}</div>`);
+ return h}
+{const r0=devRender;devRender=function(){const r=r0.apply(this,arguments);try{if(DEV.open&&DEV.tab==='Cheats'&&devBody){const d=document.createElement('div');d.className='dvxs';d.innerHTML=dvxHTML();devBody.appendChild(d);
+  d.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>devAct(b.dataset.a));
+  const keep=(id,k)=>{const e=$(id);if(e)e.onchange=()=>{DVX[k]=e.value;devRender()}};keep('dvxw','w');keep('dvxa','a');keep('dvxnode','n');keep('dvxpet','p')}}catch(e){devLog('error','cheats panel: '+e.message)}return r}}
+function dvxMsg(m){try{ccToast(m)}catch(e){}}
+{const a0=devAct;devAct=function(a){if(typeof a!=='string'||!a.startsWith('x:'))return a0.apply(this,arguments);try{dvxAct(a.slice(2))}catch(e){devLog('error','cheat '+a+': '+e.message);dvxMsg('That cheat failed: '+e.message)}save();try{syncPaths()}catch(e){}save();try{if(ov&&ov.querySelector('.dksc')&&typeof title==='function')title()}catch(e){}devRender()}}
+function dvxAct(a){const sel=id=>{const e=$(id);return e?e.value:''};
+ if(a==='lv'||a==='lvmax'){const l=a==='lvmax'?MAXLV:dvxVal('dvxlv',1,MAXLV);P.xp=lvx(l);dvxMsg('Level set to '+l+'.')}
+ else if(a==='pr'){const v=dvxVal('dvxpr',0,PMAX);P.pres=v;for(let i=1;i<=v;i++)if(AR['pr'+i])P.ownA['pr'+i]=1;dvxMsg('Prestige set to '+v+'.')}
+ else if(a==='path'){const k=sel('dvxpath');if(!PATHS[k])return;if(!pathOpen(k))P.xp=Math.max(P.xp,lvx(PATHS[k].lv));P.path=k;P.own[PATHS[k].st]=1;dvxMsg('Class: '+(PATHS[k].n||k)+'.')}
+ else if(a==='sp5'||a==='sp25'){P.spb=(P.spb||0)+(a==='sp5'?5:25)}
+ else if(a==='skmax'){P.upg=P.upg||{};for(const n of ND)P.upg[n.id]=n.max;dvxMsg('Every skill is maxed.')}
+ else if(a==='skclr'){P.upg={};P.us=0;P.ug=0;dvxMsg('Skill tree reset. All points are free again.')}
+ else if(a==='node'){const id=sel('dvxnode'),n=NM[id];if(!n)return;P.upg=P.upg||{};const r=dvxVal('dvxnr',0,n.max);if(r)P.upg[id]=r;else delete P.upg[id];DVX.n=id}
+ else if(a==='wgive'||a==='weq'){const k=sel('dvxw');if(!WP[k])return;P.own[k]=1;DVX.w=k;
+  if(a==='weq'){const p=WP[k].p;if(PATHS[p]&&!pathOpen(p))P.xp=Math.max(P.xp,lvx(PATHS[p].lv));if(PATHS[p])P.path=p;P.weapon=k;P.wsel=P.wsel||{};P.wsel[p]=k}dvxMsg((a==='weq'?'Equipped ':'Gave ')+WP[k].n+'.')}
+ else if(a==='wtier'){const k=sel('dvxw')||P.weapon,t=+sel('dvxwt')||0;P.wxp=P.wxp||{};P.wxp[k]=t?WT[t-1]:0;DVX.w=k}
+ else if(a==='wtall'){P.wxp=P.wxp||{};for(const k in WP)P.wxp[k]=WT[4]}
+ else if(a==='agive'||a==='aeq'){const k=sel('dvxa');if(!AR[k])return;P.ownA[k]=1;DVX.a=k;if(a==='aeq')P.armor=k;dvxMsg((a==='aeq'?'Equipped ':'Gave ')+AR[k].n+'.')}
+ else if(a==='gearreset'){P.own={rusty:1};P.ownA={rags:1};for(let i=1;i<=(P.pres||0);i++)if(AR['pr'+i])P.ownA['pr'+i]=1;P.weapon='rusty';P.armor='rags';P.wsel={};P.path='knight'}
+ else if(a==='camp'){P.camp=dvxVal('dvxcamp',1,30)}
+ else if(a==='camp3'){P.camp=30;P.stars=P.stars||{};for(let n=1;n<=30;n++)P.stars[n]=3}
+ else if(a==='campclr'){P.stars={};P.camp=1}
+ else if(a==='petgive'||a==='petall'){const L=a==='petall'?Object.keys(PDEF):[sel('dvxpet')];for(const k of L){if(!PDEF[k])continue;if(!P.pets[k])P.pets[k]={b:0};if(!P.pet)P.pet=k}if(typeof petNorm==='function')petNorm();DVX.p=L[0]}
+ else if(a==='petlv'){const k=sel('dvxpet');if(!PDEF[k])return;if(!P.pets[k])P.pets[k]={b:0};const l=dvxVal('dvxpl',1,PBOND_MAX);P.pets[k].b=PBOND_T[l-1];if(typeof petNorm==='function')petNorm();DVX.p=k}
+ else if(a==='eggs'){P.eggs=P.eggs||{r:0,l:0,m:0};P.eggs.r=(P.eggs.r|0)+1;P.eggs.l=(P.eggs.l|0)+1;P.eggs.m=(P.eggs.m|0)+1}
+ else if(a==='fishall'){const F=fsP();for(const id of FIDS){const f=FISH[id],b=F.b[id];if(!b||!b.n)F.b[id]={n:1,big:+(f.len[0]+(f.len[1]-f.len[0])*.6).toFixed(1),g:0,t:Date.now(),bigT:Date.now()}}}
+ else if(a==='rodmax'){fsP().up={line:5,lure:5,hook:5}}
+ else if(a==='creelmax'){fsP().crl=FSCRT.length-1}
+ else if(a==='looks'){const F=fsP();for(const k of FSKINK)F.sk[k]=1}
+ else if(a==='cove'){fsOddP().pg=FSPGN}
+ else if(a==='bait'){const B=fsBaitP();for(const k of FSBAITK)B.inv[k]=(B.inv[k]||0)+10;if(!B.on)B.on='worm'}
+ else if(a==='bty'){fsP().bty=null;fsBtyGet()}
+ else if(a==='wcbacks'){const W=wcSt();W.backs=W.backs||{};for(const k in WCBK)W.backs[k]=1}}
+{const st=document.createElement('style');st.textContent=`.dvx{margin:10px 0 0;padding:8px 10px 2px;border:1px solid #3a3270;border-radius:10px;background:#1a1530}
+.dvx h5{margin:0 0 6px;font:800 12px 'Poppins',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#ffd45a}
+.dvx .dvrow{justify-content:flex-start}.dvx .dvrow span{color:#d8d2ff;font:500 12px 'Poppins',sans-serif;margin-right:auto}
+.dvx select,.dvx input{background:#0e0b1e;border:1px solid #5a4fa0;border-radius:7px;color:#f0ecff;font:500 12px 'Poppins',sans-serif;padding:4px 6px;max-width:260px}`;document.head.appendChild(st)}
 /* ===== ASTRAL ASCENDANCE (Act VI, optional module) =====
    Self-contained. To remove: delete this file, drop it from build.sh, and revert every line tagged ASTRAL (a comment marker) in 10_data.js and 50_game.js.
    Levels 31-33 (S.camp>30) never touch P.camp, P.stars or P.cbest; progress lives in P.ast only. */

@@ -20,4 +20,6 @@ pip install --target tools/pylib amqtt pyyaml                        # only for 
 pip install pillow
 ```
 
+`t_leaderboard` needs an `lbt/` folder at the repo root for its relay logs (`mkdir -p lbt`; git-ignored).
+
 Overlap checks use `rr/overlap.js`, a copy of `type-warriors-source/t_riddle_ovl.js`; copy it again after editing the original.

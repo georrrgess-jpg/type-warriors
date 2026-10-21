@@ -2,7 +2,7 @@
 
 A single-file browser typing game. Everything ships as `type-warriors.html`; the source modules are in
 `type-warriors-source.zip`. Read `type-warriors-source/HANDOFF.md` (inside the zip) for the history and
-internals of every mode. The latest update is 8.4c (Runestone Riddle: music, rune arch, sanctum, Silas).
+internals of every mode. The latest update is 8.5 (Lantern Caravan: the wagon escort mode).
 
 ## Setup in a new session
 1. `unzip -q type-warriors-source.zip` at the repo root (the folder is git-ignored; the zip is the tracked copy).
@@ -44,7 +44,9 @@ springy animations. New art should sit next to the fishing mode without looking 
 - Screenshot every visual change (Playwright, Chromium is preinstalled; `tools/rr/snap.py` is the template).
 - Riddle changes: `python3 t_riddle.py` (43 checks) from `type-warriors-source`, then `tools/rr/ovl.py` and
   `tools/rr/touch.py` must report no overlaps.
-- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (35 tests), `tools/servers.sh stop`.
+- Caravan changes: `python3 t_wagon.py` (37 checks) from `type-warriors-source`, then `tools/wr/ovl.py` and
+  `tools/wr/touch.py` must report no overlaps.
+- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (36 tests), `tools/servers.sh stop`.
   `t_fishing` can time out under load and `t_leaderboard` fails in a frozen copy; rerun either alone.
 
 ## Delivery, every time

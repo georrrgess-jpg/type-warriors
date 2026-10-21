@@ -2,4 +2,5 @@ type-warriors-source/
 tools/pylib/
 tools/logs/
 tools/rr/*.png
+tools/wr/*.png
 __pycache__/

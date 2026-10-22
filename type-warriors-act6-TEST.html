@@ -38903,8 +38903,8 @@ const WRT={
  NEAR:140,/* a monster within this of the front stops the wagon */
  FIRSTDAY:1.5};
 const WR_MED=[{n:'No medal',c:'#6c6784'},{n:'Bronze',c:'#e0954f'},{n:'Silver',c:'#cfe0f0'},{n:'Gold',c:'#ffc94a'}];
-/* bronze: reach the gate; silver: with 2+ shields; gold: 4 of 4 and 92% accuracy */
-function wrMedalOf(won,int,acc){if(!won)return 0;if(int>=WRT.MAXINT&&acc>=.92)return 3;if(int>=2)return 2;return 1}
+/* bronze: reach the gate; silver: with 2+ shields; gold: 3+ of 4 shields (one hit allowed) and 85% accuracy */
+function wrMedalOf(won,int,acc){if(!won)return 0;if(int>=WRT.MAXINT-1&&acc>=.85)return 3;if(int>=2)return 2;return 1}
 /* pay = route pay x (0.55 + 0.15 x shields) x accuracy factor (0.8 at 70% or less, 1.1 at 100%) */
 function wrAccF(acc){const u=Math.max(0,Math.min(1,(acc-.7)/.3));return .8+.3*u}
 function wrPayOf(rt,won,int,acc,prog){const base=rt.pay*(.55+.15*int)*wrAccF(acc);return Math.round(won?base:rt.pay*.25*Math.max(0,Math.min(1,prog)))}
@@ -39530,7 +39530,7 @@ function wrMedalDraw(g,x,y,r,m,t){const c=WR_MED[m]||WR_MED[0];g.save();g.transl
 function wrResult(){const R=WRX,r=R&&R.result;if(!r)return;S.mode='over';const rt=R.rt,M=WR_MED[r.med],w=WRP();
  const unl=r.unl.map(([f,k])=>`<span class="wrunl" style="--c:${WR_MED[(WR_COS[f][k].need||{}).med||3].c}"><canvas width="64" height="64" data-f="${f}" data-k="${k}"></canvas><b>${esc(WR_COS[f][k].n)}</b><small>New ${f==='lan'?'lantern':f==='ban'?'banner':'paint'}</small></span>`).join('');
  show(`<div class="wrres ${r.won?'win':'lose'}" style="--c:${M.c}"><div class="wrmed${r.won?' slam':''}">${wrMedalSVG(r.med,150)}</div>
-  <h2>${r.won?'Route complete!':'Broke down'}</h2><p class="wrsub">${esc(rt.n)} · ${r.won?`<b style="color:${M.c}">${M.n} medal</b>${r.newMed?' · <b class="wrnb">new!</b>':''}`:`${Math.round(r.prog*100)}% of the way`}${r.won&&r.med<3?` · gold needs 4 shields and 92% accuracy`:''}</p>
+  <h2>${r.won?'Route complete!':'Broke down'}</h2><p class="wrsub">${esc(rt.n)} · ${r.won?`<b style="color:${M.c}">${M.n} medal</b>${r.newMed?' · <b class="wrnb">new!</b>':''}`:`${Math.round(r.prog*100)}% of the way`}${r.won&&r.med<3?` · gold needs 3 shields and 85% accuracy`:''}</p>
   <div class="res"><div><b>${wrFmtT(r.time)}</b>Time</div><div><b>${Math.round(r.acc*100)}%</b>Accuracy</div><div><b>${r.wpm}</b>Words per minute</div><div><b>${r.kills}</b>Monsters cut down</div><div><b>${r.repairs}</b>Repairs</div><div><b>${r.maxCombo}</b>Best streak</div><div><b>${r.int} / ${WRT.MAXINT}</b>Shields left</div></div>
   <div class="wrpay"><span class="wrpayc"><i class="wrcoinb" id="wrcoinb"></i><b id="wrtot">+0</b> coins</span><small>route pay ${r.pay.toLocaleString()}${r.first?' (first run today ×1.5)':''} · road coins ${r.coins}${r.lg?` · level-up bonus ${r.lg}`:''}</small></div>
   <p class="wrxp">Earned <b>${r.xp.toLocaleString()} XP</b>${r.l1>r.l0?`<br><b>Level up! You are now level ${r.l1}, ${rankOf(r.l1)}.</b>`:''}${r.xn||''}${r.ttl?'<br><b style="color:#ffd45a">Caravan Master! The title is yours in the bounty exchange.</b>':''}</p>

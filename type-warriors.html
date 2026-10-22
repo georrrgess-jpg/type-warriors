@@ -38858,15 +38858,15 @@ const WR_VER='8.5';
 const WR_ROUTES=[
  {id:'mill',n:'Millbrook Bridge',sub:'to the Village Gate',dest:'Village Gate',legs:3,len:1800,d:1,
   wp:['Old Mill','Weir Bridge','Village Gate'],sky:['#0b0a2a','#2a1b5c'],far:'village',
-  mobs:['gob','skel','bat'],haz:['rock','branch'],pay:420,xp:60,unlock:null,
+  mobs:['gob','skel','bat'],haz:['rock','branch'],pay:175,xp:60,unlock:null,
   blurb:'A gentle run over the mill bridge. Goblins and a few bats.'},
  {id:'pines',n:'Hollow Pines',sub:"to the Woodcutter's Rest",dest:"Woodcutter's Rest",legs:4,len:2600,d:2,
   wp:['Fog Hollow','Wolf Run','Old Watchtower',"Woodcutter's Rest"],sky:['#07061e','#1d1448'],far:'forest',
-  mobs:['wolf','spid','weaver','gob','shaman','bat'],haz:['rock','branch','mud'],pay:700,xp:100,unlock:{route:'mill',med:1},
+  mobs:['wolf','spid','weaver','gob','shaman','bat'],haz:['rock','branch','mud'],pay:420,xp:100,unlock:{route:'mill',med:1},
   blurb:'Wolves and spiders in the fog. Mud ruts slow the wheels.'},
  {id:'gallows',n:'Gallows Pass',sub:'to Hollowmere Keep',dest:'Hollowmere Keep',legs:5,len:3400,d:3,
   wp:['Hangman\'s Oak','Bone Ford','Wraith Hollow','The Crossing','Hollowmere Keep'],sky:['#060416','#2b0f3a'],far:'keep',
-  mobs:['skel','dknight','ghost','hound','garg','gydigger','gywisp'],haz:['rock','branch','mud','cargo'],boss:'bhorse',pay:1050,xp:150,unlock:{route:'pines',med:1},
+  mobs:['skel','dknight','ghost','hound','garg','gydigger','gywisp'],haz:['rock','branch','mud','cargo'],boss:'bhorse',pay:840,xp:150,unlock:{route:'pines',med:1},
   blurb:'The dead walk the pass, and the Headless Horseman rides the last mile.'}];
 const WR_RT=id=>WR_ROUTES.find(r=>r.id===id)||WR_ROUTES[0];
 /* hazards pin to the front wheel; fuse is seconds before the axle cracks (one shield) and the hazard clears itself */
@@ -40140,33 +40140,34 @@ function wrConductorDraw(g,t,st){st=st||{};const mode=st.mode&&WRCP[st.mode]?st.
  g.beginPath();g.moveTo(10.5,by-6);g.quadraticCurveTo(24,by+2,22,by+8);g.lineWidth=1.8;g.strokeStyle='#e8b83a';g.stroke();
  if(pw<.05){g.beginPath();g.arc(22,by+11,3.6,0,TAU);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.4;g.strokeStyle=WRO;g.stroke()}
  g.restore();
- /* head: wide, warty, no neck */
- const hy0=-72;
- wrCEl(g,4,hy0,30,18,'#6cb24e',14,2.8);
- if(pf>.01){const r=7*pf;wrCEl(g,-24,hy0+4,r+2,r+1,'#6cb24e',null,2.4);wrCEl(g,32,hy0+4,r+2,r+1,'#6cb24e',null,2.4)}
- g.fillStyle='#4a8a3a';for(const [x,y,r] of[[-14,-70,2],[-6,-62,1.6],[22,-76,1.8],[28,-68,1.4],[-19,-78,1.5]]){g.beginPath();g.arc(x,y,r,0,TAU);g.fill()}
+ /* head: a wide, warty toad head with no neck; the cap perches between two bulging eyes, the moustache sits above the mouth */
+ const hy0=-66;
+ wrCEl(g,4,hy0,31,22,'#6cb24e',14,2.8);
+ if(pf>.01){const r=7*pf;wrCEl(g,-25,hy0+8,r+2,r+1,'#6cb24e',null,2.4);wrCEl(g,33,hy0+8,r+2,r+1,'#6cb24e',null,2.4)}
+ g.fillStyle='#4a8a3a';for(const [x,y,r] of[[-17,-64,2],[-9,-55,1.6],[25,-68,1.8],[29,-59,1.4]]){g.beginPath();g.arc(x,y,r,0,TAU);g.fill()}
  /* the throat sac swells with every croak; a little red bow tie */
- {const ry=6+pul*1.8+pf*6;wrCEl(g,9,-52+ry*.2,13+pf*3,ry,'#dfe9a0',null,2.2);
-  g.beginPath();g.moveTo(8,-52);g.lineTo(0,-57);g.lineTo(0,-47);g.closePath();wrCF(g,'#c8283e',null,1.8);g.beginPath();g.moveTo(8,-52);g.lineTo(16,-57);g.lineTo(16,-47);g.closePath();wrCF(g,'#a81e34',null,1.8);wrCEl(g,8,-52,2.6,2.6,'#e0384e',null,1.6)}
+ {const ry=6+pul*1.8+pf*6;wrCEl(g,9,-50+ry*.2,13+pf*3,ry,'#dfe9a0',null,2.2);
+  g.beginPath();g.moveTo(8,-50);g.lineTo(0,-55);g.lineTo(0,-45);g.closePath();wrCF(g,'#c8283e',null,1.8);g.beginPath();g.moveTo(8,-50);g.lineTo(16,-55);g.lineTo(16,-45);g.closePath();wrCF(g,'#a81e34',null,1.8);wrCEl(g,8,-50,2.6,2.6,'#e0384e',null,1.6)}
+ /* the cap, far too small, tucked between the eyes */
+ g.save();g.translate(0,-hl*.8);if(mode==='sad'){g.translate(7,4);g.rotate(.22)}
+ g.beginPath();g.moveTo(-8,-82);g.quadraticCurveTo(-10,-104,5,-104);g.quadraticCurveTo(20,-104,19,-82);g.closePath();wrCF(g,'#232e72',4,2.6);
+ g.beginPath();g.rect(-8.6,-90,28.2,6.6);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.6;g.strokeStyle=WRO;g.stroke();
+ g.beginPath();g.arc(5.5,-87,3.3,0,TAU);g.fillStyle='#232e72';g.fill();g.lineWidth=1.4;g.stroke();
+ g.beginPath();g.arc(5.5,-106,3.8,0,TAU);wrCF(g,'#f0c24a',null,1.8);g.restore();
  /* mouth, under the moustache */
- if(mo>.02){const oy=2+9*mo;g.beginPath();g.ellipse(13,-60+oy*.3,17,oy,0,0,TAU);g.fillStyle='#7a1e3a';g.fill();g.lineWidth=2.4;g.strokeStyle=WRO;g.stroke();g.beginPath();g.ellipse(14,-57+oy*.4,10,Math.min(3.5,oy*.5),0,0,TAU);g.fillStyle='#ff7a9a';g.fill()}
- else{g.beginPath();g.moveTo(-20,-62);g.quadraticCurveTo(6,-51+(mode==='sad'?-6:0),33,-62);g.lineWidth=2.8;g.strokeStyle=WRO;g.stroke()}
- /* two bulging eyes either side of a cap that is far too small */
+ if(mo>.02){const oy=2+9*mo;g.beginPath();g.ellipse(13,-57+oy*.3,17,oy,0,0,TAU);g.fillStyle='#7a1e3a';g.fill();g.lineWidth=2.4;g.strokeStyle=WRO;g.stroke();g.beginPath();g.ellipse(14,-54+oy*.4,10,Math.min(3.5,oy*.5),0,0,TAU);g.fillStyle='#ff7a9a';g.fill()}
+ else{g.beginPath();g.moveTo(-18,-57);g.quadraticCurveTo(7,-47+(mode==='sad'?-7:0),32,-58);g.lineWidth=2.8;g.strokeStyle=WRO;g.stroke()}
+ /* two big bulging eyes */
  const eye=(x,y,sc)=>{g.save();g.translate(x,y);g.scale(sc,sc);g.beginPath();g.arc(0,0,11.5,0,TAU);wrCF(g,'#6cb24e',null,2.6);g.beginPath();g.arc(0,0,8.8,0,TAU);g.fillStyle='#fff6d8';g.fill();
   const px=look*3.4,py=1.4;g.beginPath();g.arc(px,py,4.6,0,TAU);g.fillStyle='#1c1220';g.fill();g.fillStyle='#fff';g.beginPath();g.arc(px-1.4,py-1.6,1.5,0,TAU);g.fill();
   const lc=(1-lid)*17;if(lc>.2){g.save();g.beginPath();g.arc(0,0,8.8,0,TAU);g.clip();g.fillStyle='#5a9a40';g.fillRect(-12,-12,24,lc-1);g.fillStyle=WRO;g.fillRect(-12,-12+lc-1,24,2.2);g.restore()}
   g.beginPath();g.arc(0,0,11.5,0,TAU);g.lineWidth=2.6;g.strokeStyle=WRO;g.stroke();g.restore()};
- eye(-16,-85,1);eye(25,-86,1.04);
- /* the moustache: an enormous handlebar */
- {const tw=Math.sin(t*2)*1.2;g.beginPath();g.moveTo(-20,-72+tw);g.quadraticCurveTo(-30,-62,-14,-64);g.quadraticCurveTo(4,-71,9,-67);g.quadraticCurveTo(14,-71,30,-64);g.quadraticCurveTo(46,-62,36,-73-tw);
-  g.lineWidth=11;g.strokeStyle=WRO;g.stroke();g.lineWidth=7.4;g.strokeStyle='#5a3416';g.stroke();g.lineWidth=2;g.strokeStyle='#8a5a30';g.beginPath();g.moveTo(-12,-66);g.quadraticCurveTo(4,-72,9,-68.5);g.stroke();
-  for(const [x,y] of[[-20,-72+tw],[36,-73-tw]]){g.beginPath();g.arc(x,y,3.2,0,TAU);g.fillStyle='#5a3416';g.fill();g.lineWidth=1.6;g.strokeStyle=WRO;g.stroke()}}
- /* the cap */
- g.save();g.translate(0,-hl*.8);if(mode==='sad'){g.translate(7,4);g.rotate(.22)}
- g.beginPath();g.moveTo(-14,-91);g.quadraticCurveTo(-15,-110,4,-110);g.quadraticCurveTo(23,-110,22,-91);g.closePath();wrCF(g,'#232e72',4,2.6);
- g.beginPath();g.rect(-14,-98,36,6.4);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.6;g.strokeStyle=WRO;g.stroke();
- g.beginPath();g.arc(4,-102,4.6,0,TAU);wrCF(g,'#f0c24a',null,1.8);g.fillStyle='#232e72';g.fillRect(2.6,-104.4,2.8,4.4);
- g.beginPath();g.moveTo(14,-91);g.quadraticCurveTo(36,-92,40,-85);g.quadraticCurveTo(26,-86,13,-87.5);g.closePath();wrCF(g,'#171a40',null,2.2);g.restore();
+ eye(-14,-81,1);eye(24,-82,1.04);
+ /* nostrils and a neat handlebar moustache */
+ g.fillStyle=WRO;g.beginPath();g.arc(5,-69,1.5,0,TAU);g.arc(13,-69,1.5,0,TAU);g.fill();
+ {const tw=Math.sin(t*2)*1;g.beginPath();g.moveTo(-17,-69+tw);g.quadraticCurveTo(-25,-59,-12,-61);g.quadraticCurveTo(0,-67,9,-63.5);g.quadraticCurveTo(18,-67,30,-61);g.quadraticCurveTo(43,-59,35,-69-tw);
+  g.lineWidth=9.4;g.strokeStyle=WRO;g.stroke();g.lineWidth=6;g.strokeStyle='#6a3e1c';g.stroke();g.lineWidth=1.6;g.strokeStyle='#9a6a38';g.beginPath();g.moveTo(-10,-62.6);g.quadraticCurveTo(0,-67.6,8,-64.6);g.stroke();
+  for(const [x,y] of[[-17,-69+tw],[35,-69-tw]]){g.beginPath();g.arc(x,y,2.8,0,TAU);g.fillStyle='#6a3e1c';g.fill();g.lineWidth=1.5;g.strokeStyle=WRO;g.stroke()}}
  /* the near arm: tongs and a ticket, a pocket watch, or a whistle */
  {const sx=21,sy=-48,ex=(sx+nhx)/2+1,ey=(sy+nhy)/2+9;wrCSeg(g,sx,sy,ex,ey,9.4,'#2b3a86');wrCSeg(g,ex,ey,nhx,nhy,8.4,'#2b3a86');
   g.beginPath();g.arc(ex+(nhx-ex)*.62,ey+(nhy-ey)*.62,5.2,0,TAU);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.4;g.strokeStyle=WRO;g.stroke();
@@ -40332,8 +40333,9 @@ function wrCamp(){if(WRCAMP)return WRCAMP;const B=wrBake(WR_RT('mill')),mk=()=>{
  const f=fg.getContext('2d');f.lineJoin='round';f.lineCap='round';
  for(let i=0;i<150;i++){const x=rnd(i+700)*470,y=rnd(i+730)*250*(1-x/620),r=14+rnd(i+760)*22,ang=rnd(i+790)*TAU;if(y>230-x*.35)continue;f.save();f.translate(x,y);f.rotate(ang);f.fillStyle=i%4?'#0b2a22':i%3?'#103a2a':'#16482e';f.beginPath();f.ellipse(0,0,r,r*.42,0,0,TAU);f.fill();f.strokeStyle='#050f10';f.lineWidth=1.6;f.stroke();f.fillStyle='rgba(255,210,120,.12)';f.beginPath();f.ellipse(-r*.2,-r*.1,r*.5,r*.14,0,0,TAU);f.fill();f.restore()}
  for(let i=0;i<40;i++){const x=1350+rnd(i+900)*250,y=rnd(i+930)*90*(1-(x-1350)/300);if(y<2)continue;f.save();f.translate(x,y);f.rotate(rnd(i+960)*TAU);f.fillStyle='#0b2a22';f.beginPath();f.ellipse(0,0,16+rnd(i)*14,7,0,0,TAU);f.fill();f.strokeStyle='#050f10';f.lineWidth=1.4;f.stroke();f.restore()}
- for(const [x0,y0,x1,y1,sag,n] of[[650,203,1146,148,40,18],[1146,148,1566,226,46,14]]){f.beginPath();for(let i=0;i<=n;i++){const u=i/n,x=x0+(x1-x0)*u,y=y0+(y1-y0)*u+Math.sin(u*Math.PI)*sag;i?f.lineTo(x,y):f.moveTo(x,y)}f.lineWidth=2.4;f.strokeStyle='#1a1020';f.stroke();
-  for(let i=1;i<n;i++){const u=i/n,x=x0+(x1-x0)*u,y=y0+(y1-y0)*u+Math.sin(u*Math.PI)*sag;if(i%2){f.fillStyle=i%4===1?'#5a3ab0':'#ffd45a';f.beginPath();f.moveTo(x-8,y);f.lineTo(x+8,y);f.lineTo(x,y+18);f.closePath();f.fill();f.lineWidth=1.6;f.strokeStyle=WRO;f.stroke()}else{glow(f,x,y+6,22,'#ffc86a66');f.fillStyle='#fff0b0';f.beginPath();f.arc(x,y+6,3.4,0,TAU);f.fill();f.lineWidth=1.4;f.strokeStyle=WRO;f.stroke()}}}
+ /* the string lights hang behind the cast (aw layer) */
+ for(const [x0,y0,x1,y1,sag,n] of[[650,203,1146,148,40,18],[1146,148,1566,226,46,14]]){a.beginPath();for(let i=0;i<=n;i++){const u=i/n,x=x0+(x1-x0)*u,y=y0+(y1-y0)*u+Math.sin(u*Math.PI)*sag;i?a.lineTo(x,y):a.moveTo(x,y)}a.lineWidth=2.4;a.strokeStyle='#1a1020';a.stroke();
+  for(let i=1;i<n;i++){const u=i/n,x=x0+(x1-x0)*u,y=y0+(y1-y0)*u+Math.sin(u*Math.PI)*sag;if(i%2){a.fillStyle=i%4===1?'#5a3ab0':'#ffd45a';a.beginPath();a.moveTo(x-8,y);a.lineTo(x+8,y);a.lineTo(x,y+18);a.closePath();a.fill();a.lineWidth=1.6;a.strokeStyle=WRO;a.stroke()}else{glow(a,x,y+6,22,'#ffc86a66');a.fillStyle='#fff0b0';a.beginPath();a.arc(x,y+6,3.4,0,TAU);a.fill();a.lineWidth=1.4;a.strokeStyle=WRO;a.stroke()}}}
  return WRCAMP={bg,fg,aw,B}}
 /* the campfire, in front of the wagon: logs, stones, flames in three layers, a pot on a tripod */
 function wrFire(g,x,y,t,M){

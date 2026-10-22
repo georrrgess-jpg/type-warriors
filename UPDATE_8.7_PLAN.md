@@ -29,9 +29,7 @@ here was checked against the source unless it is marked *(unverified)*.
 3. **Fix the confirmed bugs and close the gold exploits.**
 4. **A fair economy.**
    - Each kind of play falls inside a coins-per-minute band.
-   - No casino game returns more than it takes.
    - Reward text matches what is paid.
-   - Late-game players have things worth saving for.
 5. **Smooth motion that follows the performance rules everywhere**, not only in the new modes. Screen changes and
    modal exits stop popping.
 
@@ -72,7 +70,7 @@ here was checked against the source unless it is marked *(unverified)*.
 | Area | Headline | Evidence |
 |---|---|---|
 | Economy | Lantern Caravan pays about 410 / 830 / 1,200 coins a minute (Millbrook / Pines / Gallows, 45 WPM bot, 10 s between runs) against 170–430 for campaign replays and 209 for Endless | `93a:12-20`, `93c:79,117-125`; `tools/audit87/econ/wagon_rates.js` |
-| Economy | Higher or Lower returns 104–106% with a sensible strategy | `HLE=1.075`, `65_casino.js:111`; `higher_lower_rtp.py` |
+| Economy | Higher or Lower returns 104–106% with a sensible strategy (owner: leave it, D2) | `HLE=1.075`, `65_casino.js:111`; `higher_lower_rtp.py` |
 | Economy | Prestige keeps `P.ug`, so a respec right after prestige refunds 75% of the old tree (measured 36,120) | `68b_prestige.js:58-59`, `62_meta.js:181` |
 | Economy | 2× game speed multiplies gold per kill (`S.gm*=r`) and the level-clear bonus | `50_game.js:342`, `60_ui.js:147` |
 | Economy | Eggs can be bought after every companion of that rarity is owned; the extra eggs never hatch | `87a_pet_data.js:96`, `87i:324` |
@@ -99,7 +97,7 @@ zip, a HANDOFF section, commit, push, screenshots and a short summary. Version l
 |---|---|---|---|
 | M0 | Baselines and tools: perf numbers, UI sweep, economy sim, animation guard | `tools/perf87/`, `tools/ui/`, `tools/econ/` | — |
 | M1 | Bug fixes and exploit closures that change no balance numbers | `94a_fixes87.js` | M0 |
-| M2 | Economy rebalance, gold ledger, migration | `94b_econ87.js`, `94c_ledger87.js` | M1, §8 decisions |
+| M2 | Economy rebalance, gold ledger, migration | `94b_econ87.js`, `94c_ledger87.js` | M1 (§8 decisions answered) |
 | M3 | UI foundation: navigation stack, modal manager, badges, focus and keyboard | `94d_ui_kit.js`, `94e_ui_nav.js`, `94f_ui_modal.js`, `94g_ui_keys.js` | M1 |
 | M4 | Hub and Play: Continue, a Choose-mode gallery, NEW-badge registry, Quick Switcher | `94h_ui_home.js`, `94i_ui_switch.js` | M3 |
 | M5 | Restyle the screens that lag behind; copy, Help and trophies | `94j_ui_restyle.js`, `94k_ui_copy.js` | M3 |
@@ -151,7 +149,7 @@ Put everything in `94a_fixes87.js` unless the note says otherwise.
 | # | Fix | Where | How |
 |---|---|---|---|
 | B1 | Touch keyboard in Trick-or-Treat and Fishing | `63_touch.js:18` (`const kbWant`) | `kbWant` is a `const`, so wrap its callers or edit `63_touch.js` (back it up first) to `TM()&&['play','treat','fish'].includes(S.mode)`. Check that each mode's key handler takes the on-screen keys (the caravan's `wrTouchKb` is the model). Check the Riddle too. Test at 390×844 and 844×390. |
-| B2 | 4 trophies that can't be earned | `62_meta.js:25-28` | Keep the ids so earned trophies stay earned. Point them at riddle stats (`RRP()`): **Daily Duty** = solve your first riddle; **Creature of Habit** = a 7-day riddle streak; **Daily Victor** = solve 5 riddles; **Perfect Day** = solve one in 1–2 guesses. Rewrite their text. (Owner decision D4: remap or retire.) |
+| B2 | 4 trophies that can't be earned | `62_meta.js:25-28` | Keep the ids so earned trophies stay earned. Point them at riddle stats (`RRP()`): **Daily Duty** = solve your first riddle; **Creature of Habit** = a 7-day riddle streak; **Daily Victor** = solve 5 riddles; **Perfect Day** = solve one in 1–2 guesses. Rewrite their text and move them to a "Runestone Riddle" group (owner, D4). |
 | B3 | Prestige keeps `P.ug`, so respec refunds a tree you already lost | `68b_prestige.js:58` | Wrap `doPrestige` to set `P.ug=0` after it runs. No migration needed. |
 | B4 | Eggs bought beyond what can hatch | `87a:96` `petBuy`, `87i:324` button | Block when `P.eggs[k] >= companions of rarity k not yet owned`, and show "All Rare companions found" in place of Buy. Migration: refund surplus eggs at their price once (`P.m87egg=1`) with a toast (not a bell notice). |
 | B5 | Level-ups from calendar XP or crate duplicates skip the 100-gold level bonus | `72_daily.js:35`, `68_crate.js:108` | Send both through the same level-up path campaign XP uses (find the function that pays `100` per level in `60_ui.js:134`). |
@@ -159,7 +157,7 @@ Put everything in `94a_fixes87.js` unless the note says otherwise.
 | B7 | Shop badges stay stale after a purchase (dock Shop badge and the "Owned crates" sub-tab) | `68d_shop.js:51` | Covered by the badge refresher in M3. Until then, call `dkRefreshBadges()` from a `shBuy` wrapper. |
 | B8 | Settings jumps back to the top on every option click | `60_ui.js:79` | Toggle classes in place, or keep and restore `scrollTop` across the re-render (`fitopt` in `88n` already does this). |
 | B9 | Bell: Esc doesn't close it, focus doesn't move into it, the count doesn't refresh after reading, and "Clear" comes back as "1" | `74_shell.js:52-58` | Esc closes and returns focus to `#bell`; focus the first tab on open; re-render the badge on read; "Clear" leaves "1 action left" if one remains. |
-| B10 | Legacy corner buttons (`#cn`: Casino, Music, Fullscreen in Pirata One) still show on Campaign, Calendar, the Casino lobby and Trick-or-Treat, and overlap Campaign's right panel. The Casino button even shows inside the Casino. | `dkCorner` `88_dock.js:70` | Hide `#cn` on every screen that isn't gameplay. Music and Fullscreen already live in More and in each mode's own bar. (Owner decision D5.) |
+| B10 | Legacy corner buttons (`#cn`: Casino, Music, Fullscreen in Pirata One) still show on Campaign, Calendar, the Casino lobby and Trick-or-Treat, and overlap Campaign's right panel. The Casino button even shows inside the Casino. | `dkCorner` `88_dock.js:70` | Hide `#cn` on every screen that isn't gameplay. Music and Fullscreen already live in More and in each mode's own bar. (Owner said yes, D5.) |
 | B11 | Unguarded `setTimeout`s re-open a pet screen after Back was pressed | `87d_pet_game.js:35`, `87c_pet_hall.js:161,167,184` | Take a screen token (`SHOWT` from `show`) at schedule time and skip if it changed. |
 | B12 | "none" shown as a stat value in the display font; "Prestige none yet" | `84i_beginner.js:90`, `60_ui.js:35`, `84e_gy_ui.js:55` | Show "—" or "No record yet" in Poppins. |
 | B13 | Performance mode pauses infinite CSS animations wherever they happen to be, freezing coins and bells mid-squash | `88k_access_perf.js:50` | Set `a.currentTime=0` before `a.pause()`. |
@@ -310,7 +308,7 @@ The ten defects are listed in Appendix A, with repro scripts in `tools/audit87/b
   - **Filter chips:** All · Typing · Relaxed · Events · Casino.
   - **Live status line per card**, for example:
     - "Riddle #12 unsolved";
-    - "2 contracts left today" (if the caravan option in D1 is chosen);
+    - "2 contracts left today" (caravan, D1);
     - "Bounty ready";
     - "Best: wave 31".
   - Fix Fishing's NEW badge wrapping onto its own line.
@@ -343,7 +341,7 @@ Pirata title, indigo panels, Poppins body (no Georgia), one Back top-left, and a
 |---|---|---|
 | Endless menu (`84i`) | Georgia body text, Pirata One on buttons, 26 `vh`/`vw` sizes, a "none" stat | Panels and the kit's buttons; sizes from the 1600×900 stage (no vw/vh); "—" for empty stats. |
 | Armory, Skill Tree (`76`, `62_meta`) | Georgia text; item names cut off ("Rusty S…"); large empty grid; Pirata words inside a sentence; Respec next to Back; no Esc hint | Two-line item names with the full name in a tooltip; fill the empty area with the selected item's detail panel; move Respec to the tree's own toolbar; add `ukBack`. |
-| Profile / Trophies (`60_ui`) | White Poppins title; Cinzel and Georgia mixed in; 103 trophies in one scroll at 74% zoom; sparse prestige panel; "Reset save" next to "Skill tree" | Gold Pirata title; filter chips (All / Earned / Closest to earning / by category); a progress bar per trophy; move Reset save to Settings › Data (D6). |
+| Profile / Trophies (`60_ui`) | White Poppins title; Cinzel and Georgia mixed in; 103 trophies in one scroll at 74% zoom; sparse prestige panel; "Reset save" next to "Skill tree" | Gold Pirata title; filter chips (All / Earned / Closest to earning / by category); a progress bar per trophy; move Reset save to Settings › Data (owner said yes, D6). |
 | Help (`60_ui:87-89`) | Plain Georgia list, no art; out of date (says five acts; misses Riddle, Wildcard, Monster Mash, Trick-or-Treat; wrong corner-button text) | Panel layout with a tab per area. Text in §5.5. Shortcuts generated from `KEYMAP`. |
 | Menu background (`70a:165`) | One thumbnail floating mid-screen; the 30 locked scenes aren't shown | Grid of every scene; locked scenes darkened with "Unlock by reaching Level N"; live preview of the selected one. |
 | Settings (`60_ui:62`) | White title, Georgia descriptions; "Fit to screen" On/Off buttons stack vertically; re-render jumps to the top | Kit styling; segmented controls side by side; in-place toggles (B8); "Reset to defaults" in Data. |
@@ -484,27 +482,27 @@ and calm under `prefers-reduced-motion`.
 - **Side modes** (Caravan, Fishing, Arena): **200–350 a minute.**
 - **Events:** at most **1.25×** core.
 - **Prestige scaling:** at most **+50%** at prestige 10.
-- **Casino:** return **0.94–0.97**; nothing at or above 1.00.
+- **Casino:** left as it is (owner, D2). Higher or Lower stays at its current edge, and the Quiz stays uncapped.
 - **Dailies:** about **3–5k a day** in total.
 
 ### 7.3 Changes
 
 | # | Change | Where | Effect | Owner decision? |
 |---|---|---|---|---|
-| E1 | **Caravan** (see D1): option A, *daily contracts* (recommended) | wrap `wrPayOf` / the result in `93c:117-125`; show "Contracts 2/3 today" on the route card, Ready panel and result | The first 3 completions of each route each day pay full route pay as now. Later runs that day pay 35% of route pay plus road coins. Per-run amounts stay as the owner set them; long grinding on Gallows drops from ~1,200 to ~420 a minute after the third run. | **Yes, D1** |
+| E1 | **Caravan** (D1 = yes): *daily contracts* | wrap `wrPayOf` / the result in `93c:117-125`; show "Contracts 2/3 today" on the route card, Ready panel and result | The first 3 completions of each route each day pay full route pay as now. Later runs that day pay 35% of route pay plus road coins. Per-run amounts stay as the owner set them; long grinding on Gallows drops from ~1,200 to ~420 a minute after the third run. | Answered: yes |
 | E1b | Caravan "Up to N coins" text | `93j:182` (`wrReadyFill`), `93d:47` | Include the accuracy factor (×1.1) and typical road coins, so the shown maximum is reachable but not beaten. It shows 1,449 for Gallows today; a first run measured 1,604. | No |
-| E2 | Higher or Lower `HLE` 1.075 → **1.00** | `65_casino.js:111` (const; replace `mHL` or edit with a backup) | Best-strategy return ≈ 0.953 (simulated) | Yes (D2: the owner tuned it once) |
-| E3 | Quiz: `QZ.CAP` 2.5 → **1.5**, `QZ.QCAP` 1,000 → **500** | `67c_quiz.js:3` (`Object.assign(QZ,…)`) | At most about +250 a round | D2 |
+| E2 | ~~Higher or Lower `HLE` 1.075 → **1.00**~~ **Not doing (owner, D2)** | — | — | Answered: no |
+| E3 | ~~Quiz: `QZ.CAP` 2.5 → **1.5**, `QZ.QCAP` 1,000 → **500**~~ **Not doing (owner, D2)** | — | — | Answered: no |
 | E4 | Game speed scales gold by `1+.25·(r−1)` instead of `r` | wrap `setSpeed` (`50_game.js:342`) and the level-clear bonus (`60_ui.js:147`) | 2× speed gives 1.25× gold per kill, so gold per minute stays close to 1× instead of 1.75–3.1× | No (it's an exploit) |
-| E5 | Graveyard `GYK` 1.35 → **1.0** | const in `84c:7`; apply the factor where the Graveyard sets up `S.gm`, or wrap `gain` | ~340 a minute, about 1.6× Endless and inside 1.25× of core | D2 |
-| E6 | Astral `astMul` `1+.5p` → **`1+.15p`** | `85_astral.js:316-319` (const; replace the `start` wrapper) | Prestige 10 earns about 2.5× prestige 0 instead of 6–9× | D2 |
+| E5 | ~~Graveyard `GYK` 1.35 → **1.0**~~ **Not doing (owner, D2)** | — | — | Answered: no |
+| E6 | ~~Astral `astMul` `1+.5p` → **`1+.15p`**~~ **Not doing (owner, D2)** | — | — | Answered: no |
 | E7 | Prestige resets `P.ug` | B3 | Closes the 75% respec refund | No |
 | E8 | Egg cap and surplus refund | B4 | — | No |
 | E9 | Level-up gold from calendar and crate XP | B5 | Small | No |
 | E10 | Wildcard first-win bonus only on staked games inside the cap | B6 | Small | No |
 | E11 | Reward text matches payouts (Prospector, prestige, caravan "up to", shiny) | §5.5 | — | No |
 | E12 | One number formatter | `fmtN`, §5.2 | — | No |
-| E13 | **New late-game sinks** (pick some, D3) | new | Each worth 1–2 hours of play: **gold-only** convoy looks (3 per category, 6k–25k; medal looks stay medal-only); pet palettes and trims (5k–20k) in the Atelier; 3 gold-only rod looks; an "Eclipse pick" (choose one item from the Eclipse pool, 25k); a cosmetic hub "Trophy Hall plaque" upgrade. | **Yes, D3** |
+| E13 | ~~New late-game sinks~~ **Not doing (owner, D3)** | — | — | Answered: nothing |
 | E14 | Daily resets ignore a backwards clock | wrap the date-key helpers (`dcKey` is a const; wrap the callers) | Keep the highest date seen in `P.dmax`; if today's key is earlier, daily boosts and claims stay spent. Low priority. | No |
 | E15 | Leave Endless (`EGK .9`), Bounty Board, calendar and Riddle as they are | — | They already sit inside the bands | — |
 
@@ -521,30 +519,27 @@ and calm under `prefers-reduced-motion`.
 **Migration (`P.m87`, once).**
 - Never subtract gold.
 - Refund surplus eggs (B4).
-- If D1 option A is chosen, start everyone with today's contracts unused.
+- Start everyone with today's caravan contracts unused (D1).
 - Show one toast (not a bell notice): "The economy has been rebalanced — see Help › What's changed." Put a "What's
   changed" page in Help, so the owner can decide separately whether a bell notice is wanted.
 
 **Acceptance:**
-- `tools/econ/sim.py` before and after (commit both tables); every mode inside its band at 45 WPM.
-- Casino returns re-simulated, all below 1.00.
-- `t_econ87.py` checks E2–E10, the ledger round-trip through save and reload, and the migration running only once.
+- `tools/econ/sim.py` before and after (commit both tables). With D1, the caravan falls inside the side-mode band once the 3 daily contracts are used. Graveyard, Astral and the casino stay as they are (D2) and are reported, not tuned.
+- `t_econ87.py` checks E1, E4 and E7–E10, the ledger round-trip through save and reload, and the migration running only once.
 
 ---
 
-## 8. Decisions needed from the owner before M2 and M5
+## 8. Owner decisions (answered)
 
-| # | Question | Options (recommended first) |
-|---|---|---|
-| D1 | Lantern Caravan earns ~410 / ~830 / ~1,200 coins a minute at the current pay | **A.** Daily contracts: 3 full-pay runs per route per day, then 35% (per-run pay unchanged). **B.** Lower pay to about 50 / 110 / 170 (audit suggestion). **C.** Pines 300, Gallows 520, no cap. **D.** Leave it as is. |
-| D2 | Casino edges, Graveyard and Astral scaling (E2, E3, E5, E6) | **Apply all four** / apply only the casino fixes / leave them |
-| D3 | Which late-game sinks to add (E13) | **Convoy looks + pet palettes + Eclipse pick** / all five / none |
-| D4 | The 4 dead Daily Challenge trophies | **Remap to the Riddle** / retire them (total becomes 99) |
-| D5 | The legacy corner buttons (Casino, Music, Fullscreen) | **Hide outside gameplay** / restyle them as a small tray |
-| D6 | "Reset save" in the Profile header | **Move it to Settings › Data** / leave it |
-| D7 | An Updates-tab notice for 8.7 | **None** (default; the rule says ask first) / one notice, after the owner approves its text |
-
----
+| # | Question | Owner's answer | What it means for the build |
+|---|---|---|---|
+| D1 | Lantern Caravan earns ~410 / ~830 / ~1,200 coins a minute | **Yes: daily contracts** | E1 is in. 3 full-pay runs per route per day, then 35% plus road coins. Per-run pay stays 175 / 420 / 840. |
+| D2 | Lower Higher or Lower, the Quiz, Graveyard and Astral pay (E2, E3, E5, E6) | **No** | E2, E3, E5 and E6 are **not** done. Leave `HLE`, `QZ`, `GYK` and `astMul` exactly as they are. |
+| D3 | New late-game gold sinks (E13) | **Nothing** | E13 is **not** done. Add no new purchasable items. |
+| D4 | The 4 dead Daily Challenge trophies | **Tie them to the Runestone Riddle** | B2 as written: keep the ids and point them at riddle stats. |
+| D5 | Legacy corner buttons (Casino, Music, Fullscreen) | **Yes: hide them outside gameplay** | B10 as written. |
+| D6 | "Reset save" in the Profile header | **Yes: move it to Settings › Data** | Done in M5 (Profile row of §5.4). |
+| D7 | An Updates-tab (bell) notice for 8.7 | **No** | No notice of any kind. The migration toast and Help's "What's changed" page stay (they are not bell notices). |
 
 ## 9. M7 — Performance (`94m_perf87.js`)
 

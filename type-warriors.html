@@ -5080,21 +5080,21 @@ function shop(msg){S.mode='title';S.view='menu';
  ov.querySelectorAll('[data-b]').forEach(el=>el.onclick=()=>{const k=el.dataset.b;if(P.gold<price(k))return;P.gold-=price(k);P[CN[k]]++;save();beep(880,.12,'triangle',.8);shop('Bought one '+SHOP.find(o=>o.k===k).n.toLowerCase()+'. Open it from the main menu.')})}
 
 /* ---------- profile ---------- */
-const statTiles=()=>{const T=[['Best score',P.best.toLocaleString()],['Deepest level',P.bestLv],['Best round',P.bestWave],['Monsters slain',P.kills.toLocaleString()],['Runs played',P.runs],['Best combo',P.bestCombo],['Best speed',P.bestWpm+' WPM'],['Campaign',Math.min(30,Object.keys(P.stars).length)+' / 30'],['Rift best',P.rb&&P.rb.s?P.rb.s.toLocaleString():'none'],['Mastered weapons',wmCount(1)]];return `<div class="stt">${T.map(t=>`<div><b>${t[1]}</b><span>${t[0]}</span></div>`).join('')}</div>`};
+const statTiles=()=>{const T=[['Best score',P.best.toLocaleString()],['Deepest level',P.bestLv],['Best round',P.bestWave],['Monsters slain',P.kills.toLocaleString()],['Runs played',P.runs],['Best combo',P.bestCombo],['Best speed',P.bestWpm+' WPM'],['Campaign',Math.min(30,Object.keys(P.stars).length)+' / 30'],['Rift best',P.rb&&P.rb.s?P.rb.s.toLocaleString():'<span class="nrec">No record yet</span>'],['Mastered weapons',wmCount(1)]];return `<div class="stt">${T.map(t=>`<div><b>${t[1]}</b><span>${t[0]}</span></div>`).join('')}</div>`};
 function profile(sc){S.mode='title';S.view='menu';const l=lvl(P.xp),a=lvx(l),b=lvx(l+1);if(sc===1)profile.tab='Trophies';else if(sc&&sc!==true)profile.tab=sc;const tab=profile.tab||'Overview';profile.tab=tab;
  const nm=()=>{P.name=($('nm')&&$('nm').value.trim())||'Hero';save()},tabs=['Overview','Customize','Trophies'];
  let body='';
  if(tab==='Overview')body=`${statTiles()}<div class="pfcols">${presBlock()}<div class="lo"><h3>Your loadout</h3><p><b style="color:${PATHS[P.path].c}">${PATHS[P.path].n} path</b>: ${PATHS[P.path].d}</p><p><b style="color:${WP[P.weapon].col}">${WP[P.weapon].n}</b>: ${WP[P.weapon].d}</p><p><b style="color:${AR[P.armor].col}">${AR[P.armor].n}</b>: ${AR[P.armor].d}</p><button class="sm" id="wp2">Change in the Armory</button></div></div>`;
  else if(tab==='Customize')body=`<div class="pfcust"><p>Pick the colour of your banner. Armor dye tints your armor to match.</p>${dyeUI()}</div>`;
  else body=trophyCase(profile.cat);
- show(`<h2>Profile</h2><div class="pfhead"><canvas id="ph" width="300" height="340"></canvas><div class="pi"><input id="nm" maxlength="14" value="${esc(P.name)}" aria-label="Player name" title="Click to rename"><div class="rk">${P.pres?'Prestige '+PRN[P.pres-1]+' · ':''}${rankOf(l)}, level ${l}${l>=MAXLV?' (MAX)':''}</div><div class="xp" style="min-width:380px"><i style="width:${xpPct(P.xp)}%"></i></div><div style="font:15px Georgia,serif;opacity:.8">${(P.xp-a).toLocaleString()} / ${(b-a).toLocaleString()} XP to level ${l+1}</div><div class="row" style="justify-content:flex-start;margin-top:6px"><button class="sm" id="ut">Skill tree</button><button class="sm dg" id="rs">Reset save</button></div></div></div>
+ show(`<h2>Profile</h2><div class="pfhead"><canvas id="ph" width="300" height="340"></canvas><div class="pi"><input id="nm" maxlength="14" value="${esc(P.name)}" aria-label="Player name" title="Click to rename"><div class="rk">${P.pres?'Prestige '+PRN[P.pres-1]+' · ':''}${rankOf(l)}, level ${l}${l>=MAXLV?' (MAX)':''}</div><div class="xp" style="min-width:380px"><i style="width:${xpPct(P.xp)}%"></i></div><div style="font:15px Georgia,serif;opacity:.8">${(P.xp-a).toLocaleString()} / ${(b-a).toLocaleString()} XP to level ${l+1}</div><div class="row" style="justify-content:flex-start;margin-top:6px"><button class="sm" id="ut">Skill tree</button></div></div></div>
 <div class="tabs ctabs">${tabs.map(t=>`<button class="tab${t===tab?' on':''}" data-pt="${t}">${t}${t==='Trophies'?` ${ACH.filter(a=>P.ach[a.id]).length}/${ACH.length}`:''}</button>`).join('')}</div><div class="pfbody">${body}</div><button class="sm" id="b">Back</button>`,'m');
  live('ph',c=>heroView(c,{scale:2.2}));S.back=title;
  $('ut').onclick=()=>{nm();upgrades()};ov.querySelectorAll('[data-pt]').forEach(el=>el.onclick=()=>{nm();profile(el.dataset.pt)});ov.querySelectorAll('[data-tc]').forEach(el=>el.onclick=()=>{nm();profile.cat=el.dataset.tc;profile('Trophies')});
  $('nm').onchange=nm;if($('wp2'))$('wp2').onclick=()=>{nm();armory()};
  dyeBind(()=>{nm();profile()});presBind();
  $('b').onclick=()=>{nm();title()};
- $('rs').onclick=e=>{const t=e.target;if(t.dataset.a){sgSnap('Before erase','safe');sgMuteOffer();load({});save();title()}else{t.dataset.a=1;t.textContent='Click again to erase. A backup is kept.';setTimeout(()=>{if(t.isConnected){t.dataset.a='';t.textContent='Reset save'}},3000)}}}
+}
 
 /* ---------- armory ---------- */
 let prevA=null,prevW=null,prevMK=null;
@@ -5912,7 +5912,7 @@ const kbUp=e=>{kb.querySelectorAll('.dn').forEach(b=>b.classList.remove('dn'))};
 kb.addEventListener('pointerup',kbUp);kb.addEventListener('pointercancel',kbUp);kb.addEventListener('pointerleave',kbUp);
 kb.addEventListener('contextmenu',e=>e.preventDefault());
 addEventListener('keydown',e=>{if(!physKb&&e.isTrusted&&e.key&&e.key.length===1&&/[a-z]/i.test(e.key)&&ST.touch==='auto'&&TMq.matches){physKb=true;applyLayout()}});
-const kbWant=()=>TM()&&S.mode==='play';
+const kbWant=()=>TM()&&(S.mode==='play'||(typeof tkWant==='function'&&tkWant()));/* 8.7: tkWant (94a_fix_fishing.js) adds Moonlit Fishing and Trick-or-Treat typing */
 function kbH(vw,vh){return Math.round(vh>=vw?Math.min(vh*.44,330):Math.min(vh*.5,210))}
 function touchLayout(vw,vh,ah,on){
  const port=vh>=vw,vwid=port?640:1000,z=vw/vwid;
@@ -9563,7 +9563,7 @@ const canPres=()=>P.pres<PMAX&&lvl(P.xp)>=MAXLV&&!!P.stars[30];
 const carrySlots=n=>n;
 const CARRY_LEG=4,CARRY_MYTH=7,carryMin=r=>RKM[r]>=5?CARRY_MYTH:RKM[r]===4?CARRY_LEG:0;
 const pscore=n=>10*n,pxp=n=>10*n,pgold=n=>5*n;
-const perkLines=n=>{const a=[`+${pscore(n)}% score`,`+${pxp(n)}% XP`,`+${pgold(n)}% gold from runs`,`${carrySlots(n)} carry-over slot${carrySlots(n)>1?'s':''}`];if(n===CARRY_LEG)a.push('Legendary gear can now be carried over');if(n===CARRY_MYTH)a.push('Mythic gear can now be carried over');if(n>=3)a.push('Start every run with +1 shield');if(n>=5)a.push('+1 max HP');if(n>=10)a.push('Title: Eternal Champion');return a};
+const perkLines=n=>{const a=[`+${pscore(n)}% score`,`+${pxp(n)}% XP`,`+${pgold(n)}% gold from monsters and rounds`,`${carrySlots(n)} carry-over slot${carrySlots(n)>1?'s':''}`];if(n===CARRY_LEG)a.push('Legendary gear can now be carried over');if(n===CARRY_MYTH)a.push('Mythic gear can now be carried over');if(n>=3)a.push('Start every run with +1 shield');if(n>=5)a.push('+1 max HP');if(n>=10)a.push('Title: Eternal Champion');return a};
 /* badge: a medallion with wings, ribbons and gems that grows richer with every rank */
 function prBadge(g,cx,cy,s,n,t){if(n<1)return;const P0=PBP[n-1],rb=n===10,m=rb?hsx(t*60,70,72):P0[0],d=rb?hsx(t*60+90,60,32):P0[1],h=rb?hsx(t*60+180,80,86):P0[2];
  g.save();g.translate(cx,cy);g.scale(s,s);g.lineJoin='round';
@@ -12213,7 +12213,7 @@ function gyMenu(back){S.mode='title';S.view='menu';const G=P.gyb||{best:0,lv:0,r
  <p class="gysub">An Endless run through a haunted cemetery. Each level the graveyard wakes a new curse. Boons, swaps and gear all work as normal, and the dead pay well.</p>
  <div class="gyg">${GY_SEQ.map(k=>{const q=GYC[k];return `<div class="gyk" style="--c:${q.c}"><i>${q.ic}</i><b>${q.n}</b><span>${q.d}</span></div>`}).join('')}</div>
  <p class="gynote">The curses rotate every level: Ghost Letters, Hexed Letter, Vanishing Ink, then round again. Boss rounds are curse-free.</p>
- <div class="gyr"><div><b>+35%</b><span>gold</span></div><div><b>+30%</b><span>XP</span></div><div><b>1 per boss</b><span>Graveyard crate</span></div><div><b>${G.lv||'none'}</b><span>deepest level</span></div><div><b>${(G.best||0).toLocaleString()}</b><span>best score</span></div></div>
+ <div class="gyr"><div><b>+35%</b><span>gold</span></div><div><b>+30%</b><span>XP</span></div><div><b>1 per boss</b><span>Graveyard crate</span></div><div><b>${G.lv||'<span class="nrec">No record yet</span>'}</b><span>deepest level</span></div><div><b>${(G.best||0).toLocaleString()}</b><span>best score</span></div></div>
  <div class="row"><button id="gyg" ${on?'':'disabled'}>${on?'Enter the Mash':'Event ended'}</button><button class="sm gd" id="gyc">Crates${nh?` (${nh})`:''}</button><button class="sm" id="b">Back</button></div></div>`,'m');
  S.back=back||title;$('b').onclick=S.back;$('gyg').onclick=()=>{if(hwOn())start(0,'gy')};$('gyc').onclick=()=>crateHub()}
 /* thumbnails for the home cards */
@@ -12634,7 +12634,7 @@ function endlessMenu(back){S.mode='title';S.view='menu';const G=P.bgb||{best:0,l
  <div class="emg">
  ${card('std','#ff8a3a','bgS',imgE,'Standard Endless','Push your speed. Chase your best.',
   f(EMI.up,'Monsters get faster and words get longer.','Increasing challenge as you go.',0)+f(EMI.star,'Full rewards.','Gold, XP and crates.',1)+f(EMI.cup,'Records &amp; trophies.','Track your best runs and earn trophies.',2),
-  cell(P.bestWave||'none','Best round')+cell((P.best||0).toLocaleString(),'Best score'),'Play Standard','1')}
+  cell(P.bestWave||'<span class="nrec">No record yet</span>','Best round')+cell((P.best||0).toLocaleString(),'Best score'),'Play Standard','1')}
  ${card('beg','#4fe3b0','bgB',imgB,'Beginner’s Mode','Build confidence at your own pace.',
   f(EMI.aa,'Words are 3 to 5 letters.','Short and simple words.',0)+f(EMI.snail,'Fewer monsters and slower waves.','Shorter boss sentences.',1)+f(EMI.no,'Records, trophies &amp; bounties disabled.','Focus on learning without pressure.',2),
   first?`<span class="emfirst"><i>${EMI.sword}</i><div><b>Your first adventure starts here.</b><span>No records yet. Just play and learn!</span></div></span>`:cell(G.lv||1,'Deepest level')+cell((G.best||0).toLocaleString(),'Best score')+cell(G.runs,'Run'+(G.runs===1?'':'s')),'Play Beginner','2','<span class="emnew">NEW</span>')}
@@ -20656,7 +20656,7 @@ function wcHome(){WX.tok++;wcClear();wcScanStop();CAS.on=true;CAS.key=null;const
  S.back=()=>{const m=$('wcmod');if(m&&!m.hidden){m.hidden=true;m.innerHTML='';wcScanStop();return}wcLeaveHome()};$('wcbk').onclick=wcLeaveHome;
  wcLive(ov.querySelector('.wcreg.l'),crew[0]);wcLive(ov.querySelector('.wcreg.r'),crew[1]);
  const info=()=>{const T=WCT[WX.tbl],fr=$('wcfrc').checked,left=wcLeftToday();$('wcsi').innerHTML=fr||!left?`<b>${T.n}</b> · practice: no buy-in, no payout${!left&&!fr?'<small>Today\'s 15 staked games are used up, so tables are free until tomorrow.</small>':'<small>Games still count toward your stats.</small>'}`
-  :`<b>${T.n}</b> · buy-in <b class="g">${cmn(T.stake)}</b> · win <b class="g">${cmn(wcPayout(T.stake,4,0,WCFEE))}</b><small>2nd place gets ${cmn(wcPayout(T.stake,4,1,WCFEE))} back · ${left}/${WCE.DAILY} paid games left today</small>`;const fb=$('wcfwb');if(fb)fb.hidden=wcSt().fw===wcDay()};
+  :`<b>${T.n}</b> · buy-in <b class="g">${cmn(T.stake)}</b> · win <b class="g">${cmn(wcPayout(T.stake,4,0,WCFEE))}</b><small>2nd place gets ${cmn(wcPayout(T.stake,4,1,WCFEE))} back · ${left}/${WCE.DAILY} paid games left today</small>`;const fb=$('wcfwb');if(fb)fb.hidden=wcSt().fw===wcDay()||fr||!left};
  ov.querySelectorAll('[data-tbl]').forEach(b=>{b.onclick=()=>{WX.tbl=b.dataset.tbl;wcSt().tbl=WX.tbl;save();ov.querySelectorAll('[data-tbl]').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-checked',x===b)});b.classList.remove('spin');void b.offsetWidth;b.classList.add('spin');wcFx('chip');info()};b.onmouseenter=()=>wcFx('hover')});
  $('wcfrc').onchange=()=>{wcSt().fr=$('wcfrc').checked?1:0;save();wcFx('click');info()};info();
  $('wcsolo').onclick=()=>{wcFx('click');wcStartSolo(WX.tbl,$('wcfrc').checked)};$('wchost').onclick=()=>{wcFx('click');wcLobby()};
@@ -20693,7 +20693,7 @@ function wcStartSolo(tbl,friendly){if(!WCT[tbl])tbl='c250';const T=WCT[tbl],W=wc
 /* ---------- results ---------- */
 function wcRecord(o){const G=WX.G;if(!G||WX.recorded)return null;WX.recorded=true;const W=wcSt(),k=WX.mode==='solo'?WX.tbl:WX.mode;const me=G.P[WX.mode==='pp'?0:WX.me];
  const rank=o&&o.forfeit?null:wcRank(G),place=rank?rank.indexOf(WX.mode==='pp'?0:WX.me):G.P.length-1,win=place===0;
- const pay=WX.stake?wcPayout(WX.stake,G.P.length,place,WX.fee):0,bonus=win&&WX.mode!=='pp'&&W.fw!==wcDay()?WCE.FIRSTWIN:0;
+ const pay=WX.stake?wcPayout(WX.stake,G.P.length,place,WX.fee):0,bonus=win&&WX.mode!=='pp'&&WX.stake>0&&W.dayN<=WCE.DAILY&&W.fw!==wcDay()?WCE.FIRSTWIN:0;/* 8.7 B6: staked games inside the daily cap only */
  if(pay+bonus>0)P.gold=Math.min(1e12,P.gold+pay+bonus);if(bonus)W.fw=wcDay();
  W.g++;if(win){W.w++;W.cur++;W.best=Math.max(W.best,W.cur);if(!W.fast||G.turns<W.fast)W.fast=G.turns}else W.cur=0;
  const net=pay+bonus-WX.stake;W.net+=net;if(win)W.pot=Math.max(W.pot,pay);W.cards+=me.played;W.d4+=me.d4;W.ones+=me.ones;W.catches+=me.catches;W.caught+=me.caught;W.drawn+=me.drawn;
@@ -40556,6 +40556,752 @@ const WR_RQ={gold:['A perfect run! Not a wheel out of place... mostly.','Gold! I
 .wrcq{display:flex;align-items:center;gap:14px;max-width:640px;padding:8px 18px 8px 10px;border-radius:40px;background:#0c0824;border:1px solid #3a3070;animation:fsWb .5s .9s var(--sp) both}.wrcq canvas{flex:none;width:58px;height:58px}.wrcq p{margin:0;text-align:left;font:italic 400 17px Georgia,serif;color:#f4ecd8}.wrcq small{display:block;font:800 11px var(--ui);font-style:normal;letter-spacing:.2em;text-transform:uppercase;color:#ffd45a}
 .wrres{padding-top:94px}.wrres .res{margin-bottom:0}
 @media (prefers-reduced-motion:reduce){.wrpm,.wrcq{animation:none!important}}`;document.head.appendChild(st)}
+/* ===== 8.7 fixes: Moonlit Fishing and touch typing =====================================================================
+   A1  Leaving (Esc, Back or the title) while a catch is on show no longer loses the fish. fsLeave finishes the show
+       (fsReveal, so auto-sell and odd catches behave as usual) and then takes the same keep-or-sell choice as leaving on the
+       reveal screen: the catch goes into the creel or is paid, exactly once, never both and never neither.
+   A6  That choice never overfills the creel. A full creel sells the catch instead (fsKeep writes the same fields as every other
+       keep: kp and t as well). A toast says what happened.
+   A9  Back mid-fight asks like Esc does (press twice within 2.2 s). Leaving mid-fight counts as an escape, through fsEscape
+       itself (streak reset, escape stat, rarity stat and bounty run), without its sounds.
+   A4  The pond pauses when the window loses focus or the tab is hidden: every timer stops (FS.tLeft, the grace, the wait for a
+       bite, the catch show) and a small "Paused - press any key" note appears. A key, a tap or focus resumes it. The clock
+       is shifted by the time spent paused, so nothing jumps.
+   A2  + B1  On a touch device (TM()) the shared on-screen keyboard (#kb) also serves Moonlit Fishing and Trick-or-Treat. In the
+       pond it carries a word strip (the word to type and its timer), Back and Cast keys, and Sell / Keep on the catch; in
+       Trick-or-Treat it carries the letters, space and Pause. kbWant (63_touch.js) asks tkWant(); the Riddle and the
+       Caravan keep their own keyboards and are not affected. The phone's own keyboard stays closed (inputmode none).
+   B16 Big Screen counts the caravan and fishing as busy play (the const fsBusy cannot change, so fsFallback and fsSleep are
+       wrapped): the "run restarts there" note shows and the run is paused behind the lightbox. */
+const FSZ={t:0,why:'',quiet:0};
+
+/* ---------- A1, A6, A9: leaving ---------- */
+/* settle a catch that is still on show or waiting on the reveal screen: kept in the creel, or sold (never both) */
+function fsSettleCatch(){
+ if(FS.st==='show'&&FS.show){try{fsReveal()}catch(e){console.error(e);FS.show=null}}
+ let out=null;
+ if(FS.st==='reveal'&&FS.pend){const c=FS.pend;FS.pend=null;try{fsQsOff()}catch(e){}
+  const full=fsP().cr.length>=fsCreelCap()&&!!fsKeepWhy(c);
+  if(fsDefKeep(c)&&fsKeep(c))out={k:1,c};
+  else out={k:0,c,v:fsSell(c),full};
+  try{fsPreview(null);fsHudRefresh()}catch(e){}}
+ return out}
+function fsLeave(){
+ let msg='';
+ try{
+  if(FS.st==='reel'||FS.st==='stage'){FSZ.quiet=1;try{fsEscape()}finally{FSZ.quiet=0}}
+  else if(FS.st==='show'||FS.st==='reveal'){const r=fsSettleCatch();
+   if(r){const nm=fsNm(r.c);msg=r.k?`${nm} kept in your creel.`:r.full?`Your creel was full, so ${nm} was sold for ${r.v.toLocaleString()} gold.`:`${nm} sold for ${r.v.toLocaleString()} gold.`}}
+ }catch(e){console.error(e)}
+ fsStop();try{fsHub()}catch(e){title()}
+ if(msg)try{fzNote(msg)}catch(e){}}
+/* a note that outlives the pond screen (the pond's own toast goes with it): game-style, top centre, 3.4 s */
+function fzNote(txt){let m=document.getElementById('fztoast');if(!m){m=document.createElement('div');m.id='fztoast';m.setAttribute('role','status');document.body.appendChild(m)}
+ m.textContent=txt;m.className='';void m.offsetWidth;m.className='on'+(fsRM()?' rm':'');clearTimeout(fzNote.h);fzNote.h=setTimeout(()=>{m.className=''},3400)}
+/* Back and Esc ask the same question in a fight: the first press warns, a second one within 2.2 s leaves */
+function fsLeaveAsk(){
+ if((FS.st==='reel'||FS.st==='stage')&&!(FS.escT&&fsNow()-FS.escT<2.2)){FS.escT=fsNow();fsToast(TM()?'Tap Back again to leave. The fish will get away.':'Press Esc or Back again to leave. The fish will get away.');try{tkTick()}catch(e){}return false}
+ fsLeave();return true}
+/* the pond's own Back button and S.back go through the question */
+{const p0=fsPond;fsPond=function(){const r=p0.apply(this,arguments);try{const b=$('fsback');if(b&&$('fsx')){b.onclick=fsLeaveAsk;S.back=fsLeaveAsk}}catch(e){console.error(e)}return r}}
+/* leaving mid-fight is quiet: the escape sounds belong to a line that snaps while you watch */
+{const s0=fsSfx;fsSfx=function(k){if(FSZ.quiet&&(k==='esc'||k==='snap'))return;return s0.apply(this,arguments)}}
+/* going to the title from the pond (or any other way out) settles a catch too */
+{const t0=title;title=function(){try{if(FS.on&&S.mode==='fish'&&(FS.st==='show'||FS.st==='reveal')){const r=fsSettleCatch();if(r)fzNote(r.k?`${fsNm(r.c)} kept in your creel.`:`${fsNm(r.c)} sold for ${r.v.toLocaleString()} gold.`);fsStop()}}catch(e){console.error(e)}return t0.apply(this,arguments)}}
+
+/* ---------- A4: pause on blur / hidden ---------- */
+const fsPzOK=()=>{try{return S.mode==='fish'&&S.view==='fish'&&FS.on&&!FS.tut&&!!$('fsx')&&['cast','wait','reel','stage','show','escape'].indexOf(FS.st)>=0}catch(e){return false}};
+function fsPause(why){if(FS.paused||!fsPzOK())return false;FS.paused=true;FSZ.t=fsNow();FSZ.why=why||'';fsPzUI(true);try{tkStrip();tkRefresh()}catch(e){}return true}
+function fsResume(){if(!FS.paused)return false;const d=Math.max(0,fsNow()-FSZ.t);FS.paused=false;fsPzShift(d);fsPzUI(false);try{tkStrip();tkRefresh()}catch(e){}return true}
+/* every stored timestamp moves forward by the time spent paused, so waits, fights and shows carry on where they stopped */
+function fsPzShift(d){const now=fsNow(),sh=(o,k)=>{if(o&&typeof o[k]==='number')o[k]+=d},t00=FS.t0;
+ ['t0','biteT','fightT','landT','escT'].forEach(k=>sh(FS,k));sh(FS.breach,'t');sh(FS.snap,'t');sh(FS.show,'sk');sh(FS.qs,'t');
+ FS.T=now;if(FS.snap)FS.snap.T=now;
+ if(typeof FSRF!=='undefined'&&FSRF){if(FSRF.showT0===t00)FSRF.showT0=FS.t0;FSRF.T=now;sh(FSRF.fl,'t0');(FSRF.tr||[]).forEach(p=>sh(p,'t'));(FSRF.fp||[]).forEach(p=>sh(p,'t'))}}
+function fsPzUI(on){const o=$('fspz');if(o)o.remove();const x=$('fsx');if(!on||!x)return;
+ const d=document.createElement('div');d.id='fspz';d.className='fspz'+(fsRM()?' rm':'');d.setAttribute('role','status');
+ d.innerHTML='<span class="fspzi" aria-hidden="true"><i></i><i></i></span><b>Paused</b><span class="fspzs"> - press any key</span>';x.appendChild(d);d.addEventListener('pointerdown',()=>fsResume())}
+/* a frozen pond draws nothing new: the last frame stays on the canvas */
+{const f0=fsFrame;fsFrame=function(){if(FS.paused)return;return f0.apply(this,arguments)}}
+{const t0=fsType;fsType=function(){if(FS.paused){fsResume();return}return t0.apply(this,arguments)}}
+{const s0=fsStop;fsStop=function(){FS.paused=false;try{fsPzUI(false)}catch(e){}return s0.apply(this,arguments)}}
+{const s0=fsStart;fsStart=function(){FS.paused=false;return s0.apply(this,arguments)}}
+window.addEventListener('blur',()=>{try{fsPause('blur')}catch(e){}});
+document.addEventListener('visibilitychange',()=>{try{if(document.hidden||document.visibilityState==='hidden')fsPause('hidden');else if(FS.paused&&FSZ.why!=='sleep'&&document.hasFocus())fsResume()}catch(e){}});
+window.addEventListener('focus',()=>{try{if(FS.paused&&FSZ.why!=='sleep'&&!document.hidden)fsResume()}catch(e){}});
+/* any key resumes (and is not typed); Ctrl, Alt and Cmd shortcuts are left alone. Window capture runs before the pond's own handler. */
+window.addEventListener('keydown',e=>{if(!FS.paused||e.ctrlKey||e.metaKey||e.altKey)return;if(!fsPzOK()){FS.paused=false;fsPzUI(false);return}e.preventDefault();e.stopImmediatePropagation();fsResume()},true);
+/* a tap or click on the pond only resumes it (the click that follows still reaches a button); the keyboard resumes through tkPress */
+window.addEventListener('pointerdown',e=>{try{if(FS.paused&&!(e.target&&e.target.closest&&e.target.closest('#kb'))){fsResume();e.stopPropagation()}}catch(x){}},true);
+
+/* ---------- A2 + B1: the touch keyboard for the pond and Trick-or-Treat ---------- */
+const TK={dirty:0};
+function tkMode(){try{if(!TM())return'';
+ if(S.mode==='fish'&&S.view==='fish'&&$('fsx')&&!FS.tut){const m=$('fsmod');if(!m||m.hidden)return'fish'}
+ else if(S.mode==='treat'&&S.view==='treat'&&typeof TRT!=='undefined'&&TRT.run&&TRT.run.phase==='typing'&&!TRT.paused)return'treat'}catch(e){}return''}
+function tkWant(){return tkMode()!==''}
+/* the pond's keyboard is the shared one with a word strip on top; elsewhere the size is the usual one */
+function kbH(vw,vh){const port=vh>=vw;if(tkMode()==='fish')return Math.round(port?Math.min(vh*.42,330):Math.min(vh*.52,200));return Math.round(port?Math.min(vh*.44,330):Math.min(vh*.5,210))}
+{const s=document.createElement('div');s.id='tks';s.className='tks';s.innerHTML='<div class="tkp" id="tkp"><i class="tkf" id="tkfill"></i><span class="tkt" id="tkt"></span><em class="tksec" id="tksec"></em></div>';kb.insertBefore(s,kb.firstChild)}
+/* #ov stops above the keyboard (touchLayout gives a full-height box to anything that is not a clear overlay) */
+{const t0=touchLayout;touchLayout=function(vw,vh,ah,on){const r=t0.apply(this,arguments);try{
+ const m=on?tkMode():'';kb.classList.toggle('tk',!!m);kb.dataset.m=m;kb.dataset.o=vh>=vw?'p':'l';
+ if(m){const z=parseFloat(ov.style.zoom)||1;ov.style.height=(ah/z)+'px';if(m==='treat')setTimeout(tkShowWord,60)}
+ {const w=$('tkt');if(w)w.dataset.h=''}/* the word is fitted again at the new size */
+ tkRefresh()}catch(e){console.error(e)}return r}}
+/* Trick-or-Treat: the word box must stay above the keys */
+function tkShowWord(){try{if(S.mode!=='treat'||!kb.classList.contains('tk'))return;const p=document.querySelector('.ttchallenge')||$('ttbody');if(p&&p.scrollIntoView)p.scrollIntoView({block:p.offsetHeight<=ov.clientHeight?'center':'start',inline:'nearest'})}catch(e){}}
+{const t0=ttScreen;ttScreen=function(){const r=t0.apply(this,arguments);try{const i=$('ttinput');if(i&&TM())i.setAttribute('inputmode','none')}catch(e){}return r}}
+/* labels and the strip follow the pond's state */
+function tkRefresh(){
+ const m=kb.classList.contains('on')&&kb.classList.contains('tk')?kb.dataset.m:'',pb=kb.querySelector('[data-a=pause]'),dr=kb.querySelector('[data-a=drop]'),sp=kb.querySelector('.sp'),fy=kb.querySelector('#kf span');
+ if(!pb||!dr||!sp||!fy)return;
+ if(!m){if(TK.dirty){TK.dirty=0;pb.textContent='II';dr.textContent='Drop';sp.textContent='space';fy.textContent='Fury';pb.classList.remove('warn');sp.classList.remove('go');kb.removeAttribute('data-st')}return}
+ TK.dirty=1;
+ if(m==='treat'){pb.textContent='Pause';dr.textContent='';sp.textContent='space';sp.classList.remove('go');pb.classList.remove('warn');kb.dataset.st='typing';return}
+ const st=FS.paused?'paused':FS.st;kb.dataset.st=st;
+ pb.textContent=tkWarn()?'Leave?':'Back';pb.classList.toggle('warn',tkWarn());
+ sp.textContent={idle:'Cast',show:'Skip',cast:'Casting...',wait:'Waiting...',reel:'Reeling...',stage:'Reeling...',paused:'Paused',escape:'...',odd:'...'}[st]||'space';sp.classList.toggle('go',st==='idle');
+ if(st==='reveal'&&FS.pend){const v=fsValue(FS.pend);dr.textContent='Sell '+v.toLocaleString();fy.textContent='Keep'}
+ tkStrip()}
+const tkWarn=()=>!!(FS.escT&&fsNow()-FS.escT<2.2&&(FS.st==='reel'||FS.st==='stage'));
+function tkStrip(){const p=$('tkp'),t=$('tkt');if(!p||!t||kb.dataset.m!=='fish'||!kb.classList.contains('tk'))return;
+ const st=FS.paused?'paused':FS.st;let h='',rc='#5a4ca0',w=0;
+ if((st==='reel'||st==='stage')&&FS.cur&&FS.word){rc=FSR[FS.cur.rk].c;const n=Math.min(FS.word.length,FS.typed||0);h=`<span class="d">${fsEsc(FS.word.slice(0,n))}</span>${fsEsc(FS.word.slice(n))}`;w=1}
+ else if(st==='reveal'&&FS.pend){rc=FSR[FS.pend.rk].c;h=fsEsc(fsNm(FS.pend))}
+ else h={idle:'Ready to cast',cast:'Casting...',wait:'Watch the bobber...',show:'Landing it...',escape:'It got away...',odd:'A strange catch...',paused:'Paused - tap to resume'}[st]||'';
+ if(t.dataset.h!==h){t.dataset.h=h;t.innerHTML=h;
+  /* a long word shrinks to fit the strip: it must always show whole */
+  if(w){const n=FS.word.length,mx=kb.dataset.o==='l'?19:Math.min(32,Math.max(22,innerWidth/15)),av=Math.max(60,p.clientWidth-92);t.style.fontSize=Math.max(13,Math.min(mx,av/(n*.92)))+'px'}else t.style.fontSize=''}
+ t.classList.toggle('w',!!w);p.style.setProperty('--rc',rc);if(!w)tkTick()}
+function tkTick(){const p=$('tkp');if(!p||!kb.classList.contains('tk')||kb.dataset.m!=='fish')return;const f=$('tkfill'),s=$('tksec'),rd=(FS.st==='reel'||FS.st==='stage')&&!FS.paused&&FS.tMax>0,k=rd?Math.max(0,Math.min(1,FS.tLeft/FS.tMax)):0;
+ if(f)f.style.transform=`scaleX(${k.toFixed(3)})`;if(s){const v=rd?Math.ceil(FS.tLeft)+'s':'';if(s.textContent!==v)s.textContent=v}p.classList.toggle('low',rd&&FS.tLeft<1.6);
+ const pb=kb.querySelector('[data-a=pause]');if(pb){const w=tkWarn();if(pb.classList.contains('warn')!==w){pb.classList.toggle('warn',w);pb.textContent=w?'Leave?':'Back'}}}
+{const h0=fsHudState;fsHudState=function(){const r=h0.apply(this,arguments);try{tkRefresh()}catch(e){}return r}}
+{const h0=fsHudWord;fsHudWord=function(){const r=h0.apply(this,arguments);try{tkStrip()}catch(e){}return r}}
+{const h0=fsHudTimer;fsHudTimer=function(){const r=h0.apply(this,arguments);try{tkTick()}catch(e){}return r}}
+/* Space on the screen does what Space does on the keyboard */
+function tkSpace(){if(FS.tut)return;if(FS.st==='idle')fsCast();else if(FS.st==='show')fsSkip()}
+function tkPress(m,b){const c=b.dataset.c,a=b.dataset.a;
+ if(m==='fish'){if(FS.paused){fsResume();return}
+  if(c!==undefined&&c!==' ')fsType(c);
+  else if(c===' ')tkSpace();
+  else if(a==='pause')fsLeaveAsk();
+  /* Sell and Keep take the place of the Skip key when the show ends: a tap that was meant for Skip must not decide the catch */
+  else if(a==='drop'){if(FS.st==='reveal'&&fsNow()-FS.t0>.45){fsQsOff();fsDecide(false)}}
+  else if(a==='fury'){if(FS.st==='reveal'&&fsNow()-FS.t0>.45){fsQsOff();fsDecide(true)}}}
+ else if(m==='treat'){if(c!==undefined)ttInput(c);else if(a==='pause')ttPause()}}
+/* captured before the shared keyboard's own handler, which would send these keys to the campaign */
+kb.addEventListener('pointerdown',e=>{const m=kb.classList.contains('tk')?kb.dataset.m:'';if(!m)return;const b=e.target.closest&&e.target.closest('button');if(!b)return;e.preventDefault();e.stopImmediatePropagation();try{ensureAudio()}catch(x){}b.classList.add('dn');try{tkPress(m,b)}catch(x){console.error(x)}},true);
+{const st=document.createElement('style');st.textContent=`
+#kb .tks{display:none;flex:none;height:50px}
+#kb.tk[data-m=fish] .tks{display:flex}
+#kb[data-o=l] .tks{height:30px}
+#kb .tkp{position:relative;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:14px;background:linear-gradient(#251b55,#120c32);border:2px solid #12081f;box-shadow:inset 0 0 0 1.5px var(--rc,#5a4ca0)}
+#kb[data-o=l] .tkp{border-radius:10px}
+#kb .tkf{position:absolute;left:0;top:0;bottom:0;width:100%;background:linear-gradient(90deg,#2bd9c4b0,#2bd9c460);transform-origin:0 50%;transform:scaleX(0)}
+#kb .tkp.low .tkf{background:linear-gradient(90deg,#ff5a6eb8,#ff5a6e66)}
+#kb .tkt{position:relative;max-width:100%;padding:0 46px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font:700 15px/1.4 var(--ui);color:#e8e0ff;text-transform:none}
+#kb .tkt.w{font:800 26px/1.3 var(--ui);letter-spacing:.16em;text-transform:uppercase;color:#fff8e8;text-shadow:0 2px 0 #12081f}
+#kb[data-o=l] .tkt{font-size:13px}#kb[data-o=l] .tkt.w{font-size:19px}
+#kb .tkt .d{color:#ffd45a}
+#kb .tksec{position:absolute;right:12px;top:50%;transform:translateY(-50%);font:800 14px var(--ui);font-style:normal;color:#cfc6f0}
+#kb.tk[data-m=fish] .ka [data-a=drop],#kb.tk[data-m=fish] .ka .fy,#kb.tk[data-m=treat] .ka [data-a=drop],#kb.tk[data-m=treat] .ka .fy{display:none}
+#kb.tk[data-m=fish][data-st=reveal] .ka [data-a=drop],#kb.tk[data-m=fish][data-st=reveal] .ka .fy{display:block}
+#kb.tk[data-m=fish][data-st=reveal] .ka .sp{display:none}
+#kb.tk .ka button{font-family:var(--ui);font-weight:700;text-transform:none;letter-spacing:.02em}
+#kb.tk .ka .fy{background:linear-gradient(#4a3a80,#2a1f52);border-color:#7a68b8}#kb.tk .ka .fy i{display:none}#kb.tk .ka .fy.rd{animation:none}
+#kb.tk[data-m=fish][data-st=reveal] .ka .fy{background:linear-gradient(#ffe490,#f0a820);color:#2a1608;border-color:#8a5610}
+#kb.tk .ka .sp.go{background:linear-gradient(#ffe490,#f0a820);color:#2a1608;border-color:#8a5610}
+#kb.tk .ka [data-a=pause].warn{background:linear-gradient(#ff8a98,#d8304a);color:#fff;border-color:#8a1426}
+#kb.tk[data-m=fish]:not([data-st=reel]):not([data-st=stage]) .kr:not(.ka) button{opacity:.42}
+#kb.tk[data-m=fish]:not([data-st=idle]):not([data-st=show]) .ka .sp{opacity:.5}
+.fspz{position:absolute;left:590px;top:262px;transform:translateX(-50%);z-index:40;display:flex;align-items:center;gap:14px;padding:12px 28px 12px 14px;border-radius:999px;white-space:nowrap;cursor:pointer;background:linear-gradient(#2c2070,#150f3e);border:4px solid #12081f;box-shadow:0 0 0 2px #ffd45a,0 10px 24px #000a;animation:fsPzIn .38s cubic-bezier(.3,1.5,.5,1) both}
+.fspz.rm{animation:none}
+.fspzi{display:flex;align-items:center;justify-content:center;gap:5px;width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6c0,#ffc94a 55%,#d48a10);border:3px solid #12081f}
+.fspzi i{width:6px;height:18px;border-radius:2px;background:#12081f}
+.fspz b{font:400 40px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 3px 0 #12081f}
+.fspzs{font:600 19px var(--ui);color:#e8e0ff}
+body.tm .fspz{display:none}
+#fztoast{position:fixed;left:12px;right:12px;top:22px;z-index:100000;width:max-content;max-width:min(560px,calc(100% - 24px));margin:0 auto;padding:12px 20px;border-radius:14px;text-align:center;background:linear-gradient(180deg,#221a5a,#120a30);border:2px solid #ffd45a;box-shadow:0 0 0 3px #12081f,0 12px 30px #000a;color:#fff8e8;font:700 15px/1.4 var(--ui);opacity:0;transform:translateY(-14px);pointer-events:none;transition:opacity .25s,transform .4s cubic-bezier(.3,1.5,.5,1)}
+#fztoast.on{opacity:1;transform:none}#fztoast.rm{transition:none;transform:none}
+@keyframes fsPzIn{from{opacity:0;transform:translate(-50%,12px) scale(.85)}}`;document.head.appendChild(st)}
+
+/* ---------- B16: Big Screen counts the caravan and fishing as busy play ---------- */
+{const f0=fsFallback;fsFallback=function(){
+ const extra=(()=>{try{return inFrame()&&!FSB.wait&&!fsBusy()&&(!!S.wr||S.mode==='fish')}catch(e){return false}})();
+ const r=f0.apply(this,arguments);
+ if(extra&&FSB.wait){const ok0=FSB.wait.ok;FSB.wait.ok=function(d){try{fsNote(d&&d.action==='close'?'Back to the normal view. Your save is shared; this run will restart there.':'Opening Big Screen. Your save is shared; this run will restart there.')}catch(e){}return ok0.apply(this,arguments)}}
+ return r}}
+{const s0=fsSleep;fsSleep=function(){const r=s0.apply(this,arguments);
+ try{if(typeof WRX!=='undefined'&&WRX&&S.wr&&S.mode==='wagon'&&!WRX.over&&!WRX.pause)wrPause(true)}catch(e){}
+ try{fsPause('sleep')}catch(e){}return r}}
+/* ===== 94b: UPDATE 8.7 fixes for the Runestone Riddle, Wildcard and the Warden's Arena =====
+   Riddle
+   - A3  The daily result is settled in the same save as the state change. rrEnter (92b) used to set e.st and save, and
+         rrFinish paid (stats, streak, gold, e.c) only after the tile-flip delay, so a reload inside that delay kept "solved"
+         but lost the payout. rrEnter now calls rrSettle before its save(); rrFinish keeps only the visuals. A load-time
+         recovery (rrRecover) settles any day that has st 'w'/'l' but no c (saves hit by the old bug), exactly once because
+         settling sets c. Practice riddles are untouched (they pay nothing).
+   - A10 A daily entry never stores the answer: rrCur hands out the entry with `w` as a non-enumerable property (derived with
+         rrWord(k) on every call), so JSON.stringify(P) leaves it out; a stale `w` on an unsolved day is stripped on load.
+   - B2  The four dead Daily Challenge trophies (dc1, dc7, dcw5, dcS) now follow the daily Riddle stats (P.rr). Ids, tiers,
+         rewards and earned state stay; names and texts change; they sit in a "Runestone Riddle" trophy tab.
+   Wildcard
+   - A5  The Game menu pauses solo and same-screen tables (WCPZ): wcLater timers freeze and resume with their remaining time,
+         wcPump waits at the next event, wcStep is held, user moves are ignored. Online rooms and ranked are unaffected.
+   - A8  wcAnim no longer throws after the table was left mid-animation (reduced motion fell through to $('wcdisc') = null).
+   - B6  (89d) the +150 first-win bonus is paid only for staked games inside the 15-game daily cap.
+   Arena
+   - A7  Enter on the result screen presses the first button (Fight again); the menu track plays while the arena is paused or over
+         (one line in mk(), 70_main.js). */
+
+/* ---------------------------------------------------------------------------------------------------------------
+   RIDDLE  A3 / A10
+   --------------------------------------------------------------------------------------------------------------- */
+/* the answer of a daily riddle is derived, never stored: keep `w` on the entry but out of JSON */
+function rrHideW(e){try{const d=Object.getOwnPropertyDescriptor(e,'w');if(d&&'value' in d&&d.enumerable)Object.defineProperty(e,'w',{value:d.value,writable:true,configurable:true,enumerable:false})}catch(x){}}
+{const c0=rrCur;rrCur=function(){const e=c0.apply(this,arguments);if(e&&typeof e==='object'&&RR&&RR.mode!=='p')rrHideW(e);return e}}
+const RRREC={msg:''};
+/* Settle a finished daily riddle: counters, streak, bonus, title, bounty, gold and e.c. Returns the payout breakdown the
+   result card shows, or null when the day was settled already (e.c is a number). `late` = an older day than the last win
+   (recovery only): it pays and counts, but leaves the streak alone. */
+function rrSettle(e,k,win,late){if(!e||typeof e.c==='number')return null;
+ const R=RRP(),n=e.g.length,res={win,n,base:0,cut:0,bonus:0,tot:0,title:0};
+ R.pl++;
+ if(win){R.wins++;R.dist[n-1]++;
+  if(!late){R.st=(R.last===rrPrev(k)||R.last===k)?R.st+1:1;R.last=k;R.best=Math.max(R.best,R.st)}
+  res.base=RR_PAY[n-1];res.tot=rrPay(n,e.pw);res.cut=res.base-res.tot;
+  if(!late&&R.st%7===0){res.bonus=RR_BONUS7;res.tot+=RR_BONUS7}
+  if(!late&&R.st>=RR_TITLE_DAYS&&!R.ttl){R.ttl=1;res.title=1;try{const B=BTY();B.own['t:riddlemaster']=1}catch(x){}}
+  if(k===rrKey())try{btyAdd('daily',1)}catch(x){}}
+ else{if(!late)R.st=0;res.base=RR_FAIL;res.tot=RR_FAIL}
+ e.c=res.tot;e.cb=res.bonus;P.gold+=res.tot;try{stat('gold',res.tot,'add')}catch(x){}
+ return res}
+/* Trophies for a finished daily riddle are checked when its result card is closed (or the riddle is left), so a pop-up never
+   covers the card. Nothing is lost if the page is reloaded first: achCheck runs again on the next start (end of this module). */
+const RRACH={pend:false};
+function rrAch(){RRACH.pend=false;try{achCheck()}catch(x){}}
+{const c0=rrResClose;rrResClose=function(){const m=$('rrres'),was=!!(m&&!m.hidden),r=c0.apply(this,arguments);if(was&&RRACH.pend)setTimeout(rrAch,rrRM()?0:350);return r}}
+{const b0=rrBack;rrBack=function(){const left=!!RR,r=b0.apply(this,arguments);if(left&&!RR&&RRACH.pend)setTimeout(rrAch,300);return r}}
+/* the entry of Enter: same as 92b, but the result is settled before the single save() */
+function rrEnter(){const e=rrCur();if(RR.busy||e.st!=='p')return;const g=RR.cur;rrKeyFlash('enter');
+ if(g.length<5){rrShake();rrSfx('bad');rrToast('Not enough runes. A riddle word has five letters.');try{rrHostSay('short')}catch(x){}return}
+ if(!rrValid(g)){rrShake();rrSfx('bad');rrToast(`“${g.toUpperCase()}” is not in the rune lexicon.`);try{rrHostSay('bad')}catch(x){}return}
+ if(e.g.includes(g)){rrShake();rrSfx('bad');rrToast('You already carved that word.');return}
+ const h0=RR.heat,r=e.g.length,s=rrScore(g,e.w),tk=RR.tk;e.g.push(g);RR.cur='';RR.res=null;const win=g===e.w,lose=!win&&e.g.length>=6;
+ if(win||lose){e.st=win?'w':'l';if(RR.mode==='d')RR.res=rrSettle(e,RR.key,win,false)}
+ save();if((win||lose)&&RR.mode==='d')RRACH.pend=true;
+ RR.busy=true;const T=rrRow(r),rm=rrRM(),step=rm?0:270,half=rm?0:250;ov.querySelector(`#rrgrid .rrrw[data-r="${r}"]`).classList.remove('now');
+ /* each tile flips in turn; its key on the keyboard fills in at the same moment */
+ T.forEach((t,i)=>{t.classList.remove('cur','gh','pop');if(!rm)t.classList.add('flip');setTimeout(()=>{t.classList.add(s[i]);t.setAttribute('aria-label',g[i].toUpperCase()+', '+RR_SAY[s[i]]);rrSfx(s[i],i);rrKeyFill(g[i],s[i]);try{rrHeatPulse(s[i])}catch(x){}},i*step+half)});
+ setTimeout(()=>{if(!RR||RR.tk!==tk)return;RR.busy=false;rrKeys(true);rrPowers();T.forEach(t=>t.classList.remove('flip'));rrHeatSet();rrResonate(RR.heat,RR.heat-h0,win);
+  if(win||lose)rrFinish(win);else{rrTyping();rrPanel(true);try{rrHostReact(RR.heat,RR.heat-h0,s)}catch(x){}}},4*step+half*2+60)}
+/* finishing a riddle: visuals only for a daily (the bookkeeping already happened in rrEnter); practice keeps its own counters */
+function rrFinish(win){const R=RRP(),e=rrCur(),n=e.g.length,daily=RR.mode==='d';let res=null;
+ if(daily){res=RR.res;if(typeof e.c!=='number'){res=rrSettle(e,RR.key,win,false);save()}}
+ else{const Q=R.pr;Q.pl++;if(win){Q.wins++;Q.dist[n-1]++;Q.st++;Q.best=Math.max(Q.best,Q.st)}else Q.st=0;save();res={win,n,base:0,cut:0,bonus:0,tot:0,title:0}}
+ RR.res=res;
+ const sl0=$('rrarchw');if(sl0)sl0.classList.add(win?'awake':'dim');try{rrHostReact(win?1:0,0,null,win?'win':'lose')}catch(x){}
+ if(win){rrSfx('win');const T=rrRow(n-1);if(!rrRM())T.forEach((t,i)=>setTimeout(()=>t.classList.add('won'),i*90));else T.forEach(t=>t.classList.add('won'));setTimeout(()=>rrBurst(T),rrRM()?0:420)}
+ else{rrSfx('lose');const sl=$('rrarchw');if(!rrRM()){sl.classList.remove('rrq');void sl.offsetWidth;sl.classList.add('rrq')}}
+ RR.busy=true;rrPanel(true);rrPowers();rrLegend();setTimeout(()=>{if(RR&&$('rr'))rrResult(true);if(RR)RR.busy=false},win?(rrRM()?200:1250):(rrRM()?200:950))}
+/* Load-time recovery. A daily day with st 'w'/'l' but no c was hit by the old order (saved, then paid after the flip): settle it
+   once, oldest first. Also drops a stale answer from unsolved days (A10). Needs no DOM; safe to run on every load. */
+function rrRecover(){const R=P&&P.rr;if(!R||typeof R!=='object'||!R.d||typeof R.d!=='object'||Array.isArray(R.d))return 0;let n=0,paid=0,lateWin=false;
+ for(const k of Object.keys(R.d)){const e=R.d[k];if(e&&typeof e==='object'&&(!e.st||e.st==='p')&&'w' in e){delete e.w;n++}}
+ const ks=Object.keys(R.d).filter(k=>{const e=R.d[k];return /^\d{4}-\d{2}-\d{2}$/.test(k)&&e&&typeof e==='object'&&(e.st==='w'||e.st==='l')&&typeof e.c!=='number'&&Array.isArray(e.g)&&e.g.length>=1&&e.g.length<=6}).sort();
+ for(const k of ks){const e=R.d[k];try{const Rr=RRP(),late=!!Rr.last&&k<=Rr.last,win=e.st==='w';if(!e.pw||typeof e.pw!=='object')e.pw={r:0,s:0};
+   const g0=P.gold,r=rrSettle(e,k,win,late);if(r){n++;paid+=P.gold-g0;if(win&&late)lateWin=true}}catch(x){}}
+ if(lateWin&&R.last){let c=0,kk=R.last;while(R.d[kk]&&R.d[kk].st==='w'&&c<4000){c++;kk=rrPrev(kk)}R.st=Math.max(R.st||0,c);R.best=Math.max(R.best||0,R.st)}
+ if(paid>0)RRREC.msg=`Restored ${rrFmt(paid)} coins from a riddle result that was interrupted.`;
+ if(n){try{save()}catch(x){}}
+ return n}
+{const l0=load;load=function(){const r=l0.apply(this,arguments);try{rrRecover()}catch(x){}return r}}
+{const m0=rrMenu;rrMenu=function(){try{rrRecover()}catch(x){}const r=m0.apply(this,arguments);try{if(RRREC.msg){const m=RRREC.msg;RRREC.msg='';setTimeout(()=>{if(RR&&$('rr'))rrToast(m,4200)},900)}}catch(x){}return r}}
+try{rrRecover()}catch(x){}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   B2  the four Daily Challenge trophies follow the daily Riddle stats
+   --------------------------------------------------------------------------------------------------------------- */
+{const RS=()=>(P&&P.rr&&typeof P.rr==='object'?P.rr:{});
+ const T=(id,n,d,tg,v)=>{const a=ACH.find(x=>x.id===id);if(a)Object.assign(a,{cat:'Runestone Riddle',n,d,tg,v})};
+ T('dc1','Riddle Apprentice','Solve your first daily Runestone Riddle.',1,()=>RS().wins|0);
+ T('dc7','Rune Regular','Reach a 7-day Runestone Riddle streak.',7,()=>Math.max(RS().best|0,RS().st|0));
+ T('dcw5','Stone Scholar','Solve 5 daily Runestone Riddles.',5,()=>RS().wins|0);
+ T('dcS','Rune Whisperer','Solve a daily Runestone Riddle in 1 or 2 guesses.',1,()=>{const d=RS().dist;return Array.isArray(d)?(d[0]|0)+(d[1]|0):0});
+ if(!ACAT.includes('Runestone Riddle'))ACAT.splice(Math.max(0,ACAT.indexOf('Campaign'))+1,0,'Runestone Riddle');
+ /* players who already solved riddles earn these on the next trophy check; do it once the home screen is up */
+ setTimeout(()=>{try{achCheck()}catch(x){}},1800)}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   WILDCARD  A5: the Game menu pauses a solo or same-screen table
+   The menu is the #wcmod modal with the .wcmn card. While it is open (and for a How-to opened from it, which reuses the same
+   modal) nothing moves on its own: wcLater timers freeze and carry on with the time they had left, wcPump waits before the
+   next event, wcStep is held until Resume, and user moves are ignored. Online rooms (WX.mode 'net') and ranked (15-second turns)
+   are never paused. "Paused" is derived from the DOM, so a table that was left or rebuilt cannot stay paused.
+   --------------------------------------------------------------------------------------------------------------- */
+const WCPZ={menu:false,mod:null,obs:null,on:false,recs:new Set(),gates:[],stepPend:false,stepTok:-1};
+const wcCanPause=()=>!!(WX.G&&WX.host&&!WX.rk&&WX.mode!=='net');
+const wcPaused=()=>{if(!WCPZ.menu)return false;const m=$('wcmod');
+ if(!m||m!==WCPZ.mod||m.hidden){WCPZ.menu=false;return false}   /* closed, or the table was rebuilt or left */
+ return wcCanPause()};
+function wcGateFlush(){const g=WCPZ.gates.splice(0);for(const x of g)x.res()}
+/* freeze: stop every pending timer and remember what it had left; thaw: start them again with that time */
+function wcPauseSync(){const p=wcPaused();
+ if(p&&!WCPZ.on){WCPZ.on=true;const now=performance.now();for(const r of WCPZ.recs)if(r.id){clearTimeout(r.id);r.left=Math.max(0,r.due-now);r.id=0}}
+ else if(!p&&WCPZ.on){WCPZ.on=false;for(const r of [...WCPZ.recs])if(!r.id){if(r.tok===WX.tok)r.arm(r.left);else WCPZ.recs.delete(r)}}
+ if(!p){wcGateFlush();if(WCPZ.stepPend){WCPZ.stepPend=false;if(WCPZ.stepTok===WX.tok&&!WX.busy&&$('wct')){try{wcStep()}catch(e){console.error(e)}}}}}
+function wcLater(fn,ms){const tok=WX.tok,rec={fn,tok,id:0,due:0,left:ms};
+ const fire=()=>{WCPZ.recs.delete(rec);rec.id=0;if(tok===WX.tok&&$('wct'))fn()};
+ rec.arm=d=>{rec.due=performance.now()+d;rec.id=setTimeout(fire,d);WX.tm.push(rec.id)};
+ const p=wcPaused();if(WCPZ.on&&!p)wcPauseSync();   /* the menu was closed a moment ago: thaw first */
+ WCPZ.recs.add(rec);if(p)rec.left=ms;else rec.arm(ms);return rec.id}
+{const c0=wcClear;wcClear=function(){const r=c0.apply(this,arguments);WCPZ.recs.clear();return r}}
+{const m0=wcMenu;wcMenu=function(){const r=m0.apply(this,arguments);try{const m=$('wcmod');
+  if(m&&!m.hidden&&m.classList.contains('wcmn')&&wcCanPause()){WCPZ.menu=true;if(WCPZ.mod!==m){if(WCPZ.obs)WCPZ.obs.disconnect();WCPZ.mod=m;WCPZ.obs=new MutationObserver(()=>wcPauseSync());WCPZ.obs.observe(m,{attributes:true,attributeFilter:['hidden']})}}
+  wcPauseSync()}catch(e){console.error(e)}return r}}
+{const s0=wcStep;wcStep=function(){if(wcPaused()){WCPZ.stepPend=true;WCPZ.stepTok=WX.tok;return}if(WCPZ.on)wcPauseSync();return s0.apply(this,arguments)}}
+{const s0=wcSend;wcSend=function(){if(wcPaused())return;return s0.apply(this,arguments)}}
+/* a new table, or leaving one, drops any pause that was left over */
+{const t0=wcTable;wcTable=function(){const r=t0.apply(this,arguments);try{wcPauseSync()}catch(e){}return r}}
+{const x0=wcExit;wcExit=function(){const r=x0.apply(this,arguments);try{WCPZ.menu=false;wcPauseSync()}catch(e){}return r}}
+{const h0=wcHome;wcHome=function(){const r=h0.apply(this,arguments);try{WCPZ.menu=false;wcPauseSync()}catch(e){}return r}}
+{const r0=wcReset;wcReset=function(){const r=r0.apply(this,arguments);try{WCPZ.menu=false;wcPauseSync()}catch(e){}return r}}
+
+/* WILDCARD  A8: wcAnim runs through a gate (A5) and never throws because the table was left while a card was in the air.
+   The base animation reads $('wcdisc') and friends after an await; with reduced motion the shorter chain falls through to it. */
+{const a0=wcAnim;wcAnim=async function(e){const tok=WX.tok;
+  try{while(wcPaused()&&tok===WX.tok&&$('wct'))await new Promise(res=>WCPZ.gates.push({res,tok}));
+   if(tok!==WX.tok||!$('wct'))return;
+   return await a0.apply(this,arguments)}
+  catch(err){if(tok!==WX.tok||!$('wct'))return;throw err}}}
+
+/* ---------------------------------------------------------------------------------------------------------------
+   ARENA  A7: Enter on the result screen presses the first button (Fight again), like the result screens of the other modes.
+   (The arena keeps S.mode 'arena' after the fight, so the generic result-screen key handler never runs.)  Music: see mk() in 70_main.js.
+   --------------------------------------------------------------------------------------------------------------- */
+addEventListener('keydown',e=>{if(e.key!=='Enter'||e.repeat||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey)return;
+ if(!S||S.mode!=='arena'||!S.wa||!S.wa.over||ov.className.indexOf('hide')>=0||performance.now()-SHOWT<900)return;
+ const ae=document.activeElement;if(ae&&ae.tagName==='BUTTON'&&ov.contains(ae))return;   /* a focused button keeps its own Enter */
+ const b=$('wa1');if(!b||b.disabled)return;e.preventDefault();e.stopImmediatePropagation();b.click()},true);
+/* ===== 94c_fix_menus.js: menu behaviour fixes for update 8.7 (stream "menus") =====
+   Everything here wraps or overrides an earlier function; nothing is edited in place except the small source edits listed with each item.
+   B7   dkRefreshBadges(): dock badges, sub-tab badges, bell count and the calendar "!" are re-rendered in place (at most once a frame)
+        from a save() wrapper and after shop purchases and crate opens.
+   B8   Settings keeps its scroll position (and the focused option) when an option is clicked and the page re-renders.
+   B9   Bell: Esc closes it and returns focus to the bell, focus moves into the popover on open, the count refreshes after the updates
+        are read, "Clear" really clears (the Runestone Riddle alert used to come back), and a brand-new save starts with the old updates
+        marked as read (adds no notice).
+   B10  The legacy corner buttons (#cn: Casino, Music, Fullscreen) are hidden on every menu screen; gameplay and game over keep them.
+   B11  A timer that was set on a pet screen can no longer open a pet screen after you pressed Back.
+   B12  Empty stats read "No record yet" in the body font (source edits in 60_ui.js, 84i_beginner.js, 84e_gy_ui.js; prestige label here).
+   B13  Performance mode rests infinite CSS animations in their natural pose instead of freezing them mid-squash.
+   B14  Codes used on this browser survive "Reset save" (localStorage twCodesUsed87, merged with the save's own list).
+   D6   "Reset save" moved from the Profile header to Settings > Data (two clicks, a backup is kept). */
+const MFM={bt:0,bt2:0,tok:0};
+const mfxRM=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
+/* a counter that moves on every screen change; timers compare against it */
+{const s0=show;show=function(){MFM.tok++;return s0.apply(this,arguments)}}
+
+/* ---------- B7: badges refreshed in place ---------- */
+function mfxSetBdg(host,v){if(!host)return;let i=null;for(const c of host.children)if(c.classList&&c.classList.contains('bdg')){i=c;break}
+ const s=(v===''||v==null||v===0||v===false)?'':String(v);
+ if(!s){if(i)i.remove();return}
+ if(i&&i.textContent===s)return;
+ const fresh=!i;if(!i){i=document.createElement('i');i.className='bdg';host.appendChild(i)}i.textContent=s;
+ if(!mfxRM()&&i.animate)try{i.animate([{transform:'scale(.4)'},{transform:'scale(1.25)',offset:.6},{transform:'scale(1)'}],{duration:fresh?340:260,easing:'cubic-bezier(.3,1.5,.5,1)'})}catch(e){}}
+/* the bell: badge, ring, label and the popover's own tab counts */
+function mfxBellCount(){const b=$('bell');if(!b)return;
+ let al=[];try{al=dkAlerts()}catch(e){}
+ BELL_AL=al;const un=updUnread(),n=al.length+un,p=$('bellp'),open=!!(p&&p.classList.contains('open'));
+ const old=b.querySelector(':scope>.bdg'),prev=old?(parseInt(old.textContent)||0):0,had=b.classList.contains('ring');
+ if(p&&!open&&window.__bellAct){try{bellRender(window.__bellAct)}catch(e){}}
+ else if(p&&open){const chip=(sel,v)=>{const t=p.querySelector(sel);if(!t)return;let i=t.querySelector(':scope>i');if(v){if(!i){i=document.createElement('i');t.appendChild(i)}i.textContent=v}else if(i)i.remove()};
+  chip('[data-bt="a"]',al.length);chip('[data-bt="u"]',un);const c=p.querySelector('#blclr');if(c)c.disabled=!(al.length||un)}
+ mfxSetBdg(b,n||'');b.classList.toggle('ring',n>0&&!open&&(had||n>prev));
+ b.setAttribute('aria-label','Notifications'+(n?` (${n} new)`:''))}
+function mfxBadgesNow(){if(!ov||ov.classList.contains('hide'))return;
+ ov.querySelectorAll('.dki[data-dk]').forEach(b=>mfxSetBdg(b,dkBadge(b.dataset.dk)));
+ ov.querySelectorAll('.dkst[data-dks]').forEach(b=>{const k=b.dataset.dks;let v='';try{v=k==='cr'?dkCrates():k==='bb'?btyReady():k==='ut'?(spNote()>0?spNote():''):''}catch(e){}mfxSetBdg(b,v)});
+ const cal=$('dkcal');if(cal){let v='';try{v=dailyReady()?'!':''}catch(e){}mfxSetBdg(cal,v)}
+ const mp=$('dkmp');if(mp){let v='';try{v=P.petSt===1||P.petPend?'!':(petEggsN()||'')}catch(e){}mfxSetBdg(mp,v)}
+ const mg=$('dkmg');if(mg){let v='';try{v=newPaths().length?'!':''}catch(e){}mfxSetBdg(mg,v)}
+ const np=$('np');if(np){let v='';try{v=canPres()?'!':''}catch(e){}mfxSetBdg(np,v)}
+ mfxBellCount()}
+/* debounced: at most one refresh per animation frame (a timer backs it up when frames are paused) */
+function dkRefreshBadges(){if(MFM.bt||!$('bell'))return;
+ const run=()=>{if(!MFM.bt)return;cancelAnimationFrame(MFM.bt);clearTimeout(MFM.bt2);MFM.bt=0;MFM.bt2=0;try{mfxBadgesNow()}catch(e){console.error(e)}};
+ MFM.bt=requestAnimationFrame(run);MFM.bt2=setTimeout(run,160)}
+{const sv0=save;save=function(){const r=sv0.apply(this,arguments);try{dkRefreshBadges()}catch(e){}return r}}
+{const b0=shBuy;shBuy=function(){const r=b0.apply(this,arguments);try{dkRefreshBadges()}catch(e){}return r}}
+{const c0=crateStart;crateStart=function(){const r=c0.apply(this,arguments);try{dkRefreshBadges()}catch(e){}return r}}
+{const c0=crateBatch;crateBatch=function(){const r=c0.apply(this,arguments);try{dkRefreshBadges()}catch(e){}return r}}
+
+/* ---------- B8: Settings keeps its scroll position and focus across a re-render ---------- */
+/* an option click may change the layout (touch controls, display size) before the page is rebuilt, so the position is taken when the click starts */
+const MFS={top:0,at:-1e9};
+ov.addEventListener('click',e=>{try{if(e.target.closest&&e.target.closest('.opts')){MFS.top=ov.scrollTop;MFS.at=performance.now()}}catch(x){}},true);
+{const s0=settings;settings=function(back){
+  let keep=null;
+  try{const box=ov.querySelector('.opts'),h=ov.querySelector('h2');if(box&&h&&/^\s*Settings\b/.test(h.textContent)&&!ov.classList.contains('hide')){const ae=document.activeElement;let sel='';
+   if(ae&&box.contains(ae))sel=ae.dataset&&ae.dataset.k!=null?`[data-k="${ae.dataset.k}"][data-v="${ae.dataset.v}"]`:ae.id?'#'+ae.id:'';
+   keep={top:performance.now()-MFS.at<400?MFS.top:ov.scrollTop,sel}}}catch(e){}
+  const r=s0.apply(this,arguments);
+  if(keep){try{ov.scrollTop=keep.top;if(keep.sel){const el=ov.querySelector(keep.sel);if(el&&el.offsetParent)el.focus({preventScroll:true})}}catch(e){}}
+  return r}}
+
+/* ---------- B14: codes already used on this browser survive "Reset save" ---------- */
+const MFCU='twCodesUsed87';
+function mfxCuLoad(){try{const o=JSON.parse(localStorage.getItem(MFCU)||'{}');return o&&typeof o==='object'&&!Array.isArray(o)?o:{}}catch(e){return{}}}
+/* the codes this browser has used: what is stored plus the open save's own list (also written back, so an older save's codes are kept too) */
+function mfxCuAll(){const o=Object.assign({},mfxCuLoad());
+ try{if(P&&P.ccUsed&&typeof P.ccUsed==='object')for(const k of Object.keys(P.ccUsed))if(P.ccUsed[k])o[k]=1}catch(e){}
+ try{if(Object.keys(o).length)localStorage.setItem(MFCU,JSON.stringify(o))}catch(e){}return o}
+{const g0=ccGrant;ccGrant=function(c,k){const r=g0.apply(this,arguments);try{if(r&&r.ok)mfxCuAll()}catch(e){}return r}}
+/* the developer tool that gives a code back to this save also lets the stored list forget it */
+{const d0=ccDevAct;ccDevAct=async function(a,k){const r=await d0.apply(this,arguments);try{if(a==='rs'){const nk=ccNorm(k);if(!(P.ccUsed&&P.ccUsed[nk])){const o=mfxCuLoad();if(o[nk]){delete o[nk];localStorage.setItem(MFCU,JSON.stringify(o))}}}}catch(e){}return r}}
+try{mfxCuAll()}catch(e){}
+
+/* ---------- B9: a brand-new save starts with every existing update marked as read ---------- */
+function mfxFreshUpd(){try{if(!P||typeof P!=='object')return;const u=P.upd;if(u&&Array.isArray(u.seen)&&u.seen.length)return;
+ if(!sgTrivial())return;const U=UPD(),ids=[];for(const e of[...UPDATES,...U.feed,...U.mine])if(updOk(e)&&ids.indexOf(e.id)<0)ids.push(e.id);
+ if(ids.length)U.seen=ids.slice(-300)}catch(e){}}
+{const l0=load;load=function(){const r=l0.apply(this,arguments);try{mfxFreshUpd()}catch(e){}return r}}
+mfxFreshUpd();
+
+/* ---------- D6: Reset save lives in Settings > Data ---------- */
+function mfxResetSave(t){
+ if(t.dataset.a){const keep=mfxCuAll();try{sgSnap('Before erase','safe');sgMuteOffer();load({});P.ccUsed=Object.assign({},keep);save();title()}catch(e){console.error(e)}return}
+ t.dataset.a=1;t.textContent='Click again to erase. A backup is kept.';
+ setTimeout(()=>{if(t.isConnected){t.dataset.a='';t.textContent='Reset save'}},3000)}
+SETG.Data.push('Reset save');
+{const st0=settingsTabs;settingsTabs=function(){
+  try{const box=ov.querySelector('.opts');if(box&&!box.querySelector('#mfxrs')){const inRun=S.mode==='pause';
+   const d=document.createElement('div');d.className='opt';d.id='mfxrs';
+   d.innerHTML=`<div><label>Reset save</label><small>${inRun?'Open Settings from the main menu to reset your save.':'Erase this hero and start again. A backup is kept in the Save Center.'}</small></div><button class="sm dg" id="mfxrsb"${inRun?' disabled':''}>Reset save</button>`;
+   const sv=[...box.querySelectorAll(':scope>.opt')].find(o=>(o.querySelector('label')||{}).textContent==='Save and backups');if(sv)sv.after(d);else box.appendChild(d);
+   d.querySelector('#mfxrsb').onclick=e=>mfxResetSave(e.currentTarget)}}catch(e){}
+  const r=st0.apply(this,arguments);
+  try{const d=ov.querySelector('#mfxrs'),box=d&&d.parentNode;if(box&&box.lastElementChild!==d)box.appendChild(d)}catch(e){}
+  return r}}
+
+/* ---------- B9: the bell ---------- */
+/* a dismissed alert stays dismissed: the Runestone Riddle alert is added after the usual filter, so filter once more */
+{const a0=alertList;alertList=function(){return updFilter(a0.apply(this,arguments))}}
+/* the popover fades in from visibility:hidden, and a hidden element cannot take focus yet, so keep trying for a moment.
+   When it opens on the Updates tab (no alerts, some unread), showing them counts as reading them, as clicking the tab already does. */
+function mfxBellFocus(p){let n=0;const go=()=>{const t=p.querySelector('.bltabs button.on')||p.querySelector('button');if(t)try{t.focus({preventScroll:true})}catch(x){}};
+ const iv=setInterval(()=>{if(!p.classList.contains('open')||p.contains(document.activeElement)||++n>16){clearInterval(iv);return}go()},40);go()}
+function mfxBellClose(toBell){const p=$('bellp'),b=$('bell');if(!p||!b)return;p.classList.remove('open');b.setAttribute('aria-expanded','false');if(toBell)try{b.focus({preventScroll:true})}catch(x){}}
+{const b0=bellBind;bellBind=function(){const r=b0.apply(this,arguments);
+  try{const b=$('bell'),p=$('bellp'),orig=b&&b.onclick;if(b&&p&&orig)b.onclick=function(e){const was=p.classList.contains('open');const x=orig.call(this,e);if(!was&&p.classList.contains('open')){mfxBellFocus(p);try{if(BELL_TAB==='u'&&updUnread())updMarkRead()}catch(_){}}return x}}catch(e){}
+  return r}}
+window.addEventListener('keydown',e=>{if(e.key!=='Escape'||e.defaultPrevented)return;const p=document.getElementById('bellp');if(!p||!p.classList.contains('open'))return;
+ const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)&&p.contains(t))return;if(document.querySelector('.dks,#ccm,.sgm,#svm'))return;
+ e.preventDefault();e.stopImmediatePropagation();mfxBellClose(true)},true);
+/* "Clear" sets the alerts aside for today and then shows exactly what is left, never a stale empty list */
+{const w0=bellWire;bellWire=function(p,act){const r=w0.apply(this,arguments);
+  try{const c=p.querySelector('#blclr');if(c)c.onclick=e=>{e.stopPropagation();updClear(BELL_AL);let al=[];try{al=dkAlerts()}catch(x){}BELL_AL=al;BELL_MSG='';
+    bellRender(act);try{beep(520,.05,'triangle',.4)}catch(x){}
+    if(al.length){const bd=p.querySelector('.blbody');if(bd)bd.insertAdjacentHTML('afterbegin',`<p class="blm">${al.length} action${al.length>1?'s':''} left. Open ${al.length>1?'them':'it'} to finish.</p>`)}
+    dkRefreshBadges()}}catch(e){}
+  return r}}
+
+/* ---------- B10: no legacy corner buttons on menu screens ---------- */
+{const c0=dkCorner;dkCorner=function(){const r=c0.apply(this,arguments);try{mfxCorner()}catch(e){}return r}}
+function mfxCorner(){const c=$('cn');if(!c)return;
+ const menu=!ov.classList.contains('hide')&&S.mode==='title';
+ /* a casino table is play, so Music and Fullscreen stay there; the Casino button itself makes no sense inside the casino */
+ const table=menu&&typeof CAS!=='undefined'&&CAS.on&&ov.classList.contains('casbg')&&!ov.classList.contains('gdo');
+ c.classList.toggle('mfxhid',menu&&!table);const z=$('cz');if(z)z.classList.toggle('mfxhid',!!table)}
+try{mfxCorner()}catch(e){}
+
+/* ---------- B11: no pet screen from a timer that outlived its screen ---------- */
+const MFT={late:0};
+/* run fn; every timer it sets remembers the screen it was set on, and while such a timer runs after the screen changed, pet screens stay shut */
+function mfxScoped(fn,self,args){const st0=window.setTimeout;
+ window.setTimeout=function(f,ms){if(typeof f!=='function')return st0.apply(window,arguments);const tok=MFM.tok,rest=Array.prototype.slice.call(arguments,2);
+  return st0.call(window,function(){const was=MFT.late;MFT.late=(MFM.tok!==tok||ov.classList.contains('hide'))?1:0;try{return f.apply(this,rest)}finally{MFT.late=was}},ms)};
+ try{return fn.apply(self,args)}finally{window.setTimeout=st0}}
+{const h0=petHall;petHall=function(){if(MFT.late)return;return h0.apply(this,arguments)}}
+{const c0=ptCustom;ptCustom=function(){if(MFT.late)return;const r=c0.apply(this,arguments);mfxRewrap('ptcs');mfxRewrap('patsave');return r}}
+{const b0=ptBuyModal;ptBuyModal=function(){const r=b0.apply(this,arguments);mfxRewrap('ptby');return r}}
+{const c0=ptConvertModal;ptConvertModal=function(){const r=c0.apply(this,arguments);mfxRewrap('ptcy');return r}}
+{const f0=petFromStyle;petFromStyle=function(){return mfxScoped(f0,this,arguments)}}
+function mfxRewrap(id){const b=document.getElementById(id);if(b&&typeof b.onclick==='function'&&!b._fxs){const h=b.onclick;b._fxs=1;b.onclick=function(){return mfxScoped(h,this,arguments)}}}
+
+/* ---------- B12: empty stats in the body font ---------- */
+{const p0=presBlock;presBlock=function(){let h=p0.apply(this,arguments);try{h=h.replace(/Prestige none yet/,'<span class="nrec">No prestige yet</span>')}catch(e){}return h}}
+
+/* ---------- B13: Performance mode rests looping animations in their natural pose ---------- */
+/* paused first, then set to the start of the cycle (a negative delay starts before the cycle, so it goes to the delay): the hold is exact and nothing is left mid-squash */
+function mfxRest(a){try{const d=+a.effect.getTiming().delay||0;a.currentTime=d<0?d:0}catch(e){try{a.currentTime=0}catch(x){}}}
+function pfAnims(){try{if(PFM()!=='low'){for(const a of PFA.paused)try{a.play()}catch(e){}PFA.paused.clear();return}
+ for(const a of document.getAnimations())if(a.playState==='running'&&a.effect&&a.effect.getTiming().iterations===Infinity&&a.constructor&&a.constructor.name==='CSSAnimation'){a.pause();mfxRest(a);PFA.paused.add(a)}
+ for(const a of PFA.paused)if(!a.effect||!a.effect.target||!a.effect.target.isConnected)PFA.paused.delete(a)}catch(e){}}
+
+{const st=document.createElement('style');st.textContent=`
+#cn.mfxhid,#cz.mfxhid{display:none!important}
+#ov .nrec,.nrec{font:600 15px/1.25 var(--ui);font-style:normal;letter-spacing:0;color:#b9b3d6;opacity:1;text-shadow:none;text-transform:none;white-space:nowrap}
+#ov .pres .nrec{font-size:17px;color:#cfc6f2}
+#mfxrs.opt small{font-family:var(--ui);font-size:13px}
+#mfxrs button.dg[disabled]{opacity:.45;cursor:default}
+`;document.head.appendChild(st)}
+/* ===== 8.7 ECONOMY (94d): fair pay, honest text, no exploits =====
+   Everything here wraps or redeclares from outside the older modules (a later function declaration wins; wrappers call the old one).
+   E1   Lantern Caravan daily contracts: per route and local day the first 3 WON runs pay in full (as before, including the x1.5 first
+        win of the day); from the 4th won run the route-pay part is 35%. Road coins and the breakdown payout never change.
+        Saved in WRP().ctr = {day, mill, pines, gallows}. The hub shows "Contracts N/3 today", the result card says which contract paid.
+   E1b  "Up to N coins + road coins" is the most a perfect next run can really pay for the route (no road coins counted).
+   E4   Game speed scales gold per kill by 1+.25*(speed-1), not by the speed; going back to 1x restores S.gm exactly. The level-clear
+        bonus uses the same dampened average speed. Score (S.sc) is untouched.
+   E7   Prestige clears P.ug (gold put into the skill tree), so a respec right after it refunds nothing it did not spend afterwards.
+   E8   An egg of a rarity cannot be bought while the eggs in hand already cover every companion of that rarity still to find.
+        Migration P.m87 (once): eggs that were BOUGHT beyond that are refunded at the egg price (never more eggs than were ever bought).
+   E9   Level-ups reached through calendar XP or duplicate-crate XP pay the same 100 gold per level as every other XP source.
+   E11  Reward text says what is paid (Prospector, prestige: "gold from monsters and rounds").
+   E14  P.dmax is the latest local date ever seen. While the clock reads earlier, "today" stays P.dmax: new Date() with no argument is
+        held forward by whole days (Date.now() and every timestamp stay real), so the Riddle, the daily calendar, the Bounty Board,
+        the Tower boost, Wildcard's daily cap, the caravan contracts and the first-run bonus cannot be reopened by turning the clock back.
+        A gap of more than EC.FIXDAYS days is read as a clock that was corrected after a wrong jump forward, and P.dmax drops to today.
+   The gold ledger lives in 94e. */
+const EC={CONTRACTS:3,REDUCED:.35,SPD_K:.25,FIXDAYS:45,pend:null};
+const ecSrc=(label,fn)=>typeof ukSrc==='function'?ukSrc(label,fn):fn();
+/* ---------- E14: the calendar clock ---------- */
+const EC_RD=window.Date;/* the real constructor; replaced on window only while the clock is behind P.dmax */
+let ecShift=0;/* whole days "today" is held forward */
+function ECDate(){if(!new.target)return EC_RD();const a=arguments;
+ if(a.length===0&&ecShift>0){const n=new EC_RD();return new EC_RD(n.getFullYear(),n.getMonth(),n.getDate()+ecShift,n.getHours(),n.getMinutes(),n.getSeconds(),n.getMilliseconds())}
+ return new EC_RD(...a)}
+ECDate.prototype=EC_RD.prototype;Object.setPrototypeOf(ECDate,EC_RD);
+const ecKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const ecKeyOk=k=>typeof k==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(k);
+const ecDayN=k=>{const a=k.split('-').map(Number);return Math.round(EC_RD.UTC(a[0],a[1]-1,a[2])/864e5)};
+function ecClockSync(){try{const real=ecKey(new EC_RD());let d=P&&ecKeyOk(P.dmax)?P.dmax:'',gap=0;
+ if(d>real){gap=ecDayN(d)-ecDayN(real);if(gap>EC.FIXDAYS){d=real;gap=0}}
+ if(!d||real>d){d=real;gap=0}
+ if(P&&P.dmax!==d)P.dmax=d;
+ if(gap!==ecShift){ecShift=gap;if(gap>0){if(window.Date!==ECDate)window.Date=ECDate}else if(window.Date===ECDate)window.Date=EC_RD}
+ return d}catch(e){return''}}
+/* the day the game treats as today (the same local key the caravan always used) */
+const ecDay=()=>{ecClockSync();return wrDay()};
+ecClockSync();
+addEventListener('focus',ecClockSync);document.addEventListener('visibilitychange',()=>{if(!document.hidden)ecClockSync()});setInterval(ecClockSync,60000);
+{const l0=load;load=function(){const r=l0.apply(this,arguments);ecClockSync();try{if(typeof ldgInstall==='function')ldgInstall()}catch(e){}try{ecMigrate()}catch(e){console.error(e)}return r}}
+/* ---------- E1: Lantern Caravan daily contracts ---------- */
+{const w0=WRP;WRP=function(){const w=w0.apply(this,arguments);let c=w.ctr;
+ if(!c||typeof c!=='object'||Array.isArray(c))c=w.ctr={day:'',mill:0,pines:0,gallows:0};
+ if(!ecKeyOk(c.day))c.day='';
+ for(const r of WR_ROUTES){const n=c[r.id];c[r.id]=typeof n==='number'&&isFinite(n)&&n>0?Math.min(99,Math.floor(n)):0}
+ for(const k of Object.keys(c))if(k!=='day'&&!WR_ROUTES.some(r=>r.id===k))delete c[k];
+ return w}}
+/* today's contract counts for the player's caravan save (a new day starts them all at zero) */
+function ecCtr(w){w=w||WRP();const c=w.ctr,d=ecDay();if(c.day!==d){c.day=d;for(const r of WR_ROUTES)c[r.id]=0}return c}
+const ecLeft=id=>Math.max(0,EC.CONTRACTS-(ecCtr()[id]|0));
+{const p0=wrPayOf;wrPayOf=function(rt,won){const v=p0.apply(this,arguments),q=EC.pend;
+ if(q&&won&&q.won&&q.id===rt.id&&q.used>=EC.CONTRACTS)return Math.round(v*EC.REDUCED);return v}}
+{const f0=wrFinish;wrFinish=function(won){const R=WRX;if(!R||R.over)return f0.apply(this,arguments);
+ won=!!won;const w=WRP(),rt=R.rt,c=ecCtr(w),used=c[rt.id]|0;EC.pend={id:rt.id,used,won};if(won)c[rt.id]=used+1;/* counted before f0 saves */
+ try{return ecSrc('caravan',()=>f0.call(this,won))}finally{EC.pend=null;const r=R.result;if(r)r.ec={n:won?used+1:used,of:EC.CONTRACTS,reduced:won&&used>=EC.CONTRACTS}}}}
+/* the result card tells the truth about the route pay */
+function ecPayLine(q){const p=[];if(q.first)p.push('first run today ×1.5');
+ if(q.won&&q.ec)p.push(q.ec.reduced?'reduced: contracts used':`contract ${q.ec.n}/${q.ec.of}`);
+ return `route pay ${q.pay.toLocaleString()}${p.length?` (${p.join(', ')})`:''} · road coins ${q.coins}${q.lg?` · level-up bonus ${q.lg}`:''}`}
+{const r0=wrResult;wrResult=function(){const r=r0.apply(this,arguments);try{const q=WRX&&WRX.result,s=document.querySelector('.wrpay small');if(q&&s)s.textContent=ecPayLine(q)}catch(e){console.error(e)}return r}}
+/* E1b: the most the next perfect run can pay for the route itself (4 shields, 100% accuracy, the x1.5 first win while it is still there) */
+function ecUpTo(rt){const w=WRP(),d=ecDay(),full=wrPayOf(rt,true,WRT.MAXINT,1,1);
+ if(ecLeft(rt.id)<=0)return Math.round(full*EC.REDUCED);
+ return w.day===d&&w.dayDone[rt.id]?full:Math.round(full*WRT.FIRSTDAY)}
+function ecContractTxt(id){const n=ecLeft(id);return n>0?`Contracts ${n}/${EC.CONTRACTS} today`:'Contracts used - reduced pay'}
+const ecPips=id=>{const n=ecLeft(id);return `<span class="ecpips" aria-hidden="true">${Array.from({length:EC.CONTRACTS},(_,i)=>`<i class="ecpip${i<n?'':' off'}"></i>`).join('')}</span>`};
+function wrReadyFill(){const r=WR_RT(wrSel),n=$('wrrn'),i=$('wrri');if(n)n.textContent=r.n;
+ if(i)i.textContent=`${r.legs} legs  •  Up to ${ecUpTo(r).toLocaleString()} coins + road coins`;
+ if(!i)return;let c=$('wrrc');if(!c){c=document.createElement('div');c.id='wrrc';i.after(c)}
+ const used=ecLeft(r.id)<=0;c.className='wrrc'+(used?' used':'');c.innerHTML=`${ecPips(r.id)}<span>${ecContractTxt(r.id)}</span>`}
+{const c0=wrRouteCard;wrRouteCard=function(r){const h=c0.apply(this,arguments);if(!wrRouteOpen(r))return h;
+ const used=ecLeft(r.id)<=0,chip=`<span class="eccn${used?' used':''}">${ecPips(r.id)}<span>${ecContractTxt(r.id)}</span></span>`;
+ return h.replace(/<\/button>\s*$/,chip+'</button>')}}
+{const m0=wagonMenuRefresh;wagonMenuRefresh=function(){const r=m0.apply(this,arguments);try{wrReadyFill()}catch(e){}return r}}
+/* ---------- E4: game speed ---------- */
+{const s0=setSpeed;setSpeed=function(v){const gm0=S.gm,F0=S.gsF||1,g0=S.gs;
+ const r=s0.apply(this,arguments);
+ if(S.gs===v&&g0!==v){const F1=1+EC.SPD_K*(v-1),base=S.gsPost!==undefined&&gm0===S.gsPost&&S.gsBase!==undefined?S.gsBase:gm0/F0;
+  S.gsBase=base;S.gm=S.gsPost=base*F1;S.gsF=F1}
+ return r}}
+/* the level-clear bonus multiplies by the average speed: dampen it the same way. Astral levels go through the same call. */
+{const v0=victory;victory=function(){const a=S.gsA;if(a>1)S.gsA=1+EC.SPD_K*(a-1);try{return v0.apply(this,arguments)}finally{S.gsA=a}}}
+/* ---------- E7: prestige clears the gold recorded as spent in the skill tree ---------- */
+{const d0=doPrestige;doPrestige=function(){const was=P.pres|0,r=d0.apply(this,arguments);if((P.pres|0)>was){P.ug=0;save()}return r}}
+/* ---------- E8: eggs ---------- */
+const ecEggCap=k=>!!P.eggs&&(P.eggs[k]|0)>=petPool(k).length;
+{const b0=petBuy;petBuy=function(k){try{petNorm();if(ecEggCap(k))return false}catch(e){}return ecSrc('egg',()=>b0.call(this,k))}}
+{const h0=ptEggsHTML;ptEggsHTML=function(){let h=h0.apply(this,arguments);try{const k=PTX.egg;if(PRAR[k]&&ecEggCap(k)){const E=PRAR[k],full=!petPool(k).length;
+ h=h.replace(/<button class="ptgo b phx-buy[^"]*" id="phxby"[^>]*>[\s\S]*?<\/button>/,`<button class="ptgo b phx-buy off" id="phxby" disabled title="${full?'You own every companion of this rarity.':'The eggs you hold already cover every companion still to find.'}">All ${E.n} companions found</button>`)
+  .replace(/<b>Buy one<\/b><small>[\s\S]*?<\/small>/,`<b>Buy one</b><small>${full?'Nothing left to find':'Enough eggs in hand'}</small>`)}}catch(e){console.error(e)}return h}}
+/* ---------- E9: level-up gold from calendar XP and crate-duplicate XP ---------- */
+function ecLvPay(f,self,args){const l0=lvl(P.xp),r=f.apply(self,args);try{const l1=lvl(P.xp);if(l1>l0){const g=ecSrc('levelup',()=>levelGold(l0,l1));if(g)save()}}catch(e){console.error(e)}return r}
+{const c0=calGrant;calGrant=function(){return ecLvPay(c0,this,arguments)}}
+{const r0=crateRoll;crateRoll=function(){return ecLvPay(r0,this,arguments)}}
+/* ---------- E11: reward text ---------- */
+try{NM.prosp.e=r=>`+${4*r}% gold from monsters and rounds.`}catch(e){}
+try{const h=HELP.Modes.find(x=>x[0]==='Lantern Caravan');if(h&&!/contract/i.test(h[1]))h[1]+=` Daily contracts: each route pays its full route pay for your first ${EC.CONTRACTS} wins of the day (the first win of the day pays x1.5); after that the route pay is ${Math.round(EC.REDUCED*100)}%. Road coins are never reduced and the counter resets with the new day.`}catch(e){}
+/* ---------- migration P.m87 (once, after the pet normaliser; only ever refunds) ---------- */
+const ecUgCap=()=>{let s=0;for(const id in(P.upg||{})){const n=NM[id];if(!n)continue;const k=Math.min(n.max,Math.max(0,P.upg[id]|0));for(let r=0;r<k;r++)s+=gCost(n,r)}return s};
+function ecToast(t){setTimeout(()=>{try{ccToast(t)}catch(e){}},2600)}
+function ecMigrate(){if(!P||typeof P!=='object'||P.m87)return;let changed=false,refund=0;
+ try{petNorm();let left=P.petBuy|0;
+  if(P.eggs&&typeof P.eggs==='object')for(const k of Object.keys(PEGG_PRICE).sort((a,b)=>PEGG_PRICE[a]-PEGG_PRICE[b])){
+   const have=P.eggs[k]|0,n=Math.min(Math.max(0,have-petPool(k).length),left);
+   if(n>0){P.eggs[k]=have-n;refund+=n*PEGG_PRICE[k];left-=n}}
+  if(refund>0){ecSrc('migration',()=>{P.gold+=refund});changed=true}}catch(e){console.error(e)}
+ /* gold recorded as spent in the tree can never exceed the cost of the ranks that are owned (prestige used to leave it behind) */
+ try{const cap=ecUgCap();if((P.ug||0)>cap){P.ug=cap;changed=true}}catch(e){}
+ P.m87=1;if(changed)save();
+ if(refund>0)ecToast(`Surplus eggs refunded: +${refund.toLocaleString()} coins`)}
+setTimeout(()=>{try{ecMigrate()}catch(e){console.error(e)}},0);/* the ledger module also runs it as soon as it is installed */
+/* ---------- styles ---------- */
+{const st=document.createElement('style');st.textContent=`
+.ecpips{display:inline-flex;gap:4px;align-items:center}.ecpip{display:block;width:9px;height:9px;box-sizing:border-box;border-radius:50%;background:#ffd45a;border:1.5px solid #12081f}.ecpip.off{background:#3a3450}
+.eccn{position:absolute;right:14px;top:14px;display:flex;align-items:center;gap:8px;padding:5px 13px 5px 10px;border-radius:999px;background:rgba(14,10,48,.9);border:1.5px solid #5a4ca0;font:800 12.5px/1.2 var(--ui);color:#ffe9a0;text-shadow:0 1px 2px #000;pointer-events:none;white-space:nowrap}
+.eccn.used{color:#ffb9a8;border-color:#a0564a}
+.wrready{padding-top:16px}.wrrdy{height:30px}.wrrdy .wrcomp svg{width:30px;height:30px}
+.wrrc{display:flex;align-items:center;gap:8px;margin:0;font:700 13.5px/18px var(--ui);color:#ffe9a0}.wrrc.used{color:#ffb9a8}
+.wrcamp.wr-narrow .eccn{right:auto;left:12px;top:10px}.wrcamp.wr-narrow .wrrc{margin-top:5px}`;document.head.appendChild(st)}
+/* ===== 8.7 GOLD LEDGER (94e) =====
+   Every change of P.gold is written as {t, d, bal, src} into a ring of the last 100 (P.ldg), and added to today's totals per source
+   (P.ldgDay = {day, inc:{src:coins}, out:{src:coins}}). It is how the coins-per-minute bands of the economy plan get checked.
+   How it works: P.gold becomes an accessor property (enumerable, so JSON.stringify and Object.assign still see one plain number).
+   The value lives in a closure per P object. load() builds a new P every time, so load() and save() are wrapped to put the accessor
+   back (ldgInstall is idempotent). The accessor is installed only after load() has finished, so loading itself records nothing.
+   src is S.mode plus a label set with ukSrc('label') or ukSrc('label', fn) around a known grant, else the current screen (S.view).
+   ledgerToday() gives today's totals, ledgerRecent(n) the last n entries, newest first. No visible UI in 8.7; a DEV button prints them. */
+const LDG={max:100,srcMax:40,lab:'',clr:0,on:0};
+function ukSrc(label,fn){
+ if(typeof fn==='function'){const p=LDG.lab;LDG.lab=label?String(label).slice(0,24):'';try{return fn()}finally{LDG.lab=p}}
+ LDG.lab=label?String(label).slice(0,24):'';
+ if(LDG.lab&&!LDG.clr){LDG.clr=1;Promise.resolve().then(()=>{LDG.lab='';LDG.clr=0})}}
+function ldgSrcNow(){let s='app';try{const m=S&&typeof S.mode==='string'?S.mode:'';if(m)s=m;
+ if(LDG.lab)return(s+':'+LDG.lab).slice(0,40);
+ let v='';try{if(typeof NAV!=='undefined'&&NAV)v=typeof NAV.key==='string'?NAV.key:typeof NAV.name==='string'?NAV.name:''}catch(e){}
+ if(!v&&S&&typeof S.view==='string')v=S.view;
+ if(v&&v!=='menu'&&v!==m)s+=':'+v}catch(e){}return s.slice(0,40)}
+/* make the stored ring and totals safe whatever the save held */
+function ldgPrep(p){const a=Array.isArray(p.ldg)?p.ldg:[],o=[];
+ for(const e of a){if(!e||typeof e!=='object'||typeof e.src!=='string')continue;const d=+e.d,b=+e.bal;if(!isFinite(d)||!isFinite(b))continue;o.push({t:isFinite(+e.t)?+e.t:0,d,bal:b,src:e.src.slice(0,40)})}
+ p.ldg=o.length>LDG.max?o.slice(-LDG.max):o;
+ let D=p.ldgDay;if(!D||typeof D!=='object'||Array.isArray(D)||typeof D.day!=='string')D={day:'',inc:{},out:{}};
+ for(const k of['inc','out']){const m=D[k],n={};let c=0;
+  if(m&&typeof m==='object'&&!Array.isArray(m))for(const s of Object.keys(m)){const v=+m[s];if(SG_BAD.has(s)||!isFinite(v)||v<=0||c>=LDG.srcMax)continue;n[s.slice(0,40)]=v;c++}
+  D[k]=n}
+ D.day=D.day.slice(0,10);p.ldgDay=D}
+function ldgRec(p,d,bal){if(!LDG.on||!p)return;if(!Array.isArray(p.ldg)||!p.ldgDay||typeof p.ldgDay!=='object')ldgPrep(p);
+ d=Math.round(d*100)/100;if(!d)return;const src=ldgSrcNow(),a=p.ldg;a.push({t:Date.now(),d,bal:Math.round(bal*100)/100,src});if(a.length>LDG.max)a.splice(0,a.length-LDG.max);
+ const day=wrDay();let D=p.ldgDay;if(D.day!==day)D=p.ldgDay={day,inc:{},out:{}};
+ const m=d>0?D.inc:D.out;let k=src;if(!Object.prototype.hasOwnProperty.call(m,k)&&Object.keys(m).length>=LDG.srcMax)k='other';m[k]=(m[k]||0)+Math.abs(d)}
+/* put the accessor on the current P (safe to call as often as you like) */
+function ldgInstall(){const p=P;if(!p||typeof p!=='object')return false;
+ try{const ds=Object.getOwnPropertyDescriptor(p,'gold');if(ds&&ds.get&&ds.get.ldg)return true;
+  let v=ds?('value' in ds?ds.value:(ds.get?ds.get.call(p):0)):0;
+  ldgPrep(p);
+  const get=function(){return v};get.ldg=1;
+  Object.defineProperty(p,'gold',{get,set(nv){const o=v;v=nv;if(nv!==o&&typeof nv==='number'&&typeof o==='number'&&isFinite(nv)&&isFinite(o)){try{ldgRec(p,nv-o,nv)}catch(e){}}},enumerable:true,configurable:true});
+  return true}catch(e){console.error(e);return false}}
+{const l0=load;load=function(){const r=l0.apply(this,arguments);ldgInstall();return r}}
+{const s0=save;save=function(){ldgInstall();return s0.apply(this,arguments)}}
+function ledgerToday(){ldgInstall();const D=P&&P.ldgDay,day=wrDay(),cur=!!D&&D.day===day,e=cur?Object.assign({},D.inc):{},s=cur?Object.assign({},D.out):{},sum=o=>Object.keys(o).reduce((a,k)=>a+o[k],0);
+ return{day,earned:e,spent:s,total:sum(e),out:sum(s),net:sum(e)-sum(s)}}
+function ledgerRecent(n){ldgInstall();const a=P&&Array.isArray(P.ldg)?P.ldg:[];n=n==null?20:Math.max(0,Math.min(LDG.max,Math.floor(+n)||0));return n?a.slice(-n).reverse().map(e=>Object.assign({},e)):[]}
+/* labels for the grants and spends we know about */
+{const c0=calGrant;calGrant=function(){return ukSrc('calendar',()=>c0.apply(this,arguments))}}
+{const c0=crateRoll;crateRoll=function(){return ukSrc('crate',()=>c0.apply(this,arguments))}}
+{const g0=levelGold;levelGold=function(){return LDG.lab?g0.apply(this,arguments):ukSrc('levelup',()=>g0.apply(this,arguments))}}
+{const b0=buyNode;buyNode=function(){return ukSrc('skill',()=>b0.apply(this,arguments))}}
+{const r0=respec;respec=function(){return ukSrc('respec',()=>r0.apply(this,arguments))}}
+/* DEV › Cheats: print today's totals and the last entries to the console */
+try{const h0=dvxHTML;dvxHTML=function(){let h=h0.apply(this,arguments);try{const t=ledgerToday();h+=`<div class="dvx"><h5>Gold ledger</h5><div class="dvrow"><span>Today: ${Math.round(t.total).toLocaleString()} earned, ${Math.round(t.out).toLocaleString()} spent</span>${dvBtn('x:ldgday','Print today')}${dvBtn('x:ldgrec','Print last 30')}</div></div>`}catch(e){}return h};
+ const a0=dvxAct;dvxAct=function(a){if(!/^ldg/.test(a))return a0.apply(this,arguments);
+  if(a==='ldgday'){const t=ledgerToday();console.table(t.earned);dvxMsg(`Today ${Math.round(t.total).toLocaleString()} earned, ${Math.round(t.out).toLocaleString()} spent (see the console).`)}
+  else if(a==='ldgrec'){console.table(ledgerRecent(30));dvxMsg('Last 30 gold changes are in the console.')}}}catch(e){}
+ldgInstall();LDG.on=1;
+try{ecMigrate()}catch(e){console.error(e)}
+/* ===== 8.7: menu pass =====
+   - Back goes where you came from: Settings, Help, Save Center, Menu background and the calendar, opened from the More sheet or the
+     calendar button, return to the screen they were opened over (NAV87 remembers how to reopen the current top-level screen).
+   - Nothing important starts under the dock: on pages that still overflow after dkFit's zoom, a bottom row holding a primary action
+     (Practice's "Start practice") sticks just above the dock.
+   - Modal exits actually fade (the old ".out" rules reused the entrance keyframe with "reverse", which jumps straight to the end).
+   - No backdrop-filter anywhere; the scrims that used it become a little more opaque.
+   - The global h1 glow loop (an infinite 52px drop-shadow filter animation) is gone; titles keep their static shadow.
+   - Stale NEW badges removed (Fishing, Tower, Nebula, Wildcard); the caravan and riddle keep their own seen-flags.
+   - Wildcard gets a card in Choose a mode.
+   - Campaign act tabs: short labels with the full name and the unlock level in a tooltip.
+   - Help text brought up to date (six acts, every current mode, the real shortcuts). */
+let NAV87=null;
+{const W=name=>{const f=window[name];if(typeof f!=='function')return;window[name]=function(){const a=[...arguments];NAV87=()=>window[name].apply(null,a);return f.apply(this,arguments)}};
+ ['armory','upgrades','loadouts','petHall','catalog','bountyBoard','shop','crateHub','campaign','endlessMenu','pracMenu','waMenu','casinoOpen','fishing','wagonMenu','gyMenu','ttMenu','dcMenu'].forEach(W);
+ const t0=title;title=function(){NAV87=null;return t0.apply(this,arguments)}}
+const nav87Back=()=>{const f=NAV87;return f?()=>{try{f()}catch(e){title()}}:title};
+{const m0=moreSheet;moreSheet=function(){const r=m0.apply(this,arguments);try{const sh=document.querySelector('.dks#dkmo')||document.querySelector('#dkmo');if(sh){const back=nav87Back();
+  const go=f=>()=>{try{dkClose()}catch(e){}setTimeout(f,0)};const B=(id,f)=>{const b=sh.querySelector('#'+id);if(b)b.onclick=go(f)};
+  B('mcl',()=>dailyMenu(back));B('mst',()=>settings(back));B('mhp',()=>help(back));B('mbg',()=>hbgPick(back));B('msv',()=>saveCenter(back))}}catch(e){}return r}}
+{const w0=dkWire;dkWire=function(root){const r=w0.apply(this,arguments);try{const c=root.querySelector('#dkcal');if(c)c.onclick=()=>dailyMenu(nav87Back())}catch(e){}return r}}
+
+/* the bottom action row sticks above the dock when the page is still taller than the space left */
+function uk87Stick(){try{ov.querySelectorAll('.uk87st').forEach(e=>e.classList.remove('uk87st'));const mn=ov.querySelector(':scope>.mn'),row=ov.querySelector(':scope>.dkrow');if(!mn||!row||ov.classList.contains('hide'))return;
+ const z=parseFloat(mn.style.zoom)||1;if(mn.scrollHeight*z<=ov.clientHeight-row.offsetHeight+4)return;
+ const last=mn.lastElementChild;if(!last)return;const ok=last.matches('.row')&&[...last.querySelectorAll('button')].some(b=>!b.classList.contains('sm'));if(!ok)return;/* only rows holding a primary action; lone or duplicate Back buttons stay where they are (every such page has a Back at the top) */
+ last.classList.add('uk87st');last.style.setProperty('--ukb',Math.round((row.offsetHeight+6)/z)+'px')}catch(e){}}
+{const f0=dkFit;dkFit=function(){const r=f0.apply(this,arguments);uk87Stick();return r}}
+
+/* Choose a mode: Wildcard has its own card */
+{const m0=modeSheet;modeSheet=function(){const r=m0.apply(this,arguments);try{const sh=document.querySelector('.dks .dkpv[data-v="m"]')||document.querySelector('.dkpv[data-v="m"]'),g=sh&&sh.querySelector('.dkmg');
+  if(g&&!sh.querySelector('#dmwc')){const b=document.createElement('button');b.className='dkm dkmwc';b.id='dmwc';b.style.setProperty('--c','#9a7aff');
+   b.innerHTML=`<span class="dkmi"><svg viewBox="0 0 60 60" width="58" height="58" aria-hidden="true"><circle cx="30" cy="30" r="27" fill="#1c1446" stroke="#5a4ca0" stroke-width="2"/><g stroke="#12081f" stroke-width="2.4" stroke-linejoin="round"><rect x="13" y="17" width="20" height="28" rx="4" fill="#5ab8ff" transform="rotate(-14 23 31)"/><rect x="26" y="14" width="20" height="28" rx="4" fill="#ffc94a" transform="rotate(10 36 28)"/></g><path d="M36 22l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5-3.6-3.5 5-.7z" fill="#fff8e8" stroke="#12081f" stroke-width="1.6" stroke-linejoin="round"/></svg></span><span class="dkmt"><b>Wildcard</b><small>The Dragon Lounge card game. Play the regulars, friends or Ranked.</small></span><i class="dkchv">›</i>`;
+   const k=sh.querySelector('#dmk');if(k&&k.parentNode===g)k.after(b);else g.appendChild(b);
+   b.onclick=()=>{try{dkClose(true)}catch(e){}setTimeout(()=>{casinoOpen();try{gameOpen('wc')}catch(e){}},0)}}}catch(e){}return r}}
+
+/* campaign act tabs: "Act II" with the full name and the unlock level in the tooltip; the open act shows its full name */
+function cmTabsHTML(act){return ACTS.map((a,i)=>{const lk=i*6+1>P.camp,nm=`Act ${CMROM[i]}: ${a}`,tip=lk?`${nm}. Clear Level ${i*6} to unlock.`:nm;
+ return `<button class="cmt${i===act?' on':''}${lk?' lk':''}" data-a="${i}" ${lk?'aria-disabled="true"':''} title="${esc(tip)}" aria-label="${esc(tip)}">${lk?cmi('lock',16):''}<span>${i===act?esc(nm):`Act ${CMROM[i]}`}</span></button>`}).join('')}
+function cmBindTabs(){ov.querySelectorAll('.cmt').forEach(el=>{if(el.classList.contains('ast'))return;el.onclick=()=>{const i=+el.dataset.a;if(i===CM.act)return;
+ if(el.classList.contains('lk')){el.classList.remove('uk87no');void el.offsetWidth;el.classList.add('uk87no');try{beep(220,.06,'triangle',.25)}catch(e){}return}
+ const cur=cmCur();cmSelect(i*6+1<=cur&&cur<=i*6+6?cur:i*6+1)}})}
+
+/* stale NEW labels: Fishing is no longer new; the Tower, Nebula and Wildcard ribbons go too */
+{const t0=title;title=function(){const r=t0.apply(this,arguments);try{const k=ov.querySelector('#dkfish .dkcl small');if(k&&/new mode/i.test(k.textContent))k.textContent='TAVERN POND';const f=ov.querySelector('#dkfish');if(f)f.setAttribute('aria-label',f.getAttribute('aria-label').replace(', new mode',''))}catch(e){}return r}}
+
+/* Help: current modes, six acts, the real shortcuts */
+try{const fix=(tab,name,txt)=>{const t=HELP[tab],r=t&&t.find(x=>x[0]===name);if(r)r[1]=txt;else if(t)t.push([name,txt])};
+ fix('Basics','Esc','Pause in a run, or go back in a menu. Every menu has a Back button, and Esc does the same.');
+ fix('Progress','Crates','Monsters and bosses sometimes drop crates. Open them in Shop › Owned crates. Epic and legendary gear is very rare.');
+ fix('Progress','Gold','You earn gold from kills, cleared rounds, bosses, finished campaign levels, level ups, the daily riddle, bounties and the calendar. Spend it in the Shop, the Skill tree and the Companion Hall.');
+ fix('Modes','Campaign','Thirty hand-built levels in six acts, plus the Astral levels after them. Clear each one to unlock the next, and earn up to three stars.');
+ fix('Modes','Casino','Play tab › Choose a mode › Casino, or More › Casino. The house has a small edge, so play with gold you can spare.');
+ for(const r of HELP.Modes)r[1]=r[1].replace(/^New! /,'');
+ const add=(name,txt)=>{if(!HELP.Modes.some(x=>x[0]===name))HELP.Modes.push([name,txt])};
+ add('Runestone Riddle','A new five-letter rune word every day. Type a guess and press Enter: gold runes are in the right place, blue runes are in the word somewhere. Fewer guesses pay more, and a streak earns a bonus. Practice mode has unlimited puzzles for no gold.');
+ add('Wildcard','The Dragon Lounge card game, in the Casino. Match the element or the number, stun and hex the regulars, and call WILD! before your last card. Play the bots, friends on the same network, or Ranked.');
+ add('Monster Mash','A Halloween event run (while it lasts): an Endless run with a new curse every level and its own crates.');
+ add('Trick-or-Treat','Walk a haunted street, knock on doors and type fast to collect candy corn and rewards.');
+ HELP.Shortcuts=[['C E P','On the main menu: Campaign, Endless, Practice Range.'],['F W G','Moonlit Fishing, Lantern Caravan, Runestone Riddle.'],['R M',"Warden's Arena (or Starfall Rift), Monster Mash while Halloween lasts."],['A K S X','Armory, Skill tree, Shop, Owned crates.'],['L B O T','Collection, Bounties, Profile, Trophies.'],['D H ,','Daily rewards, How to play, Settings.'],['Enter','Continue your campaign from the main menu.'],['Esc','Back, or pause in a run.'],['Touch','On a phone or tablet an on-screen keyboard appears in every typing mode.']];
+}catch(e){}
+
+{const st=document.createElement('style');st.textContent=`
+h1{animation:none}
+@keyframes uk87out{from{opacity:1}to{opacity:0}}
+.hlmod.out{animation:uk87out .18s ease both}.ptmod.out{animation:uk87out .18s ease both}.pthx.out{animation:uk87out .26s ease both}
+.pat-wrap.out{animation:uk87out .17s ease both}.rkup.out{animation:uk87out .3s ease-in both}
+.sgm,.ar2 .armod,.nzmod,.shmod,#ccm,.pat-wrap,#tvhow,.tvpanel,button.hxc,button.hxb,.mbmod{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.sgm,.ar2 .armod,#ccm,.pat-wrap,#tvhow{background:#05030ce8!important}.nzmod,.shmod{background:#05031aea!important}
+.tvpanel{background:linear-gradient(180deg,#171038fa,#0e0a28fc)!important}
+.uk87st{position:sticky;bottom:var(--ukb,130px);z-index:7}
+.row.uk87st{padding:12px 24px 10px;border-radius:18px;background:linear-gradient(180deg,#0c082200,#0c0822e8 34%,#0c0822f0)}
+.dkfish .dknew,#dma .dkmnew,.twnew,#ov.gdo .gdt[data-g=wc]::before{display:none!important}
+.cmt.lk{cursor:not-allowed}.cmt.uk87no{animation:uk87no .36s cubic-bezier(.3,1.5,.5,1)}
+@keyframes uk87no{20%{transform:translateX(-5px)}45%{transform:translateX(4px)}70%{transform:translateX(-2px)}}
+.dkmwc .dkmi svg{display:block}
+@media (prefers-reduced-motion:reduce){.cmt.uk87no{animation:none}}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */
@@ -40704,7 +41450,7 @@ function jingle(k){if(!ac||!sg||ST.svol<=0)return;const Q={wave:[[392,0],[523,.1
 const fq=m=>73.42*2**(m/12),zi=()=>zoneIdx(S.wave||1);
 const bossOn=()=>S.en.some(e=>e.boss&&e.x<W),lull=()=>S.mode==='play'&&!bossOn()&&S.en.length===0&&(S.spawnLeft===0||!!S.ban),inten=()=>S.mode==='play'?(bossOn()?2:lull()?0:1):0;
 const bpm=()=>(typeof nzMusic==='function'&&nzMusic())?nzBpm():twMusic()?twBpm():mk()==='k'?116:mk()==='r'?(S.surge>0?150:128)+(inten()?Math.min(10,(S.rel||0)/12):-30):[62,92,112][inten()]+(inten()?zi()*3+(S.camp?8:0):0),stepD=()=>30/bpmS;
-const mk=()=>CAS.on?'k':(S.wa&&S.mode==='arena')?(S.wa.boss?'b':'c'):(S.mode==='play'||S.mode==='boon'||S.mode==='pause')?(bossOn()?'b':S.rift?'r':S.prac?'m':S.camp?'c':'e'):'m';
+const mk=()=>CAS.on?'k':(S.wa&&S.mode==='arena')?(S.wa.over||S.wa.pause?'m':S.wa.boss?'b':'c'):(S.mode==='play'||S.mode==='boon'||S.mode==='pause')?(bossOn()?'b':S.rift?'r':S.prac?'m':S.camp?'c':'e'):'m';
 const PR={r:[0,3,-2,5],k:[0,5,-2,7],m:[0,-4,-7,-5],e:[0,-4,-7,-5],c:[0,-2,3,-4],b:[0,1,0,-4]};
 const PT={k:[[0,null,4,null,7,9,7,null],[null,4,7,null,9,12,9,7],[0,2,4,null,7,null,4,2],[null,7,9,12,null,9,7,4]],m:[[0,null,null,7,null,3,null,null],[0,null,7,null,3,null,10,null],[0,null,null,5,null,8,null,null],[0,null,7,null,null,3,null,null]],e:[[0,null,3,null,7,null,5,3],[0,null,3,7,null,10,7,3],[0,null,5,null,7,8,7,null],[0,3,null,7,null,8,null,7]],c:[[0,3,7,10,7,3,0,null],[0,3,7,12,10,7,3,null],[3,7,10,7,3,0,3,null],[0,7,10,12,10,7,5,3]],b:[[0,1,0,1,3,1,0,-1],[0,1,3,1,0,1,3,6],[0,0,1,0,3,1,0,-2],[6,5,3,1,0,1,3,1]]};
 const SCL={lyd:[0,2,4,6,7,9,11],min:[0,2,3,5,7,8,10],dor:[0,2,3,5,7,9,10],phr:[0,1,3,5,7,8,10],har:[0,2,3,5,7,8,11]},ZMODE=['dor','phr','har','har','min','dor'];

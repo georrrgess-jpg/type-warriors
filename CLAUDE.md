@@ -2,7 +2,7 @@
 
 A single-file browser typing game. Everything ships as `type-warriors.html`; the source modules are in
 `type-warriors-source.zip`. Read `type-warriors-source/HANDOFF.md` (inside the zip) for the history and
-internals of every mode. The latest update is 8.6 (Lantern Caravan: Conductor Bogsworth does the attacking, the hero stays behind the wagon, and a new camp hub).
+internals of every mode. The latest update is 8.7 (fixes, fair economy with caravan daily contracts, gold ledger, menu pass; see `UPDATE_8.7_PLAN.md`).
 
 ## Setup in a new session
 1. `unzip -q type-warriors-source.zip` at the repo root (the folder is git-ignored; the zip is the tracked copy).
@@ -46,7 +46,7 @@ springy animations. New art should sit next to the fishing mode without looking 
   `tools/rr/touch.py` must report no overlaps.
 - Caravan changes: `python3 t_wagon.py` (37 checks) from `type-warriors-source`, then `tools/wr/ovl.py` and
   `tools/wr/touch.py` must report no overlaps.
-- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (36 tests), `tools/servers.sh stop`.
+- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (41 tests), `tools/servers.sh stop`.
   `t_fishing` can time out under load and `t_leaderboard` fails in a frozen copy; rerun either alone.
 
 ## Delivery, every time

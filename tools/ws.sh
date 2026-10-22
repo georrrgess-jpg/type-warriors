@@ -6,7 +6,7 @@
 # WSROOT defaults to /tmp/tw_ws. Inside a workspace, work/ has type-warriors-source/ and tools/ like the repo root.
 T="$(cd "$(dirname "$0")" && pwd)"; R="$(cd "$T/.." && pwd)"; WSROOT="${WSROOT:-/tmp/tw_ws}"; C="$1"; N="${2:?workspace name needed}"
 W="${WSROOT:?}/${N:?}"
-EXC=(--exclude='*bak*' --exclude='out.*' --exclude='before.html' --exclude='shots' --exclude='refs' --exclude='__pycache__' --exclude='logs' --exclude='pylib' --exclude='HANDOFF.md.*' --exclude='*.png' --exclude='p.diff')
+EXC=(--exclude='*bak*' --exclude='out.*' --exclude='out_ast.*' --exclude='out' --exclude='before.html' --exclude='shots' --exclude='refs' --exclude='__pycache__' --exclude='logs' --exclude='pylib' --exclude='HANDOFF.md.*' --exclude='*.png' --exclude='p.diff')
 DEXC=("${EXC[@]}" --exclude='build.sh' --exclude='build_ast3.sh')   # module registration is done by hand with addmod.sh, never merged
 case "$C" in
  new) rm -rf "$W"; mkdir -p "$W/base" "$W/work"

@@ -5,3 +5,6 @@ tools/rr/*.png
 tools/wr/*.png
 __pycache__/
 lbt/
+tools/ui/out/
+tools/perf87/out/
+tools/econ/out/

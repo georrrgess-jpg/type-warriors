@@ -2,7 +2,7 @@
 import asyncio,os
 from playwright.async_api import async_playwright
 H=os.path.realpath(os.path.join(os.path.dirname(__file__),'../../type-warriors-source/out.html'))
-OUT=os.path.realpath(os.path.join(os.path.dirname(__file__),'../../screenshots/wagon-route'))
+OUT=os.path.realpath(os.path.join(os.path.dirname(__file__),'../../screenshots/wagon-cast'))
 async def main():
   async with async_playwright() as p:
     b=await p.chromium.launch();pg=await b.new_page(viewport={'width':1600,'height':900});er=[];pg.on('pageerror',lambda e:er.append('PE '+str(e)[:300]))

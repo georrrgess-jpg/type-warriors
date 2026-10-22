@@ -2,7 +2,7 @@
 
 A single-file browser typing game. Everything ships as `type-warriors.html`; the source modules are in
 `type-warriors-source.zip`. Read `type-warriors-source/HANDOFF.md` (inside the zip) for the history and
-internals of every mode. The latest update is 8.5c (Lantern Caravan: a more detailed, sprite-baked wagon).
+internals of every mode. The latest update is 8.6 (Lantern Caravan: Conductor Bogsworth does the attacking, the hero stays behind the wagon, and a new camp hub).
 
 ## Setup in a new session
 1. `unzip -q type-warriors-source.zip` at the repo root (the folder is git-ignored; the zip is the tracked copy).

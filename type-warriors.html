@@ -3770,7 +3770,7 @@ bell:bP('M50 14C36 14 30 26 30 40V56L22 68H78L70 56V40C70 26 64 14 50 14Z','#ffc
 });
 /* ---------- hero (feet at origin, facing right, ~135 units tall) ---------- */
 function drawHero(g,o){
- const xid=o.arm||'rags',A=AR[xid]||AR.rags,K=kitOf(xid,A),t=o.t||0,lg=o.lg||0,pv=o.pose==='victory'?(o.pu||0):0,pd=o.pose==='dead'?(o.pu||0):0,hc=hcOf(o.col||0),br=Math.sin(t*2.4)*1.4,S7=(o.walk?Math.sin(t*8)*7:Math.sin(t*1.8)*1.2),cw=Math.sin(t*3)*5+lg*-8,my=A.mythic||0;
+ const xid=o.arm||'rags',A=AR[xid]||AR.rags,K=kitOf(xid,A),t=o.t||0,lg=o.lg||0,pv=o.pose==='victory'?(o.pu||0):0,pd=o.pose==='dead'?(o.pu||0):0,hc=hcOf(o.col||0),br=Math.sin(t*2.4)*1.4,S7=(o.wb!=null?Math.sin(o.wph||0)*7*o.wb+Math.sin(t*1.8)*1.2*(1-o.wb):(o.walk?Math.sin(t*8)*7:Math.sin(t*1.8)*1.2)),cw=Math.sin(t*3)*5+lg*-8,my=A.mythic||0;
  let M=A.m,D=A.dk,T=A.tr;
  if(my===1){M=hsx(t*50,55,80);D=hsx(t*50+50,50,42);T='#ffffff'}
  {const dy=o.dye!==undefined?o.dye:(typeof P!=='undefined'&&P&&P.dye)||0;if(dy&&!my){T=mixc(T,hc,dy>1?.55:.75);if(dy>1){M=mixc(M,hc,.5);D=mixc(D,hc,.42)}}}
@@ -39330,8 +39330,9 @@ function wrDraw(){const R=WRX,c=ctx;if(!R)return;if(NEEDRESET){NEEDRESET=false;i
  try{wrWagonDraw(c,R)}catch(e){console.error(e)}
  try{wrHeroDraw(c,R)}catch(e){}
  for(const e of mobs)try{wrMobDraw(c,e)}catch(e2){}
- for(const q of R.shots)try{shotArt(c,q)}catch(e){}
+ try{wrTongueDraw(c,R)}catch(e){}
  if(R.haz)wrTag(c,R.haz,R.tgt===R.haz);{const L=mobs.filter(e=>e.st!=='dead'&&e.st!=='fling').sort((a,b)=>a.x-b.x),used=[];for(const e of L){const w=e.w.length*14.4+72,x0=e.x-w/2,y0=e.y-e.h-74;let lift=0;for(let n=0;n<8;n++){let hit=false;for(const u of used)if(x0<u.x1&&x0+w>u.x0&&Math.abs((y0-lift)-(u.y-u.lift))<48){lift=u.lift+52;hit=true;break}if(!hit)break}e.tlift=lift;used.push({x0,x1:x0+w,y:y0,lift});wrTag(c,e,R.tgt===e)}}
+ try{wrSayDraw(c,R)}catch(e){}
  ptFxStep(c,R.fx,dt);ptRings(c,R.rings,dt);
  for(const q of R.coinFly){const u=wrEase(q.u),x=q.x+(q.tx-q.x)*u,y=q.y+(q.ty-q.y)*u-Math.sin(u*Math.PI)*(120+Math.sin(q.ph)*40);coin(c,x,y,9+2*Math.sin(q.ph+q.u*9))}
  ptTexts(c,R.tx,dt);
@@ -39469,7 +39470,7 @@ addEventListener('keydown',e=>{if(!$('wrhub')||S.mode!=='title'||e.ctrlKey||e.me
  const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName)&&ae!==inp)return;
  if(e.key===' '){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)wrHitch()}
  else if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();const ids=WR_ROUTES.filter(wrRouteOpen).map(r=>r.id),i=ids.indexOf(wrSel);wrSelect(ids[(i+(e.key==='ArrowDown'?1:-1)+ids.length)%ids.length])}
- else if(e.key==='Enter'&&ae&&ae.classList&&ae.classList.contains('wrrt')){e.preventDefault();wrSelect(ae.dataset.id);wrHitch()}},true);
+ else if(e.key==='Enter'&&ae&&ae.classList&&(ae.classList.contains('wrrt')||ae.classList.contains('wrcd'))){e.preventDefault();wrSelect(ae.dataset.id);wrHitch()}},true);
 /* ---------- modals ---------- */
 function wrModal(h,quiet){const m=$('wrmod');if(!m)return false;if(!h){if(m.hidden)return false;m.hidden=true;m.innerHTML='';LIVE=LIVE.filter(l=>l.cv&&l.cv.isConnected);WRM.pv=null;if(!quiet)wagonMenuRefresh();return true}m.innerHTML=h;m.hidden=false;m.onclick=e=>{if(e.target===m)wrModal(null)};const f=m.querySelector('[data-first]')||m.querySelector('button');try{f&&f.focus({preventScroll:true})}catch(e){}return true}
 function wagonMenuRefresh(){const w=WRP();const rc=$('wrroutes');if(rc)rc.innerHTML=WR_ROUTES.map(r=>wrRouteCard(r,w)).join('');if(rc)rc.querySelectorAll('.wrrt').forEach(b=>{b.onclick=()=>wrSelect(b.dataset.id);b.ondblclick=()=>{wrSelect(b.dataset.id);wrHitch()}});
@@ -39505,7 +39506,7 @@ function wrRouteLog(){const w=WRP(),rows=WR_ROUTES.map(r=>{const m=w.med[r.id]||
 function wrHowTo(intro){wrModal(`<div class="wrhow fsg"><button class="fsx2" id="wrhowx" aria-label="Close">✕</button><h3>${intro?'Before you hitch up':'How to play'}</h3>
   <div class="wrsteps"><div class="wrstep"><canvas width="300" height="150" data-k="jam"></canvas><b>1 · Wheel gets jammed</b><small>Rocks, branches, mud and loose cargo stop the wagon. A blue wrench bubble appears.</small></div><i>›</i>
    <div class="wrstep"><canvas width="300" height="150" data-k="type"></canvas><b>2 · Type the word</b><small>Type the repair word before the fuse runs out, or the axle cracks and you lose a shield.</small></div><i>›</i>
-   <div class="wrstep"><canvas width="300" height="150" data-k="roll"></canvas><b>3 · Wagon keeps moving</b><small>Monsters carry a red sword tag. Type their word and the hero cuts them down.</small></div></div>
+   <div class="wrstep"><canvas width="300" height="150" data-k="roll"></canvas><b>3 · Wagon keeps moving</b><small>Monsters carry a red sword tag. Type their word and Conductor Bogsworth, the toad on the crate, lashes them away while your hero guards the rear.</small></div></div>
   <div class="wrhrow"><span>${wrShieldSVG(22)}<em>Four <b>Wagon Integrity</b> shields. A monster that reaches the wagon takes one.</em></span><span>${wrLanternSVG(22)}<em>Letters fill the lantern. <kbd>Enter</kbd> fires a <b>Lantern Flare</b>: every monster is flung off the road and a shield comes back.</em></span><span><em><kbd>Tab</kbd> switches target. Reach the gate for coins, XP and a route medal.</em></span></div>
   <div class="row"><button id="wrhowgo" data-first>${intro?'Hitch up':'Got it'}</button></div></div>`);
  $('wrhowx').onclick=()=>wrModal(null);$('wrhowgo').onclick=()=>{if(intro){const w=WRP();w.intro=1;save();wrModal(null,true);wrStart(wrSel);wrTouchKb()}else wrModal(null)};
@@ -39579,7 +39580,7 @@ function wrCardScene(g,w,h,t){const rt=WR_RT('mill'),B=wrBake(rt);if(!WRCARD||WR
 /* the Play tab lights up on the caravan screens */
 {const d0=dkDetect;dkDetect=function(html){if(typeof html==='string'&&/class="wrx wrhub/.test(html))return'pl';return d0.apply(this,arguments)}}
 /* help */
-try{HELP.Modes.unshift(['Lantern Caravan','New! Escort a goblin-driven lantern wagon along a night road. Monsters walk in from the right with a word on a red sword tag: type it and your hero cuts them down. When the wheel jams, type the repair word in the blue wrench bubble before the fuse runs out. Monsters that reach the wagon take one of four shields. Letters fill the lantern; Enter fires a Lantern Flare that clears the road and restores a shield. Reach the gate for coins, XP and a bronze, silver or gold route medal. Medals unlock lanterns, banners and paint in the Convoy Workshop.']);HELP.Shortcuts.push(['W','Lantern Caravan from the main menu.'])}catch(e){}
+try{HELP.Modes.unshift(['Lantern Caravan','New! Escort a goblin-driven lantern wagon along a night road. Monsters walk in from the right with a word on a red sword tag: type it and Conductor Bogsworth, the toad on the crate, lashes it away with his tongue while your hero guards the rear. When the wheel jams, type the repair word in the blue wrench bubble before the fuse runs out. Monsters that reach the wagon take one of four shields. Letters fill the lantern; Enter fires a Lantern Flare that clears the road and restores a shield. Reach the gate for coins, XP and a bronze, silver or gold route medal. Medals unlock lanterns, banners and paint in the Convoy Workshop.']);HELP.Shortcuts.push(['W','Lantern Caravan from the main menu.'])}catch(e){}
 /* the bounty and the title */
 try{const t={k:'wagon',tier:1,ok:()=>true,mk:r=>({n:1}),txt:c=>'Finish a Lantern Caravan route'};BTPL.push(t);BTK.wagon=t}catch(e){}
 try{BT_TITLES.push(['caravanmaster','Caravan Master',1e9]);const b0=bountyBoard;bountyBoard=function(){const r=b0.apply(this,arguments);try{const x=ov.querySelector('[data-buy="t:caravanmaster"]');if(x){const s=document.createElement('span');s.className='rrlock';s.textContent='Earn: gold on every caravan route';x.replaceWith(s)}}catch(e){}return r}}catch(e){}
@@ -39795,6 +39796,10 @@ const WRAFX={
  boss(C,t){const X=C.X;[0,.22,.44].forEach(d=>{rraBsn(X,C.o,t+d,rraF(38),.16,.12);rraDrum(X,C.o,t+d,.2,58)});rraBrass(X,C.o,t+.7,rraF(35),.9,.05,0)}};
 function wraFx(kind,v){try{if(!WRAX.on||!ac||!sg||ST.svol<=0)return false;const f=WRAFX[kind];if(!f)return false;if(RRAM.st.on-RRAM.st.off>160&&(kind==='key'||kind==='clink'||kind==='coin'))return true;f(wraFxC(),ac.currentTime+.005,v);return true}catch(e){wraErr(e);return false}}
 {const s0=wrSfx;wrSfx=function(k,v){if(WRAX.on){if(k==='gate'){if(wraFx('milestone'))wraJing('win');else s0(k,v);return}if(k==='break'){wraJing('lose');return}if(wraFx(k,v))return}return s0(k,v)}}
+/* 8.6: the conductor's whistle, his tongue and his croak */
+WRAFX.toot=(C,t)=>{const X=C.X;[0,.17].forEach((d,j)=>{const g=X.createGain(),o=X.createOscillator();o.type='sine';o.frequency.value=j?2100:1760;rraEnv(g,t+d,.04,.01,.13,.05);o.connect(g);g.connect(C.o);g.connect(C.w);o.start(t+d);o.stop(t+d+.24);rraVib(X,[o],t+d,t+d+.24,70,30,.02);rraEnd(o,[g])});rraNz(X,C.o,t,.34,.018,5400,'highpass',.7,.01)};
+WRAFX.lash=(C,t)=>{const X=C.X;rraNz(X,C.o,t,.1,.05,700,'bandpass',2,.002,4200);rraThud(X,C.o,t+.115,520,170,.075,.1);rraNz(X,C.o,t+.115,.05,.04,2600,'bandpass',1.4,.002);rraBell(X,C.pan[3],t+.12,rraF(88),.018,.5,'ting')};
+WRAFX.croak=(C,t)=>{const X=C.X;[0,.11].forEach((d,j)=>{const o=X.createOscillator(),g=X.createGain(),fl=X.createBiquadFilter();fl.type='lowpass';fl.frequency.value=520;o.type='sawtooth';o.frequency.setValueAtTime(130-j*18,t+d);o.frequency.exponentialRampToValueAtTime(78,t+d+.1);rraEnv(g,t+d,.05,.02,.08,.05);o.connect(fl);fl.connect(g);g.connect(C.o);o.start(t+d);o.stop(t+d+.2);rraEnd(o,[fl,g])})};
 /* ===== LANTERN CARAVAN 8.5 polish: motion, impact and readability =====
    Overrides only (later declarations win), loaded after 93f.
    - The wagon feels heavy: it pitches back as it pulls away and dips its nose when it stops (a damped spring on WRX.pitch,
@@ -40055,7 +40060,7 @@ function wrWagonDraw(c,R){const t=S.t,look=R.look,pk=look.paint,PA=WR_COS.paint[
  wrPail(c,-150,-60,R.rm?0:sw*1.6+Math.sin(t*2.1)*.04,t);
  wrBanner(c,-186,-158,BA,t,R.v);
  wrPut(c,SB);
- c.save();c.translate(0,cb);wrPut(c,SC);c.restore();
+ c.save();c.translate(0,cb);wrPut(c,SC);try{wrCondDraw(c,R)}catch(e){console.error(e)}c.restore();
  wrPut(c,SF);
  wrLantern(c,136,-302,.95,LA,t,sw*.6,R.flareOn>0?1:0);
  wrPut(c,SN);
@@ -40075,6 +40080,480 @@ function wrWheelOff(c,R,PA){const d=R.doneT||0,dist=R.rm?120:210*(1-Math.exp(-d*
 /* the workshop's paint chips show the real side panel */
 {const c0=wrChipArt;wrChipArt=function(x,f,k){if(f!=='paint')return c0.apply(this,arguments);const PA=WR_COS.paint[k];if(!PA)return;const S2=wrSpr('wb|'+k,-222,-166,436,122,g=>wrBodyArt(g,PA)),s=78/436;
  x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,84,84);const gx=42,gy=62;x.save();x.translate(gx,gy);x.scale(s,s);x.drawImage(S2.c,S2.x0,S2.y0,S2.w,S2.h);x.restore();wrWheel(x,gx,gy-52*s,11,.3,PA.rim,false);wrWheel(x,gx+150*s,gy-44*s,9.5,.3,PA.rim,false)}}
+/* ===== LANTERN CARAVAN 8.6: Conductor Bogsworth, and a hero who stays behind the wagon =====
+   The hero no longer fights. He walks behind the wagon the whole run, saluting when the wagon wins a round and stumbling when it
+   is hit, while the caravan's conductor does the work: Conductor Bogsworth, a pot-bellied toad in a too-small cap, rides on the
+   crate and lashes monsters with a very long tongue, punches their tickets, blows his whistle when the wheel jams and gives
+   running commentary in speech bubbles.
+   - wrConductorDraw(g,t,{mode,k,p}): feet at the origin, facing right, about 110 units tall. Modes: idle (taps a boot, checks his
+     pocket watch now and then), lash (p 0..1 over 0.6 s: windup, strike at 0.12 s, hold, retract), toot, cheer, sad, think, point.
+   - wrTongueDraw: the tongue from his mouth to the monster; wrSay/wrSayDraw: speech bubbles; wrCond(mode,dur) sets his mood.
+   - Hero: a damped spring behind the wagon (lags when it pulls away, hurries to catch up), a stride phase tied to his speed over
+     the ground (no skating), a forward lean, a bob, a salute (the victory arm pose, partly raised) and a stumble.
+   - Pet: follows the hero on its own spring with a hysteresis on walk and idle, a gait clock that runs with its speed, a small
+     idle wander, a hop on a kill and a flinch on a hit.
+   MON.wrcond (flagged nx, so the Bestiary lists do not pick him up) gives him a thumbnail and lets any monster screen draw him. */
+const WRC={x:8,y:-206,s:1.1};/* where he stands on the crate (wagon-local) and his scale */
+const WRCP={
+ idle:{nh:[34,-30],fh:[-31,-42],mo:0,pf:0,lid:.55,ln:0,hl:0,fw:.2,lk:.4},
+ lash:{nh:[46,-58],fh:[-31,-48],mo:1,pf:0,lid:.9,ln:0,hl:0,fw:.3,lk:1},
+ toot:{nh:[25,-56],fh:[-31,-46],mo:0,pf:1,lid:1,ln:-.04,hl:0,fw:.25,lk:.6},
+ cheer:{nh:[36,-100],fh:[-33,-104],mo:.55,pf:0,lid:1,ln:0,hl:3,fw:.8,lk:0},
+ sad:{nh:[26,-14],fh:[-27,-22],mo:0,pf:0,lid:.2,ln:.06,hl:-5,fw:0,lk:-.3},
+ think:{nh:[19,-57],fh:[-31,-38],mo:0,pf:0,lid:.7,ln:0,hl:0,fw:.1,lk:.5},
+ point:{nh:[52,-66],fh:[-31,-44],mo:.2,pf:0,lid:1,ln:.03,hl:1,fw:.3,lk:1}};
+const wrL=(a,b,u)=>a+(b-a)*u;
+const wrCF=(g,fill,sx,lw,dk)=>rrkFS(g,fill,sx,lw==null?2.6:lw,dk||'rgba(10,0,40,.22)');
+const wrCEl=(g,x,y,rx,ry,fill,sx,lw,rot)=>{g.beginPath();g.ellipse(x,y,rx,ry,rot||0,0,TAU);wrCF(g,fill,sx,lw)};
+const wrCSeg=(g,x0,y0,x1,y1,w,col)=>{g.lineCap='round';g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.lineWidth=w+5;g.strokeStyle=WRO;g.stroke();g.lineWidth=w;g.strokeStyle=col;g.stroke()};
+function wrConductorDraw(g,t,st){st=st||{};const mode=st.mode&&WRCP[st.mode]?st.mode:'idle',lashP=mode==='lash'?(st.p||0):0;
+ let e,T=WRCP[mode];
+ if(mode==='lash'){const wd=wrEase(lashP/.07),out=1-wrEase(wrClamp((lashP-.45)/.5,0,1));e=wd*out}else e=mode==='idle'?0:wrEase(st.k==null?1:st.k);
+ /* a pocket-watch check every ten seconds while idle */
+ const tc=((t%10)+10)%10,pw=mode==='idle'?wrEase(wrClamp((tc-7)/.5,0,1))*wrEase(wrClamp((9.3-tc)/.5,0,1)):0;
+ const nhx=wrL(wrL(WRCP.idle.nh[0],T.nh[0],e),23,pw),nhy=wrL(wrL(WRCP.idle.nh[1],T.nh[1],e),-78,pw);
+ const fhx=wrL(WRCP.idle.fh[0],T.fh[0],e),fhy=wrL(WRCP.idle.fh[1],T.fh[1],e);
+ const mo=wrL(0,T.mo,e)*(mode==='lash'?(lashP<.55?1:1-wrEase((lashP-.55)/.2)):1),pf=wrL(0,T.pf,e),hl=wrL(0,T.hl,e),fw=wrL(WRCP.idle.fw,T.fw,e);
+ let ln=wrL(0,T.ln,e);if(mode==='lash')ln=lashP<.07?-.09*wrEase(lashP/.07):.1*(1-wrEase(wrClamp((lashP-.27)/.3,0,1)))-.09*(1-wrEase(wrClamp((lashP-.07)/.04,0,1)))*(lashP<.11?1:0);
+ const br=Math.sin(t*2.3)*.9,pul=Math.sin(t*3.1),bl=((t+1.3)%4.2)<.13,lid=bl?0:wrL(WRCP.idle.lid,T.lid,e),look=wrL(WRCP.idle.lk,T.lk,e);
+ const hop=mode==='cheer'?-Math.abs(Math.sin(e*Math.PI*3))*7*e:0,tap=mode==='idle'||mode==='think'?Math.max(0,Math.sin(t*5.6))*3.4:0;
+ g.save();g.lineJoin='round';g.lineCap='round';g.translate(0,hop);g.rotate(ln);
+ /* ground shadow is the caller's job; coat tail first (behind everything) */
+ g.beginPath();g.moveTo(-22,-44);g.quadraticCurveTo(-40,-30+Math.sin(t*3)*2,-44,-12+Math.sin(t*3.4)*2);g.lineTo(-20,-10);g.closePath();wrCF(g,'#27336f',null,2.4);
+ g.beginPath();g.moveTo(-42,-13+Math.sin(t*3.4)*2);g.lineTo(-20,-10);g.lineWidth=2;g.strokeStyle='#e8b83a';g.stroke();
+ /* legs and boots (the near boot taps) */
+ wrCEl(g,-11,-8,7,6,'#5aa244',null,2);wrCEl(g,11,-8,7,6,'#5aa244',null,2);
+ const boot=(x,y,far)=>{g.save();g.translate(x,y);wrCEl(g,2,-3,14,7.5,far?'#15101e':'#201828',null,2.4);g.fillStyle='#ffffff40';g.beginPath();g.ellipse(-3,-7,6,1.6,0,0,TAU);g.fill();g.fillStyle='#e8b83a';g.fillRect(-1,-9,4,4);g.lineWidth=1;g.strokeStyle=WRO;g.strokeRect(-1,-9,4,4);g.restore()};
+ boot(-13,0,true);boot(12,-tap,false);
+ /* the far arm with a green signal flag */
+ {const sx=-20,sy=-48,ex=(sx+fhx)/2-4,ey=(sy+fhy)/2+9;wrCSeg(g,sx,sy,ex,ey,9,'#27336f');wrCSeg(g,ex,ey,fhx,fhy,8,'#27336f');
+  const wv=Math.sin(t*6)*fw*7,tx=fhx-6,ty=fhy-40;g.beginPath();g.moveTo(fhx,fhy+9);g.lineTo(tx,ty);g.lineWidth=4.4;g.strokeStyle=WRO;g.stroke();g.lineWidth=2.2;g.strokeStyle='#8a5a2c';g.stroke();
+  g.beginPath();g.moveTo(tx,ty);g.quadraticCurveTo(tx-12,ty+2+wv,tx-26,ty+6+wv*1.5);g.lineTo(tx-24,ty+17+wv*1.4);g.quadraticCurveTo(tx-12,ty+13+wv,tx,ty+12);g.closePath();wrCF(g,'#37c274',null,2.2);
+  g.fillStyle='#fffbe8';g.beginPath();g.arc(tx-13,ty+10+wv*.8,3,0,TAU);g.fill();wrCEl(g,fhx,fhy,5,5,'#6cb24e',null,2)}
+ /* the body: a navy coat over a big round belly */
+ const by=-36+br*.5;g.save();g.translate(0,by);g.scale(1+br*.004,1-br*.006);g.translate(0,-by);
+ wrCEl(g,0,by,31,28,'#2b3a86',9,2.8);
+ g.beginPath();g.ellipse(0,by,28.5,25.5,0,Math.PI*.18,Math.PI*.82);g.lineWidth=2.6;g.strokeStyle='#e8b83a';g.stroke();
+ g.beginPath();g.moveTo(10,by-26);g.lineTo(11,by+27);g.lineWidth=2;g.strokeStyle='#e8b83a';g.stroke();
+ for(let i=0;i<4;i++){const y=by-17+i*10.5;g.beginPath();g.arc(10.5,y,3.3,0,TAU);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.4;g.strokeStyle=WRO;g.stroke();g.fillStyle='#fff7c8';g.beginPath();g.arc(9.4,y-1,1,0,TAU);g.fill()}
+ /* pocket-watch chain */
+ g.beginPath();g.moveTo(10.5,by-6);g.quadraticCurveTo(24,by+2,22,by+8);g.lineWidth=1.8;g.strokeStyle='#e8b83a';g.stroke();
+ if(pw<.05){g.beginPath();g.arc(22,by+11,3.6,0,TAU);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.4;g.strokeStyle=WRO;g.stroke()}
+ g.restore();
+ /* head: wide, warty, no neck */
+ const hy0=-72;
+ wrCEl(g,4,hy0,30,18,'#6cb24e',14,2.8);
+ if(pf>.01){const r=7*pf;wrCEl(g,-24,hy0+4,r+2,r+1,'#6cb24e',null,2.4);wrCEl(g,32,hy0+4,r+2,r+1,'#6cb24e',null,2.4)}
+ g.fillStyle='#4a8a3a';for(const [x,y,r] of[[-14,-70,2],[-6,-62,1.6],[22,-76,1.8],[28,-68,1.4],[-19,-78,1.5]]){g.beginPath();g.arc(x,y,r,0,TAU);g.fill()}
+ /* the throat sac swells with every croak; a little red bow tie */
+ {const ry=6+pul*1.8+pf*6;wrCEl(g,9,-52+ry*.2,13+pf*3,ry,'#dfe9a0',null,2.2);
+  g.beginPath();g.moveTo(8,-52);g.lineTo(0,-57);g.lineTo(0,-47);g.closePath();wrCF(g,'#c8283e',null,1.8);g.beginPath();g.moveTo(8,-52);g.lineTo(16,-57);g.lineTo(16,-47);g.closePath();wrCF(g,'#a81e34',null,1.8);wrCEl(g,8,-52,2.6,2.6,'#e0384e',null,1.6)}
+ /* mouth, under the moustache */
+ if(mo>.02){const oy=2+9*mo;g.beginPath();g.ellipse(13,-60+oy*.3,17,oy,0,0,TAU);g.fillStyle='#7a1e3a';g.fill();g.lineWidth=2.4;g.strokeStyle=WRO;g.stroke();g.beginPath();g.ellipse(14,-57+oy*.4,10,Math.min(3.5,oy*.5),0,0,TAU);g.fillStyle='#ff7a9a';g.fill()}
+ else{g.beginPath();g.moveTo(-20,-62);g.quadraticCurveTo(6,-51+(mode==='sad'?-6:0),33,-62);g.lineWidth=2.8;g.strokeStyle=WRO;g.stroke()}
+ /* two bulging eyes either side of a cap that is far too small */
+ const eye=(x,y,sc)=>{g.save();g.translate(x,y);g.scale(sc,sc);g.beginPath();g.arc(0,0,11.5,0,TAU);wrCF(g,'#6cb24e',null,2.6);g.beginPath();g.arc(0,0,8.8,0,TAU);g.fillStyle='#fff6d8';g.fill();
+  const px=look*3.4,py=1.4;g.beginPath();g.arc(px,py,4.6,0,TAU);g.fillStyle='#1c1220';g.fill();g.fillStyle='#fff';g.beginPath();g.arc(px-1.4,py-1.6,1.5,0,TAU);g.fill();
+  const lc=(1-lid)*17;if(lc>.2){g.save();g.beginPath();g.arc(0,0,8.8,0,TAU);g.clip();g.fillStyle='#5a9a40';g.fillRect(-12,-12,24,lc-1);g.fillStyle=WRO;g.fillRect(-12,-12+lc-1,24,2.2);g.restore()}
+  g.beginPath();g.arc(0,0,11.5,0,TAU);g.lineWidth=2.6;g.strokeStyle=WRO;g.stroke();g.restore()};
+ eye(-16,-85,1);eye(25,-86,1.04);
+ /* the moustache: an enormous handlebar */
+ {const tw=Math.sin(t*2)*1.2;g.beginPath();g.moveTo(-20,-72+tw);g.quadraticCurveTo(-30,-62,-14,-64);g.quadraticCurveTo(4,-71,9,-67);g.quadraticCurveTo(14,-71,30,-64);g.quadraticCurveTo(46,-62,36,-73-tw);
+  g.lineWidth=11;g.strokeStyle=WRO;g.stroke();g.lineWidth=7.4;g.strokeStyle='#5a3416';g.stroke();g.lineWidth=2;g.strokeStyle='#8a5a30';g.beginPath();g.moveTo(-12,-66);g.quadraticCurveTo(4,-72,9,-68.5);g.stroke();
+  for(const [x,y] of[[-20,-72+tw],[36,-73-tw]]){g.beginPath();g.arc(x,y,3.2,0,TAU);g.fillStyle='#5a3416';g.fill();g.lineWidth=1.6;g.strokeStyle=WRO;g.stroke()}}
+ /* the cap */
+ g.save();g.translate(0,-hl*.8);if(mode==='sad'){g.translate(7,4);g.rotate(.22)}
+ g.beginPath();g.moveTo(-14,-91);g.quadraticCurveTo(-15,-110,4,-110);g.quadraticCurveTo(23,-110,22,-91);g.closePath();wrCF(g,'#232e72',4,2.6);
+ g.beginPath();g.rect(-14,-98,36,6.4);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.6;g.strokeStyle=WRO;g.stroke();
+ g.beginPath();g.arc(4,-102,4.6,0,TAU);wrCF(g,'#f0c24a',null,1.8);g.fillStyle='#232e72';g.fillRect(2.6,-104.4,2.8,4.4);
+ g.beginPath();g.moveTo(14,-91);g.quadraticCurveTo(36,-92,40,-85);g.quadraticCurveTo(26,-86,13,-87.5);g.closePath();wrCF(g,'#171a40',null,2.2);g.restore();
+ /* the near arm: tongs and a ticket, a pocket watch, or a whistle */
+ {const sx=21,sy=-48,ex=(sx+nhx)/2+1,ey=(sy+nhy)/2+9;wrCSeg(g,sx,sy,ex,ey,9.4,'#2b3a86');wrCSeg(g,ex,ey,nhx,nhy,8.4,'#2b3a86');
+  g.beginPath();g.arc(ex+(nhx-ex)*.62,ey+(nhy-ey)*.62,5.2,0,TAU);g.fillStyle='#f0c24a';g.fill();g.lineWidth=1.4;g.strokeStyle=WRO;g.stroke();
+  if(mode==='toot'){g.beginPath();g.ellipse(nhx+7,nhy-3,9,3.8,-.35,0,TAU);wrCF(g,'#f0c24a',null,2);g.beginPath();g.arc(nhx-2,nhy-1,2.6,0,TAU);g.lineWidth=1.6;g.strokeStyle='#d9a441';g.stroke()}
+  else if(pw>.05){g.beginPath();g.arc(nhx+2,nhy-4,6.4,0,TAU);wrCF(g,'#f0c24a',null,2);g.beginPath();g.arc(nhx+2,nhy-4,4.6,0,TAU);g.fillStyle='#fffbe8';g.fill();g.beginPath();g.moveTo(nhx+2,nhy-4);g.lineTo(nhx+2,nhy-7.6);g.moveTo(nhx+2,nhy-4);g.lineTo(nhx+4.6,nhy-3);g.lineWidth=1.3;g.strokeStyle=WRO;g.stroke()}
+  else{g.beginPath();g.moveTo(nhx,nhy);g.lineTo(nhx+14,nhy-9);g.moveTo(nhx,nhy);g.lineTo(nhx+15,nhy+1);g.lineWidth=5;g.strokeStyle=WRO;g.stroke();g.lineWidth=2.4;g.strokeStyle='#d8d4e8';g.stroke();
+   g.beginPath();g.rect(nhx+12,nhy-6,9,7);g.fillStyle='#fff3d0';g.fill();g.lineWidth=1.4;g.strokeStyle=WRO;g.stroke();g.fillStyle='#e8364e';g.beginPath();g.arc(nhx+16.5,nhy-2.5,1.5,0,TAU);g.fill()}
+  wrCEl(g,nhx,nhy,5.2,5.2,'#6cb24e',null,2)}
+ g.restore()}
+/* a head-and-shoulders medallion for menus */
+function wrCondPortrait(cv,t){const g=cv.getContext('2d'),w=cv.width,h=cv.height,r=Math.min(w,h)/2,lw=Math.max(3,r*.09);g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,w,h);
+ g.save();g.beginPath();g.arc(w/2,h/2,r-lw*.5,0,TAU);g.clip();const q=g.createRadialGradient(w/2,h*.4,r*.1,w/2,h/2,r);q.addColorStop(0,'#4a3a9a');q.addColorStop(1,'#1c1446');g.fillStyle=q;g.fillRect(0,0,w,h);
+ const s=r/42;g.translate(w/2-2*s,h/2+68*s);g.scale(s,s);wrConductorDraw(g,t,{mode:'idle'});g.restore();
+ g.beginPath();g.arc(w/2,h/2,r-lw*.5,0,TAU);g.lineWidth=lw;g.strokeStyle='#ffd45a';g.stroke();g.lineWidth=lw*.35;g.strokeStyle=WRO;g.stroke()}
+/* he is a monster too: a thumbnail for any monster screen (flagged nx so the Bestiary lists skip him) */
+MON.wrcond={n:'Conductor Bogsworth',h:150,sp:40,th:114,tw:130,cx:0,nx:1,d:(g,t,o)=>{g.save();g.scale(-1,1);wrConductorDraw(g,t,{mode:(o&&o.lg>.3)?'lash':'idle',p:(o&&o.lg)||0});g.restore()}};
+/* ---------- conduct the run ---------- */
+const WR_SAY={
+ kill:['Punched!','Ticket, please!','No ticket, no ride!','Next!','Bwarp!','Tut, tut!','Mind the gap!','All aboard! ...not you.','Thwap!','Terminus for you!'],
+ haz:['Delay on the line!','Signal failure!','Wheel trouble! PHWEET!','Not on my timetable!'],
+ fix:['Back on schedule!','Tickets all round!','Smooth as a ledger!'],
+ hit:['Hrrk! My timetable!','Mind the paintwork!','Ow! First class!','Bwuh!'],
+ flare:['FULL STEAM AHEAD!','Lanterns blazing!','Stand clear!'],
+ gate:['Right on time!','Terminus! Tickets, please!','All change!'],
+ broke:['Service cancelled...','Refunds at the gate...'],
+ start:['All aboard! Tickets, please!','Mind the doors!','Next stop: the gate!'],
+ boss:['That one has NO ticket!','Unauthorised horse!']};
+function wrSay(kind,force){const R=WRX;if(!R)return;if(!force&&R.t<(R.sayT||0))return;const L=WR_SAY[kind];if(!L)return;R.say={txt:L[Math.random()*L.length|0],t0:R.t,dur:force?2.4:1.8};R.sayT=R.t+(force?1.4:2.8)}
+function wrSayDraw(c,R){const q=R.say;if(!q||R.over&&S.mode!=='wagon')return;const a=R.t-q.t0;if(a>q.dur){R.say=null;return}const k=wrClamp(a/.28,0,1),s=R.rm?1:.6+.4*wrOver(k),al=Math.min(1,a*7,(q.dur-a)*4);
+ c.save();c.globalAlpha=al;c.font='700 15px Poppins,system-ui,sans-serif';const w=c.measureText(q.txt).width+30,h=32,cx=WRT.WX+(R.ox||0)-4,bob=(R.bobY||0),bx=cx-w/2,by=GY+WRC.y-WRC.s*120-h-20+bob;
+ c.translate(cx,by+h+10);c.scale(s,s);c.translate(-cx,-(by+h+10));c.fillStyle='#fff8e8';c.strokeStyle=WRO;c.lineWidth=2.4;c.beginPath();c.roundRect(bx,by,w,h,12);c.fill();c.stroke();
+ c.beginPath();c.moveTo(cx+4,by+h-1);c.lineTo(cx+16,by+h-1);c.lineTo(cx+12,by+h+11);c.closePath();c.fill();c.beginPath();c.moveTo(cx+4,by+h);c.lineTo(cx+12,by+h+11);c.lineTo(cx+16,by+h);c.stroke();c.fillStyle='#fff8e8';c.fillRect(cx+5,by+h-3,10,4);
+ c.fillStyle='#2a1a40';c.textAlign='center';c.textBaseline='middle';c.fillText(q.txt,cx,by+h/2+1);c.restore()}
+function wrCond(mode,dur){const R=WRX;if(!R)return;if(R.cond&&R.cond.mode==='lash'&&mode!=='lash'&&R.t-R.cond.t0<R.cond.dur*.7)return;R.cond={mode,t0:R.t,dur:dur||1}}
+/* draws him on the crate inside the wagon's bobbing transform (called from 93h) */
+function wrCondDraw(c,R){const q=R.cond,t=S.t;let st={mode:'idle'};
+ if(q){const a=R.t-q.t0;if(q.mode==='lash'){if(a>=q.dur)R.cond=null;else st={mode:'lash',p:a/q.dur}}else{if(a>=q.dur+.3)R.cond=null;else{let k=1;if(a<.25)k=a/.25;else if(a>q.dur)k=Math.max(0,1-(a-q.dur)/.3);st={mode:q.mode,k}}}}
+ c.save();c.translate(WRC.x,WRC.y);c.scale(WRC.s,WRC.s);wrConductorDraw(c,t,st);c.restore()}
+/* where his mouth is on screen (the wagon's tilt is small enough to ignore) */
+function wrMouthXY(R){const cb=R.v>5?Math.sin(R.wheel*2.1-.5)*3:0,bob=R.v>5?Math.sin(R.wheel*2.1)*2.2:0;R.bobY=bob;return[WRT.WX+(R.ox||0)+WRC.x+WRC.s*24,GY+WRC.y-WRC.s*60+cb+bob]}
+/* the lash: windup 0..0.07, strike (the tongue reaches the monster at 0.12 s, exactly when its hit flash starts), hold, retract */
+function wrHeroStrike(e){const R=WRX;if(!R)return;R.cond={mode:'lash',t0:R.t,dur:.6,e,hit:0};R.heroCheer=Math.max(R.heroCheer||0,.55);wrSfx('lash');if(Math.random()<.42)wrSay('kill')}
+function wrTongueDraw(c,R){const q=R.cond;if(!q||q.mode!=='lash')return;const p=(R.t-q.t0)/q.dur,e=q.e;if(!e||p>=1)return;
+ const ext=p<.07?0:p<.2?wrEase((p-.07)/.13):p<.27?1:1-wrEase((p-.27)/.33);if(ext<=.005)return;
+ const [rx,ry]=wrMouthXY(R),tx=e.x-(e.lg||0)*64,ty=e.y-e.h*.5;
+ if(!q.hit&&p>=.2){q.hit=1;ptBurst(R.fx,tx,ty,R.rm?6:16,['#ff9ab0','#fff0f4','#ffd45a'],{v:300,s:4.5,g:160,l:.55});wrRing(tx,ty,'#ff9ab0',150,6);if(!R.rm)R.shake=Math.max(R.shake,5);if(Math.random()<.3)wrText(tx,ty-e.h*.5-30,'THWAP!','#ff9ab0',26)}
+ const x=rx+(tx-rx)*ext,y=ry+(ty-ry)*ext,sag=(1-ext*.7)*18*Math.sin(Math.PI*Math.min(1,ext)),mx=(rx+x)/2,my=(ry+y)/2-ext*(24+.14*Math.hypot(tx-rx,ty-ry));
+ c.save();c.lineCap='round';c.lineJoin='round';
+ const wv=R.rm?0:Math.sin(p*38)*3*(1-Math.min(1,ext));
+ c.beginPath();c.moveTo(rx,ry);c.quadraticCurveTo(mx,my+wv,x,y);c.lineWidth=11;c.strokeStyle=WRO;c.stroke();c.lineWidth=7;c.strokeStyle='#ff7a9a';c.stroke();c.lineWidth=2.2;c.strokeStyle='#ffc4d2';c.beginPath();c.moveTo(rx,ry-1.5);c.quadraticCurveTo(mx,my+wv-1.5,x,y-1.5);c.stroke();
+ c.beginPath();c.arc(x,y,7.6,0,TAU);c.fillStyle='#ff7a9a';c.fill();c.lineWidth=2.4;c.strokeStyle=WRO;c.stroke();c.fillStyle='#ffd0dc';c.beginPath();c.arc(x-2.4,y-2.4,2.4,0,TAU);c.fill();c.restore()}
+/* ---------- the conductor's reactions ---------- */
+{const f=wrHazOpen;wrHazOpen=function(){const r=f.apply(this,arguments);wrCond('toot',1.2);wrSfx('toot');wrSay('haz',true);const R=WRX;if(R){const[x,y]=wrMouthXY(R);ptBurst(R.fx,x+6,y-4,R.rm?3:8,'#f4f0ff',{k:'dust',v:60,up:1,sp:1.6,g:-30,l:.8,s:5})}return r}}
+{const f=wrRepair;wrRepair=function(){const r=f.apply(this,arguments);wrCond('cheer',1);wrSay('fix',true);const R=WRX;if(R)R.heroCheer=Math.max(R.heroCheer||0,.8);return r}}
+{const f=wrHit;wrHit=function(e,why){const R=WRX,h=R&&R.hs;const r=f.apply(this,arguments);if(R&&R.st!=='break'){wrCond('sad',1);wrSfx('croak')}wrSay(R&&R.st==='break'?'broke':'hit',true);if(h){h.hv-=150;h.flin=.6}return r}}
+{const f=wrFlare;wrFlare=function(){const R=WRX,on=R&&R.flareOn>0,r=f.apply(this,arguments);if(R&&!on&&R.flareOn>0){wrCond('cheer',1.6);wrSay('flare',true);R.heroCheer=1.4}return r}}
+{const f=wrGate;wrGate=function(){const R=WRX,st=R&&R.st,r=f.apply(this,arguments);if(R&&st==='roll'&&R.st==='gate'){wrCond('cheer',2.6);wrSay('gate',true)}return r}}
+{const f=wrStart;wrStart=function(){const r=f.apply(this,arguments);if(WRX){wrCond('point',1.6);WRX.sayT=0;setTimeout(()=>{if(WRX&&S.wr)wrSay('start',true)},700)}return r}}
+{const f=wrSpawn;wrSpawn=function(id){const e=f.apply(this,arguments);if(e&&e.boss&&WRX&&WRX.boss===e)wrSay('boss',true);return e}}
+{const f=wrBreak;wrBreak=function(){const R=WRX,r=f.apply(this,arguments);if(R){wrCond('sad',9)}return r}}
+/* ---------- the hero: behind the wagon, never fighting ---------- */
+const WRHS0={x:0,hv:0,ph:0,wb:0,pu:0,flin:0,g:0};
+function wrMotion(R,dt){const h=R.hs||(R.hs={x:0,hv:0,ph:0,wb:0,pu:0,flin:0,g:0});
+ /* a damped spring behind the wagon: it lags when the wagon pulls away and hurries to catch up (about 6 rad/s, nearly critically damped) */
+ const acc=R.accel||0,tgt=R.st==='break'?0:wrClamp(-acc*.11,-24,18);
+ h.hv+=((tgt-h.x)*38-h.hv*12)*dt;h.x+=h.hv*dt;
+ /* the feet follow the ground: his speed over it is the road's speed plus how fast he moves on screen */
+ const g=Math.max(0,(R.st==='break'?0:R.v)+h.hv);h.g+=(g-h.g)*Math.min(1,dt*10);h.ph+=h.g/60*8*dt;
+ h.wb+=(wrEase(wrClamp(h.g/14,0,1))-h.wb)*Math.min(1,dt*8);
+ h.flin=Math.max(0,h.flin-dt);
+ /* the salute: the victory arm pose, partly raised and eased */
+ R.heroCheer=Math.max(0,(R.heroCheer||0)-dt);const want=R.heroPose==='victory'?1:R.heroCheer>0?.72:0;h.pu+=(want-h.pu)*Math.min(1,dt*(want>h.pu?11:6));
+ /* the pet */
+ const p=R.ps||(R.ps={x:WRT.PX,v:0,clk:0,walk:0,dw:0,wb:0,hv:0});
+ const ptx=WRT.HX+h.x-100-(R.v>10?acc*.05:0)+(R.v<5?Math.sin(R.t*.31)*9:0);p.v+=((ptx-p.x)*20-p.v*9)*dt;p.x+=p.v*dt;p.hv=p.v;
+ const pg=Math.max(0,(R.st==='break'?0:R.v)+p.v);p.dw+=dt;
+ if(!p.walk&&pg>14&&p.dw>.25){p.walk=1;p.dw=0}else if(p.walk&&pg<6&&p.dw>.3){p.walk=0;p.dw=0}
+ p.wb+=((p.walk?1:0)-p.wb)*Math.min(1,dt*6);p.clk+=dt*(p.walk?.55+.75*wrClamp(pg/70,0,1.3):1)}
+{const u0=wrUpdate;wrUpdate=function(dt){const R=WRX,r=u0.apply(this,arguments);if(WRX&&WRX===R&&!R.pause)wrMotion(R,Math.min(dt,.05));return r}}
+function wrHeroDraw(c,R){const h=R.hs||WRHS0,b=Math.sin(S.t*2.3),syy=1+b*.011,sxx=1-b*.006,acc=R.accel||0;let hop=0,pu=h.pu;
+ if(R.heroPose==='victory'){hop=-Math.abs(Math.sin((R.poseT||0)*5.5))*22*Math.min(1,(R.poseT||0)/.5)}
+ else if(R.heroCheer>1){hop=-Math.abs(Math.sin(R.t*9))*6*wrClamp((R.heroCheer-1)*3,0,1)}
+ const bob=h.wb*Math.abs(Math.sin(h.ph))*1.9,lean=wrClamp(acc*.0006+h.wb*.025,-.05,.07);
+ c.save();c.translate(WRT.HX+h.x+(R.ox||0),GY);c.fillStyle='#0007';c.beginPath();c.ellipse(0,6,58,10,0,0,TAU);c.fill();
+ const col=WCOL();glow(c,0,-100,120,col+'22');c.translate(0,hop-bob);c.rotate(lean);c.scale(1.5*sxx,1.5*syy);
+ if(h.flin>0&&Math.floor(S.t*20)%2)c.globalAlpha=.55;
+ drawHero(c,{arm:P.armor,wp:P.weapon,col:P.col,t:S.t,lg:0,wb:h.wb,wph:h.ph,pose:R.heroPose||(pu>.02?'victory':null),pu});c.restore()}
+function wrPetDraw(c,R){const id=P.pet;if(!id||!PDEF[id])return;const p=R.ps||{x:WRT.PX,clk:0,wb:0,walk:0,v:0},hv=PDEF[id].hover;
+ const hk=(R.t-(R.petHop||-9))/.38,fk=(R.t-(R.petFl||-9))/.34,hop=hk>=0&&hk<1?-Math.sin(hk*Math.PI)*13:0,fl=fk>=0&&fk<1?Math.sin(fk*Math.PI*3)*(1-fk)*7:0;
+ const pose=R.heroPose==='victory'?{pose:'greet',u:(((R.poseT||0)%2.2)/2.2)}:p.walk?{pose:'walk',u:0}:{pose:'idle',u:0},tt=p.clk||S.t;
+ c.save();c.translate(p.x+(R.ox||0)-fl,GY+2-(hv?34:0)+hop);c.rotate(-fl*.012);c.scale(.95,.95);petDraw(c,id,Object.assign({t:tt,pose:pose.pose,u:pose.u,noSh:hv||hop?1:0},petLook(id)));c.restore()}
+/* ===== LANTERN CARAVAN 8.6: the camp hub, after the concept art =====
+   Redeclares wagonMenu, wrHubDraw, wrRouteCard, wrSelect, wagonMenuRefresh (later declarations win); everything else in 93d
+   (modals, workshop, route log, how-to, hitch, keys) keeps working on the same ids: #wrhub #wrgo #wrgot #wrroutes #wrws #wrlog
+   #wrhelp #wrmod #wrmu #wrback #wrgold.
+   Layout on the 1600x900 stage: a painted camp scene behind everything; top left the brand, the big title, a flourish and the
+   tagline; under them the "Ready for departure" panel for the chosen route with its gold Start Journey button; three route cards
+   with painted scene art, a lock or compass badge, three medal slots and a status line; a bar of three tiles at the bottom.
+   The scene (wrCamp): sky, moon, village and a castle on its hill, a stone bridge at the right, pines framing the left and right,
+   a signpost with the guild banner, crates and barrels, a lean-to awning, the wagon at 1.15x with its goblin driver and the
+   conductor, the hero standing behind it with his pet, a campfire with a pot on a tripod, string lights and leaves in front.
+   Static layers are baked once; live each frame: the wagon, the hero and pet, the fire, smoke, sparks and fireflies. */
+const WRCG=500,WRCX=1045,WRCS=1.15,WRHX=700,WRHS=1.7,WRFX=858;
+let WRCAMP=null;
+/* ---------- small props ---------- */
+function wrCrateProp(g,x,y,w,h,seed){g.save();g.translate(x,y);g.beginPath();g.rect(0,-h,w,h);const q=g.createLinearGradient(0,-h,w,0);q.addColorStop(0,'#b07a40');q.addColorStop(1,'#6e4220');g.fillStyle=q;g.fill();wrStroke(g,2.6);
+ g.save();g.beginPath();g.rect(0,-h,w,h);g.clip();for(let k=1;k<3;k++){g.fillStyle='rgba(30,12,4,.5)';g.fillRect(0,-h+k*h/3-1,w,2)}wrGrain(g,0,-h+2,w,h/3-4,seed+3,'rgba(30,12,4,.22)');wrGrain(g,0,-h/3+2,w,h/3-4,seed+9,'rgba(30,12,4,.22)');g.restore();
+ for(const [cx,cy,sx,sy] of[[0,-h,1,1],[w,-h,-1,1],[0,0,1,-1],[w,0,-1,-1]]){g.beginPath();g.moveTo(cx,cy);g.lineTo(cx+sx*11,cy);g.lineTo(cx+sx*11,cy+sy*4);g.lineTo(cx+sx*4,cy+sy*4);g.lineTo(cx+sx*4,cy+sy*11);g.lineTo(cx,cy+sy*11);g.closePath();g.fillStyle=WRIRON;g.fill();g.lineWidth=1.3;g.strokeStyle=WRO;g.stroke()}
+ g.beginPath();g.rect(0,-h,w,h);wrStroke(g,2.6);wrHi(g,4,-h+4,w-12,-h+4,1.6,.3);g.restore()}
+function wrBarrelProp(g,x,y,w,h){g.save();g.translate(x,y);g.beginPath();g.moveTo(3,-h+4);g.quadraticCurveTo(-4,-h/2,3,0);g.lineTo(w-3,0);g.quadraticCurveTo(w+4,-h/2,w-3,-h+4);g.closePath();const q=g.createLinearGradient(0,0,w,0);q.addColorStop(0,'#9a6434');q.addColorStop(.4,'#b47a44');q.addColorStop(1,'#6a3e1c');g.fillStyle=q;g.fill();wrStroke(g,2.6);
+ g.strokeStyle='rgba(30,12,4,.4)';g.lineWidth=1.2;for(let i=1;i<5;i++){const xx=i*w/5;g.beginPath();g.moveTo(xx,-h+5);g.quadraticCurveTo(xx+(xx-w/2)*.12,-h/2,xx,0);g.stroke()}
+ for(const yy of[-h+14,-14]){g.beginPath();g.moveTo(0,yy);g.quadraticCurveTo(w/2,yy+4,w,yy);g.lineWidth=6;g.strokeStyle=WRO;g.stroke();g.lineWidth=3.6;g.strokeStyle=WRIRON;g.stroke()}
+ g.beginPath();g.ellipse(w/2,-h+4,w/2-3,5,0,0,TAU);g.fillStyle='#7a4a22';g.fill();wrStroke(g,2);g.restore()}
+function wrStoolProp(g,x,y){g.save();g.translate(x,y);g.beginPath();g.moveTo(-14,-28);g.lineTo(-18,0);g.moveTo(14,-28);g.lineTo(18,0);g.lineWidth=7;g.strokeStyle=WRO;g.stroke();g.lineWidth=3.6;g.strokeStyle='#8a5a2c';g.stroke();g.beginPath();g.roundRect(-24,-36,48,10,4);g.fillStyle='#a06a38';g.fill();wrStroke(g,2.6);wrHi(g,-18,-33,12,-33,1.6,.3);g.restore()}
+function wrMiniLantern(g,x,y,s,glow){g.save();g.translate(x,y);g.scale(s,s);if(glow){g.globalCompositeOperation='lighter';const q=g.createRadialGradient(0,12,2,0,12,46);q.addColorStop(0,'rgba(255,200,100,.55)');q.addColorStop(1,'rgba(255,170,60,0)');g.fillStyle=q;g.fillRect(-46,-34,92,92);g.globalCompositeOperation='source-over'}
+ g.beginPath();g.arc(0,-4,6,Math.PI,0);g.lineWidth=4.4;g.strokeStyle=WRO;g.stroke();g.lineWidth=2;g.strokeStyle='#d9a441';g.stroke();g.beginPath();g.moveTo(-8,2);g.lineTo(8,2);g.lineTo(6,6);g.lineTo(-6,6);g.closePath();wrFill(g,'#d9a441',2);
+ g.beginPath();g.roundRect(-7,6,14,18,3);g.fillStyle='#ffe9a0';g.fill();wrStroke(g,2);g.fillStyle='#ffc23a';g.beginPath();g.ellipse(0,16,2.6,5,0,0,TAU);g.fill();g.beginPath();g.rect(-8,24,16,4);g.fillStyle='#d9a441';g.fill();wrStroke(g,1.8);g.restore()}
+/* the signpost with the guild banner */
+function wrSignPost(g,x,y){g.save();g.translate(x,y);g.beginPath();g.rect(-6,-230,12,230);g.fillStyle='#5a3a1c';g.fill();wrStroke(g,2.6);g.beginPath();g.rect(-62,-226,124,10);g.fillStyle='#6a4422';g.fill();wrStroke(g,2.4);
+ g.beginPath();g.moveTo(-46,-216);g.lineTo(46,-216);g.lineTo(46,-120);g.lineTo(0,-98);g.lineTo(-46,-120);g.closePath();const q=g.createLinearGradient(0,-216,0,-98);q.addColorStop(0,'#3a2a7a');q.addColorStop(1,'#241a56');g.fillStyle=q;g.fill();wrStroke(g,2.8);
+ g.strokeStyle='#ffd45a';g.lineWidth=2.4;g.beginPath();g.moveTo(-40,-210);g.lineTo(40,-210);g.lineTo(40,-124);g.lineTo(0,-106);g.lineTo(-40,-124);g.closePath();g.stroke();
+ g.beginPath();g.arc(0,-164,24,0,TAU);g.strokeStyle='#ffd45a';g.lineWidth=3;g.stroke();g.fillStyle='#ffd45a';g.beginPath();g.roundRect(-8,-180,16,22,3);g.fill();g.fillStyle='#3a2a7a';g.fillRect(-4,-175,8,13);g.fillStyle='#ffd45a';g.beginPath();g.moveTo(-10,-180);g.lineTo(10,-180);g.lineTo(6,-188);g.lineTo(-6,-188);g.closePath();g.fill();g.fillRect(-9,-158,18,4);
+ g.restore()}
+/* a canvas lean-to hanging off the wagon's rear rail, over the hero */
+function wrAwningArt(g){const L=[650,205],R=[806,238],D=46;
+ g.beginPath();g.moveTo(L[0],L[1]);g.lineTo(R[0],R[1]);g.lineTo(R[0],R[1]+D);for(let i=1;i<=7;i++){const u=1-i/7,x=L[0]+(R[0]-L[0])*u,y=L[1]+(R[1]-L[1])*u+D+(i%2?6:0);g.lineTo(x,y)}g.lineTo(L[0],L[1]+D);g.closePath();
+ const q=g.createLinearGradient(0,L[1],0,L[1]+D+30);q.addColorStop(0,'#e8d6a8');q.addColorStop(1,'#b89a66');g.fillStyle=q;g.fill();wrStroke(g,3);
+ g.save();g.clip();g.strokeStyle='rgba(90,60,30,.28)';g.lineWidth=1.6;for(let i=1;i<5;i++){const u=i/5,x=L[0]+(R[0]-L[0])*u,y=L[1]+(R[1]-L[1])*u;g.beginPath();g.moveTo(x,y);g.lineTo(x,y+D+10);g.stroke();g.setLineDash([4,4]);g.beginPath();g.moveTo(x+3,y);g.lineTo(x+3,y+D+10);g.stroke();g.setLineDash([])}
+ const sh=g.createLinearGradient(L[0],0,R[0],0);sh.addColorStop(0,'rgba(255,255,255,.12)');sh.addColorStop(1,'rgba(20,6,40,.22)');g.fillStyle=sh;g.fillRect(L[0],L[1]-10,R[0]-L[0],D+40);g.restore();
+ g.beginPath();g.moveTo(L[0],L[1]-1);g.lineTo(R[0],R[1]-1);g.lineWidth=5;g.strokeStyle=WRO;g.stroke();g.lineWidth=2.6;g.strokeStyle='#8a5a2c';g.stroke();
+ g.beginPath();g.moveTo(L[0],L[1]+D-4);g.lineTo(R[0],R[1]+D-4);g.lineTo(R[0],R[1]+D+12);for(let i=0;i<=10;i++){const u=1-i/10,x=L[0]+(R[0]-L[0])*u,y=L[1]+(R[1]-L[1])*u+D+12+Math.sin(i*Math.PI)*5;g.lineTo(x,y)}g.lineTo(L[0],L[1]+D-4);g.closePath();g.fillStyle='#3a2a7a';g.fill();wrStroke(g,2.6);
+ g.strokeStyle='#ffd45a';g.lineWidth=1.6;g.setLineDash([5,4]);g.beginPath();g.moveTo(L[0],L[1]+D+1);g.lineTo(R[0],R[1]+D+1);g.stroke();g.setLineDash([]);
+ /* the pole and its guy rope to a stake */
+ g.beginPath();g.rect(L[0]-5,L[1]-4,10,CGYA(L[1]));g.fillStyle='#5a3a1c';g.fill();wrStroke(g,2.4);
+ g.beginPath();g.moveTo(L[0]+2,L[1]+4);g.quadraticCurveTo(L[0]-30,L[1]+120,L[0]-64,WRCG-6);g.lineWidth=3.4;g.strokeStyle=WRO;g.stroke();g.lineWidth=1.8;g.strokeStyle='#d8c090';g.stroke();
+ g.beginPath();g.moveTo(L[0]-64,WRCG-14);g.lineTo(L[0]-64,WRCG+2);g.lineWidth=6;g.strokeStyle=WRO;g.stroke();g.lineWidth=3;g.strokeStyle='#8a5a2c';g.stroke()}
+const CGYA=y=>WRCG-y+4;
+/* ---------- the static scene ---------- */
+function wrCamp(){if(WRCAMP)return WRCAMP;const B=wrBake(WR_RT('mill')),mk=()=>{const c=document.createElement('canvas');c.width=1600;c.height=900;return c},bg=mk(),fg=mk(),aw=mk(),g=bg.getContext('2d');g.lineJoin='round';g.lineCap='round';
+ g.drawImage(B.sky,0,0);{const q=g.createLinearGradient(0,0,0,640);q.addColorStop(0,'rgba(20,40,120,.22)');q.addColorStop(1,'rgba(20,40,120,0)');g.fillStyle=q;g.fillRect(0,0,1600,640)}
+ g.drawImage(B.ridge,0,196);g.drawImage(B.far,-165,138);
+ /* the castle on its hill, with a lit path winding down to the bridge */
+ g.fillStyle='#1c1648';g.beginPath();g.ellipse(1470,372,250,62,0,Math.PI,0);g.fill();abCastle(g,1470,372,.6,'#241c58','#ffd37a','#ffb860');
+ for(let i=0;i<14;i++){const px=1450-i*24+Math.sin(i*.9)*14,py=376+i*8;glow(g,px,py,15,'#ffc86a88');g.fillStyle='#ffe9a8';g.beginPath();g.arc(px,py,2,0,TAU);g.fill()}
+ /* tall pines framing the scene */
+ for(const [x,h] of[[30,640],[120,520],[230,420],[1560,600],[1500,470]])abPine(g,x,WRCG+30,h,'#050c1a');
+ /* the bridge at the right: parapet, lantern posts, deck */
+ for(let x=1236;x<1700;x+=480){g.drawImage(B.wall,x,WRCG-150);g.drawImage(B.deck,x,WRCG)}
+ for(const px of[1236+240,1236+480+240]){g.save();g.globalCompositeOperation='lighter';g.globalAlpha=.9;g.drawImage(B.postGlow,px-130,WRCG-268-130);g.restore();wrMiniLantern(g,px,WRCG-262,1.4,false)}
+ /* grass bank and trodden earth under the camp */
+ {const q=g.createLinearGradient(0,WRCG,0,WRCG+60);q.addColorStop(0,'#16342a');q.addColorStop(1,'#0a1a1a');g.fillStyle=q;g.fillRect(0,WRCG-6,1250,400)
+  g.fillStyle='#3a2a20';g.beginPath();g.ellipse(930,WRCG+6,430,16,0,0,TAU);g.fill();g.fillStyle='#4a3626';g.beginPath();g.ellipse(930,WRCG+4,360,10,0,0,TAU);g.fill();
+  for(let i=0;i<70;i++){const x=rnd(i+11)*1250,y=WRCG-4+rnd(i+31)*30;g.strokeStyle=i%3?'#1e4a34':'#2a5a3a';g.lineWidth=1.6;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+3,y-8,x+(rnd(i)-.5)*8,y-12-rnd(i+2)*8);g.stroke()}
+  for(let i=0;i<22;i++){const x=300+rnd(i+51)*900,y=WRCG+4+rnd(i+61)*12;g.fillStyle=i%2?'#5a4a58':'#6a5a68';g.beginPath();g.ellipse(x,y,5+rnd(i)*6,3+rnd(i+1)*3,0,0,TAU);g.fill()}}
+ g.fillStyle='#17122e';g.fillRect(1236,WRCG+120,400,300);g.fillStyle='#120e26';g.fillRect(1236,WRCG+150,400,300);
+ wrSignPost(g,1566,WRCG+8);
+ /* crates, barrels and a stool around the camp */
+ wrCrateProp(g,560,WRCG+4,66,56,3);wrCrateProp(g,586,WRCG-52,52,46,17);wrBarrelProp(g,632,WRCG+4,40,52);
+ wrCrateProp(g,1300,WRCG+6,74,60,23);wrCrateProp(g,1330,WRCG-54,56,48,31);wrBarrelProp(g,1392,WRCG+6,42,56);wrCrateProp(g,1440,WRCG+6,50,40,41);wrStoolProp(g,1480,WRCG+6);
+ /* the lean-to */
+ const a=aw.getContext('2d');a.lineJoin='round';a.lineCap='round';wrAwningArt(a);
+ /* in front: leaves top left and right, string lights with pennants */
+ const f=fg.getContext('2d');f.lineJoin='round';f.lineCap='round';
+ for(let i=0;i<150;i++){const x=rnd(i+700)*470,y=rnd(i+730)*250*(1-x/620),r=14+rnd(i+760)*22,ang=rnd(i+790)*TAU;if(y>230-x*.35)continue;f.save();f.translate(x,y);f.rotate(ang);f.fillStyle=i%4?'#0b2a22':i%3?'#103a2a':'#16482e';f.beginPath();f.ellipse(0,0,r,r*.42,0,0,TAU);f.fill();f.strokeStyle='#050f10';f.lineWidth=1.6;f.stroke();f.fillStyle='rgba(255,210,120,.12)';f.beginPath();f.ellipse(-r*.2,-r*.1,r*.5,r*.14,0,0,TAU);f.fill();f.restore()}
+ for(let i=0;i<40;i++){const x=1350+rnd(i+900)*250,y=rnd(i+930)*90*(1-(x-1350)/300);if(y<2)continue;f.save();f.translate(x,y);f.rotate(rnd(i+960)*TAU);f.fillStyle='#0b2a22';f.beginPath();f.ellipse(0,0,16+rnd(i)*14,7,0,0,TAU);f.fill();f.strokeStyle='#050f10';f.lineWidth=1.4;f.stroke();f.restore()}
+ for(const [x0,y0,x1,y1,sag,n] of[[650,203,1146,148,40,18],[1146,148,1566,226,46,14]]){f.beginPath();for(let i=0;i<=n;i++){const u=i/n,x=x0+(x1-x0)*u,y=y0+(y1-y0)*u+Math.sin(u*Math.PI)*sag;i?f.lineTo(x,y):f.moveTo(x,y)}f.lineWidth=2.4;f.strokeStyle='#1a1020';f.stroke();
+  for(let i=1;i<n;i++){const u=i/n,x=x0+(x1-x0)*u,y=y0+(y1-y0)*u+Math.sin(u*Math.PI)*sag;if(i%2){f.fillStyle=i%4===1?'#5a3ab0':'#ffd45a';f.beginPath();f.moveTo(x-8,y);f.lineTo(x+8,y);f.lineTo(x,y+18);f.closePath();f.fill();f.lineWidth=1.6;f.strokeStyle=WRO;f.stroke()}else{glow(f,x,y+6,22,'#ffc86a66');f.fillStyle='#fff0b0';f.beginPath();f.arc(x,y+6,3.4,0,TAU);f.fill();f.lineWidth=1.4;f.strokeStyle=WRO;f.stroke()}}}
+ return WRCAMP={bg,fg,aw,B}}
+/* the campfire, in front of the wagon: logs, stones, flames in three layers, a pot on a tripod */
+function wrFire(g,x,y,t,M){
+ g.save();g.translate(x,y);
+ /* tripod behind the flames */
+ for(const dx of[-40,0,40]){g.beginPath();g.moveTo(0,-92);g.lineTo(dx,2+(dx?0:6));g.lineWidth=7;g.strokeStyle=WRO;g.stroke();g.lineWidth=3.6;g.strokeStyle='#6a4422';g.stroke()}
+ g.beginPath();g.moveTo(0,-92);g.lineTo(0,-58);g.lineWidth=4.4;g.strokeStyle=WRO;g.stroke();g.lineWidth=2;g.strokeStyle='#8a8aa0';g.stroke();
+ g.save();g.translate(0,-50+Math.sin(t*1.3)*.6);g.beginPath();g.moveTo(-17,-12);g.lineTo(17,-12);g.quadraticCurveTo(21,10,10,16);g.lineTo(-10,16);g.quadraticCurveTo(-21,10,-17,-12);g.closePath();const q=g.createLinearGradient(-17,0,17,0);q.addColorStop(0,'#3a3650');q.addColorStop(1,'#14101e');g.fillStyle=q;g.fill();wrStroke(g,2.6);g.beginPath();g.ellipse(0,-12,17,4.4,0,0,TAU);g.fillStyle='#2a2638';g.fill();wrStroke(g,2);wrHi(g,-12,-6,-10,8,1.8,.4);g.restore();
+ /* logs and stones */
+ for(const [ang,col] of[[-.32,'#5a3a1c'],[.32,'#6a4422']]){g.save();g.rotate(ang);g.beginPath();g.roundRect(-34,-8,68,13,6);g.fillStyle=col;g.fill();wrStroke(g,2.6);g.beginPath();g.ellipse(34,-1.5,3,6,0,0,TAU);g.fillStyle='#c8905a';g.fill();g.restore()}
+ for(let i=0;i<9;i++){const a=i/9*TAU,sx=Math.cos(a)*44,sy=Math.sin(a)*9+4;g.beginPath();g.ellipse(sx,sy,9,6,0,0,TAU);g.fillStyle=i%2?'#7a7490':'#6a6480';g.fill();wrStroke(g,2)}
+ /* flames */
+ const fl=(h,w,col,ph,sx)=>{const sway=Math.sin(t*6+ph)*5*sx,hh=h*(1+.13*Math.sin(t*9+ph)+.06*Math.sin(t*15+ph*2));g.beginPath();g.moveTo(-w,0);g.quadraticCurveTo(-w*1.1,-hh*.45,sway*.4,-hh*.8);g.quadraticCurveTo(sway,-hh*1.04,sway*1.2,-hh);g.quadraticCurveTo(w*.9,-hh*.55,w,0);g.closePath();g.fillStyle=col;g.fill()};
+ g.globalCompositeOperation='lighter';fl(78,30,'#d8501a',0,1);fl(60,20,'#ff9a2a',1.7,1.2);g.globalCompositeOperation='source-over';
+ g.save();g.translate(-14,0);fl(46,10,'#ff8a2a',3.1,1.4);g.restore();g.save();g.translate(15,0);fl(52,11,'#ff9a30',.8,1.4);g.restore();
+ fl(52,15,'#ffc23a',2.4,1.6);fl(32,8,'#fff4b0',4,1.8);
+ /* a warm light on the ground and the camp */
+ g.globalCompositeOperation='lighter';const pu=.9+.1*Math.sin(t*11)+.05*Math.sin(t*17);let gq=g.createRadialGradient(0,-30,6,0,-30,240*pu);gq.addColorStop(0,'rgba(255,160,60,.34)');gq.addColorStop(.5,'rgba(255,120,40,.12)');gq.addColorStop(1,'rgba(255,100,30,0)');g.fillStyle=gq;g.fillRect(-260,-270,520,360);
+ g.save();g.scale(1,.16);gq=g.createRadialGradient(0,0,10,0,0,230);gq.addColorStop(0,'rgba(255,150,60,.4)');gq.addColorStop(1,'rgba(255,120,40,0)');g.fillStyle=gq;g.fillRect(-240,-230,480,460);g.restore();g.restore();
+ g.restore()}
+/* ---------- drawing the camp ---------- */
+function wrHubDraw(g,M,t){const C=wrCamp(),R=M;R.t=t;R._dt=Math.min(.1,Math.max(.001,t-(R._lt||t)))||1/30;R._lt=t;R.x=200;R.swing=Math.sin(t*1.7)*.05;R.cond=null;
+ g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';g.drawImage(C.bg,0,0);
+ g.drawImage(C.aw,0,0);
+ /* two little lanterns under the awning */
+ for(const x of[684,770]){const sw=Math.sin(t*1.3+x)*.04;g.save();g.translate(x,236);g.rotate(sw);g.beginPath();g.moveTo(0,0);g.lineTo(0,10);g.lineWidth=2;g.strokeStyle=WRO;g.stroke();g.restore();wrMiniLantern(g,x+Math.sin(t*1.3+x)*.4,246+8,1.05,!wrLow());}
+ /* the wagon, bigger than in the run */
+ g.save();g.translate(WRCX,WRCG);g.scale(WRCS,WRCS);g.translate(-WRT.WX,-GY);try{wrWagonDraw(g,R)}catch(e){console.error(e)}g.restore();
+ /* the hero stands behind it, with his pet */
+ {const b=Math.sin(t*2.3);g.save();g.translate(WRHX,WRCG);g.fillStyle='#0007';g.beginPath();g.ellipse(0,6,70,12,0,0,TAU);g.fill();glow(g,0,-110*WRHS,150,WCOL()+'22');g.scale(WRHS*(1-b*.005),WRHS*(1+b*.01));drawHero(g,{arm:P.armor,wp:P.weapon,col:P.col,t,lg:0});g.restore()}
+ {const id=P.pet;if(id&&PDEF[id]){g.save();g.translate(604,WRCG+4-(PDEF[id].hover?38:0));g.scale(1.15,1.15);petDraw(g,id,Object.assign({t:t+3,pose:'idle',u:0},petLook(id)));g.restore()}}
+ /* the fire and its sparks and smoke */
+ wrFire(g,WRFX,WRCG+6,t,R);
+ if(!R.fx)R.fx=[];if(!wrLow()&&!wrRM()){R.fT=(R.fT||0)-R._dt;if(R.fT<=0){R.fT=.07;ptBurst(R.fx,WRFX+(Math.random()-.5)*26,WRCG-40,1,['#ffc23a','#ff9a2a','#fff0b0'],{up:1,sp:.9,v:70,l:1.6,s:3,g:-40,k:'glow',jx:6});if(Math.random()<.4)ptBurst(R.fx,WRFX+(Math.random()-.5)*14,WRCG-130,1,'#9a96b0',{up:1,sp:.5,v:22,l:2.8,s:9,g:-8,k:'dust',jx:8})}}
+ ptFxStep(g,R.fx,R._dt);
+ /* fireflies */
+ if(!wrLow()){g.save();g.globalCompositeOperation='lighter';for(let i=0;i<16;i++){const x=(rnd(i+5)*1500+t*(6+rnd(i)*8))%1500+50,y=250+rnd(i+9)*240+Math.sin(t*.8+i)*14,a=.35+.4*Math.sin(t*1.7+i*2.3);g.globalAlpha=Math.max(0,a);glow(g,x,y,14,'#c8ff9a');g.fillStyle='#f0ffd0';g.fillRect(x-1,y-1,2,2)}g.restore()}
+ g.drawImage(C.fg,0,0);
+ if(R.fadeT){const u=(performance.now()-R.fadeT)/420;if(u<1){g.fillStyle=`rgba(7,4,26,${(1-u)*.85})`;g.fillRect(0,0,W,H)}else R.fadeT=0}}
+/* ---------- route art: the real scenes, painted into a card ---------- */
+/* painted scenes for the three route cards, drawn on a 1600x900 canvas and scaled down; the lower part sits under the card's text */
+const WRCARDP={
+ mill:g=>{g.fillStyle=abLin(g,0,900,[[0,'#0b1a55'],[.42,'#3b3d96'],[.7,'#8a5aa2'],[1,'#e8a08c']]);g.fillRect(0,0,1600,900);abStars(g,130,7,400,'#fff',1.7);abMoon(g,1190,200,125,'#fffbe8','#e8e0c8','#fff0c088');
+  const cl=abCloud('wrcc1',900,160,'#7a6ab8bb','#7a6ab800',5);g.globalAlpha=.75;g.drawImage(cl,60,110);g.drawImage(cl,700,40,760,130);g.globalAlpha=1;
+  abRidge(g,520,150,1.9,'#38388a',.0042);abRidge(g,590,100,4.4,'#28286e',.006,8);
+  for(let i=0;i<26;i++){const x=90+rnd(i+3)*720,y=540-rnd(i+8)*100;wrHouse(g,x,y,30+rnd(i+9)*26,34+rnd(i+11)*26,'#1e1850','#140e38',rnd(i+20)<.85?'#ffd27a':null)}
+  g.fillStyle='#1e1850';g.fillRect(400,330,58,210);g.beginPath();g.moveTo(390,330);g.lineTo(429,236);g.lineTo(468,330);g.fill();g.fillStyle='#ffd27a';g.fillRect(420,384,18,28);glow(g,429,398,46,'#ffd27a99');
+  abRidge(g,650,60,6.1,'#18144a',.008,10);
+  g.fillStyle=abLin(g,610,900,[[0,'#1c2c70'],[1,'#080a2a']]);g.fillRect(0,610,1600,290);
+  for(let i=0;i<46;i++){const x=1190+(rnd(i+1)-.5)*190*(1+rnd(i)),y=640+rnd(i+2)*220;g.fillStyle=`rgba(255,244,200,${.12+rnd(i+3)*.22})`;g.fillRect(x,y,30+rnd(i+4)*70,3)}
+  /* the arched bridge */
+  g.fillStyle='#2e2a64';g.fillRect(60,452,1480,190);for(let r=0;r<6;r++)for(let i=0;i<20;i++)wrBlock(g,70+i*74+(r%2?37:0),456+r*30,70,26,r%2?'#2e2a64':'#322e6a');
+  for(let i=0;i<4;i++){const cx=250+i*370;g.beginPath();g.moveTo(cx-130,660);g.lineTo(cx-130,560);g.arc(cx,560,130,Math.PI,0);g.lineTo(cx+130,660);g.closePath();g.fillStyle='#0a1240';g.fill();g.lineWidth=10;g.strokeStyle='#4a4488';g.stroke();
+   g.save();g.globalCompositeOperation='lighter';g.fillStyle='rgba(255,200,110,.12)';g.fillRect(cx-100,570,200,90);g.restore()}
+  g.fillStyle='#4a4488';g.fillRect(40,424,1520,34);g.fillStyle='#ffffff26';g.fillRect(40,424,1520,4);g.fillStyle='#363070';g.fillRect(40,390,1520,36);for(let i=0;i<26;i++)wrBlock(g,48+i*60,394,56,28,'#363070');g.fillStyle='#4a4488';g.fillRect(40,384,1520,10);
+  for(const x of[150,520,890,1260,1500]){g.fillStyle='#1a1438';g.fillRect(x-7,300,14,90);wrMiniLantern(g,x,296,2.6,true);g.save();g.globalCompositeOperation='lighter';const q=g.createLinearGradient(0,640,0,900);q.addColorStop(0,'rgba(255,190,100,.26)');q.addColorStop(1,'rgba(255,190,100,0)');g.fillStyle=q;g.fillRect(x-14,640,28,260);g.restore()}
+  for(const [x,h] of[[40,640],[130,500],[1570,620],[1490,460]])abPine(g,x,720,h,'#050c1a');
+  for(let i=0;i<22;i++){glow(g,rnd(i+60)*1500+50,250+rnd(i+70)*300,16,'#c8ff9a');}},
+ pines:g=>{g.fillStyle=abLin(g,0,900,[[0,'#06143a'],[.45,'#12325a'],[1,'#2a5c6a']]);g.fillRect(0,0,1600,900);abStars(g,120,9,380,'#e8f0ff',1.5);abMoon(g,1280,190,104,'#fffbe8','#dfe6e8','#d0f0ff77');
+  const cl=abCloud('wrcc2',900,150,'#4a6a9acc','#4a6a9a00',9);g.globalAlpha=.8;g.drawImage(cl,820,120,820,140);g.drawImage(cl,-100,60,800,130);g.globalAlpha=1;
+  abRidge(g,470,160,2.2,'#173a56',.0045);abRidge(g,540,120,5.1,'#12304a',.006,10);
+  for(let i=0;i<80;i++)abPine(g,rnd(i)*1600,610+rnd(i+30)*50,110+rnd(i+60)*110,'#0f2c42');
+  g.globalAlpha=.55;g.drawImage(abFog('wrfg1','#8ab0d080'),0,470);g.drawImage(abFog('wrfg1','#8ab0d080'),1000,470);g.globalAlpha=1;
+  for(let i=0;i<44;i++)abPine(g,rnd(i+100)*1600,700+rnd(i+130)*60,190+rnd(i+160)*120,'#0a2034');
+  /* the woodcutter's cabin, lit from inside */
+  const cx=1010,cy=640;g.fillStyle='#4a2e1a';g.fillRect(cx-110,cy-130,220,130);for(let k=1;k<6;k++){g.fillStyle='rgba(20,8,2,.5)';g.fillRect(cx-110,cy-130+k*22,220,2.4)}g.lineWidth=4;g.strokeStyle=WRO;g.strokeRect(cx-110,cy-130,220,130);
+  g.fillStyle='#24160f';g.beginPath();g.moveTo(cx-136,cy-126);g.lineTo(cx,cy-228);g.lineTo(cx+136,cy-126);g.closePath();g.fill();g.stroke();g.fillStyle='#e8f0ff';g.beginPath();g.moveTo(cx-136,cy-126);g.lineTo(cx,cy-228);g.lineTo(cx+136,cy-126);g.lineTo(cx+120,cy-134);g.lineTo(cx,cy-210);g.lineTo(cx-120,cy-134);g.closePath();g.fill();
+  g.fillStyle='#3a2418';g.fillRect(cx+62,cy-250,30,70);g.strokeRect(cx+62,cy-250,30,70);for(let i=0;i<5;i++){g.fillStyle=`rgba(190,200,220,${.5-i*.09})`;g.beginPath();g.arc(cx+78+i*12+Math.sin(i)*6,cy-268-i*30,12+i*7,0,TAU);g.fill()}
+  for(const wx of[cx-72,cx+28]){glow(g,wx+22,cy-76,70,'#ffb04acc');g.fillStyle='#ffd27a';g.fillRect(wx,cy-98,44,44);g.lineWidth=3;g.strokeStyle=WRO;g.strokeRect(wx,cy-98,44,44);g.beginPath();g.moveTo(wx+22,cy-98);g.lineTo(wx+22,cy-54);g.moveTo(wx,cy-76);g.lineTo(wx+44,cy-76);g.stroke()}
+  g.fillStyle='#2a1a12';g.fillRect(cx-22,cy-84,40,84);g.strokeRect(cx-22,cy-84,40,84);
+  /* a lantern-lit path down to the card's corner */
+  g.fillStyle='#3a2a1c';g.beginPath();g.moveTo(cx-30,cy);g.quadraticCurveTo(cx-260,cy+60,cx-520,cy+240);g.lineTo(cx-300,cy+240);g.quadraticCurveTo(cx-120,cy+60,cx+30,cy);g.closePath();g.fill();
+  for(const [x,y] of[[cx-150,cy+30],[cx-330,cy+110],[cx+170,cy+10]]){g.fillStyle='#2a1c10';g.fillRect(x-4,y-70,8,70);wrMiniLantern(g,x,y-78,2.2,true)}
+  for(let i=0;i<30;i++){glow(g,rnd(i+60)*1500+50,330+rnd(i+70)*320,14,'#c8ff9a')}},
+ gallows:g=>{g.fillStyle=abLin(g,0,900,[[0,'#10041c'],[.42,'#4a1848'],[.78,'#b0503e'],[1,'#f09a4a']]);g.fillRect(0,0,1600,900);abStars(g,100,3,360,'#ffe8f0',1.5);abMoon(g,1180,230,138,'#fff2d8','#f0c090','#ffb07088');
+  const cl=abCloud('wrcc3',900,150,'#2a0f3acc','#2a0f3a00',13);g.globalAlpha=.9;g.drawImage(cl,100,120,860,130);g.drawImage(cl,900,60,700,120);g.globalAlpha=1;
+  abRidge(g,520,170,1.2,'#36143e',.004,12);abRidge(g,590,120,4.1,'#26102e',.006,12);
+  g.fillStyle='#160a24';g.beginPath();g.moveTo(1010,900);g.lineTo(1010,520);g.quadraticCurveTo(1100,470,1180,450);g.lineTo(1600,430);g.lineTo(1600,900);g.closePath();g.fill();abCastle(g,1330,452,1.05,'#160a24','#ff9a5a','#ffb07a');
+  g.fillStyle='#12081e';g.beginPath();g.moveTo(0,900);g.lineTo(0,470);g.lineTo(260,470);g.quadraticCurveTo(480,490,520,560);g.lineTo(560,900);g.closePath();g.fill();
+  for(let i=0;i<5;i++)abDead(g,40+i*90+rnd(i)*30,478,160+rnd(i+4)*90,'#0a0414',i);
+  /* the gallows */
+  g.fillStyle='#0a0414';g.fillRect(300,250,16,232);g.fillRect(300,250,150,14);g.beginPath();g.moveTo(316,300);g.lineTo(358,264);g.lineTo(366,276);g.lineTo(324,314);g.closePath();g.fill();g.strokeStyle='#0a0414';g.lineWidth=4;g.beginPath();g.moveTo(436,264);g.lineTo(436,318);g.stroke();g.beginPath();g.ellipse(436,330,12,14,0,0,TAU);g.stroke();
+  /* the rope bridge between the cliffs, with lanterns */
+  const bx0=520,by0=520,bx1=1020,by1=500,sag=70;g.strokeStyle='#0a0414';g.lineWidth=6;for(const dy of[-46,0]){g.beginPath();for(let i=0;i<=24;i++){const u=i/24,x=bx0+(bx1-bx0)*u,y=by0+(by1-by0)*u+Math.sin(u*Math.PI)*sag+dy;i?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()}
+  for(let i=0;i<=24;i++){const u=i/24,x=bx0+(bx1-bx0)*u,y=by0+(by1-by0)*u+Math.sin(u*Math.PI)*sag;g.fillStyle='#0a0414';g.fillRect(x-8,y-2,16,8);if(i%3===0){g.beginPath();g.moveTo(x,y-46);g.lineTo(x,y);g.stroke()}}
+  for(const u of[.25,.5,.75]){const x=bx0+(bx1-bx0)*u,y=by0+(by1-by0)*u+Math.sin(u*Math.PI)*sag-46;wrMiniLantern(g,x,y+8,2,true)}
+  g.globalAlpha=.6;g.drawImage(abFog('wrfg2','#d08a9a66'),0,560);g.drawImage(abFog('wrfg2','#d08a9a66'),900,560);g.globalAlpha=1;
+  for(let i=0;i<36;i++){glow(g,rnd(i+60)*1500+50,300+rnd(i+70)*380,12,'#ff9a5a')}}};
+const WRCARDC={};
+function wrRouteArt(cv,rt){let c=WRCARDC[rt.id];if(!c){const V=document.createElement('canvas');V.width=1600;V.height=900;const g=V.getContext('2d');g.lineJoin='round';g.lineCap='round';try{(WRCARDP[rt.id]||WRCARDP.mill)(g)}catch(e){console.error(e)}
+  c=WRCARDC[rt.id]=document.createElement('canvas');c.width=478;c.height=265;const x=c.getContext('2d');x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';x.drawImage(V,0,0,1600,900,0,-2,478,269);
+  const q=x.createLinearGradient(0,265*.44,0,265);q.addColorStop(0,'rgba(8,4,24,0)');q.addColorStop(1,'rgba(8,4,24,.84)');x.fillStyle=q;x.fillRect(0,0,478,265);const v=x.createLinearGradient(0,0,0,60);v.addColorStop(0,'rgba(8,4,24,.4)');v.addColorStop(1,'rgba(8,4,24,0)');x.fillStyle=v;x.fillRect(0,0,478,60)}
+ const g=cv.getContext('2d');g.setTransform(1,0,0,1,0,0);g.drawImage(c,0,0)}
+const wrCompass=sz=>`<svg viewBox="0 0 48 48" width="${sz}" height="${sz}" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#1a1244" stroke="#ffd45a" stroke-width="2.4"/><circle cx="24" cy="24" r="15" fill="none" stroke="#ffd45a" stroke-opacity=".5" stroke-width="1.2"/><path d="M24 7l4.4 13.6L42 24l-13.6 3.4L24 41l-4.4-13.6L6 24l13.6-3.4z" fill="#ffd45a" stroke="#12081f" stroke-width="1.4" stroke-linejoin="round"/><circle cx="24" cy="24" r="3.4" fill="#1a1244" stroke="#ffd45a" stroke-width="1.4"/></svg>`;
+const wrPadlock=sz=>`<svg viewBox="0 0 48 48" width="${sz}" height="${sz}" aria-hidden="true"><circle cx="24" cy="24" r="21" fill="#140e36" stroke="#cfc4f0" stroke-width="2.4"/><rect x="14" y="22" width="20" height="15" rx="3.5" fill="#e8e0ff" stroke="#12081f" stroke-width="1.6"/><path d="M18 22v-5a6 6 0 0 1 12 0v5" fill="none" stroke="#e8e0ff" stroke-width="3.4" stroke-linecap="round"/><circle cx="24" cy="29" r="2.6" fill="#3a2a7a"/></svg>`;
+const wrDiamond='<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 1l3.2 8.8L24 12l-8.8 3.2L12 24l-3.2-8.8L0 12l8.8-3.2z" fill="#ffd45a" stroke="#12081f" stroke-width="1.2" stroke-linejoin="round"/></svg>';
+/* a medal slot: empty, or the earned bronze/silver/gold disc */
+const wrSlot=(i,on)=>{const c=WR_MED[i+1].c;return `<i class="wrsl${on?' on':''}" style="--c:${c}" title="${WR_MED[i+1].n}">${on?`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l2 4.6 5 .5-3.8 3.4 1.1 4.9L12 15.6 7.7 18.4l1.1-4.9L5 10.1l5-.5z" fill="#12081f" fill-opacity=".55"/></svg>`:''}</i>`};
+function wrRouteCard(r,w){const open=wrRouteOpen(r),m=w.med[r.id]||0,b=w.best[r.id],sel=r.id===wrSel;
+ const st=open?(m?`${WR_MED[m].n} medal${b?` · best ${wrFmtT(b.t)}`:''}`:'No medal yet'):`Earn ${esc(wrNeedTxt(r.unlock).replace(/ on (.*)$/,''))} at<br>${esc((wrNeedTxt(r.unlock).match(/ on (.*)$/)||[0,''])[1])}`;
+ return `<button class="wrcd${sel?' on':''}${open?'':' lock'}" data-id="${r.id}" role="option" aria-selected="${sel}" ${open?'':'aria-disabled="true"'}><canvas width="478" height="265" aria-hidden="true"></canvas>${open?'':'<i class="wrdim"></i>'}<span class="wrbadge">${open?wrCompass(46):wrPadlock(46)}</span>
+  <span class="wrcdt"><b>${esc(r.n)}</b><small>${esc(r.sub)}</small><span class="wrcdm"><span class="wrsls">${[0,1,2].map(i=>wrSlot(i,m>i)).join('')}</span><em class="${open?'':'wrlk'}">${st}</em></span></span></button>`}
+function wrCardsPaint(){document.querySelectorAll('#wrroutes .wrcd').forEach(b=>{const cv=b.querySelector('canvas');if(cv)try{wrRouteArt(cv,WR_RT(b.dataset.id))}catch(e){console.error(e)}})}
+function wrBindCards(){const rc=$('wrroutes');if(!rc)return;rc.querySelectorAll('.wrcd').forEach(b=>{b.onclick=()=>wrSelect(b.dataset.id);b.ondblclick=()=>{wrSelect(b.dataset.id);wrHitch()}})}
+function wrReadyFill(){const r=WR_RT(wrSel),n=$('wrrn'),i=$('wrri');if(n)n.textContent=r.n;if(i)i.textContent=`${r.legs} legs  •  Up to ${Math.round(r.pay*1.15*1.5).toLocaleString()} coins`}
+function wrSelect(id){const r=WR_RT(id);if(!wrRouteOpen(r)){wrToastUi(`Locked · ${wrNeedTxt(r.unlock)}`);const b=document.querySelector(`.wrcd[data-id="${id}"]`);if(b&&!wrRM()){b.classList.remove('nope');void b.offsetWidth;b.classList.add('nope')}try{beep(180,.08,'sawtooth',.4)}catch(e){}return}
+ const same=wrSel===id;wrSel=id;document.querySelectorAll('#wrroutes .wrcd').forEach(b=>{const on=b.dataset.id===id;b.classList.toggle('on',on);b.setAttribute('aria-selected',on)});wrReadyFill();
+ if(!same){const p=$('wrready');if(p&&!wrRM()){p.classList.remove('pop');void p.offsetWidth;p.classList.add('pop')}try{beep(660,.05,'triangle',.25)}catch(e){}}
+ WRM.rt=r}
+function wagonMenuRefresh(){const w=WRP(),rc=$('wrroutes');if(rc){rc.innerHTML=WR_ROUTES.map(r=>wrRouteCard(r,w)).join('');wrBindCards();wrCardsPaint()}
+ const ws=$('wrws');if(ws){const s=ws.querySelector('small');if(s)s.textContent=`${wrOwnedN(w)} / ${wrCosN()} looks`;const d=ws.querySelector('.fshdot');const nw=['lan','ban','paint'].some(f=>WR_COSK[f].some(k=>w.seen[f+':'+k]===0));if(d&&!nw)d.remove()}
+ const lg=$('wrlog');if(lg){const s=lg.querySelector('small');if(s)s.textContent=`${w.clears} clear${w.clears===1?'':'s'} · ${wrMedN(w)} / 9 medals`}
+ if(WRM.M){WRM.M.look={lan:w.lan,ban:w.ban,paint:w.paint}}}
+function wrHubFit(){const r=$('wrhub');if(!r)return;const W2=ov.clientWidth||1600,H2=ov.clientHeight||900,nar=W2<1100;r.classList.toggle('wr-narrow',nar);const z=nar?1:Math.min(1,W2/1600,H2/900);r.style.zoom=z<.999?z.toFixed(3):''}
+/* ---------- the hub ---------- */
+function wagonMenu(back){S.mode='title';S.view='wagon';const w=WRP();if(!w.seen85){w.seen85=1;save()}if(!wrRouteOpen(WR_RT(wrSel)))wrSel='mill';const rt=WR_RT(wrSel),nw=['lan','ban','paint'].some(f=>WR_COSK[f].some(k=>w.seen[f+':'+k]===0));
+ show(`<div class="wrx wrhub wrcamp" id="wrhub"><canvas id="wrhb" width="1600" height="900" aria-hidden="true"></canvas><i class="wrvig"></i>
+ <div class="fstr"><span class="fsgold fsg">${fsCoin}<b id="wrgold">${P.gold.toLocaleString()}</b></span><button class="wrmu fsg" id="wrmu" aria-pressed="${ST.mute?'false':'true'}">${wrMuIc()}<span>Music: ${ST.mute?'off':'on'}</span></button><button class="fsback fsg" id="wrback"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Back <kbd>Esc</kbd></button></div>
+ <header class="wrhead"><p class="wrbrand"><span class="wrcomp">${wrCompass(40)}</span><span>TYPE WARRIORS</span></p><h1 class="wrtitle">Lantern Caravan</h1>
+  <p class="wrflour">${wrDiamond}<u></u><span>THE CARAVAN CAMP</span><u></u>${wrDiamond}</p><p class="wrtag">Clear the road. Repair the wheels. Reach the gate.</p></header>
+ <section class="wrready" id="wrready" aria-label="Chosen route"><span class="wrorn t"></span><span class="wrorn b"></span><div class="wrrdy"><span class="wrcomp">${wrCompass(40)}</span><span class="wrrl">Ready for departure</span></div>
+  <h2 class="wrrn" id="wrrn">${esc(rt.n)}</h2><p class="wrri" id="wrri"></p>
+  <button class="wrstart" id="wrgo"><span class="wrsi" aria-hidden="true">${wrGoIc()}</span><span id="wrgot">Start Journey</span><i>›</i></button></section>
+ <div class="wrcards" id="wrroutes" role="listbox" aria-label="Routes">${WR_ROUTES.map(r=>wrRouteCard(r,w)).join('')}</div>
+ <nav class="wrbar" aria-label="Caravan tools"><i class="wrbo l"><u></u>${wrDiamond}</i>
+  <button class="wrbb" id="wrws"><span class="wrbi"><canvas id="wrwsc" width="120" height="96"></canvas></span><span class="wrbt"><b>Convoy Workshop</b><small>${wrOwnedN(w)} / ${wrCosN()} looks</small></span><i class="wrch">›</i>${nw?'<i class="fshdot">!</i>':''}</button>
+  <button class="wrbb" id="wrlog"><span class="wrbi"><canvas id="wrlogc" width="120" height="96"></canvas></span><span class="wrbt"><b>Route Log</b><small>${w.clears} clear${w.clears===1?'':'s'} · ${wrMedN(w)} / 9 medals</small></span><i class="wrch">›</i></button>
+  <button class="wrbb" id="wrhelp"><span class="wrbi"><canvas id="wrhelpc" width="120" height="96"></canvas></span><span class="wrbt"><b>How to Play</b><small>Repair or defend</small></span><i class="wrch">›</i></button>
+  <i class="wrbo r">${wrDiamond}<u></u></i></nav>
+ <div class="fsmod" id="wrmod" hidden></div></div>`,'fshx wrhx nosb');
+ S.back=()=>{if(wrModal(null,true))return;title()};{const cn=$('cn');if(cn)cn.classList.add('dkhid')}
+ WRM.rt=rt;const M=WRM.M=wrMenuState(rt);const bd=$('wrhb'),g=bd.getContext('2d');wrReadyFill();wrCardsPaint();wrBindCards();wrHubDraw(g,M,2);if(!dkRM())LIVE.push({cv:bd,fn:t=>wrHubDraw(g,M,t),slow:2});
+ live('wrwsc',c=>{const x=c.getContext('2d');return t=>{x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,120,96);x.save();x.translate(60,14);wrLantern(x,0,-8,.52,WR_COS.lan[w.lan]||WR_COS.lan.brass,t,Math.sin(t*1.5)*.08,0);x.restore()}});
+ live('wrlogc',c=>{const x=c.getContext('2d');return t=>{x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,120,96);wrMedalDraw(x,60,50,30,Math.max(1,...WR_ROUTES.map(r=>w.med[r.id]||0)),t)}});
+ {const x=$('wrhelpc').getContext('2d');x.save();x.translate(60,54);wrWheel(x,0,0,28,.4,'#d9a441',false);x.restore();x.save();x.translate(60,54);x.rotate(-.5);wrIcoWrench(x,26,-26,13,'#9fd0ff');x.restore()}
+ $('wrback').onclick=()=>S.back();$('wrgo').onclick=()=>wrHitch();$('wrws').onclick=()=>wrWorkshop();$('wrlog').onclick=()=>wrRouteLog();$('wrhelp').onclick=()=>wrHowTo();
+ $('wrmu').onclick=()=>{try{$('mt').click()}catch(e){}wrMuSync()};
+ wrHubFit()}
+/* ===== LANTERN CARAVAN 8.6: styles for the camp hub (93j) ===== (transform and opacity animation only) */
+{const st=document.createElement('style');st.textContent=`
+.wrcamp{position:absolute;left:0;top:0;width:1600px;height:900px}
+.wrcamp>canvas{display:block;position:absolute;left:0;top:0;width:1600px;height:900px}
+.wrvig{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(7,4,26,.5) 0%,rgba(7,4,26,0) 20%,rgba(7,4,26,0) 52%,rgba(7,4,26,.82) 100%)}
+.wrhead{position:absolute;left:62px;top:30px;width:640px;text-align:left}
+.wrbrand{display:flex;align-items:center;gap:12px;margin:0;font:800 14px var(--ui);letter-spacing:.34em;color:#e8e0ff;animation:fsIn .5s var(--sp) both}.wrcomp{display:inline-flex}.wrcomp svg{display:block}
+.wrtitle{display:inline-block;margin:20px 0 8px;padding:0 8px 6px 0;font:400 106px/1.04 'Pirata One',Georgia,serif;background:linear-gradient(180deg,#fff6c0 8%,#ffd45a 46%,#f0861e 92%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 5px 0 #3a1a04) drop-shadow(0 0 26px #ff9a2a55);animation:fsIn .6s .05s var(--sp) both;white-space:nowrap}
+.wrflour{display:flex;align-items:center;gap:12px;width:572px;margin:6px 0 0;font:800 13px var(--ui);letter-spacing:.34em;color:#ffe9a0;animation:fsIn .6s .1s var(--sp) both}.wrflour u{flex:1;height:2px;background:linear-gradient(90deg,#ffd45a00,#ffd45a99);text-decoration:none}.wrflour u:last-of-type{background:linear-gradient(270deg,#ffd45a00,#ffd45a99)}.wrflour svg{flex:none}
+.wrtag{margin:10px 0 0;font:italic 400 19px Georgia,serif;color:#f4ecd8;text-shadow:0 2px 6px #000;animation:fsIn .6s .15s var(--sp) both}
+.wrready{position:absolute;left:62px;top:256px;width:472px;height:246px;box-sizing:border-box;padding:18px 24px 20px;text-align:left;border-radius:22px;background:linear-gradient(180deg,#1e1654f4,#0e0a30f7);border:2px solid #4a3e90;box-shadow:inset 0 1px 0 #ffffff26,0 16px 36px #000b;animation:fsWb .55s .2s var(--sp) both}
+.wrready.pop{animation:wrPop .35s var(--sp) both}@keyframes wrPop{from{transform:scale(.965)}}
+.wrorn{position:absolute;left:50%;width:12px;height:12px;margin-left:-6px;background:#ffd45a;border:2px solid #12081f;border-radius:2px;transform:rotate(45deg)}.wrorn.t{top:-8px}.wrorn.b{bottom:-8px}
+.wrrdy{display:flex;align-items:center;gap:12px}.wrrdy .wrcomp svg{width:34px;height:34px}.wrrl{font:italic 400 18px Georgia,serif;color:#c8beff}
+.wrrn{margin:8px 0 6px;font:400 50px/1.02 'Pirata One',Georgia,serif;color:#fff8e8;text-shadow:0 3px 0 #12081f;letter-spacing:.01em}
+.wrri{margin:0;font:500 16px var(--ui);color:#c4badf}
+.wrstart{all:unset;box-sizing:border-box;position:absolute;left:24px;right:24px;bottom:20px;height:62px;display:flex;align-items:center;gap:14px;padding:0 24px;border-radius:16px;background:linear-gradient(180deg,#ffe27a,#f2b631);color:#3a2006;font:800 28px var(--ui);box-shadow:0 5px 0 #9a6a10,0 14px 28px #000a;cursor:pointer;transition:transform .15s var(--sp)}
+.wrstart:hover{transform:translateY(-3px)}.wrstart:active{transform:scale(.97)}.wrstart:focus-visible{outline:3px solid #fff;outline-offset:3px}.wrsi svg{display:block;width:50px;height:31px}.wrsi svg *{fill:#3a2006}.wrstart i{margin-left:auto;font-style:normal;font-size:40px;line-height:1}
+.wrcards{position:absolute;left:60px;top:521px;width:1480px;height:265px;display:grid;grid-template-columns:repeat(3,478px);gap:23px}
+.wrcd{all:unset;box-sizing:border-box;position:relative;display:block;width:478px;height:265px;overflow:hidden;border-radius:22px;border:2.5px solid #4a3e90;background:#120c34;cursor:pointer;text-align:left;box-shadow:0 14px 30px #000a;transition:transform .2s var(--sp),border-color .2s;animation:wrCardIn .55s var(--sp) both}
+.wrcd:nth-child(1){animation-delay:.25s}.wrcd:nth-child(2){animation-delay:.32s}.wrcd:nth-child(3){animation-delay:.39s}
+.wrcd>canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.wrcd::after{content:'';position:absolute;inset:0;border-radius:20px;border:3px solid #ffc94a;box-shadow:0 0 26px #ffb02a88;opacity:0;pointer-events:none;transition:opacity .2s}
+.wrcd.on::after{opacity:1}.wrcd.on{border-color:#ffc94a}.wrcd:hover{transform:translateY(-5px)}.wrcd:active{transform:scale(.98)}.wrcd:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.wrcd.lock{border-color:#5a4ca0}.wrcd.lock:hover{transform:translateY(-2px)}.wrcd.nope{animation:wrNope .4s ease}
+@keyframes wrCardIn{from{opacity:0;transform:translateY(26px)}}@keyframes wrNope{20%{transform:translateX(-8px)}45%{transform:translateX(7px)}70%{transform:translateX(-4px)}}
+.wrdim{position:absolute;inset:0;background:rgba(10,6,34,.4)}
+.wrbadge{position:absolute;left:16px;top:14px;display:flex;filter:drop-shadow(0 3px 6px #000a)}.wrbadge svg{display:block}.wrcd.on .wrbadge{animation:wrBadge 3.2s ease-in-out infinite}@keyframes wrBadge{50%{transform:rotate(14deg) scale(1.06)}}
+.wrcdt{position:absolute;left:22px;right:22px;bottom:16px;display:flex;flex-direction:column}
+.wrcdt b{margin-bottom:5px;font:400 42px/1.06 'Pirata One',Georgia,serif;color:#fff8e8;text-shadow:0 3px 0 #12081f,0 0 14px #000}
+.wrcdt small{font:italic 400 18px Georgia,serif;color:#e0d8f8;text-shadow:0 2px 4px #000}
+.wrcdm{display:flex;align-items:center;gap:14px;margin-top:9px}.wrsls{display:flex;gap:9px;flex:none}
+.wrsl{display:block;width:32px;height:32px;box-sizing:border-box;border-radius:50%;background:rgba(10,6,32,.78);border:2px solid #5a4ca0;position:relative}
+.wrsl.on{background:radial-gradient(circle at 35% 28%,#ffffffb0 0,var(--c) 38%,color-mix(in srgb,var(--c) 62%,#000) 100%);border-color:#12081f;box-shadow:0 0 12px color-mix(in srgb,var(--c) 60%,transparent)}.wrsl svg{position:absolute;inset:5px;width:auto;height:auto}
+.wrcdm em{flex:1;text-align:right;font:800 15px/1.3 var(--ui);font-style:normal;color:#ffd45a;text-shadow:0 2px 4px #000}.wrcdm em.wrlk{font-weight:600;color:#e8e0ff}
+.wrbar{position:absolute;left:0;right:0;top:808px;height:58px;display:flex;align-items:center;justify-content:center;gap:16px}
+.wrbo{display:flex;align-items:center;gap:8px;width:98px}.wrbo u{flex:1;height:2px;text-decoration:none;background:linear-gradient(90deg,#ffd45a00,#ffd45a99)}.wrbo.r u{background:linear-gradient(270deg,#ffd45a00,#ffd45a99)}.wrbo.r{flex-direction:row}.wrbo.r svg{order:-1}.wrbo svg{flex:none;width:18px;height:18px}
+.wrbb{all:unset;box-sizing:border-box;position:relative;display:flex;align-items:center;gap:14px;width:424px;height:58px;padding:0 20px 0 10px;border-radius:15px;background:linear-gradient(180deg,#1c1450ee,#0e0a30f4);border:2px solid #4a3e90;box-shadow:inset 0 1px 0 #ffffff1f,0 8px 20px #000a;cursor:pointer;text-align:left;transition:transform .18s var(--sp),border-color .18s;animation:wrCardIn .55s .5s var(--sp) both}
+.wrbb:nth-of-type(2){animation-delay:.56s}.wrbb:nth-of-type(3){animation-delay:.62s}
+.wrbb:hover{transform:translateY(-3px);border-color:#8a7ad0}.wrbb:active{transform:scale(.97)}.wrbb:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.wrbi{display:flex;flex:none;width:64px;height:50px}.wrbi canvas{display:block;width:64px;height:51px;margin-top:-1px}
+.wrbt{display:flex;flex-direction:column;gap:1px;min-width:0}.wrbt b{font:800 18px var(--ui);color:#fff8e8}.wrbt small{font:500 13px var(--ui);color:#c4badf}
+.wrch{margin-left:auto;font-style:normal;font:800 30px var(--ui);color:#fff8e8;line-height:1}
+/* narrow (touch) layout: everything stacks over the scene */
+.wrcamp.wr-narrow{position:relative;left:auto;top:auto;width:100%;height:auto;min-height:100%;overflow:visible;padding:74px 14px 26px;box-sizing:border-box;display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.wrcamp.wr-narrow>canvas{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}.wrcamp.wr-narrow .wrvig{position:fixed;background:linear-gradient(180deg,rgba(7,4,26,.78),rgba(7,4,26,.62) 60%,rgba(7,4,26,.88))}
+.wrcamp.wr-narrow .fstr{position:fixed;right:12px;top:12px;z-index:3}
+.wrcamp.wr-narrow .wrhead,.wrcamp.wr-narrow .wrready,.wrcamp.wr-narrow .wrcards,.wrcamp.wr-narrow .wrbar{position:relative;left:0;top:0;width:100%;box-sizing:border-box}
+.wrcamp.wr-narrow .wrtitle{font-size:64px}.wrcamp.wr-narrow .wrflour{width:100%}
+.wrcamp.wr-narrow .wrready{height:auto;padding:16px 18px 18px}.wrcamp.wr-narrow .wrstart{position:relative;left:0;right:0;bottom:0;width:100%;margin-top:14px}
+.wrcamp.wr-narrow .wrcards{display:flex;flex-direction:column;height:auto;gap:12px}.wrcamp.wr-narrow .wrcd{width:100%;height:150px}.wrcamp.wr-narrow .wrcd>canvas{object-fit:cover}
+.wrcamp.wr-narrow .wrbadge{left:auto;right:12px;top:10px;transform-origin:center}
+.wrcamp.wr-narrow .wrcdt b{font-size:30px}.wrcamp.wr-narrow .wrcdt small{font-size:15px}.wrcamp.wr-narrow .wrcdm{margin-top:6px}.wrcamp.wr-narrow .wrsl{width:24px;height:24px}.wrcamp.wr-narrow .wrcdm em{font-size:12.5px}
+.wrcamp.wr-narrow .wrbar{height:auto;flex-direction:column;align-items:stretch;gap:10px}.wrcamp.wr-narrow .wrbo{display:none}.wrcamp.wr-narrow .wrbb{width:100%}
+.wrcamp.wr-narrow .fsmod{position:fixed!important;inset:0;width:auto!important;height:auto!important;overflow:auto;padding:10px;box-sizing:border-box}
+@media (prefers-reduced-motion:reduce){.wrcd,.wrbb,.wrready,.wrtitle,.wrbrand,.wrflour,.wrtag,.wrcd.on .wrbadge,.wrcd.nope{animation:none!important}}`;document.head.appendChild(st)}
+/* ===== LANTERN CARAVAN 8.6: the pause menu and the result card, brought up to the hub's standard =====
+   wrPauseMenu is redeclared as a glass panel (class wrpause wrpm) with Conductor Bogsworth's portrait over the top edge, the route and
+   leg, a progress bar and four run tiles (shields, time, monsters, repairs), the keys as chips and the buttons. The result card gets a
+   conductor quote under the stats (wrResult is wrapped). Styles at the end. */
+function wrPauseMenu(){const R=WRX,rt=R.rt,prog=Math.min(1,R.x/rt.len),lines=['Taking five! Mind the timetable.','Ahem. Tickets after the break, please.','Is it tea time? It is tea time.','Hold the line! ...the railway line.'],ln=lines[(R.runs=(R.runs||0)+1)%lines.length];
+ show(`<div class="wrpause wrpm"><canvas class="wrpmp" id="wrpmp" width="132" height="132" aria-hidden="true"></canvas><h2>Paused</h2><p class="wrpmq">“${ln}”<small>Conductor Bogsworth</small></p>
+ <p class="wrpms">${esc(rt.n)} · leg ${R.leg+1} of ${rt.legs}</p><div class="wrpmb" aria-hidden="true"><i style="width:${(prog*100).toFixed(1)}%"></i><u style="left:${(prog*100).toFixed(1)}%"></u></div>
+ <div class="wrpmt"><span><b>${R.int} / ${WRT.MAXINT}</b>Shields</span><span><b>${wrFmtT(R.time)}</b>Time</span><span><b>${R.kills}</b>Monsters</span><span><b>${R.repairs}</b>Repairs</span></div>
+ <div class="wrph"><span><kbd>Type</kbd> the word on a monster or the wrench bubble</span><span><kbd>Tab</kbd> next target</span><span><kbd>Enter</kbd> Lantern Flare when the lantern is full</span><span><kbd>Esc</kbd> Resume</span></div>
+ <div class="row"><button id="wr1" data-first>Resume</button></div><div class="row"><button class="sm" id="wr2">Restart</button><button class="sm dg" id="wr3">Quit route</button></div></div>`,'wrpx');
+ S.back=()=>wrPause(false);$('wr1').onclick=()=>wrPause(false);$('wr2').onclick=e=>{const t=e.target;if(t.dataset.a)wrRestart();else{t.dataset.a=1;t.textContent='Click again to restart';setTimeout(()=>{if(t.isConnected){t.dataset.a='';t.textContent='Restart'}},3000)}};$('wr3').onclick=()=>wrQuit();
+ live('wrpmp',c=>t=>wrCondPortrait(c,t))}
+/* the conductor has a word about the result */
+const WR_RQ={gold:['A perfect run! Not a wheel out of place... mostly.','Gold! I shall frame this timetable.'],silver:['Right on time! Well. Nearly.','Silver! Only a little late, a little dented.'],bronze:['We arrived. That is what counts. Bwarp.','Bronze! The gate is the gate.'],lose:["Well. That was not in the timetable.",'Cancelled! Refunds at the gate. ...there is no gate.']};
+{const r0=wrResult;wrResult=function(){const r=r0.apply(this,arguments);try{const R=WRX,q=R&&R.result,c=document.querySelector('.wrres');if(q&&c){const L=WR_RQ[!q.won?'lose':q.med>=3?'gold':q.med===2?'silver':'bronze'],d=document.createElement('div');d.className='wrcq';d.innerHTML=`<canvas width="76" height="76" id="wrcqp" aria-hidden="true"></canvas><p>“${L[Math.random()*L.length|0]}”<small>Conductor Bogsworth</small></p>`;const row=c.querySelector('.res');if(row)row.after(d);else c.prepend(d);live('wrcqp',cv=>t=>wrCondPortrait(cv,t))}}catch(e){console.error(e)}return r}}
+{const st=document.createElement('style');st.textContent=`
+.wrpm{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;width:780px;padding:84px 34px 24px;box-sizing:border-box;border-radius:26px;background:linear-gradient(180deg,#221a5af6,#100a30fa);border:2px solid #5a4ca0;box-shadow:inset 0 1px 0 #ffffff22,0 30px 80px #000c;animation:fsWb .45s var(--sp) both}
+.wrpm h2{margin:0;font-size:64px}.wrpmp{position:absolute;top:-62px;left:50%;width:124px;height:124px;margin-left:-62px;filter:drop-shadow(0 10px 18px #000a)}
+.wrpmq{margin:0;font:italic 400 18px Georgia,serif;color:#f4ecd8;text-align:center}.wrpmq small{display:block;margin-top:2px;font:800 11.5px var(--ui);font-style:normal;letter-spacing:.2em;text-transform:uppercase;color:#ffd45a}
+.wrpms{margin:4px 0 0;font:700 16px var(--ui);color:#e8e0ff}
+.wrpmb{position:relative;width:560px;height:10px;border-radius:6px;background:#07041a;border:1px solid #ffffff2a;overflow:visible}.wrpmb i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#ffb02a,#fff2b0)}.wrpmb u{position:absolute;top:-4px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6c0,#ffd24a 55%,#c98a10);border:2px solid #12081f}
+.wrpmt{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:560px;margin:6px 0 2px}.wrpmt span{display:flex;flex-direction:column;align-items:center;padding:8px 6px;border-radius:14px;background:#0c0824;border:1px solid #3a3070;font:600 11px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:#b8aee0}.wrpmt b{font:800 24px var(--ui);color:#fff8e8;letter-spacing:0;text-transform:none}
+.wrpm .wrph{max-width:700px}
+.wrcq{display:flex;align-items:center;gap:14px;max-width:640px;padding:8px 18px 8px 10px;border-radius:40px;background:#0c0824;border:1px solid #3a3070;animation:fsWb .5s .9s var(--sp) both}.wrcq canvas{flex:none;width:58px;height:58px}.wrcq p{margin:0;text-align:left;font:italic 400 17px Georgia,serif;color:#f4ecd8}.wrcq small{display:block;font:800 11px var(--ui);font-style:normal;letter-spacing:.2em;text-transform:uppercase;color:#ffd45a}
+.wrres{padding-top:94px}.wrres .res{margin-bottom:0}
+@media (prefers-reduced-motion:reduce){.wrpm,.wrcq{animation:none!important}}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

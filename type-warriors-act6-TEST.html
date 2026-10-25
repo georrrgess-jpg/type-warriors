@@ -43898,9 +43898,9 @@ function rpUpgrade(tw){const R=RPX;if(!R||!tw||tw.tier>=RP_MAXT(R.map)||R.wst===
  if(R.supply<c){rpSfx('no');rpToast(`Upgrade needs ${c} supply (you have ${Math.floor(R.supply)})`,1.6,'#ff8a9a');return false}
  R.supply-=c;R.spent+=c;R.ups++;tw.spent+=c;tw.from=tw.tier;tw.tier++;tw.upK=0;tw.upD=tw.tier>=4?RPT.ASC_ANIM:RPT.UP_ANIM;tw.build=1;tw.beams=null;try{rpTowerWarm(tw.type,tw.tier,tw.skin)}catch(e){}
  rpRing(tw.x,tw.y-40,'#ffd45a',120,6);try{ptBurst(R.fx,tw.x,tw.y-50,22,['#ffd45a','#fff4c8',RPTW[tw.type].col],{v:260,s:4.5,k:'star'})}catch(e){}
- rpText(tw.x,tw.y-130,`Tier ${tw.tier}!`,'#ffd45a',26);rpSfx('up');if(tw.tier>=4)rpAscend(R,tw);return true}
+ rpText(tw.x,tw.y-130,`Tier ${tw.tier}!`,'#ffd45a',26);rpSfx('up');if(tw.tier>=4)rpAscendFx(R,tw);return true}
 /* tiers 4 and 5 (endless only): a grand moment, and a record that the hub shows as the Ascended collection */
-function rpAscend(R,tw){const r=RPP(),first=(r.asc[tw.type]||0)<tw.tier;if(first){r.asc[tw.type]=tw.tier;try{save()}catch(e){}}R.ascN=(R.ascN||0)+1;
+function rpAscendFx(R,tw){/* not rpAscend: that name is the tower art's ascension drawing in 95c */const r=RPP(),first=(r.asc[tw.type]||0)<tw.tier;if(first){r.asc[tw.type]=tw.tier;try{save()}catch(e){}}R.ascN=(R.ascN||0)+1;
  rpRing(tw.x,tw.y,tw.tier>=5?'#fff6d8':'#c89aff',220,8);R.shake=Math.max(R.shake,6);try{ptBurst(R.fx,tw.x,tw.y-60,40,tw.tier>=5?['#ffffff','#fff2b0','#ffd45a','#9fe8ff','#ffb8f0']:['#c89aff','#ffd45a','#ffffff'],{v:360,s:5,k:'star'})}catch(e){}
  rpText(tw.x,tw.y-158,tw.tier>=5?'CELESTIAL!':'MYTHIC!',tw.tier>=5?'#fff6c0':'#d8b8ff',34);rpSfx('ability');
  if(first)R.banner={txt:'Ascended!',sub:`${RPTW[tw.type].n} reached tier ${tw.tier}${tw.tier>=5?' - Celestial':' - Mythic'}`,t:0,d:2.2,asc:1}}
@@ -44273,7 +44273,7 @@ function rpHudTick(force){const R=RPX,h=$('rphud');if(!R||!h||h.hidden||!RPH)ret
 /* the tower panel: built when the selection (or its tier or target) changes, then only patched */
 function rpHudInfo(R,C){const el=$('rpinfo'),tw=R.sel;const key=tw?`${tw.pad.i}|${tw.tier}|${tw.prio}`:'';
  if(C.in!==key){C.in=key;C.inv=null;if(!tw){el.hidden=true;return}rpInfoBuild(R,tw,el)}
- if(!tw)return;const can=tw.tier<3&&R.supply>=rpCost(tw.type,tw.tier+1),v=`${can}|${tw.kills}|${tw.over>0}`;if(C.inv===v)return;C.inv=v;
+ if(!tw)return;const can=tw.tier<RP_MAXT(R.map)&&R.supply>=rpCost(tw.type,tw.tier+1),v=`${can}|${tw.kills}|${tw.over>0}`;if(C.inv===v)return;C.inv=v;
  const up=$('rpup');if(up)up.classList.toggle('no',!can);rpSetText($('rpikl'),`${tw.kills} defeated`);const oc=$('rpioc');if(oc)oc.hidden=!(tw.over>0)}
 function rpInfoBuild(R,tw,el){const T=RP_TW[tw.type],TW=RPTW[tw.type],i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
  /* six segments; damage on a square-root scale so tier 1 and tier 5 both read sensibly */

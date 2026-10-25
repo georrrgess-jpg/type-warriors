@@ -2,7 +2,7 @@
 
 A single-file browser typing game. Everything ships as `type-warriors.html`; the source modules are in
 `type-warriors-source.zip`. Read `type-warriors-source/HANDOFF.md` (inside the zip) for the history and
-internals of every mode. The latest update is 8.9 (Runestone Ramparts, a tower-defense mode: harder maps, the Celestial Prism, the endless Wonderland with tiers 4–5; modules `95a`–`95h`, `95b2`, `95c3`, `95h2`).
+internals of every mode. The latest update is 8.9b (Runestone Tower Defense, formerly Runestone Ramparts, a tower-defense mode: harder maps, the Celestial Prism, the endless Wonderland with tiers 4–5; code prefix `rp`, modules `95a`–`95h`, `95b2`, `95c3`, `95h2`).
 
 ## Setup in a new session
 1. `unzip -q type-warriors-source.zip` at the repo root (the folder is git-ignored; the zip is the tracked copy).
@@ -46,7 +46,7 @@ springy animations. New art should sit next to the fishing mode without looking 
   `tools/rr/touch.py` must report no overlaps.
 - Caravan changes: `python3 t_wagon.py` (37 checks) from `type-warriors-source`, then `tools/wr/ovl.py` and
   `tools/wr/touch.py` must report no overlaps.
-- Ramparts changes: `python3 t_ramparts.py` (about 55 checks plus a bot that plays every map and the endless Wonderland; `--quick` for map 1 only).
+- Tower defense (Ramparts) changes: `python3 t_ramparts.py` (about 57 checks plus a bot that plays every map and the endless Wonderland; `--quick` for map 1 only).
 - Before delivery: `tools/servers.sh start`, `tools/regress.sh` (42 tests), `tools/servers.sh stop`.
   `t_fishing` can time out under load and `t_leaderboard` fails in a frozen copy; rerun either alone.
 

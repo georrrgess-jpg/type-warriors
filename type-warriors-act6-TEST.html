@@ -43823,6 +43823,10 @@ function rpAmbient(c,R){const B=R.bake,pal=B.pal,t=R.t,rm=R.rm,G=R.G,K=R.map.pal
    Foes walk their road (e.pi) by distance s; ice speeds them up, vents scorch them. Abilities recharge on cooldowns (R.abCd).
    Supply builds towers inside the run; coins (R.coins) are paid for every kill and wave, plus a win bonus, with no ceiling. */
 let RPX=null;
+/* 8.9b: no typing here, so the hidden typing box never takes focus during a Runestone Tower Defense run (on touch screens and in
+   embedded pages focusing it can pop a keyboard or make the browser re-fit and zoom the page), and the stage never scrolls */
+try{const f0=inp.focus;inp.focus=function(){if(typeof S!=='undefined'&&S&&S.rp&&RPX)return;return f0.apply(this,arguments)}}catch(e){}
+try{wrap.addEventListener('scroll',()=>{if(S&&S.rp&&(wrap.scrollLeft||wrap.scrollTop)){wrap.scrollLeft=0;wrap.scrollTop=0}})}catch(e){}
 try{RPTW.brazier.n='Ember Blazer';if(!RPTW.prism)RPTW.prism={n:'Celestial Prism',role:'Radiant beam',col:'#ffe08a'}}catch(e){}
 const rpRM=()=>{try{return ccReduce()}catch(e){return false}};
 const rpClamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -44060,7 +44064,7 @@ function rpTowerAt(c,R,tw){c.save();c.translate(tw.x,tw.y);const o={aim:tw.aim,f
  else{if(tw.upK<1){const k=.85+.15*rpOver(tw.upK);c.scale(k,2-k)}rpTowerDraw(c,tw.type,tw.tier,tw.skin,R.t,o)}
  c.restore();if(tw.over>0)rpOvercharge(c,tw.x,tw.y,R.t,Math.min(1,tw.over),rpTowerTop(tw.type,tw.tier))}
 function rpDraw(){const R=RPX,c=ctx;if(!R)return;if(NEEDRESET){NEEDRESET=false;if(c.reset)c.reset()}c.setTransform(RS,0,0,RS,0,0);/* the canvas is W x H times the render scale RS */c.globalAlpha=1;c.globalCompositeOperation='source-over';
- c.save();if(R.shake>0&&!R.rm)c.translate((Math.random()-.5)*R.shake*.6,(Math.random()-.5)*R.shake*.6);
+ c.save();/* 8.9b: no whole-screen shake; hits show on the castle and the Health chip instead */
  try{RPFX.lite=!!R.lite}catch(e){}c.drawImage(R.bake.c,0,0);rpAmbient(c,R);
  if(R.castHit>0&&typeof rpCastleHit==='function'){const B=R.bake.cast;try{rpCastleHit(c,R.bake.id,B.x,B.y,1-R.castHit)}catch(e){}}
  for(const v of R.vents)if(v.k>=0)rpVentDraw(c,v.x,v.y,R.t,v.k);
@@ -44092,8 +44096,6 @@ function rpDraw(){const R=RPX,c=ctx;if(!R)return;if(NEEDRESET){NEEDRESET=false;i
  /* aiming the Slow Field: a preview that turns red off the road */
  if(R.aim==='slow'&&R.my>=0){const on=R.G.dRoad(R.mx,R.my)<70;c.save();c.globalAlpha=on?.65:.35;rpSlowField(c,R.mx,R.my,RPT.AB.slow.r,R.t,.8);if(!on){c.strokeStyle='#ff6a7a';c.lineWidth=3;c.beginPath();c.ellipse(R.mx,R.my,RPT.AB.slow.r,RPT.AB.slow.r*RPFX.sq,0,0,TAU);c.stroke()}c.restore()}
  c.restore();
- /* castle damage vignette */
- if(R.hitFl>0){c.save();c.globalAlpha=R.hitFl*.4;const q=c.createRadialGradient(800,450,380,800,450,1000);q.addColorStop(0,'rgba(255,40,60,0)');q.addColorStop(1,'rgba(255,40,60,1)');c.fillStyle=q;c.fillRect(0,0,1600,900);c.restore()}
  rpBannerDraw(c,R)}
 function rpFoeDraw(c,R,e,q){const k=e.dead?1-rpClamp(e.dk,0,1):1;if(k<=0)return;const v=R.map.pal;
  if(e.dead&&!e.leak&&typeof rpMobDeath==='function'){rpMobDeath(c,e.id,q.x,q.y,rpClamp(e.dk,0,1),{v});return}
@@ -44206,6 +44208,7 @@ function rpHudOn(){const R=RPX;if(!R)return;let h=$('rphud');if(!h){h=document.c
   <div class="rpnext" id="rpnext" hidden></div>
   <button class="rpgo" id="rpgo"><span class="rpgoi">${RPI.play}</span><span class="rpgot"><b id="rpgob">Start wave 1</b><small id="rpgos">Space</small></span></button>`;
  RPH={};
+ h.addEventListener('mousedown',e=>{if(e.target.closest('button'))e.preventDefault()});
  h.querySelector('#rpgo').onclick=()=>{if(R.wst==='build')rpWaveStart()};
  h.querySelector('#rpspd').onclick=()=>rpSpeed();h.querySelector('#rppau').onclick=()=>rpPause(true);h.querySelector('#rphelp').onclick=()=>rpPause(true);
  h.querySelectorAll('.rpab').forEach(b=>b.onclick=()=>rpAbPress(b.dataset.ab));
@@ -44301,7 +44304,7 @@ function rpHudRing(R,C){const el=$('rpring'),p=R.selPad&&!R.selPad.tw?R.selPad:n
  if(!p)return;const a=RP_TWORDER.map(t=>R.supply>=rpCost(t,1)?1:0).join('');if(C.rga===a)return;C.rga=a;el.querySelectorAll('.rprb').forEach(b=>b.classList.toggle('no',R.supply<rpCost(b.dataset.tw,1)))}
 /* ---------- pause ---------- */
 function rpPauseMenu(){const R=RPX;rpHudOff();const coins=Math.floor(R.coins);
- show(`<div class="rppause"><h2>Paused</h2><p>Runestone Ramparts · ${esc(R.map.n)} · ${R.map.endless?`endless wave ${R.wave}`:R.free?`freeplay wave ${R.wave-R.map.waves}`:`wave ${R.wave} of ${R.map.waves}`} · health ${R.hp} / ${RPT.HP} · ${coins.toLocaleString()} coins earned</p>
+ show(`<div class="rppause"><h2>Paused</h2><p>Runestone Tower Defense · ${esc(R.map.n)} · ${R.map.endless?`endless wave ${R.wave}`:R.free?`freeplay wave ${R.wave-R.map.waves}`:`wave ${R.wave} of ${R.map.waves}`} · health ${R.hp} / ${RPT.HP} · ${coins.toLocaleString()} coins earned</p>
  <div class="rpph"><span><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd><kbd>R</kbd><kbd>T</kbd> pick a tower, then click a pad</span><span><kbd>Click</kbd> a pad for the build ring, a tower to upgrade or sell</span><span><kbd>U</kbd> upgrade · <kbd>X</kbd> sell the selected tower</span>
   <span><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Overcharge, Slow Field, Repair</span><span><kbd>Space</kbd> start or call the next wave early</span><span><kbd>F</kbd> game speed</span><span><kbd>Esc</kbd> cancel or resume</span></div>
  <div class="rphowx"><p><b>Supply</b> builds and upgrades towers in this battle. Monsters drop it, waves pay it, and calling a wave early pays extra.</p><p><b>Coins</b> are yours to keep: every monster, every wave and a victory bonus. More stars (castle health) mean a bigger bonus.</p></div>
@@ -44363,7 +44366,7 @@ function rampartsMenu(back){S.mode='title';S.view='ramparts';const r=RPP();r.see
    ${nxt?`<div class="rpnr"><small>NEXT REGION</small><div><span class="rpnri${nxtMyst?' myst':''}" id="rpnri">${nxtMyst?'<b class="rpnriq">?</b>':''}</span><span><b>${nxtMyst?'? ? ?':esc(nxt.n)}</b><em>${RP_MAPOPEN(nxt)?(nxt.endless?'Unlocked · endless waves':`Unlocked · ${nxt.waves} waves`):nxt.endless?`Win ${esc(m.n)} to reveal it`:`Earn 1 star in ${esc(m.n)}`}</em></span></div></div>`:''}`;
  show(`<div class="rpx rphub"><canvas class="rphbg" id="rphbg" width="1600" height="900"></canvas>
   <div class="rphtop"><button class="rpbk" id="rphback" aria-label="Back (Esc)">‹ Back</button><button class="rpbk" id="rphow"><i>?</i> How to play</button></div>
-  <div class="rphl"><p class="rpkick">TOWER DEFENSE</p><h1 class="rptitle">Runestone<br>Ramparts</h1></div>
+  <div class="rphl"><p class="rpkick">BUILD · UPGRADE · DEFEND</p><h1 class="rptitle">Runestone<br>Tower Defense</h1></div>
   ${RP_MAPS.map(node).join('')}
   <div class="rpside${m.endless?' rpsidew':''}"><canvas class="rpprev" id="rpprev" width="680" height="383"></canvas>${side}</div>
   <div class="rparm"><div class="rparmh"><b>Rampart Armory</b><span>${RPI.star(1,20)} ${sn} / 9 stars</span><em><i style="transform:scaleX(${sn/9})"></i></em></div>
@@ -44402,12 +44405,12 @@ function rpHubBG(){const cv2=$('rphbg');if(!cv2)return;const g=cv2.getContext('2
 MG.ramparts=bP('M18 82V40h12v-12h10v12h20v-12h10v12h12v42H58V64H42v18z','#8a8aa8')+bF('M60 40h22v42H60z','#000',.2)+bP('M44 64h12v18H44z','#3a2414')+bP('M28 22l6-10 6 10z','#ffd45a')+bH('M22 46h20','#fff',3)+bS(76,22,5,'#9fe8ff');
 MA.ramparts='#9fe8ff';
 {const m0=modeSheet;modeSheet=function(){const r=m0.apply(this,arguments);try{const sh=document.querySelector('.dks .dkpv[data-v="m"]')||document.querySelector('.dkpv[data-v="m"]'),g=sh&&sh.querySelector('.dkmg');if(g&&!sh.querySelector('#dmrp')){const p=RPP(),b=document.createElement('button');b.className='dkm dkmrp';b.id='dmrp';b.style.setProperty('--c','#9fe8ff');
-  b.innerHTML=`<span class="dkmi">${mico('ramparts',58)}</span><span class="dkmt"><b>Runestone Ramparts${p.seen?'':' <em class="dkmnew">NEW</em>'}</b><small>Tower defense. Build, upgrade, hold the castle. ${rpStarN()} / 9 stars.</small></span><i class="dkchv">›</i>`;
+  b.innerHTML=`<span class="dkmi">${mico('ramparts',58)}</span><span class="dkmt"><b>Runestone Tower Defense${p.seen?'':' <em class="dkmnew">NEW</em>'}</b><small>Tower defense. Build, upgrade, hold the castle. ${rpStarN()} / 9 stars.</small></span><i class="dkchv">›</i>`;
   g.insertBefore(b,g.firstChild);b.onclick=()=>{dkClose(true);setTimeout(()=>rampartsMenu(title),0)}}}catch(e){console.error(e)}return r}}
 /* the home card takes Moonlit Fishing's slot (Fishing stays in Choose a mode and on the F key) */
 {const t0=title;title=function(){const r=t0.apply(this,arguments);try{rpHomeCard()}catch(e){console.error(e)}return r}}
 function rpHomeCard(){const sc=ov.querySelector('.dksc');if(!sc||sc.querySelector('#dkrp'))return;const p=RPP(),n=rpStarN(),fish=sc.querySelector('#dkfish'),d=document.createElement('div');
- d.innerHTML=`<button class="dkcard dkrp dklive dkg dktilt" id="dkrp" title="Runestone Ramparts (U)" aria-label="Runestone Ramparts, tower defense${p.seen?'':', new mode'}. ${n} of 9 stars"><canvas class="dkcv" width="560" height="320" aria-hidden="true"></canvas><i class="dkgl"></i>${p.seen?'':'<em class="dknew">NEW</em>'}<span class="dkcl"><small>${p.seen?'TOWER DEFENSE':'NEW MODE'}</small><b>Runestone Ramparts</b><small class="dkevv">${n?`${n} / 9 stars`:'Hold the castle'} <i>›</i></small></span></button>`;
+ d.innerHTML=`<button class="dkcard dkrp dklive dkg dktilt" id="dkrp" title="Runestone Tower Defense (U)" aria-label="Runestone Tower Defense${p.seen?'':', new mode'}. ${n} of 9 stars"><canvas class="dkcv" width="560" height="320" aria-hidden="true"></canvas><i class="dkgl"></i>${p.seen?'':'<em class="dknew">NEW</em>'}<span class="dkcl"><small>${p.seen?'TOWER DEFENSE':'NEW MODE'}</small><b>Runestone Tower Defense</b><small class="dkevv">${n?`${n} / 9 stars`:'Hold the castle'} <i>›</i></small></span></button>`;
  const card=d.firstChild;if(fish)fish.replaceWith(card);else{sc.appendChild(card)}card.onclick=()=>rampartsMenu(title);
  const cv2=card.querySelector('canvas'),g=cv2.getContext('2d'),map=RP_MAP('moss'),B=rpBake(map),G=rpGeo(map);
  const sx=860,sy=250,sw=740,sh=423,k=560/sw;
@@ -44418,10 +44421,10 @@ function rpHomeCard(){const sc=ov.querySelector('.dksc');if(!sc||sc.querySelecto
  draw(2);if(!dkRM())LIVE.push({cv:cv2,fn:draw,slow:3,ph:1})}
 {const hk0=homeKey;homeKey=function(e){if(HOME&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&(e.key==='u'||e.key==='U')&&!document.querySelector('.dks.on')){const ae=document.activeElement;if(!(ae&&ae!==inp&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))){e.preventDefault();rampartsMenu(title);return true}}return hk0.apply(this,arguments)}}
 {const d0=dkDetect;dkDetect=function(html){if(typeof html==='string'&&/class="rpx rphub/.test(html))return'pl';return d0.apply(this,arguments)}}
-try{HELP.Modes.unshift(['Runestone Ramparts','Tower defense, all strategy. Monsters march along the roads toward your castle. Pick a tower (Q W E R T) and click a stone pad, or click a pad and choose from the ring: Rune Ballista (single target, hits flyers, pierces armor), Ember Blazer (splash), Frost Spire (slows), Storm Bell (chain lightning, double damage to flyers) or the Celestial Prism (the costliest: ramping radiant beams). Click a tower to upgrade it (three tiers) or sell it. Abilities recharge on cooldowns: 1 Overcharge, 2 Slow Field, 3 Repair. Space starts or calls the next wave early for bonus supply; F switches speed. Each map has a twist: a river bridge, two caves and ice, or a split road with lava vents. Coins are paid for every monster and wave plus a victory bonus, with no limit in Freeplay. Win Ember Crown to reveal the Wonderland, an endless mode where towers ascend to tiers 4 and 5. Stars unlock tower skins and the Rampart Warden title, found only here.']);
- const sc=HELP.Shortcuts&&HELP.Shortcuts.find(x=>x[0]==='F W G'||x[0]==='F W G U');if(sc){sc[0]='F W G U';sc[1]='Moonlit Fishing, Lantern Caravan, Runestone Riddle, Runestone Ramparts.'}}catch(e){}
-try{const t={k:'ramparts',tier:1,ok:()=>true,mk:r=>({n:1}),txt:c=>'Win a Runestone Ramparts map'};BTPL.push(t);BTK.ramparts=t}catch(e){}
-try{BT_TITLES.push(['rampartwarden','Rampart Warden',1e9]);const b0=bountyBoard;bountyBoard=function(){const r=b0.apply(this,arguments);try{const x=ov.querySelector('[data-buy="t:rampartwarden"]');if(x){const s=document.createElement('span');s.className='rrlock';s.textContent='Earn: 9 stars in Runestone Ramparts';x.replaceWith(s)}}catch(e){}return r}}catch(e){}
+try{HELP.Modes.unshift(['Runestone Tower Defense','Tower defense, all strategy. Monsters march along the roads toward your castle. Pick a tower (Q W E R T) and click a stone pad, or click a pad and choose from the ring: Rune Ballista (single target, hits flyers, pierces armor), Ember Blazer (splash), Frost Spire (slows), Storm Bell (chain lightning, double damage to flyers) or the Celestial Prism (the costliest: ramping radiant beams). Click a tower to upgrade it (three tiers) or sell it. Abilities recharge on cooldowns: 1 Overcharge, 2 Slow Field, 3 Repair. Space starts or calls the next wave early for bonus supply; F switches speed. Each map has a twist: a river bridge, two caves and ice, or a split road with lava vents. Coins are paid for every monster and wave plus a victory bonus, with no limit in Freeplay. Win Ember Crown to reveal the Wonderland, an endless mode where towers ascend to tiers 4 and 5. Stars unlock tower skins and the Rampart Warden title, found only here.']);
+ const sc=HELP.Shortcuts&&HELP.Shortcuts.find(x=>x[0]==='F W G'||x[0]==='F W G U');if(sc){sc[0]='F W G U';sc[1]='Moonlit Fishing, Lantern Caravan, Runestone Riddle, Runestone Tower Defense.'}}catch(e){}
+try{const t={k:'ramparts',tier:1,ok:()=>true,mk:r=>({n:1}),txt:c=>'Win a Runestone Tower Defense map'};BTPL.push(t);BTK.ramparts=t}catch(e){}
+try{BT_TITLES.push(['rampartwarden','Rampart Warden',1e9]);const b0=bountyBoard;bountyBoard=function(){const r=b0.apply(this,arguments);try{const x=ov.querySelector('[data-buy="t:rampartwarden"]');if(x){const s=document.createElement('span');s.className='rrlock';s.textContent='Earn: 9 stars in Runestone Tower Defense';x.replaceWith(s)}}catch(e){}return r}}catch(e){}
 /* music: the caravan's soundtrack engine plays the road theme in a run and the camp theme on the hub */
 function wraWant(){try{if(typeof S==='undefined')return null;if(WRX&&S.wr&&(S.mode==='wagon'||S.mode==='over'))return 'road';if(S.mode==='title'&&S.view==='wagon'&&$('wrhub'))return 'camp';
  if(RPX&&S.rp&&(S.mode==='ramparts'||S.mode==='over'))return 'road';if(S.mode==='title'&&S.view==='ramparts'&&ov.querySelector('.rphub'))return 'camp';return null}catch(e){return null}}
@@ -44615,6 +44618,8 @@ function wraWant(){try{if(typeof S==='undefined')return null;if(WRX&&S.wr&&(S.mo
 .rpai img{width:56px;height:56px;opacity:.28}.rpai.t4{border-color:#c89aff}.rpai.t4 img{opacity:.8}.rpai.t5{border-color:#ffe8a8;background:radial-gradient(circle at 50% 40%,#3a2a6a,#0c0824)}.rpai.t5 img{opacity:1}
 .rpai em{position:absolute;right:3px;bottom:1px;font:400 14px 'Pirata One',Georgia,serif;font-style:normal;color:#ffd45a}
 .rpebig{display:flex;flex-direction:column;align-items:center}.rpebig b{font:400 96px/1 'Pirata One',Georgia,serif;color:#ffd8ff;text-shadow:0 4px 0 #12081f}.rpebig span{font:700 15px var(--ui);color:#c4badf;letter-spacing:.2em;text-transform:uppercase}
+.rph,.rph button,.rphub,.rphub button,#dkrp{touch-action:manipulation}
+#ov .rphub .rptitle{font-size:70px;line-height:.98}
 @media (prefers-reduced-motion:reduce){.rph *,.rphub *,.rpvic *,.rpres *{animation:none!important;transition:none!important}}`;document.head.appendChild(st)}
 /* ===== RUNESTONE RAMPARTS 8.8b art: grand castles and the world map (95h_rp_world.js) =====
    rpCastleArt(id) -> {c,w,h,gx,gy,c2} baked once per castle: 'moss' Mossgate Keep (grey stone, blue cones, green-and-gold banners,

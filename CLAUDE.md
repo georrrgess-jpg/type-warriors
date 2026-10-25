@@ -2,7 +2,7 @@
 
 A single-file browser typing game. Everything ships as `type-warriors.html`; the source modules are in
 `type-warriors-source.zip`. Read `type-warriors-source/HANDOFF.md` (inside the zip) for the history and
-internals of every mode. The latest update is 8.8 (Runestone Ramparts, a tower-defense mode; modules `95a`–`95g`).
+internals of every mode. The latest update is 8.8b (Runestone Ramparts, a tower-defense mode, reworked without typing; modules `95a`–`95h` and `95b2`).
 
 ## Setup in a new session
 1. `unzip -q type-warriors-source.zip` at the repo root (the folder is git-ignored; the zip is the tracked copy).

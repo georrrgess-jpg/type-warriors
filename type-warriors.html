@@ -43360,7 +43360,7 @@ function rpTowerAt(c,R,tw){c.save();c.translate(tw.x,tw.y);const o={aim:tw.aim,f
  else if(tw.upK<1&&typeof rpTowerBuild==='function')rpTowerBuild(c,tw.type,tw.tier,tw.skin,tw.upK,R.t,{aim:tw.aim,ph:tw.ph,from:tw.from});
  else{if(tw.upK<1){const k=.85+.15*rpOver(tw.upK);c.scale(k,2-k)}rpTowerDraw(c,tw.type,tw.tier,tw.skin,R.t,o)}
  c.restore();if(tw.over>0)rpOvercharge(c,tw.x,tw.y,R.t,Math.min(1,tw.over),rpTowerTop(tw.type,tw.tier))}
-function rpDraw(){const R=RPX,c=ctx;if(!R)return;if(NEEDRESET){NEEDRESET=false;if(c.reset)c.reset()}c.setTransform(1,0,0,1,0,0);c.globalAlpha=1;c.globalCompositeOperation='source-over';
+function rpDraw(){const R=RPX,c=ctx;if(!R)return;if(NEEDRESET){NEEDRESET=false;if(c.reset)c.reset()}c.setTransform(RS,0,0,RS,0,0);/* the canvas is W x H times the render scale RS */c.globalAlpha=1;c.globalCompositeOperation='source-over';
  c.save();if(R.shake>0&&!R.rm)c.translate((Math.random()-.5)*R.shake*.6,(Math.random()-.5)*R.shake*.6);
  c.drawImage(R.bake.c,0,0);rpAmbient(c,R);
  if(R.castHit>0&&typeof rpCastleHit==='function'){const B=R.bake.cast;try{rpCastleHit(c,R.bake.id,B.x,B.y,1-R.castHit)}catch(e){}}
@@ -43624,7 +43624,7 @@ function rampartsMenu(back){S.mode='title';S.view='ramparts';const r=RPP();r.see
  const track=[...RP_SKINS.map(s=>({need:s.need,n:s.n,img:rpIconCanvas(s.tw,3,s.k,88),own:!!r.own[s.tw+':'+s.k]})),{need:RP_TITLE_NEED,n:'Rampart Warden title',ttl:1,own:sn>=RP_TITLE_NEED}];
  const nu=track.find(x=>sn<x.need);
  show(`<div class="rpx rphub"><canvas class="rphbg" id="rphbg" width="1600" height="900"></canvas>
-  <div class="rphtop"><button class="rpbk" id="b">‹ Back</button><button class="rpbk" id="rphow"><i>?</i> How to play</button></div>
+  <div class="rphtop"><button class="rpbk" id="rphback" aria-label="Back (Esc)">‹ Back</button><button class="rpbk" id="rphow"><i>?</i> How to play</button></div>
   <div class="rphl"><p class="rpkick">TOWER DEFENSE</p><h1 class="rptitle">Runestone<br>Ramparts</h1></div>
   ${RP_MAPS.map(node).join('')}
   <div class="rpside"><canvas class="rpprev" id="rpprev" width="680" height="383"></canvas>
@@ -43639,7 +43639,7 @@ function rampartsMenu(back){S.mode='title';S.view='ramparts';const r=RPP();r.see
    <div class="rpnu">${nu?`<small>Next unlock</small><b>${nu.need} stars</b><span>${esc(nu.n)}</span>`:'<small>All rewards</small><b>Earned</b>'}</div>
    <button class="rpvr" id="rpvr">View rewards ›</button></div>
   <div class="rpmod" id="rpmod" hidden></div></div>`,'rpx rphubx');
- S.view='ramparts';S.back=back||title;{const bb=$('b');if(bb)bb.onclick=back||title}
+ S.view='ramparts';S.back=back||title;$('rphback').onclick=()=>(back||title)()
  $('rpdef').onclick=()=>rpStart(RPSEL);$('rphow').onclick=()=>rpHowTo();$('rpvr').onclick=()=>rpRewards(back);
  ov.querySelectorAll('.rpnode').forEach(b=>{b.onclick=()=>{if(b.classList.contains('lock')){rpSfx('no');const mm=RP_MAP(b.dataset.m),pv=RP_MAPS[RP_MAPS.indexOf(mm)-1];try{toast(`Earn 1 star in ${pv.n} to unlock ${mm.n}`)}catch(e){}return}
   if(RPSEL===b.dataset.m){rpStart(RPSEL);return}RPSEL=b.dataset.m;rpSfx('key',2);rampartsMenu(back)}});

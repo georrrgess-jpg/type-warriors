@@ -43603,6 +43603,256 @@ function rpzWarm(tier){rpPadS();rpzBack(tier);rpzBody(tier);rpzGlowS(tier);rpzHa
 {const f0=rpTowerIcon;rpTowerIcon=function(type,tier,skin,size){if(type!=='prism')return f0.apply(this,arguments);tier=rpzT(tier);size=Math.max(16,size|0||96);const key='pz|ic|'+tier+'|'+size;let s=RPSPR.get(key);if(s)return s.c;
  const c=document.createElement('canvas');c.width=c.height=size;const top=RPZL[tier].top+8,h=top+46,k=Math.min(size*.95/h,size*.95/134),g=c.getContext('2d');g.translate(size/2,size/2+(top-46)/2*k);g.scale(k,k);
  try{rpzDraw(g,tier,.42,{aim:.55,ph:.3})}catch(e){console.error(e)}RPSPR.set(key,{c});return c}}
+/* ===== RUNESTONE TOWER DEFENSE 9.0: the Clockwork Dragon Roost, a sixth tower (95c4, art only; loads after 95c3) =====
+   A brass clockwork dragon perches on a geared stone roost. Its parts are baked once and moved live: the far wing, tail, body,
+   four neck plates, head and jaw are separate sprites, so the dragon breathes, beats its wings, turns to face its target, tracks
+   it with its head and opens its jaw to breathe fire. The roost's gears turn, steam puffs from the vent, the furnace in its chest
+   and the coals in its nest glow. Tiers 1-3 grow the dragon and the roost (tier 3 adds a crown of horns); tier 4 "Mythic" (violet
+   stone, violet fire, a turning rune ring); tier 5 "Celestial" (marble, white-gold plates, a slowly turning sun disc behind it).
+   Skins: 'base' (brass, orange fire) and 'azure' (the season champion's skin: blue steel, gold trim, blue fire).
+   No shadowBlur, no ctx.filter; glows are the shared baked radial sprites stamped with 'lighter'.
+   API (wrapping 95c/95c3; every other tower type passes straight through)
+     RPTW.dragon, RPSKIN.dragon             'Dragon Roost'
+     rpTowerDraw(g,'dragon',tier,skin,t,o)    o = {aim, face -1..1, charge 0..1 (breath), fire, over, crank 0..1, away (diving), ph, ghost}
+     rpTowerBuild(g,'dragon',tier,skin,k,t,o) build (the roost rises, the dragon lands), upgrade (o.from) and ascension
+     rpTowerTop, rpTowerWarm, rpTowerIcon     as for the other towers
+     rpDragonMouth(tier,o)                  the mouth, relative to the pad centre {x,y}
+     rpDragonBreath(g,x0,y0,x1,y1,t,k,tier,skin,lite)  the fire stream (k = strength 0..1)
+     rpDragonFly(g,x,y,ang,tier,skin,t,flap)  the dragon in flight (the tier-5 wing dive), centred on its body */
+RPTW.dragon={n:'Dragon Roost',role:'Fire breath',col:'#ffb04a'};
+RPSKIN.dragon=['base','azure'];
+const RPDL=[0,{h:40,s:.92},{h:46,s:1},{h:52,s:1.1,crown:1},{h:56,s:1.15,crown:1,rune:1},{h:58,s:1.2,crown:1,sun:1}];
+const rpdT=t=>Math.max(1,Math.min(5,t|0||1)),rpdSk=s=>s==='azure'?'azure':'base';
+const RPDP={
+ base:{pl:'#e2a63a',plL:'#ffe592',plD:'#8e5a12',cu:'#c8682e',cuL:'#f6a86a',cuD:'#6a2a0e',st:'#4c4462',stL:'#857ca4',stD:'#221c30',mem:['#ffb060','#e0482a','#7a1414'],rib:'#ffd45a',eye:'#fff2a0',core:'#ff7a1a',fl:['#d6301a','#ff8a1e','#ffd54a','#fff6c8'],glow:'#ff7a2a',glow2:'#ffc860',horn:'#efe2c4',hornD:'#9a8466'},
+ azure:{pl:'#8ab8ee',plL:'#eef8ff',plD:'#34528e',cu:'#2f6ad0',cuL:'#88c4ff',cuD:'#142a66',st:'#283258',stL:'#6676ae',stD:'#10142e',mem:['#7ae6ff','#2a78e8','#141e78'],rib:'#ffd45a',eye:'#e6fcff',core:'#2a9cff',fl:['#1e46d8','#2ea8ff','#8ce8ff','#f2feff'],glow:'#2a8cff',glow2:'#8adcff',horn:'#fff4d0',hornD:'#c8a860'}};
+const RPDPC=new Map();
+function rpdP(skin,tier){skin=rpdSk(skin);tier=rpdT(tier);const k=skin+tier;let P=RPDPC.get(k);if(P)return P;P=Object.assign({},RPDP[skin]);
+ P.stone=tier>=5?RPSTONE.marble:tier>=4?RPSTONE.violet:RPSTONE.base;P.key=k;
+ if(tier===4){if(skin==='azure')P.mem=['#a6b4ff','#4a52e8','#1a1270'];else{P.mem=['#ecb0ff','#a04ae8','#3a1478'];P.fl=['#6a18c8','#c048ff','#ff9af0','#fff2ff'];P.glow='#b04aff';P.glow2='#ff9af0';P.core='#d060ff'}}
+ if(tier===5){if(skin==='azure'){P.pl='#d8ecff';P.plL='#ffffff';P.plD='#6a8ac8';P.mem=['#e8fbff','#8ae0ff','#2a6ad0'];P.fl=['#2a7cff','#7adcff','#dcf8ff','#ffffff'];P.glow='#5ab4ff';P.glow2='#e0f8ff'}
+  else{P.pl='#fff0c0';P.plL='#ffffff';P.plD='#c08a2a';P.mem=['#fffbe8','#ffd27a','#c0761a'];P.fl=['#ff7a10','#ffc23a','#fff0a0','#ffffff'];P.glow='#ffb02a';P.glow2='#fff2b0';P.core='#ffd45a'}}
+ RPDPC.set(k,P);return P}
+const rpdPlate=(g,x0,x1,P)=>rpHG(g,x0,x1,P.plL,P.pl,P.plD);
+function rpdRivets(g,pts,P){for(const [x,y] of pts){g.beginPath();g.arc(x,y,1.5,0,TAU);g.fillStyle=P.plD;g.fill();g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.arc(x-.4,y-.5,.6,0,TAU);g.fill()}}
+
+/* ---------- the roost (pad, stone column, bands, pipe, nest of coals, pips) ---------- */
+function rpdRoostArt(g,tier,P){const L=RPDL[tier],h=L.h,S=P.stone,rb=30,rt=26;RPPADT=tier;try{rpPadArt(g)}finally{RPPADT=0}
+ rpTube(g,0,8,36,34,12,S.l,S.m,S.d);rpCap(g,0,-4,34,S.top,S.topD);
+ rpTube(g,0,-4,rb,rt,h-4,S.l,S.m,S.d);
+ /* stone courses */
+ g.save();rpSide(g,0,-4,rb,rt,h-4);g.clip();g.strokeStyle=rpA(S.k,.45);g.lineWidth=1.6;
+ for(let y=-14,i=0;y>-h+6;y-=11,i++){const r=rb+(rt-rb)*((-4-y)/(h-4));g.beginPath();g.ellipse(0,y,r,r*RPSQ,0,0,Math.PI);g.stroke();
+  for(let j=-2;j<=2;j++){const a=(j+(i%2?.5:0))*.55,x=Math.sin(a)*r;g.beginPath();g.moveTo(x,y+Math.cos(a)*r*RPSQ);g.lineTo(x,y+Math.cos(a)*r*RPSQ+10);g.stroke()}}
+ g.restore();
+ /* brass bands */
+ const band=(y,r,hh)=>{rpTube(g,0,y,r,r,hh,P.plL,P.pl,P.plD,2.2);g.beginPath();g.ellipse(0,y-hh,r,r*RPSQ,0,0,Math.PI);g.lineWidth=1.2;g.strokeStyle='rgba(255,255,255,.55)';g.stroke();
+  rpdRivets(g,[-.7,-.25,.25,.7].map(a=>[Math.sin(a)*r,y-hh/2+Math.cos(a)*r*RPSQ]),P)};
+ band(-2,rb+1.5,6);band(-h+12,rt+2,7);
+ /* the gear recess in the front */
+ const gy=-h*.5+2;g.beginPath();g.arc(0,gy,16,0,TAU);g.fillStyle=S.k;g.fill();rpOut(g,2.4);g.beginPath();g.arc(0,gy,16,0,TAU);g.lineWidth=3;g.strokeStyle=P.plD;g.stroke();g.lineWidth=1.2;g.strokeStyle=P.plL;g.beginPath();g.arc(0,gy,17.4,Math.PI*1.1,Math.PI*1.7);g.stroke();
+ /* the copper pipe and its vent */
+ g.lineCap='round';const pipe=w=>{g.beginPath();g.moveTo(24,-6);g.lineTo(27,-h+16);g.quadraticCurveTo(28,-h+6,36,-h+4);g.lineWidth=w;g.stroke()};g.strokeStyle=RPTO;pipe(9);g.strokeStyle=P.cu;pipe(6);g.strokeStyle=P.cuL;g.lineWidth=1.6;g.beginPath();g.moveTo(23.6,-8);g.lineTo(26.4,-h+16);g.stroke();
+ g.beginPath();g.roundRect(34,-h-2,8,11,2);g.fillStyle=rpHG(g,34,42,P.cuL,P.cu,P.cuD);g.fill();rpOut(g,1.8);
+ for(const y of[-12,-h*.5]){g.beginPath();g.roundRect(22,y-3,9,6,2);g.fillStyle=P.pl;g.fill();rpOut(g,1.4)}
+ /* the nest: a brass dish of coals on top */
+ const ny=-h;rpCap(g,0,ny+3,rt+5,P.plL,P.plD,2.6);g.beginPath();g.ellipse(0,ny+1,rt+1,(rt+1)*RPSQ,0,0,TAU);g.fillStyle='#2a0e08';g.fill();
+ for(let i=0;i<16;i++){const a=rpR(i*7.3)*TAU,d=rpR(i*3.1+2)*(rt-3);g.beginPath();g.arc(Math.cos(a)*d,ny+1+Math.sin(a)*d*RPSQ,2.2+rpR(i)*2,0,TAU);g.fillStyle=i%3?P.fl[1]:P.fl[2];g.fill()}
+ for(let i=0;i<7;i++){const a=Math.PI*(.05+i*.15);g.beginPath();g.moveTo(Math.cos(a)*(rt+4),ny+3+Math.sin(a)*(rt+4)*RPSQ);g.lineTo(Math.cos(a)*(rt+9),ny-6+Math.sin(a)*(rt+6)*RPSQ);g.lineWidth=4;g.strokeStyle=RPTO;g.stroke();g.lineWidth=2.2;g.strokeStyle=P.pl;g.stroke()}
+ if(L.rune||L.sun){g.save();rpSide(g,0,-4,rb,rt,h-4);g.clip();g.strokeStyle=L.sun?'#e8b84a':'#d8a8ff';g.lineWidth=2;for(let i=0;i<3;i++){const x=(i-1)*15,y=-h*.5+2+(i===1?-22:-6);g.beginPath();g.moveTo(x-4,y+5);g.lineTo(x,y-5);g.lineTo(x+4,y+5);g.moveTo(x-3,y+1);g.lineTo(x+3,y+1);g.stroke()}g.restore()}
+ g.save();g.translate(0,RPPIPY);rpPipArt(g,tier);g.restore()}
+const rpdRoostS=(tier,P)=>{const h=RPDL[tier].h;return rpSpr('dg|r|'+P.key,-66,-(h+26),132,h+70,g=>rpdRoostArt(g,tier,P))};
+function rpdGearArt(g,r,n,P){g.beginPath();for(let i=0;i<n*2;i++){const a=i/(n*2)*TAU,rr=i%2?r:r+r*.24,a2=a+TAU/(n*4);g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr);g.lineTo(Math.cos(a2)*rr,Math.sin(a2)*rr)}g.closePath();
+ g.fillStyle=rpHG(g,-r,r,P.plL,P.pl,P.plD);g.fill();rpOut(g,Math.max(1.4,r*.13));g.beginPath();g.arc(0,0,r*.62,0,TAU);g.fillStyle=P.plD;g.fill();
+ for(let i=0;i<4;i++){g.save();g.rotate(i*Math.PI/2);g.fillStyle=P.pl;g.fillRect(-r*.1,-r*.62,r*.2,r*1.24);g.restore()}
+ g.beginPath();g.arc(0,0,r*.26,0,TAU);g.fillStyle=P.cu;g.fill();rpOut(g,1.2);g.fillStyle='rgba(255,255,255,.7)';g.beginPath();g.arc(-r*.08,-r*.08,r*.08,0,TAU);g.fill()}
+const rpdGearS=(r,n,P)=>rpSpr('dg|g|'+r+'|'+P.key,-r*1.3,-r*1.3,r*2.6,r*2.6,g=>rpdGearArt(g,r,n,P));
+
+/* ---------- the dragon's parts (drawn facing +x; the perch top is (0,0)) ---------- */
+function rpdBodyArt(g,P,L,far){const dk=far?.35:0,C=c=>dk?rpMix(c,'#12081f',dk):c;
+ /* torso */
+ const body=()=>{g.beginPath();g.moveTo(-26,-14);g.bezierCurveTo(-30,-34,-8,-46,10,-40);g.bezierCurveTo(24,-35,26,-18,17,-8);g.bezierCurveTo(8,1,-18,3,-26,-14);g.closePath()};
+ body();const q=g.createLinearGradient(-20,-44,14,0);q.addColorStop(0,P.plL);q.addColorStop(.4,P.pl);q.addColorStop(1,P.plD);g.fillStyle=q;g.fill();
+ g.save();body();g.clip();
+ /* belly scutes */
+ for(let i=0;i<6;i++){const u=i/5;g.beginPath();g.ellipse(18-u*20,-30+u*26,9,4,-.9,0,TAU);g.fillStyle=i%2?P.cuL:P.cu;g.fill();g.lineWidth=1.3;g.strokeStyle=P.cuD;g.stroke()}
+ /* plate seams */
+ g.strokeStyle=rpA('#12081f',.45);g.lineWidth=1.4;for(const [a,b,c,d] of[[-24,-24,-2,-42],[-20,-10,4,-38],[-12,-2,10,-34]]){g.beginPath();g.moveTo(a,b);g.quadraticCurveTo((a+c)/2-6,(b+d)/2-6,c,d);g.stroke()}
+ g.fillStyle='rgba(255,255,255,.4)';g.beginPath();g.ellipse(-8,-34,10,3,-.4,0,TAU);g.fill();g.restore();
+ body();rpOut(g,3);
+ /* furnace grill in the chest */
+ g.save();g.translate(9,-21);g.rotate(-.35);g.beginPath();g.roundRect(-7,-7,14,14,4);g.fillStyle='#2a0804';g.fill();rpOut(g,2);g.strokeStyle=P.pl;g.lineWidth=2;for(const x of[-3,0,3]){g.beginPath();g.moveTo(x,-6);g.lineTo(x,6);g.stroke()}g.beginPath();g.roundRect(-7,-7,14,14,4);rpOut(g,1.6);g.restore();
+ /* back spikes */
+ for(let i=0;i<5;i++){const u=i/4,x=-24+u*26,y=-26-u*14-Math.sin(u*Math.PI)*4,a=-1.9+u*.5;g.beginPath();g.moveTo(x-3.6,y+1.5);g.lineTo(x+Math.cos(a)*9,y+Math.sin(a)*9);g.lineTo(x+3.6,y-1);g.closePath();g.fillStyle=P.cu;g.fill();rpOut(g,1.6)}
+ rpdRivets(g,[[-18,-26],[-10,-34],[0,-38],[-16,-12],[-6,-20]],P);
+ /* near hind leg and fore leg, claws on the rim */
+ g.beginPath();g.moveTo(-24,-16);g.quadraticCurveTo(-20,-28,-8,-24);g.quadraticCurveTo(-2,-14,-6,-5);g.lineTo(-18,-5);g.quadraticCurveTo(-25,-8,-24,-16);g.closePath();g.fillStyle=rpHG(g,-25,-3,P.plL,P.pl,P.plD);g.fill();rpOut(g,2.4);
+ g.strokeStyle=rpA(P.plD,.8);g.lineWidth=1.3;g.beginPath();g.moveTo(-20,-18);g.quadraticCurveTo(-14,-22,-9,-19);g.stroke();
+ g.beginPath();g.moveTo(-14,-6);g.lineTo(-10,1);g.lineTo(-4,1);g.lineTo(-6,-6);g.closePath();g.fillStyle=P.plD;g.fill();rpOut(g,2);
+ g.beginPath();g.moveTo(9,-12);g.quadraticCurveTo(15,-8,13,0);g.lineTo(18,1);g.lineTo(16,-12);g.closePath();g.fillStyle=P.pl;g.fill();rpOut(g,2);
+ for(const x of[-11,-7,-3,12,15,18]){g.beginPath();g.moveTo(x-1.4,0);g.lineTo(x+.6,4.5);g.lineTo(x+1.6,0);g.closePath();g.fillStyle=P.horn;g.fill();rpOut(g,1.1)}}
+function rpdTailArt(g,P){/* root at (0,0) = (-22,-12) on the body; curls down around the perch */
+ const pts=[[0,0],[-9,8],[-13,24],[-10,40],[-3,52],[6,58]];g.lineCap='round';g.lineJoin='round';
+ const path=()=>{g.beginPath();g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length-1;i++){const m=[(pts[i][0]+pts[i+1][0])/2,(pts[i][1]+pts[i+1][1])/2];g.quadraticCurveTo(pts[i][0],pts[i][1],m[0],m[1])}g.lineTo(pts[pts.length-1][0],pts[pts.length-1][1])};
+ g.strokeStyle=RPTO;g.lineWidth=13;path();g.stroke();g.strokeStyle=P.pl;g.lineWidth=8.4;path();g.stroke();g.strokeStyle=P.plL;g.lineWidth=2.4;g.globalAlpha=.6;g.save();g.translate(-1.5,-1.5);path();g.stroke();g.restore();g.globalAlpha=1;
+ for(let i=1;i<5;i++){const [x,y]=pts[i];g.beginPath();g.arc(x,y,3.4,0,TAU);g.fillStyle=P.cu;g.fill();rpOut(g,1.3)}
+ /* the spade tip */
+ g.save();g.translate(6,58);g.rotate(.2);g.beginPath();g.moveTo(-2,0);g.lineTo(8,-8);g.lineTo(16,0);g.lineTo(8,8);g.closePath();g.fillStyle=rpHG(g,-2,16,P.cuL,P.cu,P.cuD);g.fill();rpOut(g,2);g.restore()}
+function rpdWingArt(g,P,far,L){/* pivot (0,0) = the shoulder; the wing is raised up and back */
+ const dk=far?.38:0,C=c=>dk?rpMix(c,'#12081f',dk):c,E=[-14,-22],W=[-8,-48],F=[[8,-62],[-20,-70],[-44,-56],[-52,-30]],R=[-26,-4];
+ g.beginPath();g.moveTo(0,0);g.lineTo(E[0],E[1]);g.lineTo(W[0],W[1]);g.lineTo(F[0][0],F[0][1]);
+ for(let i=0;i<F.length-1;i++){const a=F[i],b=F[i+1],m=[(a[0]+b[0])/2,(a[1]+b[1])/2];g.quadraticCurveTo(m[0]+(W[0]-m[0])*.32,m[1]+(W[1]-m[1])*.32,b[0],b[1])}
+ {const a=F[F.length-1],m=[(a[0]+R[0])/2,(a[1]+R[1])/2];g.quadraticCurveTo(m[0]+10,m[1]-2,R[0],R[1])}g.closePath();
+ const q=g.createLinearGradient(0,-72,-20,0);q.addColorStop(0,C(P.mem[0]));q.addColorStop(.5,C(P.mem[1]));q.addColorStop(1,C(P.mem[2]));g.fillStyle=q;g.fill();
+ g.save();g.clip();g.globalAlpha=.25;g.strokeStyle='#ffffff';g.lineWidth=1;for(let i=0;i<4;i++){g.beginPath();g.moveTo(W[0],W[1]);g.lineTo(F[i][0]*.7+R[0]*.3,F[i][1]*.7+R[1]*.3+8);g.stroke()}g.globalAlpha=1;g.restore();
+ rpOut(g,2.6);
+ /* ribs (brass rods) and the arm, with a gear at the elbow */
+ g.lineCap='round';for(const f of F){g.beginPath();g.moveTo(W[0],W[1]);g.lineTo(f[0],f[1]);g.lineWidth=4.6;g.strokeStyle=RPTO;g.stroke();g.lineWidth=2.4;g.strokeStyle=C(P.rib);g.stroke();
+  g.beginPath();g.arc(f[0],f[1],2.2,0,TAU);g.fillStyle=C(P.pl);g.fill();rpOut(g,1.2)}
+ g.beginPath();g.moveTo(0,0);g.lineTo(E[0],E[1]);g.lineTo(W[0],W[1]);g.lineWidth=8.6;g.strokeStyle=RPTO;g.stroke();g.lineWidth=5.4;g.strokeStyle=C(P.pl);g.stroke();g.lineWidth=1.6;g.strokeStyle=C(P.plL);g.beginPath();g.moveTo(-1.5,-2);g.lineTo(E[0]-1.5,E[1]);g.stroke();
+ g.save();g.translate(E[0],E[1]);rpdGearArt(g,5,7,far?Object.assign({},P,{pl:C(P.pl),plL:C(P.plL),plD:C(P.plD)}):P);g.restore();
+ g.beginPath();g.arc(W[0],W[1],3.6,0,TAU);g.fillStyle=C(P.cu);g.fill();rpOut(g,1.6);
+ g.beginPath();g.moveTo(W[0]+1,W[1]-2);g.lineTo(W[0]+6,W[1]-11);g.lineTo(W[0]+5,W[1]-1);g.closePath();g.fillStyle=P.horn;g.fill();rpOut(g,1.2)}
+function rpdNeckArt(g,P){g.beginPath();g.ellipse(0,0,7,6.4,0,0,TAU);g.fillStyle=rpHG(g,-7,7,P.plL,P.pl,P.plD);g.fill();rpOut(g,2.2);
+ g.beginPath();g.ellipse(2.5,1.5,4,3.6,0,0,TAU);g.fillStyle=P.cu;g.fill();g.lineWidth=1;g.strokeStyle=P.cuD;g.stroke();
+ g.beginPath();g.moveTo(-3,-5.6);g.lineTo(-1,-10);g.lineTo(2,-5.8);g.closePath();g.fillStyle=P.cu;g.fill();rpOut(g,1.2)}
+function rpdHeadArt(g,P,L){/* pivot (0,0) = the back of the skull; the snout points +x */
+ /* horns */
+ const horn=(x,y,a,len,w)=>{g.beginPath();g.moveTo(x-w,y);g.quadraticCurveTo(x+Math.cos(a)*len*.6-w,y+Math.sin(a)*len*.4,x+Math.cos(a)*len,y+Math.sin(a)*len);g.quadraticCurveTo(x+Math.cos(a)*len*.5+w,y+Math.sin(a)*len*.6+w,x+w,y+1);g.closePath();
+  g.fillStyle=rpVG(g,y+Math.sin(a)*len,y,P.horn,P.hornD);g.fill();rpOut(g,1.8)};
+ horn(0,-9,-2.75,22,3.6);if(L.crown){horn(4,-11,-2.45,16,2.6);horn(-3,-4,-3.0,14,2.4)}
+ /* skull */
+ const sk=()=>{g.beginPath();g.moveTo(-6,-6);g.quadraticCurveTo(-4,-14,8,-14);g.quadraticCurveTo(18,-13,24,-8);g.lineTo(33,-5);g.quadraticCurveTo(37,-2,34,2);g.lineTo(8,4);g.lineTo(0,6);g.quadraticCurveTo(-7,3,-6,-6);g.closePath()};
+ sk();const q=g.createLinearGradient(0,-14,4,6);q.addColorStop(0,P.plL);q.addColorStop(.5,P.pl);q.addColorStop(1,P.plD);g.fillStyle=q;g.fill();
+ g.save();sk();g.clip();g.fillStyle=rpA(P.plD,.55);g.beginPath();g.ellipse(4,4,12,6,0,0,TAU);g.fill();g.fillStyle='rgba(255,255,255,.45)';g.beginPath();g.ellipse(12,-11,9,2.2,-.15,0,TAU);g.fill();
+ g.strokeStyle=rpA('#12081f',.5);g.lineWidth=1.3;g.beginPath();g.moveTo(18,-12);g.quadraticCurveTo(16,-2,20,4);g.stroke();g.restore();
+ /* teeth (upper) */
+ for(let x=11;x<=31;x+=5){g.beginPath();g.moveTo(x-1.8,3);g.lineTo(x,7.2);g.lineTo(x+1.8,3);g.closePath();g.fillStyle='#fffaf0';g.fill();g.lineWidth=1;g.strokeStyle=RPTO;g.stroke()}
+ sk();rpOut(g,2.6);
+ /* brow plate, eye socket, nostril, rivets */
+ g.beginPath();g.moveTo(4,-11);g.quadraticCurveTo(12,-16,19,-10);g.lineTo(16,-8);g.quadraticCurveTo(10,-11,5,-8);g.closePath();g.fillStyle=P.cu;g.fill();rpOut(g,1.6);
+ g.beginPath();g.ellipse(12,-5,4.6,3.4,-.1,0,TAU);g.fillStyle='#1a0a06';g.fill();rpOut(g,1.4);
+ g.beginPath();g.ellipse(31,-3,1.6,1.1,0,0,TAU);g.fillStyle='#1a0a06';g.fill();
+ rpdRivets(g,[[0,-2],[3,-9],[22,-6]],P)}
+function rpdJawArt(g,P){/* pivot (0,0) = the jaw hinge */
+ const jw=()=>{g.beginPath();g.moveTo(-2,-2);g.lineTo(28,-1);g.quadraticCurveTo(30,3,26,5);g.lineTo(6,7);g.quadraticCurveTo(-2,6,-2,-2);g.closePath()};
+ for(let x=10;x<=26;x+=5){g.beginPath();g.moveTo(x-1.6,-1);g.lineTo(x,-5.4);g.lineTo(x+1.6,-1);g.closePath();g.fillStyle='#fffaf0';g.fill();g.lineWidth=1;g.strokeStyle=RPTO;g.stroke()}
+ jw();g.fillStyle=rpHG(g,-2,30,P.pl,P.plD,P.plD);g.fill();g.save();jw();g.clip();g.fillStyle=P.cu;g.fillRect(-4,3,36,6);g.restore();jw();rpOut(g,2.4)}
+function rpdSunArt(g,P){for(let i=0;i<16;i++){g.save();g.rotate(i/16*TAU);g.beginPath();g.moveTo(-4,-30);g.lineTo(0,-(i%2?50:60));g.lineTo(4,-30);g.closePath();g.fillStyle=rpA(i%2?P.glow2:'#ffffff',.55);g.fill();g.restore()}
+ g.beginPath();g.arc(0,0,30,0,TAU);g.lineWidth=4;g.strokeStyle=rpA(P.glow2,.8);g.stroke();g.lineWidth=1.4;g.strokeStyle='#ffffff';g.stroke()}
+function rpdRuneArt(g,col){g.lineWidth=2;g.strokeStyle=col;g.beginPath();g.arc(0,0,40,0,TAU);g.stroke();g.beginPath();g.arc(0,0,33,0,TAU);g.stroke();
+ for(let i=0;i<8;i++){const a=i/8*TAU;g.save();g.rotate(a);g.beginPath();g.moveTo(-3,-36.5);g.lineTo(0,-31);g.lineTo(3,-36.5);g.moveTo(0,-39);g.lineTo(0,-34);g.stroke();g.restore()}}
+const rpdPart=(P,L,n,x0,y0,w,h,fn)=>rpSpr('dg|'+n+'|'+P.key,x0,y0,w,h,fn);
+const rpdBodyS=(P,L)=>rpdPart(P,L,'bd',-36,-56,66,66,g=>rpdBodyArt(g,P,L));
+const rpdTailS=P=>rpdPart(P,null,'tl',-24,-10,50,84,g=>rpdTailArt(g,P));
+const rpdWingS=(P,far)=>rpdPart(P,null,far?'wf':'wn',-60,-80,76,90,g=>rpdWingArt(g,P,far));
+const rpdNeckS=P=>rpdPart(P,null,'nk',-10,-13,20,23,g=>rpdNeckArt(g,P));
+const rpdHeadS=(P,L)=>rpSpr('dg|hd|'+P.key+'|'+(L.crown?1:0),-30,-34,72,46,g=>rpdHeadArt(g,P,L));
+const rpdJawS=P=>rpdPart(P,null,'jw',-6,-8,40,18,g=>rpdJawArt(g,P));
+const rpdSunS=P=>rpdPart(P,null,'sun',-64,-64,128,128,g=>rpdSunArt(g,P));
+const rpdRuneS=()=>rpSpr('dg|rune',-44,-44,88,88,g=>rpdRuneArt(g,'#d8a8ff'));
+
+/* ---------- pose: where the neck, head and mouth are (dragon frame, facing +x) ---------- */
+function rpdPose(tier,o,t){const ph=o.ph||0,ch=o.charge||0,aim=o.aim==null?.35:o.aim;
+ let la=Math.atan2(Math.sin(aim),Math.abs(Math.cos(aim))||.001);la=rpClamp(la,-.75,.85);
+ const idle=Math.sin(t*1.3+ph)*.06,r=ch>.02||o.fire>.02?la:la*.6+.18+idle,bob=Math.sin(t*2.1+ph)*1.2-ch*1.5;
+ const N0=[10,-36+bob],na=-1.15+r*.55,H=[N0[0]+Math.cos(na)*24,N0[1]+Math.sin(na)*24];
+ const open=Math.min(1,ch*1.3+(o.fire||0)*.4);return{la,r,bob,N0,H,na,open}}
+function rpDragonMouth(tier,o){tier=rpdT(tier);o=o||{};const L=RPDL[tier],p=rpdPose(tier,o,o.t||0),c=Math.cos(p.r),s=Math.sin(p.r),mx=p.H[0]+c*32-s*4,my=p.H[1]+s*32+c*4;
+ const f=o.face==null?(Math.cos(o.aim==null?0:o.aim)<0?-1:1):(o.face<0?-1:1);return{x:f*L.s*mx,y:-L.h+L.s*my}}
+/* the dragon on its perch; g is at the perch top, scaled and flipped */
+function rpdDragon(g,tier,P,L,t,o,flyK,pass){const p=rpdPose(tier,o,t),ph=o.ph||0,ch=o.charge||0,fl=flyK||0;
+ if(pass!==1){g.save();g.translate(-22,-10+p.bob*.5);g.rotate(fl?1.25+Math.sin(t*6+ph)*.12:Math.sin(t*1.1+ph)*.05);rpPut(g,rpdTailS(P));g.restore();if(pass===0)return}
+ const flap=fl?Math.sin(t*14+ph)*.55:Math.sin(t*1.7+ph)*.07-ch*.2,sy=fl?1-.25*Math.max(0,Math.sin(t*14+ph)):1-.05*Math.sin(t*1.7+ph+1);
+ /* far wing */
+ g.save();g.translate(-6,-38+p.bob);g.rotate(fl?flap*.8+.55:flap*.8-.1);g.scale(.92,sy);rpPut(g,rpdWingS(P,1));g.restore();
+ g.save();g.translate(-ch*2,p.bob);rpPut(g,rpdBodyS(P,L));
+ /* chest furnace */
+ g.globalCompositeOperation='lighter';const fu=.45+.25*Math.sin(t*3+ph)+ch*.6;rpGlow(g,9,-21,10+ch*6,10+ch*6,P.core,fu);rpGlow(g,9,-21,4,4,'#ffffff',fu*.5);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;g.restore();
+ /* neck plates from the body to the head */
+ const N0=[p.N0[0]-ch*2,p.N0[1]],H=p.H,C=[N0[0]+4,(N0[1]+H[1])/2-2],ns=rpdNeckS(P);
+ for(let i=0;i<4;i++){const u=.08+i*.27,a=1-u,x=a*a*N0[0]+2*a*u*C[0]+u*u*H[0],y=a*a*N0[1]+2*a*u*C[1]+u*u*H[1],k=1.08-u*.25;g.save();g.translate(x,y);g.scale(k,k);rpPut(g,ns);g.restore()}
+ /* head and jaw */
+ g.save();g.translate(H[0],H[1]);g.rotate(p.r);
+ g.save();g.translate(1,5);g.rotate(p.open*.62);rpPut(g,rpdJawS(P));g.restore();
+ if(p.open>.05){g.globalCompositeOperation='lighter';rpGlow(g,22,4,16*p.open+6,10*p.open+4,P.glow2,p.open);rpGlow(g,26,4,8,6,'#ffffff',p.open*.8);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}
+ rpPut(g,rpdHeadS(P,L));
+ g.globalCompositeOperation='lighter';const ey=.75+.25*Math.sin(t*2.6+ph)+ch*.4;rpGlow(g,12.5,-5,8,6,P.core,ey*.9);rpGlow(g,12.5,-5,3.4,2.4,P.eye,Math.min(1,ey+.2));
+ if(ch<.05&&!fl){const u=((t*.6+ph)%1);if(u<.4){const v=u/.4;rpGlow(g,34+v*6,-4-v*10,3+v*5,3+v*5,P.glow2,(1-v)*.5)}}
+ g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;g.restore();
+ /* near wing */
+ g.save();g.translate(-12,-35+p.bob);g.rotate(fl?flap+.35:flap-.04);g.scale(1,sy);rpPut(g,rpdWingS(P,0));g.restore()}
+function rpdDraw(g,tier,skin,t,o){const L=RPDL[tier],P=rpdP(skin,tier),ph=o.ph||0,ch=o.charge||0,ga=o.ghost?.5:1;
+ const f=o.face==null?(Math.cos(o.aim==null?0:o.aim)<0?-1:1):(Math.abs(o.face)<.12?(o.face<0?-.12:.12):o.face);
+ g.save();RPGA=ga;g.globalAlpha=ga;g.lineJoin='round';g.lineCap='round';
+ if(o.sel){g.globalCompositeOperation='lighter';g.lineWidth=7;g.strokeStyle='rgba(255,201,74,.25)';g.beginPath();g.ellipse(0,15,64,26,0,0,TAU);g.stroke();g.globalCompositeOperation='source-over'}
+ if(L.rune){g.save();g.translate(0,14);g.scale(1,RPSQ);g.rotate(t*.3+ph);g.globalAlpha=ga*(.55+.2*Math.sin(t*2));g.globalCompositeOperation='lighter';rpPut(g,rpdRuneS());g.restore();g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ if(L.sun&&!o.away){g.save();g.translate(f*8*L.s,-L.h-48*L.s);g.rotate(t*.25+ph);const k=L.s*(1+.04*Math.sin(t*2));g.scale(k,k);g.globalAlpha=ga*.85;g.globalCompositeOperation='lighter';rpPut(g,rpdSunS(P));g.restore();g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ if(!o.away){g.save();g.translate(0,-L.h+2);g.scale(f*L.s,L.s);rpdDragon(g,tier,P,L,t,o,0,0);g.restore()}
+ rpPut(g,rpdRoostS(tier,P));
+ /* nest coals and the gears */
+ g.globalCompositeOperation='lighter';rpGlow(g,0,-L.h+1,30,13,P.glow,(.35+.15*Math.sin(t*2.4+ph)+ch*.3)*ga);g.globalCompositeOperation='source-over';g.globalAlpha=ga;
+ const spin=o.away?5:o.crank?3+o.crank*8:.9+ch*2.4,gy=-L.h*.5+2;
+ g.save();g.translate(0,gy);g.rotate(t*spin+ph);rpPut(g,rpdGearS(13,10,P));g.restore();
+ g.save();g.translate(-22,-L.h*.72);g.rotate(-t*spin*1.6+ph);rpPut(g,rpdGearS(7,7,P));g.restore();
+ g.save();g.translate(-19,-14);g.rotate(-t*spin*1.3+ph+1);rpPut(g,rpdGearS(6,6,P));g.restore();
+ /* steam from the vent */
+ if(!RPFX.lite)for(let i=0;i<2;i++){const u=((t*.5+i*.5+ph)%1),r=4+u*12;g.globalAlpha=ga*(1-u)*.38;g.drawImage(rpGlowC('#f2ecff'),38-r+u*8,-L.h-6-u*34-r,r*2,r*2)}g.globalAlpha=ga;
+ if(!o.away){g.save();g.translate(0,-L.h+2);g.scale(f*L.s,L.s);rpdDragon(g,tier,P,L,t,o,0,1);g.restore()}
+ if(o.crank>0){g.globalCompositeOperation='lighter';rpGlow(g,0,gy,30,30,'#ffd45a',o.crank*.8);g.globalCompositeOperation='source-over'}
+ g.restore();RPGA=1;g.globalAlpha=1}
+/* the dragon in flight (centred on its body), for the tier-5 wing dive */
+function rpDragonFly(g,x,y,ang,tier,skin,t,flap){tier=rpdT(tier);const L=RPDL[tier],P=rpdP(skin,tier),f=Math.cos(ang)<0?-1:1,a=f>0?ang:Math.PI-ang;
+ g.save();g.translate(x,y);g.scale(f*L.s*1.05,L.s*1.05);g.rotate(rpClamp(a,-.7,.7)*(1));g.translate(4,22);RPGA=1;g.globalAlpha=1;
+ rpdDragon(g,tier,P,L,t,{aim:.2,charge:.6,ph:0},flap==null?1:flap);g.restore();RPGA=1}
+
+/* ---------- the fire stream ---------- */
+function rpDragonBreath(g,x0,y0,x1,y1,t,k,tier,skin,lite){if(k<=.01)return;const P=rpdP(skin,tier),dx=x1-x0,dy=y1-y0,d=Math.hypot(dx,dy)||1,nx=-dy/d,ny=dx/d,cx=(x0+x1)/2+nx*d*.06,cy=(y0+y1)/2-d*.07;
+ const at=u=>{const a=1-u;return[a*a*x0+2*a*u*cx+u*u*x1,a*a*y0+2*a*u*cy+u*u*y1]};
+ g.save();{/* a coloured underlayer, so the fire keeps its colour on snow and other bright ground */const m=lite?4:7;for(let i=0;i<m;i++){const u=(i+.5)/m,[x,y]=at(u),w=(10+44*u)*(.7+.3*k);g.globalAlpha=.32*k;g.drawImage(rpGlowC(P.fl[1]),x-w,y-w*.8,w*2,w*1.6)}g.globalAlpha=1}
+ g.globalCompositeOperation='lighter';const n=Math.max(7,Math.min(lite?9:14,Math.round(d/(lite?24:15)))),sh=(t*7)%1,K=.7+.3*k;
+ const line=(w,c,a,u0,u1)=>{g.globalAlpha=a;g.lineWidth=w;g.strokeStyle=c;g.beginPath();for(let i=0;i<=8;i++){const [x,y]=at(u0+(u1-u0)*i/8);i?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()};g.lineCap='round';
+ line(22*K,rpA(P.fl[0],1),.22*k,.1,.9);line(11*K,rpA(P.fl[1],1),.34*k,.04,.85);line(4*K,rpA(P.fl[3],1),.6*k,.02,.6);
+ for(let i=0;i<n;i++){const u=(i+sh)/n,[x,y]=at(u),w=(10+50*u*u+12*u)*K,j=Math.sin(t*19+i*2.3)*w*.3,fx=x+nx*j,fy=y+ny*j-u*u*10;
+  rpGlow(g,fx,fy,w*1.5,w*1.2,P.fl[0],.6*k*(1-u*.3));rpGlow(g,fx,fy,w,w*.8,P.fl[1],.75*k);rpGlow(g,fx,fy,w*.55,w*.45,P.fl[2],.75*k*(1-u*.45));if(u<.7)rpGlow(g,x,y,w*.32,w*.26,P.fl[3],.9*k*(1-u))}
+ const [ex,ey]=at(1);rpGlow(g,ex,ey+6,70*K,30*K,P.glow,.55*k);rpGlow(g,ex,ey,30*K,16*K,'#ffffff',.3*k);
+ if(!lite)for(let i=0;i<6;i++){const v=((t*1.6+i/6)%1),[x,y]=at(.3+v*.7);rpGlow(g,x+Math.sin(i*2.3+t*5)*18,y-v*26-Math.cos(i)*8,3,3,P.fl[3],(1-v)*k)}
+ g.globalCompositeOperation='source-over';
+ /* cartoon flames where it lands, like the Ember Blazer's */
+ const nf=lite?2:3;for(let i=0;i<nf;i++){const a=(i-(nf-1)/2),x=ex+a*26*K+nx*a*6,y=ey+8+Math.abs(a)*4;g.globalAlpha=.92*k;rpFlame(g,x,y,(.62-Math.abs(a)*.14)*K,t,i*.37,P.fl,'dgb'+P.key)}
+ if(!lite){g.globalAlpha=.2*k;for(let i=0;i<3;i++){const v=((t*.9+i/3)%1),r=10+v*26;g.drawImage(rpGlowC('#2a1a2a'),ex-r+(i-1)*16,ey-30-r-v*40,r*2,r*2)}}
+ g.restore();g.globalAlpha=1;g.globalCompositeOperation='source-over'}
+
+/* ---------- build, upgrade and ascension ---------- */
+function rpdBuild(g,tier,skin,k,t,o){const from=o.from>=1&&o.from<tier?o.from|0:0,L=RPDL[tier],P=rpdP(skin,tier),S=(a,b)=>rpSeg(k,a,b),ph=o.ph||0;
+ g.save();RPGA=1;g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';
+ if(!from){/* the roost rises out of the ground, then the dragon swoops down and lands */
+  rpPut(g,rpPadS());const r=S(0,.42),e=rpEB(r),Lh=L.h+30;
+  if(r>0){g.save();g.beginPath();g.rect(-80,-Lh-40,160,Lh+40+10);g.clip();g.translate(0,(1-Math.min(1,e))*(Lh+20));g.scale(1,.7+.3*Math.min(1.2,e));
+   const oo={aim:o.aim,ph,away:1};rpdDraw(g,tier,skin,t,oo);g.restore();
+   if(r<1)rpDust(g,0,10,r,1.4)}
+  const d=S(.4,.82);if(d>0){const e2=rpEO(d),y=-L.h+2-(1-e2)*120,x=(1-e2)*-60;g.save();g.translate(x,y);const sq=d>.9?1+(1-d)*.6:1;g.scale(L.s*(o.face<0?-1:1),L.s/sq*(d>.9?1:1));
+   rpdDragon(g,tier,P,L,t,{aim:.3,ph,charge:0},d<.92?1:0);g.restore()}
+  const f=S(.82,1);if(f>0&&f<1){g.globalCompositeOperation='lighter';rpGlow(g,0,-L.h-30,60*f,40*f,P.glow2,(1-f));const m=rpDragonMouth(tier,{aim:-.9,ph});rpGlow(g,m.x,m.y-20*f,18+20*f,24+30*f,P.fl[2],(1-f)*.9);g.globalCompositeOperation='source-over'}
+  if(d>=1&&f>0&&f<1){g.save();const m=rpDragonMouth(tier,{aim:-.9,ph,charge:1-f});g.translate(m.x,m.y);g.globalAlpha=1-f;rpFlame(g,0,0,.6+.4*f,t,0,P.fl,'dgb'+P.key);g.restore()}}
+ else{/* upgrade: the dragon rears, glows white-hot, and roars a plume of fire; ascension adds a pillar of light */
+  const asc=tier>=4,sw=S(.38,.5),cur=sw<1?from:tier,ch=S(0,.4)*(1-S(.5,.7)),ro=S(.55,.95);
+  if(asc){const pl=S(.05,.4)*(1-S(.7,1));g.globalCompositeOperation='lighter';rpGlow(g,0,-120,40+30*pl,160,tier>=5?'#fff6d8':'#c890ff',pl*.8);g.globalCompositeOperation='source-over'}
+  const sc=sw>0&&sw<1?1+.12*Math.sin(sw*Math.PI):1;g.save();g.scale(1/sc,sc);rpdDraw(g,cur,skin,t,{aim:ro>0&&ro<1?-1.1:o.aim,ph,charge:Math.max(ch,ro>0&&ro<1?Math.sin(ro*Math.PI):0),face:o.face});g.restore();
+  if(ch>0||sw>0&&sw<1){g.globalCompositeOperation='lighter';rpGlow(g,0,-L.h-20,50+30*sw,60+30*sw,'#ffffff',Math.max(ch*.5,sw<1?Math.sin(sw*Math.PI):0));g.globalCompositeOperation='source-over'}
+  if(ro>0&&ro<1){const m=rpDragonMouth(tier,{aim:-1.1,ph,charge:1,face:o.face});g.save();g.translate(m.x,m.y);g.globalAlpha=Math.sin(ro*Math.PI);rpFlame(g,0,4,.8+.5*ro,t,0,P.fl,'dgb'+P.key);g.restore()}}
+ g.restore();RPGA=1;g.globalAlpha=1}
+
+/* ---------- warm, icon and the wrappers ---------- */
+function rpdWarm(tier,skin){const P=rpdP(skin,tier),L=RPDL[tier];rpPadS();rpdRoostS(tier,P);rpdGearS(13,10,P);rpdGearS(7,7,P);rpdGearS(6,6,P);rpdBodyS(P,L);rpdTailS(P);rpdWingS(P,0);rpdWingS(P,1);rpdNeckS(P);rpdHeadS(P,L);rpdJawS(P);
+ if(L.sun)rpdSunS(P);if(L.rune)rpdRuneS()}
+{const f0=rpTowerDraw;rpTowerDraw=function(g,type,tier,skin,t,o){if(type!=='dragon')return f0.apply(this,arguments);rpdDraw(g,rpdT(tier),rpdSk(skin),t||0,o||{})}}
+{const f0=rpTowerBuild;rpTowerBuild=function(g,type,tier,skin,k,t,o){if(type!=='dragon')return f0.apply(this,arguments);o=o||{};t=t||0;tier=rpdT(tier);skin=rpdSk(skin);if(!(k<1)){rpdDraw(g,tier,skin,t,o);return}rpdBuild(g,tier,skin,Math.max(0,k||0),t,o)}}
+{const f0=rpTowerTop;rpTowerTop=function(type,tier){if(type!=='dragon')return f0.apply(this,arguments);const L=RPDL[rpdT(tier)];return Math.round(L.h+58*L.s)}}
+{const f0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){if(type!=='dragon')return f0.apply(this,arguments);rpdWarm(rpdT(tier),rpdSk(skin))}}
+{const f0=rpTowerIcon;rpTowerIcon=function(type,tier,skin,size){if(type!=='dragon')return f0.apply(this,arguments);tier=rpdT(tier);skin=rpdSk(skin);size=Math.max(16,size|0||96);const key='dg|ic|'+tier+'|'+skin+'|'+size;let s=RPSPR.get(key);if(s)return s.c;
+ const c=document.createElement('canvas');c.width=c.height=size;const L=RPDL[tier],top=L.h+84*L.s,h=top+44,k=Math.min(size*.95/h,size*.95/150),g=c.getContext('2d');g.translate(size/2+4*k,size/2+(top-44)/2*k);g.scale(k,k);
+ try{rpdDraw(g,tier,skin,.4,{aim:-.25,ph:.3,face:1})}catch(e){console.error(e)}RPSPR.set(key,{c});return c}}
 /* ===== RUNESTONE RAMPARTS (8.8b): the maps =====
    rpGeo(map): every road as a smooth curve sampled every 4 px (G.paths[i] = {S:[{x,y,a}], len, own, ice}), a union distance dRoad(x,y),
    the river (Mossgate), and the build pads (chosen once: off the roads, clear of the HUD bands, the castle, the river, the lava lake and the
@@ -45332,6 +45582,392 @@ function rpWonderAmbient(c,t,R){if(R&&R.rm)return;c.save();const sp=rpwVortex();
 function rpwAurora(){if(RPWL.au)return RPWL.au;const w=450,h=60,c=rpwCv(w,h),g=c.getContext('2d');for(let k=0;k<3;k++){const q=g.createLinearGradient(0,0,w,0);q.addColorStop(0,'rgba(90,255,190,0)');q.addColorStop(.3,k===1?'rgba(255,120,230,.5)':'rgba(90,255,190,.5)');q.addColorStop(.7,'rgba(120,180,255,.5)');q.addColorStop(1,'rgba(120,180,255,0)');
   g.strokeStyle=q;g.lineWidth=10-k*3;g.beginPath();for(let x=0;x<=w;x+=10){const y=h/2+Math.sin(x*.018+k)*14+k*4;x?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()}
  return RPWL.au=c}
+/* ===== RUNESTONE TOWER DEFENSE 9.0: the Clockwork Dragon Roost in battle (95i, after 95h2; art in 95c4) =====
+   The sixth tower, unlocked by winning Ember Crown (the third map) and then usable on every map. Every few seconds the dragon
+   turns to its target and breathes a sweeping cone of fire that burns every monster it crosses, flyers included. Tier 3 leaves
+   burning ground; tier 4 (Wonderland) splits the breath into twin streams; tier 5 adds the wing dive: every fourth attack the
+   dragon leaves its roost, swoops low along the road in a trail of fire and returns. Any tier can be wound up (C, or the panel's
+   Wind up button): the gears spin and the next breath comes at once, then the crank needs RPD_CRANK seconds to reset.
+   State on the tower: br/brD (breath time left/total), a0/a1 (sweep angles), face (-1..1, eased), nb (breaths since a dive),
+   dive {t,d,pts,trail}, ck (crank flash), ckCd (crank cooldown). The HUD gains a sixth card (key Y) and a sixth ring button. */
+RP_TW.dragon={cost:[300,420,650,1250,2100],range:[210,225,245,265,285],dps:[90,120,170,280,440],beams:[1,1,1,2,2],cd:[4.2,3.9,3.6,3.3,3],dur:[1.2,1.35,1.5,1.6,1.7],cone:.36,
+ burn:[0,0,16,26,42],dive:[0,0,0,0,900],diveN:3,ap:[4,6,8,99,99],air:1,ground:1,
+ desc:'A clockwork dragon breathes sweeping fire that burns every monster it crosses, flyers too.',
+ up:['Bigger dragon: longer, hotter breath.','Crowned wyrm: its fire leaves the ground burning.','Mythic dragon: the breath splits into twin streams of violet fire.','Celestial dragon: every fourth attack it dives from the roost in a trail of fire.']};
+RP_TWORDER.push('dragon');RP_KEYS.push('Y');
+const RPD_CRANK=20;
+let RPDTW=null;
+const rpDragonOpen=()=>{try{const r=RPP();return (r.stars.ember||0)>0||r.dragon===1}catch(e){return false}};
+const rpLockedTw=t=>t==='dragon'&&!rpDragonOpen();
+function rpSfxRoar(){try{beep(150,.16,'sawtooth',.16);setTimeout(()=>beep(104,.32,'sawtooth',.14),80);setTimeout(()=>beep(70,.36,'triangle',.18),160)}catch(e){}}
+/* building: locked until Ember Crown is won */
+{const b0=rpBuild;rpBuild=function(pad,type){if(rpLockedTw(type)){rpSfx('no');rpToast('Win Ember Crown to unlock the Dragon Roost',1.8,'#ffb04a');return false}return b0.apply(this,arguments)}}
+{const p0=rpPlace;rpPlace=function(type){if(rpLockedTw(type)){rpSfx('no');rpToast('Win Ember Crown to unlock the Dragon Roost',1.8,'#ffb04a');return}return p0.apply(this,arguments)}}
+/* ---------- the breath ---------- */
+function rpDMouthW(tw,t){const m=rpDragonMouth(tw.tier,{aim:tw.aim,face:tw.face,ph:tw.ph,charge:tw.charge,t});return{x:tw.x+m.x,y:tw.y+m.y}}
+const rpAngD=(a,b)=>{let d=a-b;while(d>Math.PI)d-=TAU;while(d<-Math.PI)d+=TAU;return d};
+function rpDragonHit(R,tw,T,i,dt,m,angs){const rg=T.range[i],over=tw.over>0?1.3:1,dmg=T.dps[i]*over*dt;
+ for(const e of R.foes){if(e.dead||e.s<0)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,tw.x,tw.y)>rg*rg)continue;const a=Math.atan2(q.y-(e.air?40:18)-m.y,q.x-m.x);
+  if(angs.some(b=>Math.abs(rpAngD(a,b))<T.cone)){const fl=e.fl;rpHurt(e,dmg,T.ap[i],tw);e.fl=fl;e.scorch=.25}}}
+function rpDragonFire(R,tw,dt){const T=RP_TW.dragon,i=tw.tier-1,rg=T.range[i],sp=tw.over>0?RPT.AB.over.k:1;tw.over=Math.max(0,tw.over-dt);tw.ck=Math.max(0,(tw.ck||0)-dt*1.5);if(tw.ckCd>0)tw.ckCd=Math.max(0,tw.ckCd-dt);
+ if(tw.face==null)tw.face=1;const tf=Math.cos(tw.aim||0)<0?-1:1;tw.face+=(tf-tw.face)*Math.min(1,dt*7);
+ if(tw.dive)return rpDragonDive(R,tw,T,i,dt);
+ if(tw.br>0){tw.br-=dt*(tw.over>0?1.15:1);const u=rpClamp(1-tw.br/tw.brD,0,1);tw.aim=tw.a0+(tw.a1-tw.a0)*rpEase(u);tw.charge=Math.min(1,u*7,Math.max(0,tw.br)*5);tw.fire=1;
+  const m=rpDMouthW(tw,R.t),angs=T.beams[i]>1?[tw.aim-.24,tw.aim+.24]:[tw.aim];rpDragonHit(R,tw,T,i,dt,m,angs);tw.m=m;
+  if(T.burn[i]){tw.bt=(tw.bt||0)-dt;if(tw.bt<=0){tw.bt=.32;for(const a of angs){const d=rg*.82,x=m.x+Math.cos(a)*d,y=m.y+Math.sin(a)*d;if(R.G.dRoad(x,y)<70&&R.burns.length<40)R.burns.push({x,y,r:52,t:0,d:2.4,dps:T.burn[i],tw})}}}
+  if(tw.br<=0){tw.br=0;tw.cd=T.cd[i]-tw.brD;tw.nb=(tw.nb||0)+1}return}
+ tw.charge=Math.max(0,(tw.charge||0)-dt*4);tw.fire=Math.max(0,(tw.fire||0)-dt*3);
+ tw.cd-=dt*sp;if(tw.cd>0){const e=rpTarget(R,tw,rg,true,true,tw.prio,false);if(e){const q=rpPos(R,e);const m=rpDMouthW(tw,R.t);const ta=Math.atan2(q.y-(e.air?40:18)-m.y,q.x-m.x);tw.aim+=rpAngD(ta,tw.aim||0)*Math.min(1,dt*4)}return}
+ const e=rpTarget(R,tw,rg,true,true,tw.prio,false);if(!e){tw.cd=.15;return}
+ const q=rpPos(R,e);tw.aim=Math.atan2(q.y-(e.air?40:18)-(tw.y-RPDL[tw.tier].h-50),q.x-tw.x);tw.face=Math.cos(tw.aim)<0?-1:1;
+ if(T.dive[i]&&(tw.nb||0)>=T.diveN){tw.nb=0;return rpDragonDiveStart(R,tw,e)}
+ const m=rpDMouthW(tw,R.t),ta=Math.atan2(q.y-(e.air?40:18)-m.y,q.x-m.x);tw.sd=tw.sd===1?-1:1;tw.a0=ta-.42*tw.sd;tw.a1=ta+.42*tw.sd;tw.aim=tw.a0;
+ tw.br=tw.brD=T.dur[i];tw.bt=.1;if(!R.rm||Math.random()<.5)rpSfxRoar()}
+/* the tier-5 wing dive: up from the roost, low along the road over the target, and back */
+function rpDragonDiveStart(R,tw,e){const P=R.G.paths[e.pi||0]||R.G.paths[0],len=P.len,s0=Math.min(len-10,e.s+150),s1=Math.max(10,e.s-170),pts=[];
+ for(let k=0;k<=8;k++){const p=rpAt(R.G,s0+(s1-s0)*k/8,e.pi);pts.push({x:p.x,y:p.y-34})}
+ tw.dive={t:0,d:2.6,pts,hx:tw.x,hy:tw.y-RPDL[5].h-30,trail:[],tt:0};tw.charge=0;rpSfxRoar();setTimeout(()=>{try{rpSfx('boom')}catch(x){}},200);
+ rpText(tw.x,tw.y-170,'Wing dive!','#fff2b0',26)}
+function rpDivePos(D,u){const H={x:D.hx,y:D.hy},A=D.pts[0],B=D.pts[D.pts.length-1];
+ if(u<.24){const v=rpEase(u/.24),cx=(H.x+A.x)/2,cy=Math.min(H.y,A.y)-120;const a=1-v;return{x:a*a*H.x+2*a*v*cx+v*v*A.x,y:a*a*H.y+2*a*v*cy+v*v*A.y}}
+ if(u<.76){const v=(u-.24)/.52*(D.pts.length-1),k=Math.min(D.pts.length-2,v|0),f=v-k,p=D.pts[k],q=D.pts[k+1];return{x:p.x+(q.x-p.x)*f,y:p.y+(q.y-p.y)*f}}
+ const v=rpEase((u-.76)/.24),cx=(B.x+H.x)/2,cy=Math.min(H.y,B.y)-140,a=1-v;return{x:a*a*B.x+2*a*v*cx+v*v*H.x,y:a*a*B.y+2*a*v*cy+v*v*H.y}}
+function rpDragonDive(R,tw,T,i,dt){const D=tw.dive;D.t+=dt;const u=Math.min(1,D.t/D.d),p=rpDivePos(D,u),p2=rpDivePos(D,Math.min(1,u+.01));D.x=p.x;D.y=p.y;D.a=Math.atan2(p2.y-p.y,p2.x-p.x);tw.face=Math.cos(D.a)<0?-1:1;
+ if(u>.2&&u<.8){const over=tw.over>0?1.3:1;for(const e of R.foes){if(e.dead||e.s<0)continue;const q=rpPos(R,e);if((q.x-p.x)**2+((q.y-34-p.y)/.8)**2<80*80){const fl=e.fl;rpHurt(e,T.dive[i]*over*dt,99,tw);e.fl=fl;e.scorch=.25}}
+  D.tt-=dt;if(D.tt<=0){D.tt=.16;if(R.burns.length<40)R.burns.push({x:p.x,y:p.y+34,r:48,t:0,d:2.2,dps:T.burn[i],tw})}}
+ if(!R.lite||D.trail.length<8){D.trail.push({x:p.x,y:p.y,t:0});if(D.trail.length>26)D.trail.shift()}for(const q of D.trail)q.t+=dt;
+ if(u>=1){tw.dive=null;tw.cd=T.cd[i]*.6;rpRing(tw.x,tw.y,'#fff2b0',120,6);try{ptBurst(R.fx,tw.x,tw.y-RPDL[5].h-20,16,['#fff2b0','#ffd45a','#ffffff'],{v:220,s:4,k:'star'})}catch(e){}}}
+/* winding it up */
+function rpCrank(tw){const R=RPX;if(!R||!tw||tw.type!=='dragon'||tw.build<1||R.wst==='done')return false;if(tw.ckCd>0||tw.br>0||tw.dive){rpSfx('no');return false}
+ tw.cd=0;tw.ckCd=RPD_CRANK;tw.ck=1;rpSfx('ability');rpText(tw.x,tw.y-150,'Wound up!','#ffd45a',22);try{ptBurst(R.fx,tw.x,tw.y-RPDL[tw.tier].h*.5,10,['#ffd45a','#fff4c8','#c88a10'],{v:200,s:3.5})}catch(e){}return true}
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type==='dragon')return rpDragonFire(R,tw,dt);return f0.apply(this,arguments)}}
+{const u0=rpUpgrade;rpUpgrade=function(tw){const r=u0.apply(this,arguments);if(r&&tw&&tw.type==='dragon'){tw.br=0;tw.dive=null;tw.charge=0}return r}}
+/* drawing: the tower gets its face, dive and crank state; the streams and the flying dragon draw over the battle */
+{const d0=rpTowerDraw;rpTowerDraw=function(g,type,tier,skin,t,o){if(type==='dragon'&&RPDTW){o=Object.assign({},o,{face:RPDTW.face==null?1:RPDTW.face,away:RPDTW.dive?1:0,crank:RPDTW.ck||0,charge:RPDTW.charge||0})}return d0.call(this,g,type,tier,skin,t,o)}}
+{const b0=rpTowerBuild;rpTowerBuild=function(g,type,tier,skin,k,t,o){if(type==='dragon'&&RPDTW){o=Object.assign({},o,{face:RPDTW.face==null?1:RPDTW.face})}return b0.call(this,g,type,tier,skin,k,t,o)}}
+{const a0=rpTowerAt;rpTowerAt=function(c,R,tw){if(tw.type!=='dragon')return a0.apply(this,arguments);RPDTW=tw;try{return a0.apply(this,arguments)}finally{RPDTW=null}}}
+{const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);for(const p of R.pads){const tw=p.tw;if(!tw||tw.type!=='dragon'||tw.build<1)continue;
+  if(tw.br>0&&tw.m){const i=tw.tier-1,T=RP_TW.dragon,rg=T.range[i]*.86,angs=T.beams[i]>1?[tw.aim-.24,tw.aim+.24]:[tw.aim],k=Math.min(1,tw.charge*1.2);
+   for(const a of angs)rpDragonBreath(c,tw.m.x,tw.m.y,tw.m.x+Math.cos(a)*rg,tw.m.y+Math.sin(a)*rg,R.t,k,tw.tier,tw.skin,R.lite)}
+  if(tw.dive&&tw.dive.x!=null){const D=tw.dive,P=rpdP(tw.skin,tw.tier);c.save();c.globalCompositeOperation='lighter';
+   for(const q of D.trail){const f=Math.max(0,1-q.t/.7);if(f<=0)continue;rpGlow(c,q.x,q.y+6,26*f+8,20*f+6,P.fl[1],.55*f);rpGlow(c,q.x,q.y+6,10*f+4,8*f+3,P.fl[3],.6*f)}c.restore();RPGA=1;
+   c.globalAlpha=.35;c.fillStyle='#12081f';c.beginPath();c.ellipse(D.x,D.y+52,40,12,0,0,TAU);c.fill();c.globalAlpha=1;
+   rpDragonFly(c,D.x,D.y,D.a,tw.tier,tw.skin,R.t,1)}}}}
+/* ---------- the HUD: a sixth card and ring button (locked until Ember Crown is won), the Wind up button ---------- */
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h){h.classList.add('rp6');const c=h.querySelector('.rpcard[data-tw="dragon"]');if(c&&rpLockedTw('dragon')){c.classList.add('lock');c.insertAdjacentHTML('beforeend',`<i class="rplk">${RPI.lock}</i>`);const tp=c.querySelector('.rptip');if(tp)tp.innerHTML='<b>Dragon Roost · locked</b>Win Ember Crown (the third map) to unlock the clockwork dragon.'}}}catch(e){}return r}}
+{const g0=rpHudRing;rpHudRing=function(R,C){const was=C.rg;const r=g0.apply(this,arguments);try{if(C.rg!==was&&C.rg){const el=$('rpring'),p=R.selPad,below=p.y<330,ang=below?[172,140,108,72,40,8]:[-172,-140,-108,-72,-40,-8],rad=158;
+  el.querySelectorAll('.rprb').forEach((b,i)=>{const a=ang[i]*Math.PI/180;b.style.setProperty('--x',(Math.cos(a)*rad).toFixed(1)+'px');b.style.setProperty('--y',(Math.sin(a)*rad*.72).toFixed(1)+'px');if(rpLockedTw(b.dataset.tw)){b.classList.add('lock');b.insertAdjacentHTML('beforeend',`<i class="rplk">${RPI.lock}</i>`)}})}}catch(e){}return r}}
+{const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='dragon')return r;try{const T=RP_TW.dragon,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
+  const seg=(v,max)=>Math.max(0,Math.min(6,Math.round(v/max*6))),bar=(lab,v,max,nv)=>`<div class="rpst"><span>${lab}</span><i>${[0,1,2,3,4,5].map(k=>`<s class="${k<seg(v,max)?'on':nv!=null&&k<seg(nv,max)?'up':''}"></s>`).join('')}</i></div>`;
+  const pw=j=>Math.sqrt(T.dps[j]*T.dur[j]/T.cd[j]*T.beams[j]*3);
+  const st=el.querySelector('.rpsts');if(st)st.innerHTML=bar('Range',T.range[i],320,nx!=null?T.range[nx]:null)+bar('Damage',pw(i),Math.sqrt(1400),nx!=null?pw(nx):null)+bar('Breath',T.dur[i],1.8,nx!=null?T.dur[nx]:null)+bar('Burn',T.burn[i]+(T.dive[i]?20:0),62,nx!=null?T.burn[nx]+(T.dive[nx]?20:0):null);
+  const pr=el.querySelector('.rppri');if(pr)pr.insertAdjacentHTML('beforebegin',`<button class="rpcrank" id="rpcrank"><span class="rpcrg">${RPI.gear}</span><b>Wind up</b><small id="rpcrks">Breathe fire now</small><kbd>C</kbd></button>`);
+  const b=$('rpcrank');if(b)b.onclick=()=>rpCrank(tw);
+  /* the panel grew: place it again so the Sell row still clears the tower bar */
+  const hgt=el.offsetHeight||460;el.style.top=rpClamp(tw.y-hgt*.62,76,770-hgt)+'px'}catch(e){console.error(e)}return r}}
+{const i0=rpHudInfo;rpHudInfo=function(R,C){i0.apply(this,arguments);const tw=R.sel;if(!tw||tw.type!=='dragon')return;const b=$('rpcrank');if(!b)return;
+ const s=tw.ckCd>0?`Ready in ${Math.ceil(tw.ckCd)} s`:tw.br>0?'Breathing fire…':tw.dive?'Diving…':'Breathe fire now',dis=tw.ckCd>0||tw.br>0||!!tw.dive;if(b.dataset.s!==s){b.dataset.s=s;rpSetText($('rpcrks'),s);b.classList.toggle('no',dis)}}}
+RPI.gear='<svg viewBox="0 0 24 24"><path d="M10.4 2h3.2l.5 2.6 1.9.8 2.2-1.5 2.3 2.3-1.5 2.2.8 1.9 2.6.5v3.2l-2.6.5-.8 1.9 1.5 2.2-2.3 2.3-2.2-1.5-1.9.8-.5 2.6h-3.2l-.5-2.6-1.9-.8-2.2 1.5-2.3-2.3 1.5-2.2-.8-1.9L2 13.6v-3.2l2.6-.5.8-1.9-1.5-2.2 2.3-2.3 2.2 1.5 1.9-.8z" fill="#ffd45a" stroke="#12081f" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.4" fill="#8a5a14" stroke="#12081f" stroke-width="1.4"/></svg>';
+/* keys: Y picks the dragon, C winds up the selected one */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1){const lk=e.key.toLowerCase();
+  if(lk==='y'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('dragon');return}
+  if(lk==='c'&&R.sel&&R.sel.type==='dragon'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpCrank(R.sel);return}}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+/* winning Ember Crown unlocks the dragon: a card on the result screen, once */
+{const r0=rpResult;rpResult=function(){const R=RPX,res=R&&R.result;const out=r0.apply(this,arguments);try{const rp=RPP();if(res&&res.won&&R.map.id==='ember'&&!rp.dragonSeen){rp.dragon=1;rp.dragonSeen=1;save();
+  const box=ov.querySelector('.rpres'),unls=box&&box.querySelector('.rpunls');if(unls){unls.insertAdjacentHTML('afterbegin',`<span class="rpunl rpunld"><img alt="" src="${rpIconCanvas('dragon',3,'base',96)}"><b>Dragon Roost</b><small>New tower! Key Y</small></span>`)}
+  else if(box){const d=document.createElement('div');d.className='rpdun';d.innerHTML=`<img alt="" src="${rpIconCanvas('dragon',3,'base',120)}"><span><small>NEW TOWER UNLOCKED</small><b>Dragon Roost</b><em>A clockwork dragon that breathes sweeping fire. Build it on any map (key Y).</em></span>`;
+   const row=box.querySelector('.row');if(row)row.before(d);else box.appendChild(d)}}}catch(e){console.error(e)}return out}}
+/* help texts */
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]=h[1].replace('or the Celestial Prism (the costliest: ramping radiant beams).','the Celestial Prism (the costliest: ramping radiant beams) or, once you win Ember Crown, the Dragon Roost (Y: a clockwork dragon whose sweeping fire breath burns every monster it crosses; C winds it up).')}catch(e){}
+{const s0=document.createElement('style');s0.textContent=`
+.rph.rp6 .rpbar{left:742px;gap:8px}.rph.rp6 .rpcard{width:120px}.rph.rp6 .rpcard img{width:64px;height:64px;margin:-12px -8px 0 -6px}
+.rph.rp6 .rpct b{font-size:13px}
+.rpcard.lock img,.rprb.lock img{opacity:.45}.rpcard.lock .rpcost,.rprb.lock b{opacity:.5}
+.rplk{position:absolute;left:28px;top:26px;width:26px;height:26px;pointer-events:none}.rplk svg{width:100%;height:100%}.rprb .rplk{left:27px;top:20px}
+.rpcrank{position:relative;display:grid;grid-template-columns:34px 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;width:100%;margin:8px 0 2px;padding:8px 44px 8px 10px;border-radius:14px;border:2px solid #ffb04a;background:linear-gradient(180deg,#4a2a14,#2a140c);color:#fff8e8;text-align:left;cursor:pointer;transition:transform .15s var(--sp)}
+.rpcrank:hover{transform:translateY(-2px)}.rpcrank.no{opacity:.55;filter:none}.rpcrank .rpcrg{grid-row:1/3;width:34px;height:34px;display:block;transition:transform .5s var(--sp)}.rpcrank:hover .rpcrg{transform:rotate(90deg)}.rpcrank .rpcrg svg{width:100%;height:100%}
+.rpcrank b{font:800 15px var(--ui);color:#ffd45a}.rpcrank small{font:600 12px var(--ui);color:#e8d8c8}.rpcrank kbd{position:absolute;right:10px;top:50%;transform:translateY(-50%)}
+.rpdun{display:flex;align-items:center;gap:14px;margin:10px auto 6px;max-width:560px;padding:10px 18px 10px 10px;border-radius:18px;border:2px solid #ffb04a;background:linear-gradient(90deg,#4a2410,#1a0e30);box-shadow:0 0 0 2px #12081f;text-align:left;animation:rpdun .6s var(--sp) both .6s}
+.rpdun img{width:96px;height:96px;flex:none;margin:-14px 0 -8px}.rpdun small{display:block;font:800 12px var(--ui);letter-spacing:.14em;color:#ffb04a}.rpdun b{display:block;font:400 32px/1.05 'Pirata One',var(--ui);color:#ffd45a}.rpdun em{display:block;font:600 14px var(--ui);font-style:normal;color:#e8e0ff}
+@keyframes rpdun{from{opacity:0;transform:scale(.8)}}
+#ov .rpunl.rpunld{border-color:#ffb04a;background:linear-gradient(180deg,#4a2410,#1a0e30)}.rpunl.rpunld b{color:#ffd45a}`;document.head.appendChild(s0)}
+/* ===== RUNESTONE TOWER DEFENSE 9.0: the Wonderland Championship, its prize and the Tower Skins screen (95j, after 95i) =====
+   A season leaderboard of the best wave reached in the endless Wonderland (map 4 only), built exactly like the Wildcard Ranked
+   board (89w): the same seasons (rkSeason, six weeks), the same player key and name (#abcd), the same public Nostr relays
+   (WCRELAYS), signatures, lazy verification, paging, offline copy and "Show me" switch. Each player's game posts one replaceable
+   event per season (kind 30078, tags d/t = "twrp-lb-s<season>"): {v:1,s,n,w (best wave held),d (that run's game time, s),
+   k (its kills),r (runs this season),t (when it was reached)}. Hidden players post {hide:1}.
+   Checks (rpLbCheck, by every reader): the season tag and time window; whole numbers in range; at least RPLBWT game seconds per
+   wave; enough kills for the waves; the run fits in the season even at 3x speed; not more runs than time allows; names cleaned
+   (rkLbName). Ranking: most waves, then who reached it first.
+   Prize: an hour after a season ends, the game reads that season's board once (rpLbPrize). If this player is first, it pays
+   RPLB_PRIZE coins once and unlocks the Azure Dragon skin ('dragon:azure': blue steel, gold trim, blue fire), and shows the
+   champion's ceremony. The season's champion is remembered (L.champ) and shown on the hub. The prize is advertised on the home
+   screen (a championship card), the hub (a championship panel and top buttons), the board, the Wonderland side panel and result,
+   the Tower Skins screen and the help text. No Updates-tab notice.
+   Save: P.rp.lb via rpLbSt(): s (season), best/bt/bd/bk (this season's best run), runs, hide, last/pend/sent/at (sending), c (the
+   board saved for offline), hist {season: best run}, chk {season: prize checked}, won {season: 1}, champ {season: {n,pk,w,me}},
+   cel (a ceremony waiting). */
+const RPLB={t:0,s:0,state:'idle',list:[],all:0,me:null,hidden:0,relays:0,reached:0,p:null,loading:null,pushT:0,pushQ:0,refT:0,busy:0};
+const RPLBK=30078,RPLBWT=8,RPLB_PRIZE=50000,rpLbTag=s=>'twrp-lb-s'+s;
+/* this player's key, without making one: reading the board must not give a fresh profile a key (only sending does) */
+const rpMyPk=()=>{try{return P.rk&&/^[0-9a-f]{64}$/.test(P.rk.nsk||'')?rkLbKey().pk:''}catch(e){return''}};
+function rpLbSt(){const r=RPP();let L=r.lb;if(!L||typeof L!=='object'||Array.isArray(L))L=r.lb={};
+ const D={s:0,best:0,bt:0,bd:0,bk:0,runs:0,hide:0,last:'',pend:0,sent:0,at:0,c:null,hist:{},chk:{},won:{},champ:{},cel:0};
+ for(const k in D)if(L[k]===undefined||(D[k]!==null&&(typeof L[k]!==typeof D[k]||Array.isArray(L[k]))))L[k]=D[k];
+ const s=rkSeason();if(L.s!==s){if(L.s&&L.best>0&&!L.hist[L.s])L.hist[L.s]={w:L.best,t:L.bt,d:L.bd,k:L.bk,r:L.runs,hide:L.hide};Object.assign(L,{s,best:0,bt:0,bd:0,bk:0,runs:0,last:'',pend:0,sent:0,c:null})}
+ return L}
+const rpSeaLeft=()=>{const ms=rkSeasonEnd(rkSeason())-Date.now(),d=Math.floor(ms/864e5),h=Math.floor(ms/36e5);return d>=2?`${d} days left`:h>=1?`${h} h left`:'ends within the hour'};
+/* ---------- what this player posts ---------- */
+function rpLbMine(){const L=rpLbSt();return{v:1,s:L.s,n:rkLbName(P.name||'Player'),w:L.best,d:L.bd,k:L.bk,r:Math.max(1,L.runs),t:L.bt}}
+const rpLbContent=()=>{const L=rpLbSt();return JSON.stringify(L.hide?{v:1,s:L.s,hide:1}:rpLbMine())};
+const rpLbDirty=()=>{try{const L=rpLbSt();if(!L.hide&&L.best<1)return false;return !!L.pend||L.last!==rpLbContent()}catch(e){return false}};
+async function rpLbPush(force){const L=rpLbSt(),rel=rkLbRelays();if(!rel.length)return 0;if(!L.hide&&L.best<1)return 0;
+ if(RPLB.p){RPLB.again=1;return RPLB.p}const now=Date.now();
+ if(now-RPLB.pushT<15000&&!force){clearTimeout(RPLB.pushQ);RPLB.pushQ=setTimeout(()=>rpLbPush(),15000-(now-RPLB.pushT));return 0}RPLB.pushT=now;clearTimeout(RPLB.pushQ);
+ RPLB.p=(async()=>{let n=0;try{const K=rkLbKey(),txt=rpLbContent(),tg=rpLbTag(L.s);
+  const at=Math.max(Math.floor(Date.now()/1000),(rpLbSt().at|0)+1);rpLbSt().at=at;
+  const ev=await rkEvSign(K,RPLBK,[['d',tg],['t',tg],['t','twrp-lb']],txt,at);const oks=await Promise.all(rel.map(u=>rkRelaySend(u,ev,6000)));n=oks.filter(Boolean).length;
+  const S2=rpLbSt();if(n){S2.sent=Date.now();S2.last=txt;S2.pend=0;RPLB.t=0;try{const k=rkSt();if(!k.lbSent)k.lbSent=Date.now()}catch(e){}}else S2.pend=1;save()}catch(e){try{rpLbSt().pend=1;save()}catch(x){}}
+  finally{RPLB.p=null;if(RPLB.again){RPLB.again=0;if(rpLbDirty())setTimeout(()=>rpLbPush(true),50)}}rpLbPaint();return n})();return RPLB.p}
+try{addEventListener('online',()=>{if(rpLbDirty())rpLbPush(true);rpLbPrize()})}catch(e){}
+/* ---------- the checks ---------- */
+function rpLbCheck(ev,season,now){try{now=now||Math.floor(Date.now()/1000);const S0=rkSeaStart(season),tg=rpLbTag(season);
+ if(ev.kind!==RPLBK||!Array.isArray(ev.tags)||!ev.tags.some(t=>Array.isArray(t)&&t[0]==='d'&&t[1]===tg)||typeof ev.content!=='string'||ev.content.length>2000)return null;
+ if(!rkInt(ev.created_at,S0-60,Math.min(now+600,rkSeaStart(season+1)+3600)))return null;
+ const c=JSON.parse(ev.content);if(!c||typeof c!=='object'||Array.isArray(c)||c.v!==1||c.s!==season)return null;if(c.hide===1)return{hide:1,gone:c.gone===1};
+ const{w,d,k,r,t}=c;if(!rkInt(w,1,5000)||!rkInt(d,w*RPLBWT,1e7)||!rkInt(k,Math.max(0,w*5-25),1e8)||!rkInt(r,1,1e6)||!rkInt(t,S0-60,ev.created_at+5))return null;
+ if(t-Math.ceil(d/3)<S0-120)return null;/* even at 3x speed the run had to be played inside the season */
+ if(r>(ev.created_at-S0)/3+5)return null;/* not more runs than time allows */
+ return{pk:ev.pubkey,id:ev.id,t:ev.created_at,n:rkLbName(c.n),w,d,k,r,at:t,sc:w}}catch(e){return null}}
+function rpLbSort(a,b){return b.w-a.w||a.at-b.at||a.d-b.d||(a.pk<b.pk?-1:a.pk>b.pk?1:0)}
+async function rpLbHead(g,season,nowS){while(g.length){const ev=g[0],e=rpLbCheck(ev,season,nowS);if(e&&!e.hide){e.ev=ev;return e}
+  if(g.length>1&&!(await rkEvOk(ev))){g.shift();continue}return e}return null}
+/* read a season's board from every relay: the newest valid entry per player, verified, ranked (this player's own key left out) */
+async function rpLbFetch(season){const rel=rkLbRelays();if(!rel.length)return{ok:0,relays:0,reached:0};const tg=rpLbTag(season);
+ const res=await Promise.all(rel.map(u=>rkRelayQueryAll(u,{kinds:[RPLBK],'#t':[tg],limit:1000},6500))),reached=res.filter(x=>x.ok).length;if(!reached)return{ok:0,relays:rel.length,reached};
+ const groups=new Map();for(const x of res)for(const ev of x.evs){if(!rkEvShape(ev))continue;let g=groups.get(ev.pubkey);if(!g)groups.set(ev.pubkey,g=[]);if(!g.some(o=>o.id===ev.id&&o.sig===ev.sig))g.push(ev)}
+ const mine=rpMyPk(),nowS=Math.floor(Date.now()/1000),cand=[];let hidden=0;if(mine)groups.delete(mine);
+ for(const g of groups.values()){g.sort((a,b)=>b.created_at-a.created_at||(a.id<b.id?-1:1));if(g.length>6)g.length=6;const e=await rpLbHead(g,season,nowS);if(!e)continue;if(e.hide){if(!e.gone)hidden++;continue}cand.push(e)}
+ cand.sort(rpLbSort);const list=[];let i=0,k=0;
+ while(i<cand.length&&list.length<100){const e=cand[i++];if(await rkEvOk(e.ev)){list.push(e);if(++k%10===0)await new Promise(r=>setTimeout(r,0));continue}
+  const g=groups.get(e.pk);g.shift();const n=await rpLbHead(g,season,nowS);if(!n)continue;if(n.hide){if(!n.gone)hidden++;continue}
+  let j=i;while(j<cand.length&&rpLbSort(cand[j],n)<0)j++;cand.splice(j,0,n)}
+ return{ok:1,relays:rel.length,reached,list,rest:cand.slice(i),hidden}}
+async function rpLbLoad(force){const L=rpLbSt(),now=Date.now();if(!force&&RPLB.state==='ok'&&now-RPLB.t<120000&&RPLB.s===L.s)return RPLB;if(RPLB.loading)return RPLB.loading;
+ if(!rkLbRelays().length){RPLB.state='offline';RPLB.relays=0;RPLB.reached=0;rpLbPaint();return RPLB}RPLB.state=RPLB.state==='ok'&&RPLB.s===L.s?'ok':'loading';RPLB.busy=1;rpLbPaint();
+ RPLB.loading=(async()=>{try{const season=L.s,f=await rpLbFetch(season);RPLB.relays=f.relays;RPLB.reached=f.reached;if(!f.ok){RPLB.state='offline';return RPLB}
+  const list=f.list,rest=f.rest;let me=null,place=0;const L2=rpLbSt();
+  if(!L2.hide&&L2.best>0){const c=rpLbMine();me={pk:rpMyPk()||'me',me:1,t:Math.floor((L2.sent||now)/1000),n:c.n,w:c.w,d:c.d,k:c.k,r:c.r,at:c.t,sc:c.w};
+   place=list.filter(e=>rpLbSort(e,me)<0).length+rest.filter(e=>rpLbSort(e,me)<0).length+1;const at=list.findIndex(e=>rpLbSort(e,me)>0);
+   if(at>=0){list.splice(at,0,me);if(list.length>100)list.length=100}else list.push(me);me.place=place}
+  Object.assign(RPLB,{state:'ok',list,all:list.filter(e=>!e.me).length+rest.length+(me?1:0),me,hidden:f.hidden,t:Date.now(),s:season});
+  try{L2.c={t:RPLB.t,s:season,list:list.map(e=>({pk:e.pk.slice(0,8),n:e.n,w:e.w,d:e.d,r:e.r,me:e.me?1:0})),all:RPLB.all,place};save()}catch(e){}
+  if(rpLbDirty())rpLbPush(true);return RPLB}
+ catch(e){RPLB.state='offline';return RPLB}finally{RPLB.loading=null;RPLB.busy=0;rpLbPaint()}})();return RPLB.loading}
+/* ---------- the season's prize ---------- */
+async function rpLbPrize(){if(RPLB.pz)return;const L=rpLbSt(),now=Date.now();const ss=Object.keys(L.hist).map(Number).filter(s=>s<L.s&&!L.chk[s]&&now>rkSeasonEnd(s)+36e5);if(!ss.length)return;RPLB.pz=1;
+ try{for(const s of ss){const h=L.hist[s],f=await rpLbFetch(s);if(!f.ok)continue;const top=f.list[0]||null,me={pk:rpMyPk(),w:h.w,at:h.t,d:h.d};
+   const win=!h.hide&&h.w>0&&(!top||rpLbSort(me,top)<0);
+   L.champ[s]=win?{n:rkLbName(P.name||'Player'),pk:(me.pk||'').slice(0,4),w:h.w,me:1}:top?{n:top.n,pk:top.pk.slice(0,4),w:top.w}:null;L.chk[s]=1;
+   if(win&&!L.won[s]){L.won[s]=1;RPP().own['dragon:azure']=1;P.gold=Math.min(1e12,(P.gold||0)+RPLB_PRIZE);try{stat('gold',RPLB_PRIZE,'add')}catch(e){}L.cel=s}save()}}
+ catch(e){}finally{RPLB.pz=0}if(L.cel)rpChampCeremony()}
+setTimeout(()=>{try{rpLbSt();rpLbPrize();if(rpLbDirty())rpLbPush(true)}catch(e){}},4500);
+/* a reset or replaced save: its Wonderland entry leaves the board too (the Wildcard retire list, 89w, holds the old keys) */
+async function rpLbRetireRun(){if(RPLB.ret||RKLB.ret)return;const rel=rkLbRelays();let L=rkLbRetireList();if(!rel.length||!L.some(x=>!x.rpd))return;RPLB.ret=1;
+ try{for(const x of L){if(x.rpd)continue;const d=BigInt('0x'+x.nsk),pk=wcHx(wcN2b(wcMul(d)[0])),s=rkSeason(),tg=rpLbTag(s);
+  /* only a key that has a visible Wonderland entry this season needs a "gone" entry */
+  const got=await Promise.all(rel.map(u=>rkRelayQuery(u,{kinds:[RPLBK],authors:[pk],'#t':[tg],limit:4},5000)));if(!got.some(g=>g.ok))continue;
+  const on=got.some(g=>g.evs.some(ev=>{try{const c=JSON.parse(ev.content);return ev.pubkey===pk&&c&&!c.hide}catch(e){return false}}));if(!on){x.rpd=1;continue}
+  const ev=await rkEvSign({d,pk},RPLBK,[['d',tg],['t',tg],['t','twrp-lb']],JSON.stringify({v:1,s,hide:1,gone:1}));if((await Promise.all(rel.map(u=>rkRelaySend(u,ev,6000)))).some(Boolean))x.rpd=1}
+  const cur=rkLbRetireList();for(const y of cur){const m=L.find(x=>x.nsk===y.nsk);if(m&&m.rpd)y.rpd=1}rkLbLs('twlbRetire',cur)}catch(e){}finally{RPLB.ret=0}}
+setTimeout(()=>{try{rpLbRetireRun()}catch(e){}},6000);
+/* a Wonderland run counts when it ends (before the result screen is drawn) */
+{const f0=rpFinishEndless;rpFinishEndless=function(){const R=RPX;try{if(R&&!R.over){const held=R.heldAt!=null?R.heldAt:Math.max(0,R.wave-(R.wst==='build'?0:1));if(held>0){const L=rpLbSt();L.runs++;
+  if(held>L.best){L.best=held;L.bt=Math.floor(Date.now()/1000);L.bd=Math.max(Math.round(R.time),held*RPLBWT);L.bk=Math.max(R.kills,held*5);R.lbNew=1}R.lbBest=L.best;setTimeout(()=>rpLbPush(true).then(()=>rpLbLoad(true)),300)}}}catch(e){}return f0.apply(this,arguments)}}
+
+/* ---------- painting (only what changed) ---------- */
+const rpLbView=()=>{const L=rpLbSt();if(RPLB.state==='ok'&&RPLB.s===L.s)return{live:1,list:RPLB.list,all:RPLB.all,place:RPLB.me?RPLB.me.place:0,t:RPLB.t};const c=L.c;if(c&&c.s===L.s&&Array.isArray(c.list))return{live:0,list:c.list,all:c.all|0,place:c.place|0,t:c.t};return null};
+const rpFmtD=s=>{s=Math.max(0,s|0);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h?`${h} h ${m} min`:`${m} min`};
+function rpLbRow(e,place){const pl=place<=3?` p${place}`:'';return `<div class="rplbr${e.me?' me':''}" style="--d:${Math.min(place,14)}"><span class="rkbpl${pl}">${place}</span><span class="rplbn"><b>${esc(e.me?rkLbName(P.name||'Player'):e.n)}</b><small>${e.me?'you':'#'+esc(String(e.pk).slice(0,4))}</small></span><span class="rplbw"><b>${cmn(e.w)}</b><small>waves</small></span><span class="rplbt">${rpFmtD(e.d)}</span><span class="rplbu">${cmn(e.r)} run${e.r===1?'':'s'}</span></div>`}
+function rpLbStatus(){const v=rpLbView(),L=rpLbSt();if(RPLB.busy&&!v)return'Loading the leaderboard…';
+ if(RPLB.state==='ok'&&v&&v.live)return`Updated ${rkAgo(v.t)} · ${RPLB.reached} of ${RPLB.relays} relays answered${RPLB.hidden?` · ${RPLB.hidden} hidden by their players`:''}`;
+ if(RPLB.busy)return'Updating…';if(v)return`Offline · showing the board saved ${rkAgo(v.t)}`;return L.pend?'Offline · your best wave will be sent when you are back online':'Could not reach the leaderboard.'}
+function rpLbPlaceTxt(){const v=rpLbView(),L=rpLbSt();if(L.hide)return'Hidden from the board';if(L.best<1)return'Not on the board yet';return v&&v.place?`#${v.place} of ${cmn(v.all)}`:RPLB.busy?'Finding your place…':'Place shows once the board loads'}
+function rpLbPaint(){try{const v=rpLbView(),L=rpLbSt();
+ const set=(id,h)=>{const el=document.getElementById(id);if(el&&el.dataset.k!==h){el.dataset.k=h;el.innerHTML=h}return el};
+ const lead=v&&v.list.length?v.list[0]:null,leadTxt=lead?`${lead.me?'You lead':`Leader: ${esc(lead.me?rkLbName(P.name||'Player'):lead.n)}`} · wave ${cmn(lead.w)}`:RPLB.busy?'Loading the leaders…':'No one on the board yet: be the first!';
+ set('rpchlead',leadTxt);set('rpchme',L.best?`<b>${rpLbPlaceTxt()}</b> · your best ${cmn(L.best)} waves`:'Play the Wonderland to get on the board');
+ set('rphchl',L.best?`${rpLbPlaceTxt()} · best ${cmn(L.best)}`:leadTxt);
+ set('rplbres',L.best?`<b>${rpLbPlaceTxt()}</b> on the season board · season best ${cmn(L.best)} waves`:'');
+ const bd=document.getElementById('rplb');if(!bd)return;const box=bd.querySelector('#rplbrows'),st=bd.querySelector('#rplbst'),pl=bd.querySelector('#rplbplace'),of=bd.querySelector('#rplbof'),rf=bd.querySelector('#rplbref');
+ if(rf)rf.classList.toggle('spin',!!RPLB.busy);if(st)st.textContent=rpLbStatus();
+ if(pl){pl.textContent=L.hide?'Hidden':v&&v.place?'#'+v.place:'—';of.textContent=L.hide?'You are not shown on the leaderboard.':L.best<1?'Hold a wave in the Wonderland to get on the board.':v&&v.place?`of ${cmn(v.all)} player${v.all===1?'':'s'} · best ${cmn(L.best)} waves`:RPLB.busy?'Finding your place…':'Your place shows once the board loads.'}
+ if(box){let h;if(v&&v.list.length){let out='',shown=false;for(let i=0;i<v.list.length;i++){const e=v.list[i];out+=rpLbRow(e,e.me&&v.place?v.place:i+1);if(e.me)shown=true}h=out}
+  else if(v)h=`<div class="rkbmt"><b>No one is on the board yet</b><p>Season ${L.s} is waiting for its first defenders. Hold a wave in the Wonderland to take first place.</p></div>`;
+  else if(RPLB.busy)h=`<div class="rkbmt"><b>Loading the leaderboard…</b><p>Asking the relays for this season's defenders.</p></div>`;
+  else h=`<div class="rkbmt"><b>Couldn't reach the leaderboard</b><p>The leaderboard lives on public relays and needs an internet connection. Your best wave is safe on this device and is sent when you are back online.</p><button class="rpbk" id="rplbretry">Try again</button></div>`;
+  if(box.dataset.k!==h){box.dataset.k=h;box.innerHTML=h;const me=box.querySelector('.rplbr.me');if(me&&!box.dataset.sc){box.dataset.sc=1;box.scrollTop=Math.max(0,me.offsetTop-box.offsetTop-box.clientHeight/2+30)}
+   const rt=box.querySelector('#rplbretry');if(rt)rt.onclick=()=>{rpSfx('key',2);rpLbLoad(true)}}}}catch(e){}}
+
+/* ---------- the animated prize: the Azure Dragon breathing blue fire ---------- */
+function rpPrizeLive(cv,o){o=o||{};const g=cv.getContext('2d'),W2=cv.width,H2=cv.height,tier=o.tier||5,sc=o.sc||1.6;
+ const fn=t=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,W2,H2);if(!o.clear){const q=g.createRadialGradient(W2*.42,H2*.55,10,W2*.42,H2*.55,W2*.7);q.addColorStop(0,'#1e3a8a');q.addColorStop(.55,'#121a50');q.addColorStop(1,'#0a0828');g.fillStyle=q;g.fillRect(0,0,W2,H2)}
+  const cyc=(t%4.2)/4.2,ch=cyc<.5?0:Math.min(1,Math.sin((cyc-.5)/.5*Math.PI)*1.6),aim=.45+Math.sin(t*1.3)*.12,x=W2*(o.x||.34),y=H2*(o.y||.86);
+  g.save();g.translate(x,y);g.scale(sc,sc);const op={aim,face:1,charge:ch,ph:.3};rpTowerDraw(g,'dragon',tier,'azure',t,op);const m=rpDragonMouth(tier,Object.assign({t},op));g.restore();
+  if(ch>.02){const mx=x+m.x*sc,my=y+m.y*sc,r=W2*.55;rpDragonBreath(g,mx,my,mx+Math.cos(aim)*r,my+Math.sin(aim)*r*.8,t,ch,tier,'azure',RPFX.lite)}};
+ fn(1.2);if(!rpRM())LIVE.push({cv,fn,slow:2,ph:o.ph||0,vis:true});return fn}
+
+/* ---------- the board screen ---------- */
+function rpBoard(back){const L=rpLbSt(),K=(()=>{try{return rkLbKey()}catch(e){return{pk:''}}})(),pc=L.champ[L.s-1];back=back||(()=>rampartsMenu(title));
+ show(`<div class="rpx rplb" id="rplb"><canvas class="rplbbg" id="rplbbg" width="1600" height="900"></canvas>
+  <div class="rphtop"><button class="rpbk" id="rplbback" aria-label="Back (Esc)">‹ Back</button></div>
+  <div class="rplbh"><p class="rpkick">SEASON ${L.s} · ${rpSeaLeft().toUpperCase()}</p><h1 class="rptitle">Wonderland Championship</h1></div>
+  <section class="rplbp rplbme"><div class="rplbpz"><canvas id="rplbpc" width="460" height="250"></canvas><span class="rplbtag">CHAMPION'S PRIZE</span></div>
+   <h3>Azure Dragon <i>+</i> <b>${cmn(RPLB_PRIZE)}</b> coins</h3><p class="rplbpx">The player who holds the most waves in the endless Wonderland this season wins a dragon skin of blue steel that breathes blue fire, and ${cmn(RPLB_PRIZE)} coins. Ties go to whoever reached it first.</p>
+   <div class="rplbyou"><div><small>YOUR PLACE</small><div class="rplbbig" id="rplbplace">—</div></div><p class="rkbof" id="rplbof"></p></div>
+   <div class="rkbname">On the board as <b>${esc(rkLbName(P.name||'Player'))}</b> <span>#${esc(K.pk.slice(0,4))}</span></div>
+   <div class="rkbtog"><span>Show me on the leaderboard</span><div class="seg"><button class="sm${L.hide?'':' on'}" data-h="0">On</button><button class="sm${L.hide?' on':''}" data-h="1">Off</button></div></div>
+   ${pc?`<p class="rplbpc">Season ${L.s-1} champion: <b>${esc(pc.n)}</b> #${esc(pc.pk)} · wave ${cmn(pc.w)}${pc.me?' · that was you!':''}</p>`:''}</section>
+  <section class="rplbp rplbl"><div class="rkbtop"><h4>Season ${L.s} · top 100</h4><span class="rkbst" id="rplbst"></span><button class="rpbk rplbref" id="rplbref" aria-label="Refresh"><svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 0 1 7.4 5H17v2h6V5h-2v2.3A10 10 0 1 0 22 12h-2a8 8 0 1 1-8-8z" fill="currentColor"/></svg><span>Refresh</span></button></div>
+   <div class="rplbhd"><span>#</span><span>Player</span><span>Best</span><span>Run time</span><span>Runs</span></div><div class="rplbrows" id="rplbrows"></div>
+   <p class="rkbnote">Every score is signed by its player's game, and only waves held in the Wonderland count. Scores that could not have been played are hidden automatically.</p></section></div>`,'rpx rplbx');
+ S.view='ramparts';S.back=back;$('rplbback').onclick=()=>back();
+ {const bg=$('rplbbg'),g=bg.getContext('2d');try{g.drawImage(rpBake(RP_MAP('wonder')).c,0,0,1600,900)}catch(e){}g.fillStyle='rgba(8,5,28,.72)';g.fillRect(0,0,1600,900)}
+ rpPrizeLive($('rplbpc'),{tier:5,sc:1.2,x:.28,y:.95});
+ $('rplbref').onclick=()=>{if(RPLB.busy)return;if(Date.now()-RPLB.refT<4000){rpLbPaint();return}RPLB.refT=Date.now();rpSfx('key',2);rpLbLoad(true)};
+ ov.querySelectorAll('.rkbtog [data-h]').forEach(b=>b.onclick=()=>{const h=+b.dataset.h,L2=rpLbSt();if(L2.hide===h)return;rpSfx('key',2);L2.hide=h;save();
+  ov.querySelectorAll('.rkbtog [data-h]').forEach(x=>x.classList.toggle('on',x===b));RPLB.t=0;rpLbPaint();rpLbPush(true).then(()=>rpLbLoad(true))});
+ rpLbPaint();rpLbLoad();rpLbPrize()}
+
+/* ---------- the champion's ceremony ---------- */
+function rpChampCeremony(){const L=rpLbSt(),s=L.cel;if(!s||document.getElementById('rpcel'))return;const host=ov;if(!host)return;
+ const d=document.createElement('div');d.className='rpcel';d.id='rpcel';d.innerHTML=`<div class="rpcelc"><canvas id="rpcelcv" width="560" height="300"></canvas><small>SEASON ${s} · WONDERLAND CHAMPIONSHIP</small><h2>You are the champion!</h2>
+  <p>You held the most waves in the Wonderland this season.</p><div class="rpcelp"><span><img alt="" src="${rpIconCanvas('dragon',3,'azure',96)}"><b>Azure Dragon</b><em>tower skin</em></span><span><i class="rpcelco">${RPI.coin}</i><b>+${cmn(RPLB_PRIZE)}</b><em>coins</em></span></div>
+  <div class="rpcelb"><button id="rpcelq">Equip the Azure Dragon</button><button class="sm" id="rpcelx">Later</button></div></div>`;host.appendChild(d);
+ rpPrizeLive($('rpcelcv'),{tier:5,sc:1.3,x:.32,y:.96});try{jingle('win')}catch(e){}
+ const close=()=>{rpLbSt().cel=0;save();d.remove()};$('rpcelx').onclick=close;$('rpcelq').onclick=()=>{RPP().skin.dragon='azure';close();try{rpSkins(()=>rampartsMenu(title))}catch(e){}}}
+
+/* ---------- the Tower Skins screen ---------- */
+const RP_SKINLIST=()=>{const L=[];for(const t of RP_TWORDER){L.push({tw:t,k:'base',n:'Classic',how:'Always yours'});for(const s of RP_SKINS)if(s.tw===t)L.push({tw:t,k:s.k,n:s.n,how:`Earn ${s.need} stars`,star:s.need})
+ if(t==='dragon')L.push({tw:t,k:'azure',n:'Azure Dragon',how:'Season champion\'s prize',champ:1})}return L};
+const rpSkinOwn=s=>s.k==='base'||!!RPP().own[s.tw+':'+s.k];
+let RPSKSEL=null;
+function rpSkins(back){back=back||(()=>rampartsMenu(title));const r=RPP(),list=RP_SKINLIST();if(!RPSKSEL||!list.some(s=>s.tw===RPSKSEL.tw&&s.k===RPSKSEL.k))RPSKSEL=list.find(s=>s.tw==='dragon'&&s.k==='azure');const sel=RPSKSEL,own=rpSkinOwn(sel),on=rpSkinOf(sel.tw)===sel.k,locked=sel.tw==='dragon'&&!rpDragonOpen();
+ const tile=s=>{const o=rpSkinOwn(s),eq=rpSkinOf(s.tw)===s.k,sl=s===sel;return `<button class="rpskt${o?'':' lock'}${eq?' eq':''}${sl?' sel':''}${s.champ?' champ':''}" data-tw="${s.tw}" data-k="${s.k}"><img alt="" src="${rpIconCanvas(s.tw,3,s.k,88)}"><b>${esc(s.n)}</b><small>${eq?'Equipped':o?'Owned':s.champ?'Champion only':esc(s.how)}</small>${o?'':`<i class="rpsklk">${RPI.lock}</i>`}</button>`};
+ const rows=RP_TWORDER.map(t=>`<div class="rpskr"><span class="rpskn" style="--c:${RPTW[t].col}">${esc(RPTW[t].n)}${t==='dragon'&&!rpDragonOpen()?'<em>locked tower</em>':''}</span><div>${list.filter(s=>s.tw===t).map(tile).join('')}</div></div>`).join('');
+ const btn=own?(on&&sel.k!=='base'?`<button class="sm" id="rpskeq">Unequip</button>`:on?`<button class="sm" disabled>Equipped</button>`:`<button id="rpskeq">Equip ${esc(sel.n)}</button>`):sel.champ?`<button id="rpskeq" class="rpskch">See the championship ›</button>`:`<button class="sm" disabled>${esc(sel.how)}</button>`;
+ show(`<div class="rpx rpskx" id="rpsk"><canvas class="rplbbg" id="rpskbg" width="1600" height="900"></canvas>
+  <div class="rphtop"><button class="rpbk" id="rpskback" aria-label="Back (Esc)">‹ Back</button></div>
+  <div class="rplbh"><p class="rpkick">RUNESTONE TOWER DEFENSE</p><h1 class="rptitle">Tower Skins</h1></div>
+  <section class="rplbp rpskp"><div class="rpskpv${sel.champ?' champ':''}"><canvas id="rpskcv" width="520" height="430"></canvas>${sel.champ?'<span class="rplbtag">CHAMPION\'S PRIZE</span>':''}</div>
+   <h3>${esc(sel.n)}</h3><p class="rpsksub">${esc(RPTW[sel.tw].n)} · ${own?(on?'equipped':'owned'):'locked'}</p>
+   <p class="rpskd">${sel.champ?`Blue steel, gold trim and blue fire. Only the season's champion wins it: hold the most waves in the Wonderland this season (${rpSeaLeft()}). The champion also gets ${cmn(RPLB_PRIZE)} coins.`:sel.k==='base'?'The classic look.':own?'Yours to equip.':`${esc(sel.how)} across the maps to unlock it.`}${locked?' Win Ember Crown to unlock the Dragon Roost itself.':''}</p>
+   <div class="rpskbt">${btn}</div></section>
+  <section class="rplbp rpskl">${rows}</section></div>`,'rpx rpskxx');
+ S.view='ramparts';S.back=back;$('rpskback').onclick=()=>back();
+ {const bg=$('rpskbg'),g=bg.getContext('2d');try{g.drawImage(rpWorldArt(rpWonderOpen()),0,0,1600,900)}catch(e){try{g.drawImage(rpBake(RP_MAP('moss')).c,0,0,1600,900)}catch(x){}}g.fillStyle='rgba(8,5,28,.74)';g.fillRect(0,0,1600,900)}
+ {const cv=$('rpskcv');if(sel.tw==='dragon')rpPrizeLive(cv,{tier:3,sc:2,x:.4,y:.92,clear:1});else{const g=cv.getContext('2d');const fn=t=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,520,430);g.translate(260,370);g.scale(2.4,2.4);rpTowerDraw(g,sel.tw,3,sel.k,t,{aim:Math.sin(t*.7)*.8-.4,ph:.4,fire:(t%2.4)<.3?1-(t%2.4)/.3:0,charge:.6+.4*Math.sin(t*2)})};fn(1);if(!rpRM())LIVE.push({cv,fn,slow:2,vis:true})}}
+ ov.querySelectorAll('.rpskt').forEach(b=>b.onclick=()=>{const s=list.find(x=>x.tw===b.dataset.tw&&x.k===b.dataset.k);if(!s)return;RPSKSEL=s;rpSfx('key',2);
+  if(rpSkinOwn(s)&&rpSkinOf(s.tw)!==s.k){RPP().skin[s.tw]=s.k;save();rpSfx('up')}rpSkins(back)});
+ const eq=$('rpskeq');if(eq)eq.onclick=()=>{if(sel.champ&&!own){rpBoard(()=>rpSkins(back));return}const r2=RPP();r2.skin[sel.tw]=on?'base':sel.k;save();rpSfx('up');rpSkins(back)}}
+
+/* ---------- the hub: top buttons, a championship panel in the armory bar, the Wonderland panel ---------- */
+const RPTRO='<svg viewBox="0 0 24 24"><path d="M7 3h10v3h3v2a5 5 0 0 1-5 5h-.4A4.5 4.5 0 0 1 13 14.6V17h3v4H8v-4h3v-2.4A4.5 4.5 0 0 1 9.4 13H9a5 5 0 0 1-5-5V6h3z" fill="#ffd45a" stroke="#12081f" stroke-width="1.5" stroke-linejoin="round"/><path d="M4 8h3v3a3 3 0 0 1-3-3zM20 8h-3v3a3 3 0 0 0 3-3z" fill="#c88a10"/></svg>';
+const RPBRUSH='<svg viewBox="0 0 24 24"><path d="M14.5 3.5l6 6-8.5 8.5-6-6z" fill="#9fe8ff" stroke="#12081f" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 12l6 6-2 2c-1.6 1.6-4.4 1.6-6 0s-1.6-3.4 0-5z" fill="#ff8ad8" stroke="#12081f" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+{const m0=rampartsMenu;rampartsMenu=function(back){const out=m0.apply(this,arguments);try{const hb=back||title,L=rpLbSt(),pc=L.champ[L.s-1];
+ const top=ov.querySelector('.rphtop');if(top){top.insertAdjacentHTML('beforeend',`<button class="rpbk rpbkg" id="rphlb"><i class="rpbki">${RPTRO}</i>Leaderboard</button><button class="rpbk" id="rphsk"><i class="rpbki">${RPBRUSH}</i>Tower Skins</button>`);
+  $('rphlb').onclick=()=>{rpSfx('key',2);rpBoard(()=>rampartsMenu(hb))};$('rphsk').onclick=()=>{rpSfx('key',2);rpSkins(()=>rampartsMenu(hb))}}
+ const arm=ov.querySelector('.rparm'),vr=$('rpvr');if(arm&&vr){const h=arm.querySelector('.rparmh');if(h){vr.textContent='View rewards ›';h.appendChild(vr)}
+  arm.insertAdjacentHTML('beforeend',`<button class="rpchb" id="rpchb"><canvas id="rpchcv" width="150" height="120"></canvas><span class="rpcht"><small>SEASON ${L.s} CHAMPIONSHIP · ${rpSeaLeft().toUpperCase()}</small><b>Win the Azure Dragon</b><em>+ ${cmn(RPLB_PRIZE)} coins for the Wonderland's #1</em><i id="rpchme"></i></span><span class="rpchgo">›</span></button>`);
+  $('rpchb').onclick=()=>{rpSfx('key',2);rpBoard(()=>rampartsMenu(hb))};rpPrizeLive($('rpchcv'),{tier:3,sc:.82,x:.36,y:.97,clear:1})}
+ const side=ov.querySelector('.rpsidew');if(side){const asc=side.querySelector('.rpasc');const d=document.createElement('div');d.className='rpwch';d.innerHTML=`<span class="rpwchi">${RPTRO}</span><span><b>Season ${L.s} championship</b><em id="rpchlead"></em></span><button class="rpwchb" id="rpwchb">Board ›</button>`;if(asc)asc.before(d);else side.appendChild(d);$('rpwchb').onclick=()=>{rpSfx('key',2);rpBoard(()=>rampartsMenu(hb))}}
+ if(pc){const hl=ov.querySelector('.rphl');if(hl)hl.insertAdjacentHTML('beforeend',`<p class="rpchamp">${RPTRO}<span>Season ${L.s-1} champion: <b>${esc(pc.n)}</b> · wave ${cmn(pc.w)}</span></p>`)}
+ rpLbPaint();rpLbLoad();rpLbPrize();if(L.cel)setTimeout(rpChampCeremony,500)}catch(e){console.error(e)}return out}}
+/* the Wonderland result: the season board line and the prize */
+{const r0=rpResultEndless;rpResultEndless=function(R,r){const out=r0.apply(this,arguments);try{const box=ov.querySelector('.rpres'),row=box&&box.querySelector('.row');if(row){const d=document.createElement('div');d.className='rplbrs';
+  d.innerHTML=`<span class="rpwchi">${RPTRO}</span><span><small>WONDERLAND CHAMPIONSHIP · SEASON ${rpLbSt().s} · ${rpSeaLeft()}</small><em id="rplbres"></em><i>Top the board to win the Azure Dragon and ${cmn(RPLB_PRIZE)} coins.</i></span><button class="sm" id="rplbgo">Leaderboard ›</button>`;row.before(d);
+  $('rplbgo').onclick=()=>{rpLeave();rpBoard(()=>rampartsMenu(title))};rpLbPaint()}}catch(e){console.error(e)}return out}}
+/* the home screen: a championship card on the hero stage */
+{const t0=title;title=function(){const r=t0.apply(this,arguments);try{rpChampHome()}catch(e){console.error(e)}return r}}
+function rpChampHome(){if(!HOME||ov.querySelector('#rphch'))return;const st=ov.querySelector('.dkstage')||ov.querySelector('#dkh');if(!st)return;const L=rpLbSt();
+ const d=document.createElement('button');d.className='rphch';d.id='rphch';d.setAttribute('aria-label','Wonderland Championship: win the Azure Dragon and '+cmn(RPLB_PRIZE)+' coins');
+ d.innerHTML=`<canvas id="rphchcv" width="250" height="150"></canvas><small>SEASON ${L.s} CHAMPIONSHIP</small><b>Win the Azure Dragon</b><span>+ ${cmn(RPLB_PRIZE)} coins · Wonderland's best wave</span><em id="rphchl"></em><i>${rpSeaLeft()} ›</i>`;
+ (ov.querySelector('#dkh')||ov).appendChild(d);d.onclick=()=>{try{rpBoard(title)}catch(e){console.error(e)}};rpPrizeLive($('rphchcv'),{tier:5,sc:.6,x:.3,y:.96,ph:1});rpLbPaint();if(rpLbSt().best||RPLB.state!=='ok')rpLbLoad();if(L.cel)setTimeout(rpChampCeremony,700)}
+/* the mode sheet, help and how-to texts */
+{const m0=modeSheet;modeSheet=function(){const r=m0.apply(this,arguments);try{const b=document.querySelector('#dmrp small');if(b&&!b.dataset.ch){b.dataset.ch=1;b.textContent+=` Season championship: win the Azure Dragon and ${cmn(RPLB_PRIZE)} coins.`}}catch(e){}return r}}
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=` Wonderland Championship: every season (six weeks, like Wildcard Ranked) the player who holds the most waves in the Wonderland tops a public leaderboard and wins the Azure Dragon skin (blue steel, blue fire) and ${cmn(RPLB_PRIZE)} coins. Tower Skins (on the Tower Defense hub) lets you choose the look of each tower.`}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Dragon Roost.</b> Win Ember Crown to unlock it: a clockwork dragon that breathes sweeping fire over every monster it crosses, flyers too. Press C (or Wind up) to make it breathe at once.</p><p><b>Wonderland Championship.</b> Each season the player who holds the most waves in the Wonderland wins the Azure Dragon skin and ${cmn(RPLB_PRIZE)} coins. See the Leaderboard button.</p>`)}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.rpbki{width:26px;height:26px;display:grid;place-items:center}.rpbki svg{width:24px;height:24px}
+#ov .rphub .rpbk.rpbkg{border-color:#ffd45a;background:linear-gradient(180deg,#5a3a10f0,#2a1606f2)}
+.rparmh #rpvr,#ov .rphub .rparmh #rpvr{all:unset;cursor:pointer;font:800 14px var(--ui);color:#9fe8ff;margin-top:2px}.rparmh #rpvr:hover{color:#ffffff}
+.rparm .rptrk{margin:0 14px}
+#ov .rpchb{position:relative;flex:none;width:520px;height:104px;margin:0 -10px 0 0;padding:0 16px 0 0;display:flex;align-items:center;gap:6px;border-radius:18px;border:2px solid #ffd45a;background:linear-gradient(100deg,#1a3a8a 0%,#16206a 40%,#2a1a10 100%);box-shadow:0 0 0 2px #12081f,0 6px 16px #0008;color:#fff8e8;text-align:left;cursor:pointer;overflow:hidden;transition:transform .18s var(--sp)}
+#ov .rpchb:hover{transform:translateY(-3px)}
+.rpchb canvas{width:125px;height:100px;flex:none;margin:0 2px 0 4px}
+.rpcht{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}.rpcht small{font:800 11px var(--ui);letter-spacing:.12em;color:#9fe8ff}.rpcht em,.rpcht small{white-space:nowrap}.rpcht b{white-space:nowrap;font:400 30px/1.05 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 2px 0 #12081f}
+.rpcht em{font:700 13px var(--ui);font-style:normal;color:#e8e0ff}.rpcht i{font:600 12.5px var(--ui);font-style:normal;color:#c4badf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rpcht i b{font:800 12.5px var(--ui);color:#fff8e8;text-shadow:none}
+.rpchgo{flex:none;width:40px;height:40px;display:grid;place-items:center;font-size:26px!important;border-radius:50%;background:linear-gradient(180deg,#fff0a8,#ffd45a 50%,#e8a426);color:#3a1a04;font:800 15px var(--ui);box-shadow:0 0 0 2px #12081f}
+.rpwch{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:8px 10px;border-radius:14px;border:2px solid #ffd45a;background:linear-gradient(90deg,#3a2a10,#16124a)}
+.rpwchi{width:34px;height:34px;flex:none}.rpwchi svg{width:100%;height:100%}.rpwch>span:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column}.rpwch b{font:800 14px var(--ui);color:#ffd45a}.rpwch em{font:600 12.5px var(--ui);font-style:normal;color:#e8e0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ov .rpwchb{flex:none;height:34px;margin:0;padding:0 12px;border-radius:10px;border:2px solid #ffd45a;background:#2a1a08;color:#ffd45a;font:800 13px var(--ui);box-shadow:none}
+.rpchamp{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:6px 12px 6px 8px;width:max-content;border-radius:12px;background:#0c0826d8;border:2px solid #ffd45a;font:600 14px var(--ui);color:#e8e0ff}.rpchamp svg{width:24px;height:24px}.rpchamp b{color:#ffd45a}
+.rplbx #ov,.rplb,.rpskx{position:absolute;inset:0}
+.rplbbg{position:absolute;inset:0;width:1600px;height:900px}
+.rplbh{position:absolute;left:44px;top:80px}#ov .rplbh .rptitle{margin:2px 0 0;font-size:64px;line-height:1}
+#ov .rplb .rpbk,#ov .rpskx .rpbk{display:flex;align-items:center;gap:8px;height:48px;margin:0;padding:0 20px;border-radius:14px;border:2px solid #6a5ac8;background:linear-gradient(180deg,#2a2070f0,#160f46f2);color:#fff8e8;font:700 18px var(--ui);box-shadow:0 0 0 2px #12081f,0 6px 14px #0008}
+#ov .rplb .rkbmt .rpbk{display:inline-flex;margin-top:10px}.rplbh .rpkick{margin:0 0 4px}
+.rplbp{position:absolute;padding:18px 20px;border-radius:24px;background:linear-gradient(180deg,#1e1650f2,#0e0a2cf6);border:2px solid #5a4ca0;box-shadow:0 0 0 2px #12081f,0 18px 40px #000a;box-sizing:border-box;color:#fff8e8;text-align:left}
+.rplbme{left:40px;top:176px;bottom:24px;width:500px;display:flex;flex-direction:column;border-color:#ffd45a}
+.rplbpz{position:relative;margin:-6px -8px 6px;border-radius:18px;overflow:hidden;border:2px solid #3a5ac8;box-shadow:0 0 0 2px #12081f}.rplbpz canvas{display:block;width:100%;height:auto}
+.rplbtag{position:absolute;left:12px;top:10px;padding:4px 10px;border-radius:999px;background:#ffd45a;color:#3a1a04;font:800 12px var(--ui);letter-spacing:.12em;box-shadow:0 0 0 2px #12081f}
+.rplbme h3{margin:4px 0 2px;font:400 36px/1.05 'Pirata One',Georgia,serif;color:#9fe8ff}.rplbme h3 i{font-style:normal;color:#e8e0ff}.rplbme h3 b{font-weight:400;color:#ffd45a}
+.rplbpx{margin:0 0 10px;font:600 14px/1.45 var(--ui);color:#cfc6f5}
+.rplbyou{display:flex;align-items:center;gap:16px;padding:8px 14px;border-radius:16px;background:#0e0828;border:1.5px solid #2e2660}.rplbyou small{font:800 11px var(--ui);letter-spacing:.12em;color:#8a80c0}
+.rplbbig{font:400 54px/1 'Pirata One',var(--ui);color:#ffd45a}.rplbyou .rkbof{margin:0;flex:1;text-align:left}
+.rplbme .rkbname{margin-top:10px}.rplbme .rkbtog{margin-top:auto}
+.rplbpc{margin:10px 0 0;font:600 14px var(--ui);color:#e8e0ff}.rplbpc b{color:#ffd45a}
+.rplbl{left:564px;right:40px;top:176px;bottom:24px;display:flex;flex-direction:column}
+#ov .rplbref{height:40px;padding:0 14px;font-size:15px}.rplbref svg{width:18px;height:18px}.rplbref.spin svg{animation:rkspin .9s linear infinite}
+.rplbhd,.rplbr{display:grid;grid-template-columns:62px minmax(0,1fr) 150px 150px 110px;gap:10px;align-items:center}
+.rplbhd{padding:0 26px 6px 10px;font:800 12px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#8a80c0}.rplbhd span:first-child{text-align:center}.rplbhd span:nth-child(n+3){text-align:right}
+.rplbrows{flex:1;min-height:0;overflow-y:auto;padding-right:6px;overscroll-behavior:contain}
+.rplbrows::-webkit-scrollbar{width:10px}.rplbrows::-webkit-scrollbar-thumb{background:#463a8a;border-radius:10px;border:2px solid #100a30}
+.rplbr{height:54px;padding:0 16px 0 10px;margin-bottom:6px;border-radius:14px;background:#0e0828;border:1.5px solid #2e2660;box-sizing:border-box;animation:rkbin .4s var(--sp) both;animation-delay:calc(var(--d)*25ms)}
+.rplbr.me{border:2px solid #ffd45a;background:linear-gradient(90deg,#3a2a12,#0e0828 70%)}
+.rplbn{display:flex;align-items:baseline;gap:8px;min-width:0}.rplbn b{font:800 17px var(--ui);color:#fff8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rplbn small{font:700 13px var(--ui);color:#8a80c0;flex:none}.rplbr.me .rplbn small{color:#ffd45a}
+.rplbw,.rplbt,.rplbu{text-align:right;white-space:nowrap}.rplbw b{font:900 20px var(--ui);color:#9fe8ff}.rplbw small{font:700 12px var(--ui);color:#a8a0d0;margin-left:5px}.rplbt,.rplbu{font:700 14px var(--ui);color:#cfc6f5}
+.rplbl .rkbnote{margin:8px 0 0}
+.rplbrs{display:flex;align-items:center;gap:14px;max-width:760px;margin:10px auto 4px;padding:10px 14px;border-radius:16px;border:2px solid #ffd45a;background:linear-gradient(90deg,#1a2a6a,#1a1240 60%,#2a1a08);text-align:left}
+.rplbrs>span:nth-child(2){flex:1;display:flex;flex-direction:column}.rplbrs small{font:800 11px var(--ui);letter-spacing:.1em;color:#9fe8ff}.rplbrs em{font:600 15px var(--ui);font-style:normal;color:#fff8e8}.rplbrs em b{color:#ffd45a}.rplbrs i{font:600 13px var(--ui);font-style:normal;color:#c4badf}
+#ov .rplbrs button{margin:0;flex:none}
+.rphch{position:absolute;right:30px;top:132px;width:270px;padding:10px 10px 12px;border-radius:22px;border:2px solid #ffd45a;background:linear-gradient(180deg,#1a2a78f0,#120c40f4 60%,#1c1030f6);box-shadow:0 0 0 3px #12081f,0 14px 30px #000a;color:#fff8e8;text-align:left;cursor:pointer;z-index:3;transition:transform .2s var(--sp);animation:rphch .7s var(--sp) both .3s}
+.rphch:hover{transform:translateY(-4px) rotate(-.6deg)}@keyframes rphch{from{opacity:0;transform:translateY(-16px) scale(.94)}}
+.rphch canvas{display:block;width:250px;height:150px;border-radius:14px;border:2px solid #3a5ac8;box-shadow:0 0 0 2px #12081f}
+.rphch small{display:block;margin:8px 4px 0;font:800 11px var(--ui);letter-spacing:.14em;color:#9fe8ff}.rphch b{display:block;margin:0 4px;font:400 30px/1.05 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 2px 0 #12081f}
+.rphch span{display:block;margin:2px 4px 0;font:700 13px var(--ui);color:#e8e0ff}.rphch em{display:block;margin:4px 4px 0;font:600 12.5px var(--ui);font-style:normal;color:#c4badf;min-height:16px}.rphch i{display:block;margin:6px 4px 0;font:800 13px var(--ui);font-style:normal;color:#ffd45a}
+.rpcel{position:absolute;inset:0;z-index:50;display:grid;place-items:center;background:#06041ae0;animation:rpfade .4s both}@keyframes rpfade{from{opacity:0}}
+.rpcelc{width:640px;padding:22px 30px 24px;border-radius:28px;border:3px solid #ffd45a;background:linear-gradient(180deg,#1a2a78fa,#100a30fc);box-shadow:0 0 0 3px #12081f,0 30px 80px #000c;text-align:center;color:#fff8e8;animation:rpTut .5s var(--sp)}
+.rpcelc canvas{width:560px;height:300px;border-radius:18px;border:2px solid #3a5ac8}.rpcelc small{display:block;margin-top:10px;font:800 12px var(--ui);letter-spacing:.16em;color:#9fe8ff}
+.rpcelc h2{margin:2px 0 4px;font:400 56px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 3px 0 #12081f}.rpcelc p{margin:0 0 10px;font:600 16px var(--ui);color:#e8e0ff}
+.rpcelp{display:flex;justify-content:center;gap:16px}.rpcelp span{display:flex;flex-direction:column;align-items:center;min-width:160px;padding:8px 12px;border-radius:16px;background:#0c0826;border:2px solid #3a5ac8}.rpcelp img{width:80px;height:80px;margin-top:-10px}
+.rpcelco{width:60px;height:60px;display:block;margin:4px 0}.rpcelco svg{width:100%;height:100%}.rpcelp b{font:800 22px var(--ui);color:#ffd45a}.rpcelp em{font:600 13px var(--ui);font-style:normal;color:#c4badf}
+.rpcelb{display:flex;justify-content:center;gap:12px;margin-top:14px}#ov .rpcelb button{margin:0}
+.rpskp{left:40px;top:176px;bottom:24px;width:560px;display:flex;flex-direction:column}
+.rpskpv{position:relative;margin:-6px -8px 6px;height:380px;border-radius:18px;overflow:hidden;border:2px solid #3a3070;background:radial-gradient(circle at 50% 70%,#2e2470,#0c0826 75%)}.rpskpv.champ{border-color:#3a5ac8;background:radial-gradient(circle at 45% 70%,#1e3a8a,#0a0828 75%)}
+.rpskpv canvas{position:absolute;left:12px;top:-50px;width:520px;height:430px}
+.rpskp h3{margin:6px 0 0;font:400 42px/1 'Pirata One',Georgia,serif;color:#ffd45a}.rpsksub{margin:2px 0 6px;font:700 14px var(--ui);color:#9fe8ff}.rpskd{margin:0;font:600 14.5px/1.5 var(--ui);color:#cfc6f5}
+.rpskbt{margin-top:auto;display:flex;gap:10px}#ov .rpskbt button{margin:0}#ov .rpskbt .rpskch{background:linear-gradient(180deg,#bfe6ff,#5aa8ff 50%,#2a6ad0);color:#0a1a40}
+.rpskl{left:624px;right:40px;top:176px;bottom:24px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:12px 18px;padding:16px 18px}
+.rpskr{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:18px;background:#0c082480;border:1.5px solid #2e2660}.rpskr>div{display:flex;gap:10px;flex-wrap:wrap}
+.rpskn{font:800 16px var(--ui);color:#fff8e8;border-left:4px solid var(--c);padding-left:10px}.rpskn em{display:block;font:600 12px var(--ui);font-style:normal;color:#ff9a7a}
+#ov .rpskt{position:relative;width:126px;height:136px;margin:0;padding:4px 6px 8px;display:flex;flex-direction:column;align-items:center;gap:0;border-radius:16px;border:2px solid #3a3070;background:#0c0824;color:#fff8e8;box-shadow:none;cursor:pointer;transition:transform .15s var(--sp)}
+#ov .rpskt:hover{transform:translateY(-3px)}.rpskt img{width:84px;height:84px}.rpskt b{font:800 12.5px var(--ui);text-align:center;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}.rpskt small{font:700 11.5px var(--ui);color:#c4badf;text-align:center}
+#ov .rpskt.sel{border-color:#9fe8ff;box-shadow:0 0 0 2px #12081f,0 0 0 4px #9fe8ff66}#ov .rpskt.eq small{color:#ffd45a}#ov .rpskt.eq{border-color:#ffd45a}
+.rpskt.lock img{opacity:.38}.rpsklk{position:absolute;left:50%;top:34px;width:28px;height:28px;margin-left:-14px}.rpsklk svg{width:100%;height:100%}
+#ov .rpskt.champ{background:linear-gradient(180deg,#1a2a6a,#0c0824);border-color:#5aa8ff}#ov .rpskt.champ small{color:#9fe8ff}`;document.head.appendChild(st)}
+{const st=document.createElement('style');st.textContent='.rpasc>div{gap:5px}.rpasc .rpai{width:52px;height:52px;border-radius:10px}.rpasc .rpai img{width:48px;height:48px}';document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

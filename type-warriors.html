@@ -43878,6 +43878,273 @@ function rpdWarm(tier,skin){const P=rpdP(skin,tier),L=RPDL[tier];rpPadS();rpdRoo
 {const f0=rpTowerIcon;rpTowerIcon=function(type,tier,skin,size){if(type!=='dragon')return f0.apply(this,arguments);tier=rpdT(tier);skin=rpdSk(skin);size=Math.max(16,size|0||96);const key='dg|ic|'+tier+'|'+skin+'|'+size;let s=RPSPR.get(key);if(s)return s.c;
  const c=document.createElement('canvas');c.width=c.height=size;const L=RPDL[tier],top=L.h+84*L.s,h=top+44,k=Math.min(size*.95/h,size*.95/150),g=c.getContext('2d');g.translate(size/2+4*k,size/2+(top-44)/2*k);g.scale(k,k);
  try{rpdDraw(g,tier,skin,.4,{aim:-.25,ph:.3,face:1})}catch(e){console.error(e)}RPSPR.set(key,{c});return c}}
+/* ===== RUNESTONE TOWER DEFENSE 9.2: the Tidecaller Shrine, a seventh tower (95c5, art only; loads after 95c4) =====
+   A sea-stone fountain shrine: a carved plinth with wave friezes, shells and coral; a basin of living water; a fluted stem with two
+   fish spouts pouring arcs of water back into the basin; from tier 3 an upper basin and a serpent statue coiled round the stem; on top
+   the Tide Orb, a floating sphere of swirling water with a pearl at its heart and droplets orbiting it. Tier 4 "Abyssal" (indigo stone,
+   violet water, glowing runes, drifting jellies); tier 5 "Leviathan" (marble and gold, a gold serpent, a pearl-white rainbow orb and a
+   ring of water round it).
+   Baked once per tier: the body (pad, plinth, basin with its water), the stem (spouts, upper basin, statue), 16 orb frames (the swirl
+   turns a full circle), 8 wave frames, the whirlpool spiral, the leviathan head and body segment. Live: ripples, spout drops, the orb,
+   orbiting droplets, sparkles, the charge (water spirals up into the orb) and the release (flash and squash).
+   No shadowBlur, no ctx.filter. Glows are the shared radial sprites stamped with 'lighter'.
+   API (wrapping 95c..95c4; other towers pass straight through)
+     RPTW.tide, RPSKIN.tide                 'Tidecaller Shrine' (only 'base')
+     rpTowerDraw(g,'tide',tier,skin,t,o)      o = {charge 0..1, rel 0..1 (release flash), over, sel, ghost, ph}
+     rpTowerBuild(g,'tide',tier,skin,k,t,o)   the shrine rises from a spring, the orb gathers from spray; upgrades and ascensions
+     rpTowerTop, rpTowerWarm, rpTowerIcon
+     rpTideOrb(tier)                        the orb centre relative to the pad {x,y}
+     rpTideWave(g,x,y,dir,h,t,tier,k)        a curling wave (dir +-1 = travel direction on screen, h = height scale, k = alpha)
+     rpTideFoam(g,pts,t,tier)               the foam trail behind a wave (ground layer)
+     rpTideWhirl(g,x,y,r,t,tier,k)           a whirlpool (ground layer)
+     rpTideJet(g,x0,y0,x1,y1,u,tier)         the water jet from the orb to the impact point (u = 0..1 progress)
+     rpTideSplash(g,x,y,u,r,tier)            the splash rings where the jet lands
+     rpTideLeviathan(g,x,y,u,dir,tier)       the tier-5 sea serpent bursting from the road (u = 0..1) */
+RPTW.tide={n:'Tidecaller Shrine',role:'Waves and knockback',col:'#4ad8ff'};
+RPSKIN.tide=['base'];
+const rptT=t=>Math.max(1,Math.min(5,t|0||1)),RPTN=16,RPTWN=8;
+/* layout per tier: b = lower basin {y, rx, depth}, st = stem top, u = upper basin (0 = none), o = orb {y, r}, statue, spouts */
+const RPTL=[0,
+ {pl:9,b:{y:-24,rx:30,d:13},st:-50,u:0,o:{y:-70,r:12},sp:0,ser:0},
+ {pl:10,b:{y:-26,rx:32,d:14},st:-58,u:0,o:{y:-80,r:13},sp:1,ser:0},
+ {pl:11,b:{y:-27,rx:34,d:15},st:-58,u:{y:-60,rx:19,d:8},o:{y:-96,r:15},sp:1,ser:1},
+ {pl:11,b:{y:-27,rx:35,d:15},st:-60,u:{y:-62,rx:20,d:8},o:{y:-102,r:16},sp:1,ser:1,rune:1},
+ {pl:12,b:{y:-28,rx:36,d:16},st:-62,u:{y:-64,rx:21,d:8},o:{y:-106,r:17},sp:1,ser:1,halo:1}];
+for(let i=1;i<6;i++){const L=RPTL[i];L.top=Math.round(-(L.o.y-L.o.r)+6)}
+const RPTP={
+ base:{st:{l:'#8adccf',m:'#4fa9a1',d:'#2c7275',k:'#173c46',top:'#a6ebdf',topD:'#62b8ae'},tr:'#ffd45a',trL:'#fff0a8',trD:'#b07a1a',
+  w:['#bff6ff','#5ad6ff','#1f8fd8','#0c4a8a'],foam:'#f2feff',glow:'#4ad8ff',glow2:'#bff6ff',coral:'#ff7a8a',coralD:'#b03a5a',shell:'#ffe8d0',shellD:'#c89a7a',ser:['#6ad8b8','#2f9a8a','#155a5a'],rune:'#9ff6ff',pearl:'#fffaf0'},
+ myth:{st:{l:'#a898e2',m:'#6e5cbc',d:'#463690',k:'#1e1450',top:'#c0b2f0',topD:'#8a78cc'},tr:'#ffd45a',trL:'#fff0a8',trD:'#b07a1a',
+  w:['#ece0ff','#a888ff','#6a40e0','#2a1280'],foam:'#f6efff',glow:'#a070ff',glow2:'#e0ccff',coral:'#ff8ad8',coralD:'#a03a8a',shell:'#f0e0ff',shellD:'#a88ad0',ser:['#b89aff','#6e4ad0','#3a1a7a'],rune:'#e0c4ff',pearl:'#fff4ff'},
+ cel:{st:RPSTONE.marble,tr:'#ffd45a',trL:'#fff6c8',trD:'#c08a24',
+  w:['#ffffff','#a8f0ff','#4ab8f0','#1a6ab0'],foam:'#ffffff',glow:'#8ae8ff',glow2:'#fff6d8',coral:'#ffb0c0',coralD:'#c06a7a',shell:'#fffaf0',shellD:'#d8c49a',ser:['#ffe8a0','#e8b23a','#9a6a10'],rune:'#fff2b0',pearl:'#ffffff'}};
+const rptP=t=>t>=5?RPTP.cel:t===4?RPTP.myth:RPTP.base;
+const rptK=t=>t>=5?'c':t===4?'m':'b';
+
+/* ---------- small painters ---------- */
+function rptShell(g,x,y,s,P,a){g.save();g.translate(x,y);g.rotate(a||0);g.scale(s,s);g.beginPath();g.moveTo(0,4);g.lineTo(-6,-2);g.quadraticCurveTo(0,-8,6,-2);g.closePath();g.fillStyle=P.shell;g.fill();g.lineWidth=1.4;g.strokeStyle=RPTO;g.stroke();
+ g.strokeStyle=P.shellD;g.lineWidth=.9;for(const k of[-3,0,3]){g.beginPath();g.moveTo(0,3);g.lineTo(k,-4.5);g.stroke()}g.restore()}
+function rptStar(g,x,y,s,col){g.save();g.translate(x,y);g.scale(s,s);g.beginPath();for(let i=0;i<10;i++){const a=i/10*TAU-Math.PI/2,r=i%2?2.4:6;g.lineTo(Math.cos(a)*r,Math.sin(a)*r)}g.closePath();g.fillStyle=col;g.fill();g.lineWidth=1.3;g.strokeStyle=RPTO;g.stroke();g.restore()}
+function rptCoral(g,x,y,s,P){g.save();g.translate(x,y);g.scale(s,s);g.lineCap='round';const br=(w,c)=>{g.strokeStyle=c;g.lineWidth=w;g.beginPath();g.moveTo(0,0);g.quadraticCurveTo(-1,-6,-5,-11);g.moveTo(0,-3);g.quadraticCurveTo(3,-8,6,-13);g.moveTo(-1,-6);g.lineTo(1,-14);g.stroke()};
+ br(5.2,RPTO);br(3,P.coral);g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=1;g.beginPath();g.moveTo(-.6,-1);g.quadraticCurveTo(-1.4,-6,-4.6,-10);g.stroke();g.restore()}
+/* the wave frieze round the plinth: a band of scallops */
+function rptFrieze(g,y,rx,h,P){g.save();rpSide(g,0,y,rx,rx,h);g.clip();g.strokeStyle=P.w[1];g.lineWidth=2.2;for(let i=-6;i<=6;i++){const a=i*.28,x=Math.sin(a)*rx,yy=y-h/2+Math.cos(a)*rx*RPSQ;g.beginPath();g.arc(x,yy,4.2,Math.PI*1.05,Math.PI*2.05);g.stroke()}
+ g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=1;for(let i=-6;i<=6;i++){const a=i*.28,x=Math.sin(a)*rx,yy=y-h/2+Math.cos(a)*rx*RPSQ;g.beginPath();g.arc(x-1,yy-1,2.4,Math.PI*1.1,Math.PI*1.7);g.stroke()}g.restore()}
+
+/* ---------- the body: pad, plinth, the basin and its water ---------- */
+function rptBodyArt(g,tier){const L=RPTL[tier],P=rptP(tier),S=P.st,b=L.b;RPPADT=tier;try{rpPadArt(g)}finally{RPPADT=0}
+ /* plinth: a low drum with a gold band and the wave frieze */
+ rpTube(g,0,10,40,38,L.pl,S.l,S.m,S.d);rpCap(g,0,10-L.pl,38,S.top,S.topD);
+ rpTube(g,0,10-L.pl,30,b.rx-2,(10-L.pl)-(b.y+b.d*.15),S.l,S.m,S.d);
+ rptFrieze(g,10-L.pl-1,30,7,P);
+ /* the basin: a wide bowl (outside), its rim and the water inside */
+ const by=b.y,rx=b.rx,ry=rx*RPSQ;
+ g.beginPath();g.ellipse(0,by,rx,ry,0,0,Math.PI);g.quadraticCurveTo(-rx*.7,by+b.d*1.6,0,by+b.d*1.25);g.closePath();
+ g.beginPath();g.moveTo(-rx,by);g.bezierCurveTo(-rx,by+b.d*1.2,-rx*.45,by+b.d*1.6,0,by+b.d*1.6);g.bezierCurveTo(rx*.45,by+b.d*1.6,rx,by+b.d*1.2,rx,by);g.ellipse(0,by,rx,ry,0,0,Math.PI);g.closePath();
+ g.fillStyle=rpHG(g,-rx,rx,S.l,S.m,S.d);g.fill();rpOut(g,2.6);
+ /* basin carving: a gold band and a row of scallop shells */
+ g.save();g.beginPath();g.moveTo(-rx,by);g.bezierCurveTo(-rx,by+b.d*1.2,-rx*.45,by+b.d*1.6,0,by+b.d*1.6);g.bezierCurveTo(rx*.45,by+b.d*1.6,rx,by+b.d*1.2,rx,by);g.ellipse(0,by,rx,ry,0,0,Math.PI);g.closePath();g.clip();
+ g.strokeStyle=P.tr;g.lineWidth=3;g.beginPath();g.ellipse(0,by+b.d*.55,rx*.96,ry*.96,0,0,Math.PI);g.stroke();g.strokeStyle=P.trD;g.lineWidth=1;g.beginPath();g.ellipse(0,by+b.d*.55+1.6,rx*.96,ry*.96,0,0,Math.PI);g.stroke();g.restore();
+ for(let i=-2;i<=2;i++){const a=i*.42,x=Math.sin(a)*rx*.86,y=by+b.d*.95+Math.cos(a)*ry*.7;rptShell(g,x,y,.8,P,a*.4)}
+ /* the rim (back half), the water, the rim (front half) */
+ g.beginPath();g.ellipse(0,by,rx+3,ry+2,0,0,TAU);g.fillStyle=S.top;g.fill();rpOut(g,2.4);
+ const wq=g.createRadialGradient(-rx*.25,by-ry*.3,2,0,by,rx);wq.addColorStop(0,P.w[1]);wq.addColorStop(.7,P.w[2]);wq.addColorStop(1,P.w[3]);
+ g.beginPath();g.ellipse(0,by+.6,rx-3,ry-2.2,0,0,TAU);g.fillStyle=wq;g.fill();g.lineWidth=1.4;g.strokeStyle=rpA(P.w[3],.8);g.stroke();
+ g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(-rx*.35,by-ry*.25,rx*.3,ry*.18,-.2,0,TAU);g.fill();
+ g.beginPath();g.ellipse(0,by,rx+3,ry+2,0,0,Math.PI);g.lineWidth=3.4;g.strokeStyle=S.topD;g.stroke();g.lineWidth=1.2;g.strokeStyle='rgba(255,255,255,.6)';g.beginPath();g.ellipse(0,by-.8,rx+1.6,ry+.8,0,Math.PI*1.08,Math.PI*1.92);g.stroke();
+ /* gold studs on the rim */
+ for(let i=0;i<8;i++){const a=i/8*TAU+.2,x=Math.cos(a)*(rx+1.5),y=by+Math.sin(a)*(ry+1);if(Math.sin(a)<-.2)continue;g.beginPath();g.arc(x,y,1.7,0,TAU);g.fillStyle=P.tr;g.fill();g.lineWidth=.8;g.strokeStyle=RPTO;g.stroke()}
+ /* coral, a starfish and shells round the plinth */
+ rptCoral(g,-32,12,.9,P);rptCoral(g,34,10,.75,P);rptStar(g,22,16,.85,P.coral);rptShell(g,-16,18,.9,P,-.3);
+ if(L.rune){g.strokeStyle=P.rune;g.lineWidth=1.6;for(let i=0;i<3;i++){const x=(i-1)*14,y=10-L.pl+4;g.beginPath();g.moveTo(x-3,y-3);g.lineTo(x,y+3);g.lineTo(x+3,y-3);g.stroke()}}
+ g.save();g.translate(0,RPPIPY);rpPipArt(g,tier);g.restore()}
+const rptBodyS=tier=>{const L=RPTL[tier];return rpSpr('td|b|'+tier,-66,L.b.y-30,132,96-L.b.y,g=>rptBodyArt(g,tier))};
+
+/* ---------- the stem: fluted column, fish spouts, upper basin, the serpent statue ---------- */
+function rptFish(g,x,y,dir,P,S){g.save();g.translate(x,y);g.scale(dir,1);
+ g.beginPath();g.moveTo(-6,-5);g.quadraticCurveTo(4,-9,10,-3);g.quadraticCurveTo(12,0,10,3);g.quadraticCurveTo(3,6,-6,4);g.lineTo(-11,8);g.lineTo(-10,0);g.lineTo(-11,-8);g.closePath();
+ g.fillStyle=rpHG(g,-11,12,S.top,S.m,S.d);g.fill();rpOut(g,1.8);g.beginPath();g.arc(5,-2.6,1.5,0,TAU);g.fillStyle=RPTO;g.fill();
+ g.beginPath();g.ellipse(11,1,2,2.6,0,0,TAU);g.fillStyle=P.w[3];g.fill();g.lineWidth=1;g.strokeStyle=RPTO;g.stroke();
+ g.strokeStyle=P.tr;g.lineWidth=1.4;g.beginPath();g.moveTo(-1,-6);g.quadraticCurveTo(1,0,-1,5);g.stroke();g.restore()}
+function rptSerpent(g,L,P,front){/* a statue coiled round the stem: back loops first, then the front loops and the head */
+ const S=P.ser,y0=L.b.y-4,y1=(L.u?L.u.y:L.st)+4,n=2.2;
+ g.lineCap='round';
+ const seg=(a0,a1)=>{const pts=[];for(let k=0;k<=24;k++){const u=a0+(a1-a0)*k/24,y=y0+(y1-y0)*(u/n),x=Math.sin(u*TAU)*13;pts.push([x,y,Math.cos(u*TAU)])}return pts};
+ for(let q=0;q<n*2;q++){const a0=q/2,a1=Math.min(n,(q+1)/2),pts=seg(a0,a1);const fr=pts[12][2]>0;if(fr!==!!front)continue;
+  const path=()=>{g.beginPath();g.moveTo(pts[0][0],pts[0][1]);for(const p of pts)g.lineTo(p[0],p[1])};
+  g.lineWidth=9;g.strokeStyle=RPTO;path();g.stroke();g.lineWidth=6;g.strokeStyle=fr?S[0]:S[1];path();g.stroke();
+  if(fr){g.lineWidth=1.6;g.strokeStyle='rgba(255,255,255,.5)';g.beginPath();g.moveTo(pts[2][0],pts[2][1]-1.6);for(let k=3;k<22;k++)g.lineTo(pts[k][0],pts[k][1]-1.6);g.stroke();
+   for(let k=3;k<22;k+=4){g.beginPath();g.arc(pts[k][0],pts[k][1]+1,1.3,0,TAU);g.fillStyle=S[2];g.fill()}}}
+ if(front){/* the head rising at the top, looking out over the basin */
+  const hx=10,hy=y1-8;g.save();g.translate(hx,hy);g.rotate(-.35);
+  g.beginPath();g.moveTo(-5,4);g.quadraticCurveTo(-6,-6,2,-8);g.quadraticCurveTo(12,-8,16,-3);g.quadraticCurveTo(17,1,12,2);g.lineTo(2,4);g.closePath();g.fillStyle=rpHG(g,-6,17,S[0],S[1],S[2]);g.fill();rpOut(g,2);
+  g.beginPath();g.moveTo(-2,-7);g.lineTo(-6,-14);g.lineTo(2,-8);g.closePath();g.fillStyle=P.tr;g.fill();rpOut(g,1.3);
+  g.beginPath();g.moveTo(4,-8);g.lineTo(3,-15);g.lineTo(8,-8);g.closePath();g.fillStyle=P.tr;g.fill();rpOut(g,1.3);
+  g.beginPath();g.ellipse(7,-4,2.2,1.6,0,0,TAU);g.fillStyle=P.tr;g.fill();g.lineWidth=.9;g.strokeStyle=RPTO;g.stroke();g.restore()}}
+function rptStemArt(g,tier){const L=RPTL[tier],P=rptP(tier),S=P.st,b=L.b;
+ if(L.ser)rptSerpent(g,L,P,0);
+ /* fluted column from the water to the top (or to the upper basin) */
+ const y0=b.y+2,y1=L.u?L.u.y+4:L.st,w0=9,w1=7;
+ g.beginPath();g.moveTo(-w0,y0);g.lineTo(-w1,y1);g.lineTo(w1,y1);g.lineTo(w0,y0);g.closePath();g.fillStyle=rpHG(g,-w0,w0,S.l,S.m,S.d);g.fill();rpOut(g,2.2);
+ g.strokeStyle=rpA(S.k,.5);g.lineWidth=1.2;for(const x of[-4,0,4]){g.beginPath();g.moveTo(x*1.1,y0-2);g.lineTo(x*.85,y1+2);g.stroke()}
+ g.beginPath();g.ellipse(0,y0,w0+2,(w0+2)*RPSQ,0,0,TAU);g.fillStyle=P.tr;g.fill();rpOut(g,1.6);
+ /* the ring band and the two fish spouts */
+ const ym=(y0+y1)/2;g.beginPath();g.roundRect(-w0-1,ym-3,2*w0+2,6,2);g.fillStyle=rpHG(g,-w0,w0,P.trL,P.tr,P.trD);g.fill();rpOut(g,1.4);
+ if(L.sp){rptFish(g,-12,ym-6,-1,P,S);rptFish(g,12,ym-6,1,P,S)}
+ if(L.u){/* the upper basin, a smaller bowl with its own water */
+  const u=L.u,rx=u.rx,ry=rx*RPSQ;g.beginPath();g.moveTo(-rx,u.y);g.bezierCurveTo(-rx,u.y+u.d,-rx*.4,u.y+u.d*1.5,0,u.y+u.d*1.5);g.bezierCurveTo(rx*.4,u.y+u.d*1.5,rx,u.y+u.d,rx,u.y);g.ellipse(0,u.y,rx,ry,0,0,Math.PI);g.closePath();
+  g.fillStyle=rpHG(g,-rx,rx,S.l,S.m,S.d);g.fill();rpOut(g,2.2);g.strokeStyle=P.tr;g.lineWidth=2;g.beginPath();g.ellipse(0,u.y+u.d*.5,rx*.92,ry*.9,0,0,Math.PI);g.stroke();
+  g.beginPath();g.ellipse(0,u.y,rx+2,ry+1.6,0,0,TAU);g.fillStyle=S.top;g.fill();rpOut(g,2);
+  g.beginPath();g.ellipse(0,u.y+.5,rx-2.4,ry-1.8,0,0,TAU);g.fillStyle=P.w[1];g.fill();g.fillStyle='rgba(255,255,255,.4)';g.beginPath();g.ellipse(-rx*.3,u.y-ry*.2,rx*.28,ry*.18,0,0,TAU);g.fill();
+  /* a slim upper stem and the cradle that holds the orb */
+  g.beginPath();g.moveTo(-5,u.y);g.lineTo(-3.5,L.st-2);g.lineTo(3.5,L.st-2);g.lineTo(5,u.y);g.closePath();g.fillStyle=rpHG(g,-5,5,S.l,S.m,S.d);g.fill();rpOut(g,1.8)}
+ /* the cradle: three gold prongs that hold the orb */
+ const cy=L.st;for(const a of[-.9,0,.9]){g.beginPath();g.moveTo(Math.sin(a)*4,cy);g.quadraticCurveTo(Math.sin(a)*14,cy-6,Math.sin(a)*12,cy-14);g.lineWidth=4.2;g.strokeStyle=RPTO;g.stroke();g.lineWidth=2.4;g.strokeStyle=P.tr;g.stroke()}
+ g.beginPath();g.ellipse(0,cy,7,3,0,0,TAU);g.fillStyle=P.tr;g.fill();rpOut(g,1.4);
+ if(L.ser)rptSerpent(g,L,P,1)}
+const rptStemS=tier=>{const L=RPTL[tier];return rpSpr('td|s|'+tier,-50,L.st-30,100,(L.b.y+10)-(L.st-30),g=>rptStemArt(g,tier))};
+
+/* ---------- the Tide Orb: 16 frames of swirling water ---------- */
+function rptOrbArt(g,r,f,P,tier){const a0=f/RPTN*TAU;
+ const q=g.createRadialGradient(-r*.35,-r*.4,r*.1,0,0,r);q.addColorStop(0,P.w[0]);q.addColorStop(.45,P.w[1]);q.addColorStop(1,P.w[2]);
+ g.beginPath();g.arc(0,0,r,0,TAU);g.fillStyle=q;g.fill();
+ g.save();g.beginPath();g.arc(0,0,r-1,0,TAU);g.clip();
+ /* currents: three spiral bands turning */
+ for(let k=0;k<3;k++){const a=a0+k*TAU/3;g.beginPath();for(let s=0;s<=20;s++){const u=s/20,ang=a+u*3.2,rr=r*(.15+.85*u);g.lineTo(Math.cos(ang)*rr,Math.sin(ang)*rr*.7)}
+  g.lineWidth=r*.16;g.strokeStyle=rpA(P.w[0],.55);g.stroke();g.lineWidth=r*.06;g.strokeStyle='rgba(255,255,255,.75)';g.stroke()}
+ if(tier>=5){for(let k=0;k<5;k++){const a=a0*.5+k*TAU/5;g.fillStyle=rpA(['#ff9ad8','#ffd45a','#8affb4','#7ad8ff','#c8a0ff'][k],.35);g.beginPath();g.ellipse(Math.cos(a)*r*.5,Math.sin(a)*r*.35,r*.42,r*.16,a,0,TAU);g.fill()}}
+ g.fillStyle=rpA(P.w[3],.35);g.beginPath();g.ellipse(r*.25,r*.45,r*.85,r*.4,0,0,TAU);g.fill();g.restore();
+ g.beginPath();g.arc(0,0,r,0,TAU);rpOut(g,2.4);
+ g.fillStyle='rgba(255,255,255,.85)';g.beginPath();g.ellipse(-r*.38,-r*.45,r*.3,r*.16,-.6,0,TAU);g.fill();g.beginPath();g.arc(r*.35,-r*.55,r*.08,0,TAU);g.fill()}
+const rptOrbS=(tier,f)=>{const r=RPTL[tier].o.r;return rpSpr('td|o|'+tier+'|'+f,-r-3,-r-3,2*r+6,2*r+6,g=>rptOrbArt(g,r,f,rptP(tier),tier))};
+function rptHaloArt(g,P){g.lineWidth=3;g.strokeStyle=rpA(P.w[1],.9);g.beginPath();g.ellipse(0,0,30,10,0,0,TAU);g.stroke();g.lineWidth=1.2;g.strokeStyle='#ffffff';g.stroke();
+ for(let i=0;i<12;i++){const a=i/12*TAU;g.beginPath();g.arc(Math.cos(a)*30,Math.sin(a)*10,1.8,0,TAU);g.fillStyle='#ffffff';g.fill()}}
+const rptHaloS=tier=>rpSpr('td|h|'+tier,-34,-14,68,28,g=>rptHaloArt(g,rptP(tier)));
+function rptJellyArt(g,P){g.beginPath();g.moveTo(-7,0);g.quadraticCurveTo(-7,-9,0,-9);g.quadraticCurveTo(7,-9,7,0);g.closePath();g.fillStyle=rpA(P.glow2,.85);g.fill();g.lineWidth=1.4;g.strokeStyle=rpA(P.glow,1);g.stroke();
+ g.strokeStyle=rpA(P.glow2,.8);g.lineWidth=1.2;for(const x of[-4,0,4]){g.beginPath();g.moveTo(x,0);g.quadraticCurveTo(x+2,5,x,10);g.stroke()}}
+const rptJellyS=tier=>rpSpr('td|j|'+tier,-9,-11,18,23,g=>rptJellyArt(g,rptP(tier)));
+
+/* ---------- drawing the shrine ---------- */
+function rpTideOrb(tier){const L=RPTL[rptT(tier)];return{x:0,y:L.o.y}}
+function rptDraw(g,tier,t,o){const L=RPTL[tier],P=rptP(tier),ph=o.ph||0,ch=o.charge||0,rel=o.rel||0,ga=o.ghost?.5:1,lt=RPFX.lite;
+ g.save();RPGA=ga;g.globalAlpha=ga;g.lineJoin='round';g.lineCap='round';
+ if(o.sel){g.globalCompositeOperation='lighter';g.lineWidth=7;g.strokeStyle='rgba(255,201,74,.25)';g.beginPath();g.ellipse(0,15,64,26,0,0,TAU);g.stroke();g.globalCompositeOperation='source-over'}
+ rpPut(g,rptBodyS(tier));
+ /* ripples on the basin: rings that spread from where the spouts fall */
+ const b=L.b,rx=b.rx-5,ry=rx*RPSQ;g.globalCompositeOperation='lighter';
+ for(let i=0;i<(lt?2:3);i++){const u=((t*.55+i/3+ph)%1),sx=i%2?-rx*.5:rx*.5,r2=3+u*rx*.5;g.globalAlpha=ga*(1-u)*.7;g.lineWidth=1.4;g.strokeStyle=P.w[0];g.beginPath();g.ellipse(sx*.9,b.y+1,r2,r2*RPSQ,0,0,TAU);g.stroke()}
+ rpGlow(g,0,b.y,rx*1.1,ry*1.2,P.glow,(.25+.12*Math.sin(t*2+ph)+ch*.35)*ga);
+ g.globalCompositeOperation='source-over';g.globalAlpha=ga;
+ /* the charge: water spirals up from the basin into the orb */
+ const oy=L.o.y-ch*6+Math.sin(t*1.6+ph)*2*(1-ch),or=L.o.r;
+ if(ch>.02&&!lt){g.globalCompositeOperation='lighter';for(let i=0;i<10;i++){const u=((t*1.8+i/10)%1),ang=u*TAU*1.6+i,y=b.y+(oy-b.y)*u,rr=(rx*.9)*(1-u)+or*.6*u;rpGlow(g,Math.cos(ang)*rr,y+Math.sin(ang)*rr*RPSQ,3+2*(1-u),3+2*(1-u),P.w[0],ch*(1-u*.4))}g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ rpPut(g,rptStemS(tier));
+ /* spout arcs: drops leaving the fish mouths and falling into the basin */
+ if(L.sp){const ym=((b.y+2)+(L.u?L.u.y+4:L.st))/2-6;g.globalCompositeOperation='lighter';
+  for(const d of[-1,1])for(let i=0;i<(lt?3:5);i++){const u=((t*1.3+i/5+(d>0?.5:0)+ph)%1),x=d*(23+u*8),y=ym-1+u*u*(b.y-ym+2)-Math.sin(u*Math.PI)*5;rpGlow(g,x,y,2.6,3.2,P.w[0],.95);if(i===0&&!lt)rpGlow(g,x,y,5,5,P.glow,.4)}
+  g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ if(L.u&&!lt){g.globalCompositeOperation='lighter';const u=((t*.7+ph)%1),r2=2+u*L.u.rx*.6;g.globalAlpha=ga*(1-u)*.7;g.lineWidth=1.2;g.strokeStyle=P.w[0];g.beginPath();g.ellipse(0,L.u.y+.5,r2,r2*RPSQ,0,0,TAU);g.stroke();g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ /* tier 4: jellies drift up round the shrine; tier 5: a ring of water round the orb */
+ if(L.rune){for(let i=0;i<3;i++){const u=((t*.18+i/3+ph)%1),x=Math.sin(i*2.1+t*.7)*30,y=-10-u*90;g.globalAlpha=ga*Math.sin(Math.PI*u)*.9;rpPut(g,rptJellyS(tier),x,y)}g.globalAlpha=ga}
+ if(L.halo){g.save();g.translate(0,oy+2);g.rotate(Math.sin(t*.8)*.08);const k=1+.06*Math.sin(t*2+ph);g.scale(k,k);g.globalCompositeOperation='lighter';g.globalAlpha=ga*.8;rpPut(g,rptHaloS(tier));g.restore();g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ /* orbiting droplets behind the orb */
+ const nd=tier>=3?4:3,drop=(front)=>{g.globalCompositeOperation='lighter';for(let i=0;i<nd;i++){const a=t*(1.4+ch*3)+i/nd*TAU+ph,sn=Math.sin(a);if(front?sn<0:sn>=0)continue;const R=or+8+ch*4,s=2.4+sn*.8;rpGlow(g,Math.cos(a)*R,oy+sn*R*.35,s+1.5,s+1.5,P.w[0],.9);rpGlow(g,Math.cos(a)*R,oy+sn*R*.35,s*2.6,s*2.6,P.glow,.3)}g.globalCompositeOperation='source-over';g.globalAlpha=ga};
+ drop(0);
+ /* the orb: swells as it charges, squashes on release */
+ g.save();g.translate(0,oy);const sw=1+ch*.22-rel*.25*Math.sin(Math.min(1,rel)*Math.PI),sq=1+rel*.18*Math.sin(Math.min(1,rel)*Math.PI);g.scale(sw*sq,sw/sq);
+ g.globalCompositeOperation='lighter';rpGlow(g,0,0,or*2.4,or*2.4,P.glow,(.35+.2*Math.sin(t*2.2+ph)+ch*.5+rel)*ga);g.globalCompositeOperation='source-over';g.globalAlpha=ga;
+ const f=((t*(4+ch*10)+ph*7)|0)%RPTN;rpPut(g,rptOrbS(tier,(f+RPTN)%RPTN));
+ g.globalCompositeOperation='lighter';rpGlow(g,0,0,or*.45,or*.45,P.pearl,.9);rpGlow(g,0,0,or*.9,or*.9,P.glow2,.35+ch*.5);if(rel>0)rpGlow(g,0,0,or*3,or*3,'#ffffff',rel*.8);g.globalCompositeOperation='source-over';g.globalAlpha=ga;
+ g.restore();
+ drop(1);
+ /* glints on the water */
+ if(!lt){g.globalCompositeOperation='lighter';for(let i=0;i<3;i++){const tw=Math.sin(t*3.1+i*2.3+ph*5);if(tw<.4)continue;const x=Math.cos(i*2.1+ph)*rx*.6,y=b.y+Math.sin(i*1.7)*ry*.4,r=2+tw*3;g.globalAlpha=ga*tw;g.fillStyle='#ffffff';g.fillRect(x-r,y-.6,r*2,1.2);g.fillRect(x-.6,y-r,1.2,r*2)}g.globalCompositeOperation='source-over';g.globalAlpha=ga}
+ g.restore();RPGA=1;g.globalAlpha=1}
+
+/* ---------- waves, foam, whirlpools, jets, splashes, the leviathan ---------- */
+/* a curling wave, side view, travelling to +x; 8 frames make the crest boil */
+function rptWaveArt(g,P,f){const ph=f/RPTWN*TAU,w=Math.sin(ph)*2.5;
+ const body=()=>{g.beginPath();g.moveTo(-58,0);g.bezierCurveTo(-46,-6,-24,-30+w,-2,-56);g.bezierCurveTo(10,-70,34,-66,44,-50+w*.6);g.bezierCurveTo(48,-42,42,-34,34,-36);g.bezierCurveTo(26,-40,22,-30,26,-20);g.bezierCurveTo(30,-10,40,-4,52,0);g.closePath()};
+ body();const q=g.createLinearGradient(-40,0,20,-66);q.addColorStop(0,rpA(P.w[3],.92));q.addColorStop(.45,rpA(P.w[2],.92));q.addColorStop(.85,rpA(P.w[1],.95));q.addColorStop(1,rpA(P.w[0],1));g.fillStyle=q;g.fill();
+ g.save();body();g.clip();
+ /* the tube under the curl, darker */
+ g.fillStyle=rpA(P.w[3],.55);g.beginPath();g.ellipse(30,-26,10,14,-.3,0,TAU);g.fill();
+ /* streaks along the face */
+ g.strokeStyle='rgba(255,255,255,.35)';g.lineWidth=2;for(let k=0;k<4;k++){g.beginPath();g.moveTo(-44+k*10,-4-k*2);g.quadraticCurveTo(-24+k*8,-24-k*6+w,-4+k*6,-44-k*3);g.stroke()}
+ g.restore();body();g.lineWidth=2.4;g.strokeStyle=RPTO;g.stroke();
+ /* foam on the crest */
+ g.fillStyle=P.foam;for(let k=0;k<9;k++){const u=k/8,x=-8+u*52+Math.sin(ph*2+k)*1.5,y=-56-Math.sin(u*Math.PI)*12+u*14+Math.cos(ph+k*1.7)*1.5,r=4.5+Math.sin(ph+k*2.3)*1.5;g.beginPath();g.arc(x,y,r,0,TAU);g.fill()}
+ g.strokeStyle=RPTO;g.lineWidth=1.2;g.beginPath();for(let k=0;k<9;k++){const u=k/8,x=-8+u*52,y=-56-Math.sin(u*Math.PI)*12+u*14;g.moveTo(x+5,y);g.arc(x,y,5,0,Math.PI,true)}g.stroke();
+ /* spray off the lip */
+ g.fillStyle=rpA(P.foam,.9);for(let k=0;k<6;k++){const a=-1.2+k*.3+Math.sin(ph+k)*.1,d=10+((f*3+k*5)%9)*1.5;g.beginPath();g.arc(44+Math.cos(a)*d,-50+Math.sin(a)*d,1.6+(k%2),0,TAU);g.fill()}
+ /* foam at the foot */
+ g.fillStyle=rpA(P.foam,.85);for(let k=0;k<7;k++){g.beginPath();g.ellipse(-50+k*16+Math.sin(ph+k)*2,-1,7,3,0,0,TAU);g.fill()}}
+const rptWaveS=(tier,f)=>rpSpr('td|w|'+rptK(tier)+'|'+f,-62,-82,126,88,g=>rptWaveArt(g,rptP(tier),f),1.5);
+function rpTideWave(g,x,y,dir,h,t,tier,k){if(k<=.01)return;const f=((t*14)|0)%RPTWN,s=rptWaveS(tier,f);g.save();g.translate(x,y);g.scale(dir<0?-1:1,1);g.scale(.62+.38*h,.4+.6*h);g.globalAlpha=k;rpPut(g,s);g.restore();g.globalAlpha=1}
+function rpTideFoam(g,pts,t,tier){const P=rptP(tier);g.save();for(const q of pts){const f=Math.max(0,1-q.t/1.1);if(f<=0)continue;const w=(26+q.w*14)*(.6+.4*f);g.globalAlpha=f*.5;g.drawImage(rpGlowC(P.w[1]),q.x-w,q.y-w*.45,w*2,w*.9);g.globalAlpha=f*.75;g.drawImage(rpGlowC(P.foam),q.x-w*.5,q.y-w*.22,w,w*.44)}g.restore();g.globalAlpha=1}
+function rptSpiralArt(g,P){for(let k=0;k<4;k++){const a0=k*TAU/4;g.beginPath();for(let s=0;s<=40;s++){const u=s/40,ang=a0+u*5,r=4+u*52;g.lineTo(Math.cos(ang)*r,Math.sin(ang)*r)}g.lineWidth=7;g.strokeStyle=rpA(P.w[2],.75);g.stroke();g.lineWidth=2.6;g.strokeStyle=rpA(P.w[0],.9);g.stroke()}
+ const q=g.createRadialGradient(0,0,2,0,0,60);q.addColorStop(0,rpA(P.w[3],.9));q.addColorStop(.5,rpA(P.w[2],.4));q.addColorStop(1,rpA(P.w[1],0));g.fillStyle=q;g.beginPath();g.arc(0,0,60,0,TAU);g.fill()}
+const rptSpiralS=tier=>rpSpr('td|sp|'+rptK(tier),-62,-62,124,124,g=>rptSpiralArt(g,rptP(tier)),1.5);
+function rpTideWhirl(g,x,y,r,t,tier,k){if(k<=.01)return;const P=rptP(tier);g.save();g.translate(x,y);g.scale(1,RPFX.sq);g.rotate(-t*4.2);const s=r/56;g.scale(s,s);g.globalAlpha=k*.9;rpPut(g,rptSpiralS(tier));g.restore();
+ g.save();g.globalCompositeOperation='lighter';g.globalAlpha=k*.6;g.lineWidth=2;g.strokeStyle=P.w[0];g.beginPath();g.ellipse(x,y,r,r*RPFX.sq,0,0,TAU);g.stroke();g.restore();g.globalAlpha=1}
+function rpTideJet(g,x0,y0,x1,y1,u,tier){if(u<=0||u>=1)return;const P=rptP(tier),cx=(x0+x1)/2,cy=Math.min(y0,y1)-60-Math.hypot(x1-x0,y1-y0)*.15,at=v=>{const a=1-v;return[a*a*x0+2*a*v*cx+v*v*x1,a*a*y0+2*a*v*cy+v*v*y1]};
+ const h=Math.min(1,u*2.2),tl=Math.max(0,u*2.2-1.2);g.save();g.lineCap='round';
+ const line=(w,c,al)=>{g.globalAlpha=al;g.lineWidth=w;g.strokeStyle=c;g.beginPath();for(let i=0;i<=12;i++){const v=tl+(h-tl)*i/12,[x,y]=at(v);i?g.lineTo(x,y):g.moveTo(x,y)}g.stroke()};
+ line(11,P.w[2],.85);line(6,P.w[1],.95);line(2.4,'#ffffff',.9);
+ g.globalCompositeOperation='lighter';const [hx,hy]=at(h);rpGlow(g,hx,hy,14,14,P.w[0],.9);for(let i=0;i<5;i++){const v=Math.max(0,h-i*.06),[x,y]=at(v);rpGlow(g,x+Math.sin(i*3)*6,y+Math.cos(i*2)*6,3,3,P.foam,.8)}g.restore();g.globalAlpha=1}
+function rpTideSplash(g,x,y,u,r,tier){if(u<=0||u>=1)return;const P=rptP(tier),sq=RPFX.sq;g.save();
+ for(let i=0;i<3;i++){const v=Math.max(0,u*1.3-i*.15);if(v<=0||v>=1)continue;const R=r*(.3+.7*rpEO(v));g.globalAlpha=(1-v)*.85;g.lineWidth=4*(1-v)+1.2;g.strokeStyle=i?P.w[1]:P.foam;g.beginPath();g.ellipse(x,y,R,R*sq,0,0,TAU);g.stroke()}
+ /* a crown of water rising and falling */
+ const c=Math.sin(Math.min(1,u*1.6)*Math.PI);if(c>0){g.globalAlpha=c*.9;for(let i=0;i<9;i++){const a=i/9*TAU,px=x+Math.cos(a)*r*.32,py=y+Math.sin(a)*r*.32*sq,hgt=(16+10*((i*7)%3))*c;g.lineWidth=4;g.strokeStyle=P.w[1];g.beginPath();g.moveTo(px,py);g.lineTo(px+Math.cos(a)*6,py-hgt);g.stroke();g.fillStyle=P.foam;g.beginPath();g.arc(px+Math.cos(a)*6,py-hgt,2.6,0,TAU);g.fill()}}
+ g.restore();g.globalAlpha=1}
+/* the leviathan: a sea serpent arcs out of the road and dives back */
+function rptLevHeadArt(g,P){const S=P.ser;
+ g.beginPath();g.moveTo(-10,8);g.quadraticCurveTo(-14,-10,4,-16);g.quadraticCurveTo(26,-18,36,-8);g.quadraticCurveTo(40,-2,34,2);g.lineTo(16,4);g.lineTo(30,10);g.quadraticCurveTo(20,16,4,12);g.closePath();
+ g.fillStyle=rpHG(g,-12,40,S[0],S[1],S[2]);g.fill();rpOut(g,2.6);
+ for(let x=14;x<=32;x+=5){g.beginPath();g.moveTo(x-1.6,2.4);g.lineTo(x,7);g.lineTo(x+1.6,2.4);g.closePath();g.fillStyle='#fffaf0';g.fill();g.lineWidth=1;g.strokeStyle=RPTO;g.stroke()}
+ g.beginPath();g.moveTo(-4,-12);g.lineTo(-16,-28);g.lineTo(4,-15);g.closePath();g.fillStyle=P.tr;g.fill();rpOut(g,1.6);g.beginPath();g.moveTo(6,-16);g.lineTo(2,-30);g.lineTo(14,-16);g.closePath();g.fillStyle=P.tr;g.fill();rpOut(g,1.6);
+ g.beginPath();g.ellipse(14,-8,4,3,-.2,0,TAU);g.fillStyle='#fff6a0';g.fill();g.lineWidth=1.2;g.strokeStyle=RPTO;g.stroke();g.beginPath();g.ellipse(15,-8,1.4,2.4,0,0,TAU);g.fillStyle=RPTO;g.fill();
+ g.strokeStyle=rpA(S[2],.8);g.lineWidth=1.4;g.beginPath();g.moveTo(-6,0);g.quadraticCurveTo(0,-6,8,-6);g.stroke()}
+const rptLevHeadS=tier=>rpSpr('td|lh|'+rptK(tier),-20,-34,64,54,g=>rptLevHeadArt(g,rptP(tier)));
+function rptLevSegArt(g,P){const S=P.ser;g.beginPath();g.ellipse(0,0,12,10,0,0,TAU);g.fillStyle=rpHG(g,-12,12,S[0],S[1],S[2]);g.fill();rpOut(g,2.2);
+ g.beginPath();g.moveTo(-4,-9);g.lineTo(0,-17);g.lineTo(4,-9);g.closePath();g.fillStyle=P.tr;g.fill();rpOut(g,1.3);g.fillStyle=rpA(S[2],.6);g.beginPath();g.ellipse(2,4,6,3,0,0,TAU);g.fill()}
+const rptLevSegS=tier=>rpSpr('td|ls|'+rptK(tier),-15,-20,30,33,g=>rptLevSegArt(g,rptP(tier)));
+function rpTideLeviathan(g,x,y,u,dir,tier){if(u<=0||u>=1)return;const P=rptP(tier),h=Math.sin(u*Math.PI),n=10;g.save();g.translate(x,y);g.scale(dir<0?-1:1,1);
+ /* the body rises out of the water behind and arcs forward; the head leads, high, then everything dives */
+ const sl=u*70-35,pts=[];for(let i=0;i<n;i++){const v=i/(n-1),px=-70+v*120+sl,py=-Math.sin(Math.PI*.62*v)*110*h;pts.push([px,py])}
+ rpTideSplash(g,pts[0][0],0,Math.min(.99,(u*1.8)%1),50,tier);
+ for(let i=0;i<n-1;i++){const [px,py]=pts[i];if(py>-3)continue;const k=1.15+.35*Math.sin(Math.PI*i/(n-1));g.save();g.translate(px,py);g.scale(k,k);rpPut(g,rptLevSegS(tier));g.restore()}
+ const [hx,hy]=pts[n-1],[bx,by]=pts[n-2];if(hy<-3){g.save();g.translate(hx,hy);g.rotate(Math.atan2(hy-by,hx-bx)*.5+(u>.6?(u-.6)*1.6:0));g.scale(1.5,1.5);rpPut(g,rptLevHeadS(tier));g.restore()}
+ g.globalCompositeOperation='lighter';for(let i=0;i<10;i++){const v=((u*2+i/10)%1);rpGlow(g,(i-5)*12+sl,-v*80*h,3,3,P.foam,(1-v)*h)}g.restore();g.globalAlpha=1}
+
+/* ---------- build, upgrade and ascension ---------- */
+function rptBuild(g,tier,k,t,o){const from=o.from>=1&&o.from<tier?o.from|0:0,L=RPTL[tier],P=rptP(tier),S=(a,b)=>rpSeg(k,a,b),ph=o.ph||0;
+ g.save();RPGA=1;g.globalAlpha=1;g.lineJoin='round';g.lineCap='round';
+ if(!from){/* a spring bursts from the pad, the shrine rises through it, the orb gathers from the spray */
+  rpPut(g,rpPadS());const sp=S(0,.35)*(1-S(.7,.95));
+  if(sp>0){g.globalCompositeOperation='lighter';rpGlow(g,0,-20,30*sp+10,60*sp+10,P.w[1],sp*.9);for(let i=0;i<10;i++){const u=((t*2+i/10)%1),a=i*2.4;rpGlow(g,Math.cos(a)*16*u,-u*90*sp,3,3,P.foam,(1-u)*sp)}g.globalCompositeOperation='source-over';g.globalAlpha=1}
+  const r=S(.15,.6),e=rpEB(r);if(r>0){g.save();g.beginPath();g.rect(-80,-L.top-30,160,L.top+60);g.clip();g.translate(0,(1-Math.min(1,e))*(L.top*.8));g.scale(1,.75+.25*Math.min(1.15,e));
+   rpPut(g,rptBodyS(tier));rpPut(g,rptStemS(tier));g.restore();if(r<1)rpDust(g,0,10,r,1.2)}
+  const ob=S(.55,.9);if(ob>0){const P2=P;g.globalCompositeOperation='lighter';for(let i=0;i<12;i++){const a=i/12*TAU+t,d=(1-ob)*60;rpGlow(g,Math.cos(a)*d,L.o.y+Math.sin(a)*d*.6,3,3,P2.w[0],ob)}g.globalCompositeOperation='source-over';
+   g.save();g.translate(0,L.o.y);g.scale(rpEB(ob),rpEB(ob));rpPut(g,rptOrbS(tier,((t*6)|0)%RPTN));g.restore()}
+  const fl=S(.88,1);if(fl>0&&fl<1){g.globalCompositeOperation='lighter';rpGlow(g,0,L.o.y,50*fl+10,50*fl+10,P.glow2,1-fl);g.globalCompositeOperation='source-over'}
+  if(k>.95){g.globalAlpha=(k-.95)/.05;rptDraw(g,tier,t,{ph})}}
+ else{/* upgrade: the orb drinks the basin dry, flashes, and the shrine is reborn in a burst of spray; ascension adds a pillar of water */
+  const asc=tier>=4,sw=S(.4,.52),cur=sw<1?from:tier,ch=S(0,.42)*(1-S(.5,.6));
+  if(asc){const pl=S(.05,.45)*(1-S(.7,1));g.globalCompositeOperation='lighter';rpGlow(g,0,-110,40+30*pl,170,tier>=5?'#fff6d8':P.glow,pl*.85);g.globalCompositeOperation='source-over'}
+  const sc=sw>0&&sw<1?1+.14*Math.sin(sw*Math.PI):1;g.save();g.scale(1/sc,sc);rptDraw(g,cur,t,{ph,charge:ch,rel:sw>0&&sw<1?Math.sin(sw*Math.PI):0});g.restore();
+  const sp=S(.48,.9);if(sp>0&&sp<1){g.globalCompositeOperation='lighter';for(let i=0;i<14;i++){const a=i/14*TAU,d=20+sp*60;rpGlow(g,Math.cos(a)*d,RPTL[tier].o.y+30+Math.sin(a)*d*.5-sp*30,4,4,P.foam,(1-sp))}g.globalCompositeOperation='source-over'}}
+ g.restore();RPGA=1;g.globalAlpha=1}
+
+/* ---------- warm, icon and the wrappers ---------- */
+function rptWarm(tier){rpPadS();rptBodyS(tier);rptStemS(tier);for(let f=0;f<RPTN;f++)rptOrbS(tier,f);for(let f=0;f<RPTWN;f++)rptWaveS(tier,f);rptSpiralS(tier);if(tier>=5){rptHaloS(tier);rptLevHeadS(tier);rptLevSegS(tier)}if(tier===4)rptJellyS(tier)}
+{const f0=rpTowerDraw;rpTowerDraw=function(g,type,tier,skin,t,o){if(type!=='tide')return f0.apply(this,arguments);rptDraw(g,rptT(tier),t||0,o||{})}}
+{const f0=rpTowerBuild;rpTowerBuild=function(g,type,tier,skin,k,t,o){if(type!=='tide')return f0.apply(this,arguments);o=o||{};t=t||0;tier=rptT(tier);if(!(k<1)){rptDraw(g,tier,t,o);return}rptBuild(g,tier,Math.max(0,k||0),t,o)}}
+{const f0=rpTowerTop;rpTowerTop=function(type,tier){return type==='tide'?RPTL[rptT(tier)].top:f0.apply(this,arguments)}}
+{const f0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){if(type!=='tide')return f0.apply(this,arguments);rptWarm(rptT(tier))}}
+{const f0=rpTowerIcon;rpTowerIcon=function(type,tier,skin,size){if(type!=='tide')return f0.apply(this,arguments);tier=rptT(tier);size=Math.max(16,size|0||96);const key='td|ic|'+tier+'|'+size;let s=RPSPR.get(key);if(s)return s.c;
+ const c=document.createElement('canvas');c.width=c.height=size;const top=RPTL[tier].top+6,h=top+46,k=Math.min(size*.95/h,size*.95/134),g=c.getContext('2d');g.translate(size/2,size/2+(top-46)/2*k);g.scale(k,k);
+ try{rptDraw(g,tier,.42,{ph:.3})}catch(e){console.error(e)}RPSPR.set(key,{c});return c}}
 /* ===== RUNESTONE RAMPARTS (8.8b): the maps =====
    rpGeo(map): every road as a smooth curve sampled every 4 px (G.paths[i] = {S:[{x,y,a}], len, own, ice}), a union distance dRoad(x,y),
    the river (Mossgate), and the build pads (chosen once: off the roads, clear of the HUD bands, the castle, the river, the lava lake and the
@@ -43909,15 +44176,28 @@ function rpGeo(map){if(RPGEO[map.id])return RPGEO[map.id];
  const gate=paths[0].S[paths[0].S.length-1];
  const ent=[];for(const P of paths){const q=P.S[Math.min(P.S.length-1,18)];if(ent.every(e=>Math.hypot(e.x-q.x,e.y-q.y)>60))ent.push({x:q.x,y:q.y,a:q.a})}
  const lake=map.lake,inLake=(x,y,m)=>lake&&((x-lake[0])/(lake[2]+m))**2+((y-lake[1])/(lake[3]+m))**2<1;
- const B=RP_PADBOX,ok=(x,y)=>x>=B.x0&&x<=B.x1&&y>=B.y0&&y<=B.y1&&dRoad(x,y)>=80&&dRiver(x,y)>=74&&!inLake(x,y,40)&&!(map.vents||[]).some(v=>Math.hypot(v[0]-x,v[1]-y)<84)&&!ent.some(e=>Math.hypot(e.x-x,e.y-y)<120);
- /* greedy cover: each pick scores the road it reaches, counting already-guarded road less */
- const C=[];for(const P of paths)for(let i=0;i<P.S.length;i+=3)if(P.own[i]&&P.S[i].x>0&&P.S[i].x<gate.x-20)C.push(P.S[i]);
- const cand=[];for(const P of paths)for(let i=14;i<P.S.length-12;i+=6)if(P.own[i]||i%12===0)for(const sd of[-1,1])for(const off of[88,110]){const q=P.S[i],x=Math.round(q.x-Math.sin(q.a)*off*sd),y=Math.round(q.y+Math.cos(q.a)*off*sd);
-  if(!ok(x,y))continue;const ids=[];for(let j=0;j<C.length;j++){const dx=C[j].x-x,dy=(C[j].y-y)/RPFX.sq;if(dx*dx+dy*dy<205*205)ids.push(j)}cand.push({x,y,ids})}
+ /* 9.2: a pad must hold a whole tower: its stone base (an ellipse 58 x 22 under the pad centre) clears the road edge, the river banks,
+    the lava lake, the vents, the caves/portals and the castle, and its body (x +-38, up to 110 px tall) clears the lake, vents and caves */
+ const B=RP_PADBOX,vents=map.vents||[],caves=ent.map(e=>({x:Math.max(30,e.x-14),y:e.y}));
+ const ring=[];for(let k=0;k<16;k++){const a=k/16*TAU;ring.push([4+Math.cos(a)*58,16+Math.sin(a)*22])}
+ const col=[];for(let yy=-110;yy<=0;yy+=10)for(const dx of[-38,0,38])col.push([dx,yy]);
+ const blocked=(px,py)=>(map.lake&&inLake(px,py,6))||vents.some(v=>Math.hypot(px-v[0],(py-v[1])/.8)<46)||caves.some(c=>px>c.x-76&&px<c.x+76&&py>c.y-98&&py<c.y+62)||px>gate.x-150;
+ /* road and river samples in 64 px cells: a capped nearest distance in a few cells instead of a scan of every sample */
+ const grid=(S)=>{const M=new Map();for(const q of S){const k=(q.x>>6)*512+(q.y>>6);let L=M.get(k);if(!L)M.set(k,L=[]);L.push(q)}return M};
+ const GU=grid(U),GR=RV?grid(RV.S):null,near=(M,x,y,cap)=>{if(!M)return 1e9;let m=cap*cap;const r=Math.ceil(cap/64),cx=x>>6,cy=y>>6;
+  for(let i=cx-r;i<=cx+r;i++)for(let j=cy-r;j<=cy+r;j++){const L=M.get(i*512+j);if(L)for(const q of L){const d=(q.x-x)*(q.x-x)+(q.y-y)*(q.y-y);if(d<m)m=d}}return Math.sqrt(m)};
+ const ok=(x,y)=>{if(x<B.x0||x>B.x1||y<B.y0||y>B.y1)return false;const d0=near(GU,x,y,160);if(d0<80||d0>150)return false;
+  for(const [dx,dy] of ring){const px=x+dx,py=y+dy;if(near(GU,px,py,48)<41||near(GR,px,py,64)<56||blocked(px,py))return false}
+  for(const [dx,dy] of col){const px=x+dx,py=y+dy;if(blocked(px,py)||near(GR,px,py,40)<30)return false}return true};
+ /* greedy cover, weighted by traffic: every road counts, so a shared stretch (all the monsters) is worth more than a fork */
+ const C=[];for(const P of paths)for(let i=0;i<P.S.length;i+=3)if(P.S[i].x>0&&P.S[i].x<gate.x-20)C.push(P.S[i]);
+ const GC=new Map();C.forEach((q,k)=>{const key=(q.x>>6)*512+(q.y>>6);let L=GC.get(key);if(!L)GC.set(key,L=[]);L.push(k)});
+ const cand=[];for(let y=B.y0;y<=B.y1;y+=10)for(let x=B.x0;x<=B.x1;x+=10){if(!ok(x,y))continue;
+  const ids=[];for(let i=(x-205)>>6;i<=(x+205)>>6;i++)for(let j=(y-115)>>6;j<=(y+115)>>6;j++){const L=GC.get(i*512+j);if(L)for(const k of L){const dx=C[k].x-x,dy=(C[k].y-y)/RPFX.sq;if(dx*dx+dy*dy<205*205)ids.push(k)}}if(ids.length)cand.push({x,y,ids,d:near(GU,x,y,160)})}
  const cov=new Float32Array(C.length),pads=[],want=map.pads||12;
- while(pads.length<want){let best=null,bs=0;for(const c of cand){if(c.used)continue;let s=0;for(const j of c.ids)s+=1/(1+1.6*cov[j]);if(s>bs){bs=s;best=c}}
+ while(pads.length<want){let best=null,bs=0;for(const c of cand){if(c.used)continue;let s=0;for(const j of c.ids)s+=1/(1+1.6*cov[j]);s*=1-(c.d-80)/400;if(s>bs){bs=s;best=c}}
   if(!best)break;best.used=1;pads.push({x:best.x,y:best.y});for(const j of best.ids)cov[j]++;
-  for(const c of cand)if(!c.used&&(c.x-best.x)**2+((c.y-best.y)*1.15)**2<142*142)c.used=1}
+  for(const c of cand)if(!c.used&&(c.x-best.x)**2+((c.y-best.y)*1.15)**2<144*144)c.used=1}
  pads.sort((a,b)=>a.x-b.x||a.y-b.y);
  return RPGEO[map.id]={paths,S:paths[0].S,len:paths[0].len,pads,dRoad,dRiver,RV,U,gate:{x:gate.x,y:gate.y},ent,inLake}}
 function rpAt(G,s,pi){const P=G.paths[pi||0]||G.paths[0],S=P.S,f=Math.max(0,Math.min(S.length-1.001,s/4)),i=f|0,u=f-i,a=S[i],b=S[Math.min(S.length-1,i+1)];return{x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u,a:a.a,ice:P.ice[i]}}
@@ -46042,6 +46322,193 @@ const UPD86_B="A brand-new strategy mode: RUNESTONE TOWER DEFENSE! No typing her
 UPDATES.push({id:'u-8.6',ts:Date.UTC(2026,9,26,17,0),tag:'New',h:'8.6 Runestone Tower Defense is OUT!',b:UPD86_B+'\n\nP.S. The old castle gate still answers to a password. Speak it in Settings › Data › Cheat codes: rampart86',img:UPD86_IMG,alt:UPD86_ALT});
 {const b0=bellInner;bellInner=function(){let h=b0.apply(this,arguments);try{if(BELL_TAB==='u')h=h.replace('rampart86','<span class="blsec" title="Try it in Settings › Data › Cheat codes">rampart86</span>')}catch(e){}return h}}
 CC_BUILTIN.push({text:'RAMPART86',type:'gold',n:2500,id:'',max:0,used:0,builtin:1});
+/* ===== RUNESTONE TOWER DEFENSE 9.2: the Tidecaller Shrine in battle (95l, after 95k; art in 95c5) =====
+   The seventh tower, open from the start (150 supply, key I). Every few seconds the Tide Orb draws the basin up into itself (charge),
+   flashes, and fires a jet of water onto the road just ahead of its target. A wave rises where it lands and rolls BACK along the road:
+   every ground monster it meets is soaked, hurt once and swept back with it (bosses only a little). Soaked monsters are slowed for a
+   moment and take 25% more damage from the Storm Bell's lightning. Tier 3: the wave leaves a whirlpool that slows and churns.
+   Tier 4: twin jets, two waves on two targets. Tier 5: every fourth attack the Leviathan bursts from the road and bites everything
+   near it. It cannot hit flyers.
+   State: tw.st 'idle' | 'charge'; tw.ct (charge left), tw.rel (release flash), tw.nb (attacks since the leviathan).
+   Battle lists on RPX: tdJets [{x0,y0,x1,y1,t,d,tw,pi,s,lev}], tdWaves [{pi,s,v,left,tw,hit:Set,car:Map,trail,t}], tdWhirls, tdLevs. */
+RP_TW.tide={cost:[150,190,320,650,1050],range:[205,220,240,260,280],dmg:[34,56,92,150,230],cd:[2.5,2.3,2.1,1.95,1.8],knock:[100,120,140,160,180],
+ whirl:[0,0,22,36,56],twin:[0,0,0,1,1],lev:[0,0,0,0,650],ap:[0,0,2,6,99],air:0,ground:1,
+ desc:'Calls a crashing wave onto the road that sweeps monsters back and soaks them (soaked: slowed, and the Storm Bell hits them harder). Cannot hit flyers.',
+ up:['Bigger waves that sweep further.','Whirlpool: every wave ends in a churning whirlpool.','Abyssal tide: twin jets, two waves at once.','Leviathan: every fourth attack a sea serpent bursts from the road.']};
+RP_TWORDER.push('tide');RP_KEYS.push('I');
+const RPTD={charge:.38,jet:.3,wave:.8,whirl:2.4,soak:2.6,soakK:.18,bell:1.25,lev:1.15};
+let RPTTW=null;
+const rptSoak=e=>{e.soak=RPTD.soak;e.slowK=Math.max(e.slowK||0,RPTD.soakK);e.slowT=Math.max(e.slowT||0,RPTD.soak*.6)};
+/* the lightning bonus on soaked monsters */
+{const h0=rpHurt;rpHurt=function(e,dmg,ap,src){if(src&&src.type==='bell'&&e&&e.soak>0)dmg*=RPTD.bell;return h0.call(this,e,dmg,ap,src)}}
+function rptOrbW(tw){const o=rpTideOrb(tw.tier);return{x:tw.x+o.x,y:tw.y+o.y}}
+/* a ground target, and where on its road the wave should land: just ahead of it */
+function rptAim(R,tw,rg,not){const e=rpTarget(R,tw,rg,false,true,tw.prio,false);if(!e)return null;let tg=e;
+ if(not){let best=null,bd=-1;for(const f of R.foes){if(f.dead||f.air||f.s<0||f===not)continue;const q=rpPos(R,f);if(rpD2(q.x,q.y,tw.x,tw.y)>rg*rg)continue;const qn=rpPos(R,not),d=Math.hypot(q.x-qn.x,q.y-qn.y);if(d>bd){bd=d;best=f}}if(!best||bd<70)return null;tg=best}
+ const len=rpLen(R,tg),s=Math.min(len-12,tg.s+46),p=rpAt(R.G,s,tg.pi);return{e:tg,pi:tg.pi||0,s,x:p.x,y:p.y}}
+function rpTideFire(R,tw,dt){const T=RP_TW.tide,i=tw.tier-1,rg=T.range[i],sp=tw.over>0?RPT.AB.over.k:1;tw.over=Math.max(0,tw.over-dt);tw.rel=Math.max(0,(tw.rel||0)-dt*3.2);
+ if(!tw.st)tw.st='idle';
+ if(tw.st==='idle'){tw.charge=Math.max(0,(tw.charge||0)-dt*4);tw.cd-=dt*sp;if(tw.cd>0)return;const a=rptAim(R,tw,rg);if(!a){tw.cd=.15;return}tw.st='charge';tw.ct=RPTD.charge;tw.fire=1;return}
+ /* charging: the orb drinks the basin */
+ tw.ct-=dt*sp;tw.charge=Math.min(1,1-tw.ct/RPTD.charge);if(tw.ct>0)return;
+ tw.st='idle';tw.cd=T.cd[i];tw.charge=0;tw.rel=1;const a=rptAim(R,tw,rg);if(!a){tw.cd=.2;return}
+ const lev=T.lev[i]&&(tw.nb||0)>=3;tw.nb=lev?0:(tw.nb||0)+1;const o=rptOrbW(tw);
+ R.tdJets.push({x0:o.x,y0:o.y,x1:a.x,y1:a.y,t:0,d:RPTD.jet,tw,pi:a.pi,s:a.s,lev});
+ /* the twin jet: a second target well apart from the first, or else further back along the same road, to catch the next group */
+ if(T.twin[i]){let b=rptAim(R,tw,rg,a.e);if(!b){const s2=Math.max(10,a.s-90),q=rpAt(R.G,s2,a.pi);b={pi:a.pi,s:s2,x:q.x,y:q.y}}R.tdJets.push({x0:o.x,y0:o.y,x1:b.x,y1:b.y,t:-.08,d:RPTD.jet,tw,pi:b.pi,s:b.s,lev:false})}
+ try{beep(520,.08,'sine',.35);setTimeout(()=>beep(780,.12,'sine',.25),60)}catch(e){}}
+function rptLand(R,j){const tw=j.tw,T=RP_TW.tide,i=Math.max(0,Math.min(4,tw.tier-1));
+ R.rings.push({x:j.x1,y:j.y1,t:0,d:.6,max:56,c:'#bff6ff',w:4,tide:1,tier:tw.tier});
+ try{ptBurst(R.fx,j.x1,j.y1-10,R.lite?6:14,['#bff6ff','#5ad6ff','#ffffff'],{v:220,s:3.5,up:1,g:520})}catch(e){}
+ try{beep(180,.18,'triangle',.25);setTimeout(()=>beep(120,.25,'sine',.2),70)}catch(e){}
+ const L=T.knock[i];R.tdWaves.push({pi:j.pi,s:j.s,v:L/RPTD.wave,left:L,tw,tier:tw.tier,hit:new Set(),car:new Map(),trail:[],t:0,tt:0});
+ if(j.lev)R.tdLevs.push({x:j.x1,y:j.y1,t:0,tw,dir:0,hit:false})}
+function rptWaves(R,dt){const T=RP_TW.tide;
+ for(const j of R.tdJets){j.t+=dt;if(j.t>=j.d&&!j.done){j.done=1;rptLand(R,j)}}R.tdJets=R.tdJets.filter(j=>!j.done||j.t<j.d+.15);
+ for(const w of R.tdWaves){const tw=w.tw,i=Math.max(0,Math.min(4,w.tier-1)),over=tw.over>0?1.15:1,step=Math.min(w.left,w.v*dt);w.t+=dt;w.left-=step;w.s=Math.max(0,w.s-step);
+  const p=rpAt(R.G,w.s,w.pi),p2=rpAt(R.G,Math.max(0,w.s-6),w.pi);w.x=p.x;w.y=p.y;w.dx=p2.x-p.x;
+  w.tt-=dt;if(w.tt<=0){w.tt=R.lite?.09:.05;w.trail.push({x:p.x,y:p.y,t:0,w:1});if(w.trail.length>22)w.trail.shift()}
+  for(const f of w.trail)f.t+=dt;
+  for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(Math.hypot(q.x-p.x,(q.y-p.y)/.85)>46)continue;
+   if(!w.hit.has(e)){w.hit.add(e);rpHurt(e,T.dmg[i]*over,T.ap[i],tw);rptSoak(e);w.car.set(e,0)}
+   const c=w.car.get(e)||0,cap=e.boss?30:T.knock[i];if(c<cap&&!e.dead){const k=e.boss?.25:1,d=Math.min(cap-c,step*k);e.s=Math.max(0,e.s-d);w.car.set(e,c+d);if(!e.boss)e.stun=Math.max(e.stun||0,.05)}}
+  if(w.left<=0||w.s<=0){w.done=1;if(T.whirl[i])R.tdWhirls.push({x:p.x,y:p.y,r:58,t:0,d:RPTD.whirl,dps:T.whirl[i],tw,tier:w.tier})}}
+ R.tdWaves=R.tdWaves.filter(w=>!w.done);
+ for(const h of R.tdWhirls){h.t+=dt;for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,h.x,h.y)<h.r*h.r){const fl=e.fl;rpHurt(e,h.dps*dt,99,h.tw);e.fl=fl;e.slowK=Math.max(e.slowK||0,.5);e.slowT=Math.max(e.slowT||0,.25);e.soak=Math.max(e.soak||0,.5)}}}
+ R.tdWhirls=R.tdWhirls.filter(h=>h.t<h.d);
+ for(const L of R.tdLevs){L.t+=dt;const u=L.t/RPTD.lev;if(!L.hit&&u>=.32){L.hit=true;const i=4,T5=T.lev[i]*(L.tw.over>0?1.15:1);R.shake=Math.max(R.shake||0,6);
+   for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(Math.hypot(q.x-L.x,(q.y-L.y)/.75)<100){rpHurt(e,T5,99,L.tw);rptSoak(e);if(!e.dead)e.s=Math.max(0,e.s-(e.boss?15:70))}}
+   R.rings.push({x:L.x,y:L.y,t:0,d:.8,max:110,c:'#fff6d8',w:6,tide:1,tier:5});try{beep(70,.4,'sawtooth',.25)}catch(e){}}}
+ R.tdLevs=R.tdLevs.filter(L=>L.t<RPTD.lev);
+ for(const e of R.foes)if(e.soak>0)e.soak=Math.max(0,e.soak-dt)}
+/* hooks: the fire routine, the battle state, the step */
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type==='tide')return rpTideFire(R,tw,dt);return f0.apply(this,arguments)}}
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);if(RPX)Object.assign(RPX,{tdJets:[],tdWaves:[],tdWhirls:[],tdLevs:[]});return r}}
+{const s0=rpStep;rpStep=function(R,dt){const r=s0.apply(this,arguments);if(R.tdJets)rptWaves(R,dt);return r}}
+{const u0=rpUpgrade;rpUpgrade=function(tw){const r=u0.apply(this,arguments);if(r&&tw&&tw.type==='tide'){tw.st='idle';tw.charge=0;tw.rel=0}return r}}
+/* drawing: the shrine's charge and release, the ground layer (foam, whirlpools, waves behind towers), the top layer (jets, the leviathan) */
+{const d0=rpTowerDraw;rpTowerDraw=function(g,type,tier,skin,t,o){if(type==='tide'&&RPTTW){o=Object.assign({},o,{charge:RPTTW.charge||0,rel:RPTTW.rel||0})}return d0.call(this,g,type,tier,skin,t,o)}}
+function rptWaveDraw(c,R,w){const k=Math.min(1,w.t*6)*Math.min(1,w.left/30+.25),dir=w.dx<0?-1:1;rpTideWave(c,w.x,w.y+6,dir,Math.min(1,.55+w.t*2.2),R.t+w.pi,w.tier,k*.95)}
+{const a0=rpTowerAt;rpTowerAt=function(c,R,tw){/* waves on the road behind this tower are drawn before it */
+  if(R.tdWaves&&R.tdWaves.length){for(const w of R.tdWaves){if(w.fr!==R.t&&w.y!=null&&w.y<tw.y-4){w.fr=R.t;rptWaveDraw(c,R,w)}}}
+  if(tw.type!=='tide')return a0.apply(this,arguments);RPTTW=tw;try{return a0.apply(this,arguments)}finally{RPTTW=null}}}
+{const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.tdWaves){for(const h of R.tdWhirls){const k=Math.min(1,h.t*4,(h.d-h.t)/.5);rpTideWhirl(c,h.x,h.y,h.r,R.t,h.tier,k)}
+  for(const w of R.tdWaves)rpTideFoam(c,w.trail,R.t,w.tier)}}catch(e){}return r}}
+{const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);if(!R.tdWaves)return;
+ for(const w of R.tdWaves)if(w.fr!==R.t&&w.y!=null){w.fr=R.t;rptWaveDraw(c,R,w)}
+ for(const j of R.tdJets){if(j.t<0)continue;const u=j.t/j.d;if(u<1)rpTideJet(c,j.x0,j.y0,j.x1,j.y1,u,j.tw.tier);else rpTideSplash(c,j.x1,j.y1,Math.min(.99,(j.t-j.d)/.15*.3+.05),56,j.tw.tier)}
+ for(const L of R.tdLevs){if(L.dir===0){let d=1;try{const q=R.foes.find(e=>!e.dead&&!e.air);if(q)d=rpPos(R,q).x<L.x?-1:1}catch(e){}L.dir=d}rpTideLeviathan(c,L.x,L.y,L.t/RPTD.lev,L.dir,5)}}}
+/* rings from splashes use the tide colours */
+{const d0=rpDraw;rpDraw=function(){const R=RPX;if(R&&R.rings)for(const r of R.rings)if(r.tide&&r.c)r.c=r.tier>=5?'#fff6d8':r.tier===4?'#d8c4ff':'#bff6ff';return d0.apply(this,arguments)}}
+/* soaked monsters drip */
+{const f0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){const r=f0.apply(this,arguments);if(e.soak>0&&!e.dead&&!R.rm&&Math.random()<(R.lite?.04:.1))try{ptBurst(R.fx,q.x+(Math.random()-.5)*16,q.y-24,1,['#bff6ff','#5ad6ff'],{v:30,s:2.2,g:300})}catch(x){}return r}}
+/* the panel: the right stats for a wave tower */
+{const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='tide')return r;try{const T=RP_TW.tide,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
+  const seg=(v,max)=>Math.max(0,Math.min(6,Math.round(v/max*6))),bar=(lab,v,max,nv)=>`<div class="rpst"><span>${lab}</span><i>${[0,1,2,3,4,5].map(k=>`<s class="${k<seg(v,max)?'on':nv!=null&&k<seg(nv,max)?'up':''}"></s>`).join('')}</i></div>`;
+  const dmg=j=>Math.sqrt(T.dmg[j]/T.cd[j]*(T.twin[j]?2:1)*6+T.whirl[j]*8+T.lev[j]*.3);
+  const st=el.querySelector('.rpsts');if(st)st.innerHTML=bar('Range',T.range[i],320,nx!=null?T.range[nx]:null)+bar('Damage',dmg(i),Math.sqrt(1400),nx!=null?dmg(nx):null)+bar('Sweep back',T.knock[i],180,nx!=null?T.knock[nx]:null)+bar('Fire rate',1/T.cd[i],.6,nx!=null?1/T.cd[nx]:null);
+  const hgt=el.offsetHeight||420;el.style.top=rpClamp(tw.y-hgt*.62,76,770-hgt)+'px'}catch(e){console.error(e)}return r}}
+/* key I picks it */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1&&e.key.toLowerCase()==='i'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('tide');return}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=' The Tidecaller Shrine (I, 150 supply) calls crashing waves that sweep monsters back down the road and soak them; soaked monsters are slowed and the Storm Bell hits them harder.'}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Tidecaller Shrine.</b> A cheap water tower (150 supply, key I). Its waves sweep monsters back down the road and soak them: soaked monsters slow down and take more damage from the Storm Bell. Tier 3 adds whirlpools, tier 4 twin waves, tier 5 the Leviathan.</p>`)}catch(e){}return r}}
+/* ===== RUNESTONE TOWER DEFENSE 9.2: the tower bar and the build ring, redesigned (95m, after 95l) =====
+   Seven towers now. The bar is a row of tiles: the tower stands up out of each tile, with its name, cost and key; a coloured glow
+   rises from the tile floor. Hovering a tile springs it up and enlarges it over its neighbours (z-index) with an info flyout above;
+   the tower in it bobs. The tile being placed stays raised with a gold rim; unaffordable tiles dim with a red cost; locked tiles show a
+   lock. Tiles rise in one after another when the HUD appears. The build ring spreads all seven buttons on an arc (below the pad near
+   the top of the map, above it elsewhere); hovering one pops it over the others and shows its name and cost.
+   Only transform and opacity animate (glows are pre-drawn layers whose opacity changes). */
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h){h.classList.add('rp7');
+  h.querySelectorAll('.rpcard').forEach((c,i)=>{c.style.setProperty('--i',i);const T=RP_TW[c.dataset.tw],TW=RPTW[c.dataset.tw];const tip=c.querySelector('.rptip');
+   if(tip&&!c.classList.contains('lock'))tip.innerHTML=`<b>${esc(TW.n)}</b><em>${esc(TW.role||'')}</em>${esc(T.desc)}<i>${RPI.sup} ${T.cost[0]} supply · key ${RP_KEYS[i]}</i>`;
+   if(!c.querySelector('.rpglo')){const g=document.createElement('i');g.className='rpglo';c.prepend(g)}})}}catch(e){console.error(e)}return r}}
+/* the ring: N buttons on an arc */
+{const g0=rpHudRing;rpHudRing=function(R,C){const was=C.rg;const r=g0.apply(this,arguments);try{if(C.rg!==was&&C.rg){const el=$('rpring'),p=R.selPad,bs=el.querySelectorAll('.rprb'),n=bs.length,below=p.y<340,rad=192;
+  bs.forEach((b,i)=>{const deg=below?(180-i*(180/(n-1))):(-180+i*(180/(n-1))),a=deg*Math.PI/180;b.style.setProperty('--x',(Math.cos(a)*rad).toFixed(1)+'px');b.style.setProperty('--y',(Math.sin(a)*rad*.84).toFixed(1)+'px');b.style.setProperty('--d',(i*.035).toFixed(3)+'s');
+   if(!b.querySelector('.rpglo')){const g=document.createElement('i');g.className='rpglo';b.prepend(g)}})}}catch(e){console.error(e)}return r}}
+{const st=document.createElement('style');st.textContent=`
+.rph.rp7 .rpbar{left:744px;gap:7px;padding:10px 10px 9px;border-radius:24px;border:2px solid #7a5ac8;background:linear-gradient(180deg,#261c62f2,#100a30f6);box-shadow:0 0 0 2px #12081f,0 12px 26px #000a}
+.rph.rp7 .rpbar::before{content:'';position:absolute;left:18px;right:18px;top:-2px;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,#ffd45a,transparent);opacity:.8;pointer-events:none}
+.rph.rp7 .rpcard{width:110px;height:94px;padding:0;display:block;border-radius:18px;border:2px solid #3a3070;background:linear-gradient(180deg,#2c2270,#130c38);overflow:visible;
+ transition:transform .26s cubic-bezier(.34,1.56,.64,1);animation:rpTileIn .5s cubic-bezier(.34,1.56,.64,1) backwards;animation-delay:calc(var(--i,0)*45ms + .05s);z-index:1}
+@keyframes rpTileIn{from{opacity:0;transform:translateY(26px) scale(.86)}}
+.rph.rp7 .rpcard .rpglo{position:absolute;inset:0;border-radius:16px;background:radial-gradient(90% 70% at 50% 100%,var(--c) 0%,transparent 70%);opacity:.28;transition:opacity .2s;pointer-events:none}
+.rph.rp7 .rpcard::after{content:'';position:absolute;inset:-2px;border-radius:18px;border:2px solid var(--c);opacity:0;transition:opacity .2s;pointer-events:none}
+.rph.rp7 .rpcard img{position:absolute;left:50%;top:-26px;width:80px;height:80px;margin:0 0 0 -40px;transition:transform .26s cubic-bezier(.34,1.56,.64,1);pointer-events:none}
+.rph.rp7 .rpct{position:absolute;left:0;right:0;bottom:5px;display:flex;flex-direction:column;align-items:center;gap:1px}
+.rph.rp7 .rpct>b{font:400 14px/1.05 'Pirata One',Georgia,serif;letter-spacing:-.01em;text-align:center;white-space:nowrap;max-width:104px;overflow:hidden;text-overflow:ellipsis}
+.rph.rp7 .rpcost{gap:3px;padding:1px 8px 1px 5px;border-radius:9px;background:#0a0620d8;font-size:13px}.rph.rp7 .rpcost svg{width:14px;height:14px}.rph.rp7 .rpcost b{font-size:13px}
+.rph.rp7 .rpcard kbd{position:absolute;left:6px;right:auto;top:5px;min-width:18px;padding:1px 4px;font-size:11px}
+.rph.rp7 .rpcard:hover{transform:translateY(-30px) scale(1.24);z-index:6}
+.rph.rp7 .rpcard:hover .rpglo{opacity:.65}.rph.rp7 .rpcard:hover::after{opacity:1}
+.rph.rp7 .rpcard:hover img{animation:rpBob 1.2s ease-in-out infinite}
+@keyframes rpBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.rph.rp7 .rpcard:active{transform:translateY(-24px) scale(1.16)}
+.rph.rp7 .rpcard.on{transform:translateY(-14px);z-index:4;border-color:#ffd45a}.rph.rp7 .rpcard.on::after{opacity:1;border-color:#ffd45a}.rph.rp7 .rpcard.on .rpglo{opacity:.6}
+.rph.rp7 .rpcard.on:hover{transform:translateY(-30px) scale(1.24)}
+.rph.rp7 .rpcard.no{opacity:1}.rph.rp7 .rpcard.no img{opacity:.55}.rph.rp7 .rpcard.no .rpct>b{opacity:.7}
+.rph.rp7 .rpcard.lock img{opacity:.35}.rph.rp7 .rpcard .rplk{left:42px;top:2px}
+.rph.rp7 .rptip{bottom:calc(100% + 34px);width:250px;padding:10px 13px 11px;border-radius:14px;border:2px solid var(--c);background:linear-gradient(180deg,#1e1650fa,#0c0824fc);box-shadow:0 0 0 2px #12081f;font-size:12px;transform:translateX(-50%) scale(.81);transform-origin:50% 100%;transition:opacity .18s}
+.rph.rp7 .rptip em{display:block;margin:-1px 0 4px;font:700 11px var(--ui);font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--c)}
+.rph.rp7 .rptip i{display:flex;align-items:center;gap:4px;margin-top:6px;font:800 12px var(--ui);font-style:normal;color:#ffd45a}.rph.rp7 .rptip i svg{width:14px;height:14px}
+.rph.rp7 .rprb{width:78px;height:78px;left:-39px;top:-39px;transition:transform .24s cubic-bezier(.34,1.56,.64,1);z-index:1;overflow:visible}
+.rph.rp7 .rprb .rpglo{position:absolute;inset:-3px;border-radius:50%;background:radial-gradient(circle at 50% 70%,var(--c),transparent 70%);opacity:.3;transition:opacity .2s;pointer-events:none}
+.rph.rp7 .rprb img{position:relative;width:66px;height:66px;margin-top:-14px}
+.rph.rp7 .rprb:hover{transform:translate(var(--x),var(--y)) scale(1.32);z-index:6}.rph.rp7 .rprb:hover .rpglo{opacity:.75}
+.rph.rp7 .rprb em{top:-26px;padding:2px 8px;border-radius:8px;background:#12081fe0;font-size:12px}
+.rph.rp7 .rprb.lock img{opacity:.4}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 9.2: smoother tower animation (95n, after 95m) =====
+   - Turning: the Rune Ballista's turret (and the Celestial Prism's flare) used to snap to each new target the instant it fired. Now
+     the turret tracks its target continuously and turns at most RPA.turn rad/s; it only looses a bolt once it points within RPA.tol of
+     the target (the bolt leaves along the turret). tw.aimD is the drawn angle.
+   - Recoil: every tower's fire value (1 on a shot, falling to 0) is drawn through a smoothstep, so recoils, flares and bell swings
+     settle gently instead of stopping dead.
+   - Hover and selection: a built tower lifts slightly (a spring, tw.hv) when the pointer is over it or it is selected.
+   Only the drawing and the ballista's shot timing change; damage and ranges do not. */
+const RPA={turn:9,tol:.2};
+const rpaD=(a,b)=>{let d=a-b;while(d>Math.PI)d-=TAU;while(d<-Math.PI)d+=TAU;return d};
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type!=='ballista')return f0.apply(this,arguments);
+  const T=RP_TW.ballista,i=tw.tier-1,e=rpTarget(R,tw,T.range[i],!!T.air,!!T.ground,tw.prio,false);if(tw.aimD==null)tw.aimD=tw.aim||0;
+  let ta=null;if(e){const p=rpPos(R,e),ty=p.y-(e.air?40:18);ta=Math.atan2(ty-(tw.y-40),p.x-tw.x)}
+  const goal=ta!=null?ta:tw.aim||tw.aimD,d=rpaD(goal,tw.aimD),st=RPA.turn*dt*(tw.over>0?1.6:1);tw.aimD+=Math.max(-st,Math.min(st,d));
+  /* hold the shot until the turret faces the target */
+  if(ta!=null&&Math.abs(rpaD(ta,tw.aimD))>RPA.tol&&tw.cd-dt*(tw.over>0?RPT.AB.over.k:1)<=0){tw.over=Math.max(0,tw.over-dt);tw.fire=Math.max(0,tw.fire-dt*3);tw.cd=Math.max(tw.cd,.001);return}
+  return f0.apply(this,arguments)}}
+/* the drawn state: smoothed fire, the turret's drawn angle, the hover lift */
+let RPATW=null;
+{const d0=rpTowerDraw;rpTowerDraw=function(g,type,tier,skin,t,o){const tw=RPATW;if(tw&&o&&type!=='dragon'&&type!=='tide'){const f=Math.max(0,Math.min(1,o.fire||0));o=Object.assign({},o,{fire:f*f*(3-2*f)});if(tw.aimD!=null&&type==='ballista')o.aim=tw.aimD}return d0.call(this,g,type,tier,skin,t,o)}}
+{const a0=rpTowerAt;rpTowerAt=function(c,R,tw){const now=R.t,dt=tw.alt==null?0:Math.max(0,Math.min(.1,now-tw.alt));tw.alt=now;
+  const want=(R.hover===tw.pad||R.sel===tw)&&tw.build>=1?1:0;if(tw.hv==null)tw.hv=0;if(tw.hvv==null)tw.hvv=0;
+  tw.hvv+=((want-tw.hv)*220-tw.hvv*22)*dt;tw.hv+=tw.hvv*dt;if(Math.abs(tw.hv)<.001&&!want){tw.hv=0;tw.hvv=0}
+  RPATW=tw;try{if(tw.hv>.002){const k=1+.045*tw.hv;c.save();c.translate(tw.x,tw.y+14);c.scale(k,k);c.translate(-tw.x,-tw.y-14);a0.apply(this,arguments);c.restore();return}return a0.apply(this,arguments)}finally{RPATW=null}}}
+/* ===== RUNESTONE TOWER DEFENSE 9.2: a gentler endless Wonderland (95o, after 95n) =====
+   The owner wants strong players to reach waves 60-70. Up to wave 15 nothing changes (it still plays like Ember Crown). After wave
+   15 monster hit points used to compound by 5% a wave (bosses 3%) and the monster count by 5% a wave; now RPE.hp / RPE.boss / RPE.n,
+   with a softer climb (RPE.soft) after wave RPE.w2. Tuned with the bot (see HANDOFF 9.2). */
+const RPE={hp:1.02,boss:1.012,n:.015,w2:50,soft:1.014};
+const rpEndK=(w,boss)=>{if(w<=15)return 1;const a=Math.min(w,RPE.w2)-15,b=Math.max(0,w-RPE.w2);return Math.pow(boss?RPE.boss:RPE.hp,a)*Math.pow(boss?RPE.boss:RPE.soft,b)};
+{const h0=rpHpK;rpHpK=function(map,w,boss){if(!map||!map.endless||w<=15)return h0.apply(this,arguments);/* the base curve, without the old compounding */
+  const k=map.hpk*(1+.12*(w-1)+.007*(w-1)*(w-1))*(1+(map.late||0)*(boss?.25:1)*rpRamp(map,w));return k*rpEndK(w,boss)}}
+{const w0=rpWave;rpWave=function(map,w){const W=w0.apply(this,arguments);if(!map||!map.endless||w<=15)return W;const ex=w-15,f=(1+ex*RPE.n)/(1+ex*.05);
+  return W.map(g=>g.id==='behemoth'?g:Object.assign({},g,{n:Math.max(2,Math.round(g.n*f))}))}}
+/* ===== 9.2: smooth menu transitions (95p, after 95o) =====
+   Menu screens used to swap in one frame. Now, when show() opens a different menu screen (S.mode 'title'), the new page rises 12 px
+   and fades in (0.34 s, a soft overshoot curve) while a thin indigo veil over the stage fades out, so every screen change reads as one
+   smooth move. Pages that keep their shell (the sidebar) only move their content. A screen that re-renders itself (the same screen
+   key: the class list and the root class of the new HTML) does not replay it, so picking a map on the hub or a skin does not flicker.
+   Web Animations on transform and opacity only (no layout, no filters); nothing in the DOM is duplicated or delayed, so code that
+   reads the new page right after show() is unaffected. Off with reduced motion, in battles, and on the very first screen. */
+const MFX={last:'',veil:null,n:0};
+const mfxNoMo=()=>{try{if(typeof ccReduce==='function'&&ccReduce())return true}catch(e){}try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
+function mfxSKey(html,cls){const m=/class="([^"]+)"/.exec(html||'');return (cls||'')+'|'+(m?m[1].split(' ').slice(0,2).join(' '):'')}
+function mfxSVeil(){let v=MFX.veil;if(!v||!v.isConnected){v=MFX.veil=document.createElement('div');v.className='mfxveil';v.setAttribute('aria-hidden','true');wrap.appendChild(v)}
+ try{v.animate([{opacity:.5},{opacity:0}],{duration:360,easing:'cubic-bezier(.3,.7,.3,1)'})}catch(e){}}
+function mfxSEnter(){const main=ov.querySelector(':scope > main.mn'),els=main?[main]:[...ov.children];
+ for(const el of els){try{el.animate([{opacity:0,transform:'translateY(12px) scale(.992)'},{opacity:1,transform:'none'}],{duration:340,easing:'cubic-bezier(.2,.9,.25,1.04)'})}catch(e){}}mfxSVeil()}
+{const s0=show;show=function(html,cls){const key=mfxSKey(html,cls),first=!MFX.n++;const r=s0.apply(this,arguments);
+  try{if(!first&&S.mode==='title'&&key!==MFX.last&&!mfxNoMo())mfxSEnter()}catch(e){}MFX.last=key;return r}}
+{const st=document.createElement('style');st.textContent=`.mfxveil{position:absolute;inset:0;z-index:40;pointer-events:none;background:radial-gradient(120% 90% at 50% 40%,#1e1650,#08051a);opacity:0}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

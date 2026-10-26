@@ -10,7 +10,7 @@ async def main():
     b=await p.chromium.launch();ctx=await b.new_context(viewport={'width':1600,'height':900},device_scale_factor=sc);pg=await ctx.new_page();er=[]
     pg.on('pageerror',lambda e:er.append(str(e)[:400]))
     await pg.goto(H);await pg.wait_for_timeout(1500)
-    await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null}");await pg.evaluate(SC)
+    await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null}");await pg.evaluate(SC)
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz');pzStart({opp:'gloop',stake:100,seed:11})}");await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()");await pg.wait_for_timeout(1800)
     if js:
       r=await pg.evaluate("async()=>{"+js+"}")

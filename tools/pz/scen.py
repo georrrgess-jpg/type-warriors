@@ -10,7 +10,7 @@ async def main():
     b=await p.chromium.launch();pg=await b.new_page(viewport={'width':1600,'height':900});er=[]
     pg.on('pageerror',lambda e:er.append(str(e)[:400]));pg.on('console',lambda m:er.append('console:'+m.text[:300]) if m.type=='error' and 'ERR_' not in m.text and 'WebSocket' not in m.text else None)
     await pg.goto(H);await pg.wait_for_timeout(1500)
-    await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null}");await pg.evaluate(SC)
+    await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null}");await pg.evaluate(SC)
     async def start(opp,seed=5,stake=500):
       await pg.evaluate("([o,s,k])=>{PZS().live=null;PZ.on=false;casinoOpen();gameOpen('pz');pzStart({opp:o,stake:k,seed:s})}",[opp,seed,stake]);await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()")
     await start('vesper')

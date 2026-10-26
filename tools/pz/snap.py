@@ -8,7 +8,7 @@ async def main():
     b=await p.chromium.launch();pg=await b.new_page(viewport={'width':w,'height':h});er=[]
     pg.on('pageerror',lambda e:er.append(str(e)[:400]));pg.on('console',lambda m:er.append('console:'+m.text[:300]) if m.type=='error' and 'ERR_' not in m.text and 'WebSocket' not in m.text else None)
     await pg.goto(H);await pg.wait_for_timeout(1500)
-    await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=60000}")
+    await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=60000}")
     r=await pg.evaluate("async()=>{"+js+"}")
     if r is not None:print('result',r)
     await pg.wait_for_timeout(wait);await pg.screenshot(path=out);print('errors',er);await b.close()

@@ -46528,7 +46528,7 @@ const PZ_O='#12081f';
 const PZ_REG={
  gloop:{id:'gloop',n:'Gloop',k:'The Spilled Drink',c:'#8affb4',lvl:1,race:1,stakes:[50,100,200],mult:1.35,floor:1.15,
   ai:{sig:2.6,psig:.14,pos:0,safe:0,sTry:0,look:3,over:1.3,brk:2.6},
-  house:{},houseTxt:'No house rule: the practice table.',cue:'slime',skin:'#9affa0',
+  house:{},houseTxt:'No house rule: plain 8-ball, nice and simple.',cue:'slime',skin:'#9affa0',
   voice:{f:330,t:'sine',w:.18},quirk:'Wobbles when excited and sips a glowing soda.',
   lines:{hi:["Ooh, a new friend! I hit 'em HARD.","Rack 'em! Blub!"],pot:['SPLAT! In it goes!','Did you see that?!'],miss:['Whoops, too much juice.','Aw, blub.'],
    you:["Wow, you're sticky-good!"],foul:["Hee! Your turn's mine now!"],win:['Best. Night. Ever!'],lose:["You beat me fair and square... wanna play again?"],taunted:['M-my wobble!']},
@@ -47507,7 +47507,7 @@ function pzArm(g,sx,sy,hx,hy,sleeve,skin){const dx=hx-sx,dy=hy-sy,d=Math.hypot(d
    rules. Rendering is in 96i2, input and the HUD DOM in 96i3, screens in 96j. */
 const PZ={on:false,tok:0,ph:'',pht:0,t:0,last:0,paused:false,lite:false,lastPow:.5};
 /* how each monster thinks before a shot: seconds of routine, practice strokes, whether it chalks */
-const PZ_THINK={gloop:{dur:.7,pr:0,chalk:0},moldwick:{dur:1.9,pr:3,chalk:1},grizzle:{dur:.85,pr:1,chalk:0},vesper:{dur:1.5,pr:2,chalk:1},barnacle:{dur:1.2,pr:2,chalk:0},hootsworth:{dur:1.7,pr:2,chalk:1},mortimer:{dur:1.2,pr:1,chalk:1},shade:{dur:1.3,pr:2,chalk:1}};
+const PZ_THINK={gloop:{dur:.7,pr:0,chalk:0},moldwick:{dur:1.15,pr:1,chalk:1},grizzle:{dur:.85,pr:1,chalk:0},vesper:{dur:1.15,pr:2,chalk:1},barnacle:{dur:1.2,pr:2,chalk:0},hootsworth:{dur:1.35,pr:2,chalk:1},mortimer:{dur:1.2,pr:1,chalk:1},shade:{dur:1.3,pr:2,chalk:1}};
 const PZ_RMC={t:-1e9,v:false};
 const pzRM=()=>{const n=performance.now();if(n-PZ_RMC.t>250){PZ_RMC.t=n;try{PZ_RMC.v=!!(ccReduce()||document.body.classList.contains('pf-low'))}catch(e){PZ_RMC.v=false}}return PZ_RMC.v};
 const pzFx=(n,a)=>{try{if(typeof pzSound==='function')pzSound(n,a)}catch(e){}};
@@ -47615,7 +47615,7 @@ function pzJudgeShot(silent){const st=PZ.st,M=PZ.M,Z=PZS(),who=st.turn,R=PZ.reg,
  if(rep.golden){pzBanner('GOLDEN BREAK!','gold',1800);pzFx('golden');pzCoinBurst(PZ_G.x+PZ_PHY.W*.75,PZ_G.y+PZ_PHY.H/2,26);pzCastReact(mine?'mon':'hero','wow',1600);pzCastReact(mine?'hero':'mon','cheer',1600)}
  if(rep.foul){pzBanner(rep.reason+(rep.scratch?'!':''),'foul',1500);pzSub(rep.spot8?'The 8 goes back on the table · '+(mine?`${who2} has ball in hand`:'ball in hand for you'):(mine?`${who2} has ball in hand`:'You have ball in hand'),2400);pzFx('foul');PZ.shake=Math.max(PZ.shake||0,.5);
   pzCastReact(mine?'hero':'mon','angry',1200);pzCastReact(mine?'mon':'hero','smug',1500);
-  if(mine)pzSay(pzPick(R.lines.foul,PZ.rng),2400);else pzSay(pzPick(['Ouch!','Tough break.','Ha!'],PZ.rng),1600)}
+  if(mine)pzSay(pzPick(R.lines.foul,PZ.rng),2400);else pzSay(pzPick(['Ouch!','Bah!','Oops.'],PZ.rng),1600)}
  else if(rep.banks){pzFloat(PZ.fhx||800,(PZ.fhy||400)-20,rep.banks>1?'BANKS!':'BANK!','#9fe8ff')}
  if(rep.combos&&!rep.foul)pzFloat(PZ.fhx||800,(PZ.fhy||400)-44,'COMBO!','#ffd45a');
  if(!rep.foul&&!st.over){
@@ -47878,14 +47878,14 @@ function pzHudAll(){if(!PZ.on||!$('pzm'))return;const st=PZ.st,M=PZ.M,R=PZ.reg,B
  const sub=(p)=>{const g=st.grp[p];return g?(g==='s'?'Solids':'Stripes'):'Open table'};
  $('pzsm').textContent=sub(0);$('pzso').textContent=sub(1);{const h0=pzBallsHTML(st.grp[0],B),h1=pzBallsHTML(st.grp[1],B),e0=$('pzbm'),e1=$('pzbo');if(e0._h!==h0){e0.innerHTML=h0;e0._h=h0}if(e1._h!==h1){e1.innerHTML=h1;e1._h=h1}}
  $('pzs0').textContent=M.score[0];$('pzs1').textContent=M.score[1];$('pzrace').textContent=`RACE TO ${M.race}  ·  RACK ${M.rack}`;
- $('pzpot').textContent=M.practice?'Practice table':`Pot ${cmn(Math.round(M.stake*M.mult))}  (stake ${cmn(M.stake)} ×${M.mult.toFixed(2).replace(/0$/,'')})`;
+ $('pzpot').textContent=M.practice?'Practice table':`Prize ${cmn(Math.round(M.stake*M.mult))} · stake ${cmn(M.stake)} ×${M.mult.toFixed(2).replace(/0$/,'').replace(/\.0$/,'')}`;
  const pips=(p)=>Array.from({length:M.race},(_,i)=>`<i class="${i<M.score[p]?'on':''}"></i>`).join('');$('pzpm').innerHTML=pips(0);$('pzpo').innerHTML=pips(1);
  const mine=st.turn===0&&PZ.ph!=='endhold';$('pzcm').classList.toggle('turn',st.turn===0);$('pzco').classList.toggle('turn',st.turn===1);$('pztm').textContent=st.bih&&st.turn===0?'BALL IN HAND':'YOUR SHOT';$('pzto').textContent=st.bih&&st.turn===1?'BALL IN HAND':'THEIR SHOT';
  $('pzgdv').textContent=pzGuideMode()==='short'&&PZS().guide==='full'?'Short':PZS().guide==='full'?'Full':PZS().guide==='short'?'Short':'Pro';
  pzHudClock();pzHudHint()}
 function pzHudHint(){const h=$('pzhint');if(!h)return;const st=PZ.st,touch=PZ.touch||(window.matchMedia&&matchMedia('(pointer:coarse)').matches);let t='';
  if(PZ.ph==='aim'){if(PZ.mode==='place')t=st.kitchen||st.brk?'Click to place the cue ball behind the line':'Ball in hand: click to place the cue ball';
-  else if(pzrOn8(st))t=(PZ.call>=0?`Calling pocket ${PZ.call+1} for the 8 · click another pocket to change · then shoot`:'Call the 8: click a pocket (or press 1-6) before you shoot')+(PZ.reg.house&&PZ.reg.house.bank8?' · this table: the 8 must bank off a cushion':'');
+  else if(pzrOn8(st))t=(PZ.call>=0?`Calling pocket ${PZ.call+1} for the 8 · click another pocket to change · then shoot`:(PZ.autoCall!=null&&PZ.autoCall>=0?`The 8: your aim calls pocket ${PZ.autoCall+1} · click another pocket (or 1-6) to change`:'The 8: aim it at a pocket to call it, or click a pocket (1-6)'))+(PZ.reg.house&&PZ.reg.house.bank8?' · this table: the 8 must bank off a cushion':'');
   else t=touch?'Drag on the table to aim · set power below · tap SHOOT':(st.brk?'Aim · drag the cue ball to move it · pull back to break':'Aim with the mouse · pull back to set power · release to shoot')}
  else if(PZ.ph==='ai'){t=`${PZ.reg.n} is lining up a shot… (hold click or Space to fast-forward)`}else if(PZ.ph==='roll'){t='Hold Space or click to fast-forward'}else if(PZ.ph==='rerack'){t='Racking… (click to skip)'}
  h.textContent=t;$('pzbar').classList.toggle('mine',PZ.ph==='aim'&&PZ.mode==='aim');$('pzbar').classList.toggle('ai',PZ.ph==='ai')}
@@ -47964,7 +47964,7 @@ if(!window.__pzKeys){window.__pzKeys=1;
  document.addEventListener('visibilitychange',()=>{try{if(document.hidden&&PZ.on&&$('pzm')&&PZ.ph!=='over'&&PZ.ph!=='intro'&&!PZ.modal)pzPauseMenu()}catch(e){}});
  addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')PZ.ffHeld=false;if(!PZ.keys)return;const m={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down'}[e.key];if(m)PZ.keys[m]=0;PZ.keys.shift=e.shiftKey})}
 /* ---------- taunts: type a line to rattle the monster ---------- */
-function pzSayMaybeTaunt(){const Z=PZS(),M=PZ.M,R=PZ.reg;if(!PZ.nextTaunt)return;PZ.nextTaunt=false;if(!Z.tauntsOn||PZ.ph!=='aim'||PZ.st.bih||M.score[1]>=M.race-1||PZ.tauntRack===M.rack&&PZ.tauntN>=1||Math.random()>.45)return;
+function pzSayMaybeTaunt(){const Z=PZS(),M=PZ.M,R=PZ.reg;if(!PZ.nextTaunt)return;PZ.nextTaunt=false;if(!Z.tauntsOn||PZ.ph!=='aim'||PZ.st.bih||(M.race>1&&M.score[1]>=M.race-1)||PZ.tauntRack===M.rack&&PZ.tauntN>=1||Math.random()>.45)return;
  if(PZ.tauntRack!==M.rack){PZ.tauntRack=M.rack;PZ.tauntN=0}PZ.tauntN++;const text=pzPick(R.taunts,PZ.rng);PZ.taunt={text,pos:0,t:0,dur:3+.12*text.length,err:0};pzTauntDraw();$('pztaunt').hidden=false;$('pztaunt').classList.remove('out');void $('pztaunt').offsetWidth;$('pztaunt').classList.add('in');PZ.tauntTick=setInterval(pzTauntTick,50)}
 function pzTauntDraw(){const T=PZ.taunt;if(!T)return;$('pztl').innerHTML=`<b>${T.text.slice(0,T.pos).replace(/ /g,'&nbsp;')}</b>${T.text.slice(T.pos).replace(/ /g,'&nbsp;')}`}
 function pzTauntTick(){const T=PZ.taunt;if(!T||PZ.paused||PZ.modal)return;T.t+=.05;$('pztbi').style.transform=`scaleX(${Math.max(0,1-T.t/T.dur)})`;if(T.t>=T.dur){pzTauntStop();pzCastReact('mon','smug',1200);pzSay(pzPick(['Hee hee!','Too slow!','Ha!'],PZ.rng),1500)}}
@@ -48443,6 +48443,891 @@ function pzTipsTurn(){if(!PZ.on||PZ.ph!=='aim'||!PZ.st||PZ.st.turn!==0)return;co
 {const f0=pzBeginTurn;pzBeginTurn=function(){const r=f0.apply(this,arguments);try{if(!(PZ.M&&PZ.M.trick&&PZ.M.trick.n>0))pzTipsTurn()}catch(e){}return r}}
 {const f0=pzFireHuman;pzFireHuman=function(){try{pzTipHide()}catch(e){}return f0.apply(this,arguments)}}
 {const f0=pzPlaceCue;pzPlaceCue=function(){try{if(PZ.tipKey==='bih')pzTipHide()}catch(e){}return f0.apply(this,arguments)}}
+/* ===== 9.5 THE CROOKED CUE: pop-up tutorials (96q) =====
+   A small coach engine: a spotlight on one element, a card with the step text, Next / Skip, step dots.
+   Tours are shown once each (P.pz.tut[id]) and can be replayed from House Rules.
+   pzCoach(id,steps,opts): steps are {sel, title, text, side, pad, free, until, wait, btn, onShow}.
+     sel   : CSS selector or a function returning an element or a {x,y,w,h} box on the 1600 x 900 stage (none = centred card)
+     free  : the player may use the screen while the card is up (no dim, clicks pass through)
+     until : a function; the step moves on by itself when it returns true (polled 5 times a second)
+     btn   : the label of the Next button (false = no button, the step waits for until)
+   Only transform and opacity are animated. */
+const PZC={cur:null,tick:0,keyOn:false};
+function pzCoachRoot(){return ov.querySelector(':scope>.pzh,:scope>.pzm,:scope>.pzr,:scope>.pzk')}
+function pzCoachBox(root,t){try{if(!t)return null;if(typeof t==='function')t=t();if(!t)return null;
+ if(Array.isArray(t)){const bs=t.map(x=>pzCoachBox(root,x)).filter(Boolean);if(!bs.length)return null;const x0=Math.min(...bs.map(b=>b.x)),y0=Math.min(...bs.map(b=>b.y)),x1=Math.max(...bs.map(b=>b.x+b.w)),y1=Math.max(...bs.map(b=>b.y+b.h));return {x:x0,y:y0,w:x1-x0,h:y1-y0}}if(typeof t==='string')t=root.querySelector(t);if(!t)return null;
+ if(t.x!=null&&t.w!=null&&!(t instanceof Element))return t;const r=t.getBoundingClientRect(),rr=root.getBoundingClientRect(),s=rr.width/1600||1;if(!r.width&&!r.height)return null;
+ return {x:(r.left-rr.left)/s,y:(r.top-rr.top)/s,w:r.width/s,h:r.height/s}}catch(e){return null}}
+function pzCoachActive(){return !!(PZC.cur&&PZC.cur.el&&PZC.cur.el.isConnected)}
+var PZ_TUT_OFF=false;/* test scripts switch the tutorials off */
+function pzCoach(id,steps,o){o=o||{};const Z=PZS();if(!o.force&&(Z.tut[id]||PZ_TUT_OFF))return false;if(pzCoachActive()){if(!o.queue)return false;PZC.q=PZC.q||[];PZC.q.push([id,steps,o]);return true}
+ const root=o.root||pzCoachRoot();if(!root)return false;steps=steps.filter(s=>!s.skipIf||!s.skipIf());if(!steps.length)return false;
+ const el=document.createElement('div');el.className='pztu';el.innerHTML=`<div class="pztudim"></div><div class="pztus"><i></i></div><div class="pztuc"><div class="pztuar"></div><small></small><div class="pztut"></div><p></p><div class="pztub"><button class="pztusk">Skip</button><button class="pztun">Next</button></div><div class="pztud"></div></div>`;
+ root.appendChild(el);const C={id,steps,o,i:-1,el,root,tok:PZ.tok};PZC.cur=C;
+ el.querySelector('.pztun').onclick=e=>{e.stopPropagation();pzCoachNext()};el.querySelector('.pztusk').onclick=e=>{e.stopPropagation();pzCoachEnd(true)};
+ el.querySelector('.pztudim').onclick=e=>{e.stopPropagation();const s=C.steps[C.i];if(s&&s.btn!==false&&!s.free)pzCoachNext()};
+ if(!PZC.keyOn){PZC.keyOn=true;addEventListener('keydown',pzCoachKey,true)}
+ clearInterval(PZC.tick);PZC.tick=setInterval(pzCoachPoll,200);if(o.onStart)try{o.onStart()}catch(e){}
+ pzCoachNext();return true}
+function pzCoachKey(e){const C=PZC.cur;if(!pzCoachActive())return;const s=C.steps[C.i];if(!s)return;
+ if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();pzCoachEnd(true);return}
+ if(s.free)return;/* free steps let the game have its keys */
+ if(e.key==='Enter'||e.key===' '||e.key==='ArrowRight'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat&&s.btn!==false)pzCoachNext();return}
+ e.stopImmediatePropagation()}
+function pzCoachPoll(){const C=PZC.cur;if(!C)return;try{if(PZ.on&&PZ.clockOn&&PZ.M&&!PZ.M.trick){PZ.clock=pzClockMax();pzHudClock()}}catch(e){}if(!C.el.isConnected||PZ.tok!==C.tok&&!C.o.keepTok){pzCoachEnd(false,true);return}const s=C.steps[C.i];if(!s)return;
+ if(s.until){let ok=false;try{ok=s.until()}catch(e){}if(ok){pzCoachNext();return}}
+ if(s.follow)pzCoachPlace(C,s)}
+function pzCoachNext(){const C=PZC.cur;if(!C)return;C.i++;while(C.i<C.steps.length&&C.steps[C.i].skipIf&&(()=>{try{return C.steps[C.i].skipIf()}catch(e){return false}})())C.i++;
+ if(C.i>=C.steps.length){pzCoachEnd(false);return}const s=C.steps[C.i],el=C.el,card=el.querySelector('.pztuc');pzFx('tick');
+ el.classList.toggle('free',!!s.free);el.classList.toggle('nodim',!!s.free||!!s.nodim);
+ card.querySelector('small').textContent=(s.kicker||C.o.kicker||'TUTORIAL')+(C.steps.length>1?` · ${C.i+1} / ${C.steps.length}`:'');
+ card.querySelector('.pztut').textContent=s.title||'';card.querySelector('p').innerHTML=s.text||'';
+ const nb=card.querySelector('.pztun');nb.hidden=s.btn===false;nb.textContent=s.btn||(C.i===C.steps.length-1?(C.o.last||'Got it'):'Next');
+ card.querySelector('.pztusk').hidden=C.steps.length<2||C.i===C.steps.length-1&&!C.o.skipLast||!!s.noSkip;
+ card.querySelector('.pztud').innerHTML=C.steps.length>1?C.steps.map((x,k)=>`<i class="${k===C.i?'on':k<C.i?'done':''}"></i>`).join(''):'';
+ if(s.extra){const b=document.createElement('button');b.className='pztux';b.textContent=s.extra[0];b.onclick=e=>{e.stopPropagation();pzCoachEnd(false);try{s.extra[1]()}catch(err){}};card.querySelector('.pztub').prepend(b)}else{const x=card.querySelector('.pztux');if(x)x.remove()}
+ if(s.onShow)try{s.onShow()}catch(e){}
+ card.classList.remove('in');void card.offsetWidth;card.classList.add('in');pzCoachPlace(C,s)}
+function pzCoachPlace(C,s){const el=C.el,sp=el.querySelector('.pztus'),card=el.querySelector('.pztuc'),ar=card.querySelector('.pztuar');const b=s.sel?pzCoachBox(C.root,s.sel):null;
+ const cw=s.w||400;card.style.width=cw+'px';const ch=card.offsetHeight||170;let x,y,side='c';
+ if(b){const p=s.pad==null?10:s.pad,bx=b.x-p,by=b.y-p,bw=b.w+p*2,bh=b.h+p*2;const fresh=sp.hidden||!sp.dataset.on;sp.hidden=false;if(fresh){sp.style.transition='none'}sp.style.width=bw+'px';sp.style.height=bh+'px';sp.style.transform=`translate(${bx}px,${by}px)`;if(fresh){void sp.offsetWidth;sp.style.transition='';sp.dataset.on=1}sp.style.borderRadius=(s.r!=null?s.r:Math.min(26,Math.min(bw,bh)/2))+'px';
+  el.classList.toggle('round',!!s.round);el.classList.add('spot');
+  side=s.side||(bx+bw+cw+40<1600?'right':bx-cw-40>0?'left':by+bh+ch+40<900?'bottom':'top');
+  if(side==='right'){x=bx+bw+28;y=by+bh/2-ch/2}else if(side==='left'){x=bx-cw-28;y=by+bh/2-ch/2}else if(side==='bottom'){x=bx+bw/2-cw/2;y=by+bh+28}else{x=bx+bw/2-cw/2;y=by-ch-28}
+  x=Math.max(16,Math.min(1600-cw-16,x));y=Math.max(16,Math.min(900-ch-16,y));
+  /* the little arrow points from the card at the spotlight */
+  if(side==='right'||side==='left'){ar.style.top=Math.max(18,Math.min(ch-34,by+bh/2-y-8))+'px';ar.style.left=''}else{ar.style.left=Math.max(18,Math.min(cw-34,bx+bw/2-x-8))+'px';ar.style.top=''}}
+ else{sp.hidden=true;sp.dataset.on='';el.classList.remove('spot');x=800-cw/2;y=s.y!=null?s.y:450-ch/2}
+ if(s.at){x=s.at.x;y=s.at.y;side=s.at.side||'c'}
+ ar.className='pztuar '+side;card.style.left=x+'px';card.style.top=y+'px'}
+function pzCoachEnd(skipped,silent){const C=PZC.cur;if(!C)return;PZC.cur=null;clearInterval(PZC.tick);const Z=PZS();
+ if(!C.o.noSave&&!(silent&&!skipped&&C.i<C.steps.length-1&&C.o.resumable)){Z.tut[C.id]=1;save()}
+ const el=C.el;el.classList.add('out');setTimeout(()=>el.remove(),260);
+ if(C.o.onEnd)try{C.o.onEnd(!!skipped)}catch(e){}
+ if(!silent&&PZC.q&&PZC.q.length){const n=PZC.q.shift();setTimeout(()=>{if(!pzCoachActive())pzCoach(n[0],n[1],n[2])},320)}}
+/* forget every tutorial, so they all play again */
+function pzCoachReset(){const Z=PZS();Z.tut={};save();PZC.q=[]}
+{const st=document.createElement('style');st.textContent=`
+.pztu{position:absolute;inset:0;z-index:60;pointer-events:none;font-family:var(--ui),Poppins,sans-serif}
+.pztu.out{opacity:0;transition:opacity .24s}
+.pztudim{position:absolute;inset:0;background:#06030ea8;pointer-events:auto;animation:pztuFade .3s both}
+.pztu.spot:not(.nodim) .pztus{box-shadow:0 0 0 2400px #06030eb0}
+.pztu.spot .pztudim{background:transparent;animation:none}
+.pztu.nodim .pztudim{display:none}
+.pztus{position:absolute;left:0;top:0;border-radius:22px;pointer-events:none;transition:transform .34s cubic-bezier(.3,1.25,.5,1)}
+.pztus i{position:absolute;inset:-6px;border-radius:inherit;border:3px solid #ffd45a;animation:pztuRing 1.4s ease-out infinite}
+.pztu.round .pztus,.pztu.round .pztus i{border-radius:50%}
+.pztuc{position:absolute;left:0;top:0;box-sizing:border-box;text-align:left;padding:18px 22px 16px;border-radius:22px;background:linear-gradient(180deg,#2a2070,#120b38);border:3px solid #ffd45a;box-shadow:0 0 0 3px #12081f,0 18px 40px #000c;pointer-events:auto;color:#efe8ff;opacity:0}
+.pztuc.in{animation:pztuIn .38s cubic-bezier(.25,1.45,.45,1) both}
+.pztuc small{display:block;font-size:11px;font-weight:800;letter-spacing:.14em;color:#ffd45a;margin-bottom:2px}
+.pztut{font:400 30px/1.1 "Pirata One",Georgia,serif;color:#fff2c8;text-shadow:0 2px 0 #12081f;margin-bottom:6px}
+.pztuc p{margin:0;font-size:15px;line-height:1.45;font-weight:500;color:#e2dafc}.pztuc p b{color:#ffd45a;font-weight:800}.pztuc p em{font-style:normal;color:#8affb4;font-weight:700}
+.pztuc kbd{display:inline-block;min-width:18px;padding:0 6px;border-radius:6px;background:#12081f;border:1px solid #5a4ca0;font:800 12px/20px Poppins,sans-serif;color:#fff2c8;text-align:center}
+.pztub{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
+.pztub button{height:40px;padding:0 20px;border-radius:13px;border:3px solid #12081f;font:800 15px Poppins,sans-serif;cursor:pointer;transition:transform .12s}
+.pztub button:hover{transform:translateY(-2px)}.pztub button:active{transform:translateY(1px)}
+.pztun,.pztux{background:linear-gradient(180deg,#ffe27a,#f2b631);color:#2a1a04;box-shadow:0 4px 0 #9a6a10}
+.pztux{background:linear-gradient(180deg,#a8ffcc,#3ccf86);box-shadow:0 4px 0 #1a7a4a;color:#06200f}
+.pztusk{background:#2a2070;color:#c4badf;margin-right:auto}
+.pztub button[hidden]{display:none}
+.pztud{position:absolute;left:22px;bottom:-14px;display:flex;gap:6px}
+.pztud i{width:9px;height:9px;border-radius:50%;background:#2a2070;border:2px solid #12081f;transition:transform .25s}.pztud i.done{background:#c99a3a}.pztud i.on{background:#ffd45a;transform:scale(1.35)}
+.pztuar{position:absolute;width:18px;height:18px;background:#2a2070;border:3px solid #ffd45a;transform:rotate(45deg)}
+.pztuar.c{display:none}.pztuar.right{left:-12px;border-top:0;border-right:0;background:#221a5c}.pztuar.left{right:-12px;border-bottom:0;border-left:0;background:#221a5c}
+.pztuar.bottom{top:-12px;border-bottom:0;border-right:0;background:#2a2070}.pztuar.top{bottom:-12px;border-top:0;border-left:0;background:#140c3c}
+.pztu.free .pztuc{box-shadow:0 0 0 3px #12081f,0 12px 30px #000b}
+@keyframes pztuIn{0%{opacity:0;transform:translateY(14px) scale(.92)}100%{opacity:1;transform:none}}
+@keyframes pztuRing{0%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(1.06)}}
+@keyframes pztuFade{from{opacity:0}to{opacity:1}}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: menu icons (96r) =====
+   Chunky baked icons for the hub's menu cards and the screens behind them. Painted once into a cache (PZ_ICO). */
+const PZ_ICO={};
+function pzIco(kind,s){s=s||120;const key=kind+s;if(PZ_ICO[key])return PZ_ICO[key];const c=pzCv(s,s),g=c.getContext('2d');g.lineJoin='round';g.lineCap='round';g.scale(s/120,s/120);
+ const O=PZ_O,ball=(x,y,r,col,stripe,n)=>{g.fillStyle=stripe?'#fff8ec':col;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();if(stripe){g.save();g.beginPath();g.arc(x,y,r,0,TAU);g.clip();g.fillStyle=col;g.fillRect(x-r,y-r*.48,r*2,r*.96);g.restore()}
+  g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.ellipse(x-r*.35,y-r*.42,r*.3,r*.2,-.5,0,TAU);g.fill();if(n!=null){g.fillStyle='#fff';g.beginPath();g.arc(x,y,r*.42,0,TAU);g.fill();g.fillStyle='#12081f';g.font=`800 ${Math.round(r*.55)}px Poppins,sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(n,x,y+1)}
+  g.strokeStyle=O;g.lineWidth=3.5;g.beginPath();g.arc(x,y,r,0,TAU);g.stroke()};
+ if(kind==='practice'){/* a little table seen from above, tilted, with two balls and a cue */
+  g.save();g.translate(60,64);g.rotate(-.12);g.fillStyle='#7a3e18';pzRR(g,-50,-34,100,68,12);g.fill();g.strokeStyle=O;g.lineWidth=4;g.stroke();
+  g.fillStyle=pzLin(g,0,-26,0,26,[[0,'#3aa874'],[1,'#1b6a45']]);pzRR(g,-41,-25,82,50,6);g.fill();g.lineWidth=2.5;g.stroke();
+  for(const [x,y] of[[-41,-25],[41,-25],[-41,25],[41,25],[0,-27],[0,27]]){g.fillStyle='#07040a';g.beginPath();g.arc(x,y,5.2,0,TAU);g.fill()}
+  g.fillStyle='rgba(255,255,255,.14)';g.fillRect(-36,-20,70,6);g.restore();ball(48,62,9,'#fff8ec');ball(80,52,9,'#e8332a',false);
+  g.save();g.translate(37,72);g.rotate(-.5);g.fillStyle='#e8c88a';g.fillRect(-26,-3,26,6);g.fillStyle='#4a2410';g.fillRect(-38,-4,14,8);g.strokeStyle=O;g.lineWidth=2.5;g.strokeRect(-38,-4,38,8);g.restore()}
+ else if(kind==='trick'){/* a ball on a curved dotted path into a pocket, with a star */
+  g.fillStyle='#07040a';g.beginPath();g.arc(96,30,14,0,TAU);g.fill();g.strokeStyle='#d8a03a';g.lineWidth=4;g.stroke();
+  g.setLineDash([2,9]);g.strokeStyle='#ffd45a';g.lineWidth=5;g.beginPath();g.moveTo(26,92);g.bezierCurveTo(30,40,70,70,90,38);g.stroke();g.setLineDash([]);
+  ball(30,90,15,'#2a6af0',false,2);
+  g.save();g.translate(84,86);g.rotate(.2);g.fillStyle='#ffd45a';g.beginPath();for(let i=0;i<10;i++){const r=i%2?7:16,a=-Math.PI/2+i*Math.PI/5;g.lineTo(Math.cos(a)*r,Math.sin(a)*r)}g.closePath();g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();g.restore()}
+ else if(kind==='cues'){/* a wall rack with three cues */
+  g.fillStyle='#6a3414';pzRR(g,18,84,84,16,6);g.fill();g.strokeStyle=O;g.lineWidth=3.5;g.stroke();g.fillStyle='#8a4a1e';pzRR(g,22,22,76,12,5);g.fill();g.stroke();
+  const cue=(x,a,col,tip)=>{g.save();g.translate(x,92);g.rotate(a);g.fillStyle=col;g.beginPath();g.moveTo(-6,0);g.lineTo(6,0);g.lineTo(2.6,-80);g.lineTo(-2.6,-80);g.closePath();g.fill();g.strokeStyle=O;g.lineWidth=2.5;g.stroke();
+   g.fillStyle='#f4e6c8';g.fillRect(-2.6,-80,5.2,-6);g.fillStyle=tip;g.fillRect(-2.6,-86,5.2,-4);g.strokeRect(-2.6,-90,5.2,10);g.fillStyle='#12081f';g.fillRect(-5,-26,10,5);g.restore()};
+  cue(40,-.08,'#c8763a','#3a70d8');cue(60,0,'#2a2070','#d84a3a');cue(80,.08,'#3a8a5a','#3a70d8')}
+ else if(kind==='rules'){/* a scroll with ruled lines and an 8-ball seal */
+  g.fillStyle='#f4e2b0';g.beginPath();g.moveTo(26,22);g.lineTo(90,22);g.quadraticCurveTo(84,60,92,98);g.lineTo(30,98);g.quadraticCurveTo(22,60,26,22);g.closePath();g.fill();g.strokeStyle=O;g.lineWidth=3.5;g.stroke();
+  g.fillStyle='#d8bc80';pzRR(g,18,14,80,14,7);g.fill();g.stroke();pzRR(g,22,92,80,14,7);g.fill();g.stroke();
+  g.strokeStyle='#a8875a';g.lineWidth=3;for(let i=0;i<5;i++){g.beginPath();g.moveTo(36,40+i*10);g.lineTo(76-(i%2)*12,40+i*10);g.stroke()}
+  ball(78,80,13,'#1a1a1a',false,8)}
+ else if(kind==='trophy'){g.fillStyle='#ffd45a';g.beginPath();g.moveTo(34,26);g.lineTo(86,26);g.quadraticCurveTo(86,70,60,74);g.quadraticCurveTo(34,70,34,26);g.fill();g.strokeStyle=O;g.lineWidth=3.5;g.stroke();
+  g.lineWidth=5;g.strokeStyle='#ffd45a';g.beginPath();g.arc(30,40,10,Math.PI*.5,Math.PI*1.5);g.stroke();g.beginPath();g.arc(90,40,10,-Math.PI*.5,Math.PI*.5);g.stroke();
+  g.fillStyle='#c99a3a';g.fillRect(52,74,16,14);g.fillStyle='#8a5a1a';pzRR(g,38,88,44,12,4);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();g.strokeRect(52,74,16,14);
+  g.fillStyle='rgba(255,255,255,.5)';g.fillRect(42,32,6,26)}
+ else if(kind==='lock'){g.strokeStyle='#8a80c8';g.lineWidth=9;g.beginPath();g.arc(60,50,18,Math.PI,0);g.stroke();g.fillStyle='#4a3e90';pzRR(g,32,50,56,44,10);g.fill();g.strokeStyle=O;g.lineWidth=3.5;g.stroke();g.fillStyle='#12081f';g.beginPath();g.arc(60,68,6,0,TAU);g.fill();g.fillRect(57,70,6,12)}
+ return PZ_ICO[key]=c}
+/* ===== 9.5 THE CROOKED CUE: first-time tutorials at the table (96s) =====
+   Replaces the 9.4 tip cards (96p) with the coach engine (96q). Each lesson plays once (P.pz.tut) at the moment it is
+   needed: the first break, the first time the monster shoots, groups, reading the guide, spin, ball in hand, the 8,
+   the first foul and the menu. While a card is up the shot clock is held. */
+const PZT_TBL=()=>({x:PZ_G.x-6,y:PZ_G.y-6,w:PZ_G.w+12,h:PZ_G.h+12});
+function pztOk(){return PZ.on&&PZ.M&&!PZ.M.trick&&!PZ.modal&&PZ.ph!=='intro'&&PZ.ph!=='over'&&!(PZ.taunt)&&!pzCoachActive()&&$('pzm')}
+function pztGrpName(g){return g==='s'?'Solids':'Stripes'}
+function pztGrpNums(g){return g==='s'?'1 to 7':'9 to 15'}
+/* the old tip cards stay quiet */
+function pzTip(){}
+function pzTipsTurn(){if(!pztOk()||!PZ.st)return;const st=PZ.st,Z=PZS(),T=Z.tut,M=PZ.M;
+ if(st.turn!==0){pztAiTurn();return}
+ if(PZ.ph!=='aim')return;
+ /* 1. the very first shot: what 8-ball is, aiming, power */
+ if(!T.m1){pzCoach('m1',[
+  {title:'Welcome to the table!',text:`This is <b>8-ball</b>. One of you gets the <b>solids</b> (1-7), the other the <b>stripes</b> (9-15). Pot all of yours, then sink the <b>8</b> to win the rack. ${M.race>1?`First to <b>${M.race} racks</b> wins the match.`:'One rack wins the match.'}`,w:460},
+  {sel:PZT_TBL,side:'right',w:300,r:18,title:'Aim',text:'<b>Move the mouse</b> over the table to aim. The dotted guide shows your shot: <b>gold</b> is where the ball you hit will go, <b>blue</b> is the cue ball.'},
+  {sel:['.pzpw','#pzgo'],side:'top',title:'Power and shoot',text:'<b>Press on the table, pull the mouse back</b> and <b>let go</b> to shoot. The further you pull, the harder the hit. Or drag the <b>power bar</b> and press <b>SHOOT</b> (<kbd>Space</kbd>).',w:440},
+  {sel:PZT_TBL,free:true,btn:false,kicker:'YOUR TURN',title:st.brk?'Break the rack!':'Take your shot',text:st.brk?'Pull back far for a strong break. You can drag the cue ball along the left line first if you like.':'Aim at one of the balls and let go.',at:{x:14,y:236,side:'c'},w:296,until:()=>PZ.ph!=='aim'}
+ ],{kicker:'FIRST MATCH',skipLast:true});return}
+ /* the rest only teach what is on the table right now */
+ if(st.bih&&PZ.mode==='place'&&!st.brk&&!T.bih){pzCoach('bih',[{sel:PZT_TBL,free:true,btn:false,kicker:'BALL IN HAND',title:'Put the cue ball anywhere',text:'Your opponent fouled, so <b>click anywhere</b> on the table to place the cue ball. Pick a spot with an easy shot, then aim as usual.',at:{x:14,y:236,side:'c'},w:296,until:()=>PZ.mode!=='place'||PZ.ph!=='aim'}]);return}
+ if(pzrOn8(st)&&!T.call8){pzCoach('call8',[{sel:PZT_TBL,free:true,btn:false,kicker:'THE 8',title:'Call your pocket',text:'Only the 8 is left. <b>Click the pocket</b> you will sink it in (or press <kbd>1</kbd>-<kbd>6</kbd>), then shoot. The 8 in any other pocket loses the rack.',at:{x:14,y:236,side:'c'},w:296,until:()=>PZ.callManual||PZ.ph!=='aim'}]);return}
+ if(!st.open&&st.grp[0]&&!T.grp){const g=st.grp[0];pzCoach('grp',[{sel:'#pzcm',side:'bottom',title:`You are ${pztGrpName(g)}`,text:`Your balls are the <b>${pztGrpName(g).toLowerCase()}</b> (${pztGrpNums(g)}), shown here; they fade as you pot them. Hit one of yours first on every shot. When they are gone, go for the <b>8</b>.`,w:420}],{kicker:'GROUPS'});return}
+ if(!st.brk&&!T.guide&&Z.guide!=='pro'&&(M.rack>1||(st.shots||0)>=1)){pzCoach('guide',[{sel:PZT_TBL,side:'right',w:300,r:18,title:'Read the guide',text:'A <b style="color:#8affb4">green ring</b> on a pocket means the ball will drop. A <b style="color:#ff6a6a">red cross</b> means the cue ball would fall in, which is a foul. Change the guide with <kbd>G</kbd>.'}],{kicker:'TIP'});return}
+ if(!T.spin&&(st.shots||0)>=4&&(PZ.humShots||0)>=2){pzCoach('spin',[{sel:'#pzspin',round:true,pad:6,side:'top',title:'Spin the cue ball',text:'Click this ball to choose where the cue hits it. <b>Low</b> = draw: the cue ball comes back. <b>High</b> = follow: it rolls on. Sides bend the bounce off a cushion. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> work too, <kbd>R</kbd> resets.',w:430}],{kicker:'TIP'});return}
+ if(!T.menu&&M.rack>=2){pzCoach('menu',[{sel:'#pzmb',side:'top',title:'The menu',text:'House rules, settings (aim guide, taunts) and forfeit are in the menu. <kbd>Esc</kbd> opens it too.',w:360}],{kicker:'TIP'});return}}
+/* the monster's first turn: show how to speed it up */
+function pztAiTurn(){const T=PZS().tut;if(T.ai1||!T.m1)return;pzCoach('ai1',[{sel:'#pzco',side:'bottom',free:true,btn:'OK',kicker:'THEIR TURN',title:'The monster shoots',text:'Hold <kbd>Space</kbd> or keep the mouse pressed to <b>fast-forward</b> its turn. Click to skip pauses.',w:380,until:()=>!PZ.st||PZ.st.turn===0||PZ.ph==='over'}])}
+/* the player's first foul: what happened and what counts as a foul */
+function pztFoul(rep){const T=PZS().tut;if(T.foul||!T.m1||!rep||!rep.foul||(PZ.st&&PZ.st.over))return;setTimeout(()=>{if(!PZ.on||!PZ.M||PZ.M.trick||pzCoachActive())return;
+ pzCoach('foul',[{sel:'#pzco',side:'bottom',free:true,btn:'Got it',kicker:'FOUL',title:rep.reason||'Foul',text:'Your opponent now has <b>ball in hand</b>: they may place the cue ball anywhere. A foul is: the cue ball dropping, hitting nothing, hitting the other group (or the 8) first, or no ball reaching a cushion after the hit.',w:440,until:()=>!PZ.st||(PZ.st.turn===0&&PZ.ph==='aim')}])},1700)}
+{const f0=pzJudgeShot;pzJudgeShot=function(silent){const who=PZ.st?PZ.st.turn:-1;const r=f0.apply(this,arguments);try{if(!silent&&who===0&&PZ.M&&!PZ.M.trick){PZ.humShots=(PZ.humShots||0)+1;pztFoul(PZ.rep)}}catch(e){}return r}}
+{const f0=pzStart;pzStart=function(){const r=f0.apply(this,arguments);PZ.humShots=0;return r}}
+/* ===== 9.5 THE CROOKED CUE: the hub, redone (96t) =====
+   The same tavern as the approved concept art, rebuilt around one decision: who to play and for how much.
+   - Header: a progress pill under the sign (regulars beaten, paid matches today), gold, and your pool net and streak.
+   - Rail: four tiles with baked icons and live data (Trick Shots stars and bounty, Cue Rack collection and NEW items,
+     The Regulars record and trophies, How to Play). Granny's table opens Trick Shots too.
+   - Chalkboard ladder: rank, portrait, title and stake range, difficulty, status, signature-cue pips; the footer names
+     the next prize and shows the seven regulars as a rack of balls.
+   - Spotlight: the regular on a lamp-lit stage with their line in a bubble, race / pays / your record, the house rule
+     and a tip, scouting meters, poker-chip stakes, the payout (it rolls to the new number) and the cue they give.
+   - Rack 'em up! carries stake and pay; Practice (against the selected regular) sits beside it.
+   - Regulars you have beaten drink at the bar. Every screen change fades out and builds in.
+   Keys: up/down or 1-7 pick, N next up, left/right stake, Enter play, P practice, T C R H screens, Esc back. */
+const PZ_SHORT={gloop:'Gloop',moldwick:'Moldwick',grizzle:'Grizzle',vesper:'Vesper',barnacle:'Barnacle',hootsworth:'Hootsworth',mortimer:'Mortimer',shade:'Shade'};
+const pzShort=k=>PZ_SHORT[k]||(PZ_REG[k]?PZ_REG[k].n:k);
+function pzVs(){const Z=PZS();if(!Z.vs||typeof Z.vs!=='object'||Array.isArray(Z.vs))Z.vs={};return Z.vs}
+{const f0=pzMatchEnd;pzMatchEnd=function(){try{const M=PZ.M;if(M&&!M.practice&&M.over){const v=pzVs(),k=M.opp;v[k]=v[k]||[0,0];v[k][M.over.winner===0?0:1]++}}catch(e){}return f0.apply(this,arguments)}}
+/* what you own, and whether anything is new since you last opened the Cue Rack */
+function pzOwnCount(){const Z=PZS();let n=0,t=0,nw=0;const seen=Z.seen||{};for(const [list,own] of[[PZ_CUES,Z.cues],[PZ_FELT,Z.felts],[PZ_BALLS,Z.ballsets]])for(const x of list){t++;if(own[x.id]){n++;if(!seen[x.id]&&x.price!==0&&x.how!=='Free')nw++}}return {n,t,nw}}
+function pzMarkSeen(){const Z=PZS();Z.seen=Z.seen||{};for(const [list,own] of[[PZ_CUES,Z.cues],[PZ_FELT,Z.felts],[PZ_BALLS,Z.ballsets]])for(const x of list)if(own[x.id])Z.seen[x.id]=1;save()}
+{const f0=pzCueRack;pzCueRack=function(){const r=f0.apply(this,arguments);try{pzMarkSeen()}catch(e){}return r}}
+/* the pool trophies (the game's achievement list, the ones that start with pz) */
+function pzTrophies(){try{return ACH.filter(a=>/^pz/.test(a.id))}catch(e){return []}}
+/* what a regular still gives you: their felt (one win) and their cue (three wins) */
+function pzPrizeOf(id){const Z=PZS(),out=[];if(id==='shade'){const c=PZ_CUES.find(x=>x.beatShade);if(c&&!Z.cues[c.id])out.push({t:'cue',it:c,need:3-(Z.shade.beat||0)});return out}
+ const f=PZ_FELT.find(x=>x.beat===id);if(f&&!Z.felts[f.id])out.push({t:'felt',it:f,need:1});const c=PZ_CUES.find(x=>x.beat===id);if(c&&!Z.cues[c.id])out.push({t:'cue',it:c,need:Math.max(1,3-(Z.beat[id]||0))});return out}
+function pzNextPrize(){const ids=[PZ.sel,...PZ_ORDER.filter(k=>pzOpen(k))];for(const id of ids){if(!id||(id!=='shade'&&!pzOpen(id)))continue;const p=pzPrizeOf(id);if(p.length)return {id,...p[0]}}return null}
+/* screen changes: the current pool screen fades away, then the next one builds itself in */
+function pzGo(fn){const r=ov.querySelector(':scope>.pzh,:scope>.pzr,:scope>.pzk');if(!r||pzRM()){fn();return}if(r.classList.contains('pzgone'))return;r.classList.add('pzgone');setTimeout(()=>{if(r.isConnected)fn()},150)}
+const PZ_CHIPC={50:'#e8e4f4',100:'#3a7af0',200:'#3ab06a',250:'#2a9a8a',300:'#e86a2a',500:'#d83a5a',1000:'#1a1a2a',2000:'#9a4ae8',3000:'#e8b02a',4000:'#2ab0b0',5000:'#c8a060'};
+function pzChip(s,on,dis){const c=PZ_CHIPC[s]||'#6a5ab0',t=s===50?'#2a1a3a':s===1000?'#ffd45a':'#fff';return `<button class="pzchip2 ${on?'on':''}" data-s="${s}" ${dis?'disabled':''} style="--cc:${c};--ct:${t}" aria-label="Stake ${s}"><i></i><b>${s>=1000?(s/1000)+'K':s}</b></button>`}
+/* the lamp over the spotlight stage, baked once per colour */
+const PZ_STAGE={};
+function pzStageBake(col){if(PZ_STAGE[col])return PZ_STAGE[col];const c=pzCv(300,424),g=c.getContext('2d');
+ g.fillStyle=pzLin(g,0,0,0,424,[[0,'#1a1046'],[1,'#0a0620']]);g.fillRect(0,0,300,424);
+ const q=g.createRadialGradient(150,380,10,150,380,170);q.addColorStop(0,pzRgba(col).replace(',1)',',.32)'));q.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=q;g.fillRect(0,200,300,224);
+ g.save();g.globalCompositeOperation='lighter';const cone=g.createLinearGradient(0,0,0,400);cone.addColorStop(0,'rgba(255,236,170,.30)');cone.addColorStop(1,'rgba(255,236,170,0)');g.fillStyle=cone;g.beginPath();g.moveTo(118,0);g.lineTo(182,0);g.lineTo(290,400);g.lineTo(10,400);g.closePath();g.fill();g.restore();
+ g.fillStyle='rgba(255,236,170,.10)';g.beginPath();g.ellipse(150,392,120,18,0,0,TAU);g.fill();
+ g.fillStyle='#1d6a45';pzRR(g,112,-8,76,22,8);g.fill();g.strokeStyle=PZ_O;g.lineWidth=3;g.stroke();g.fillStyle='#ffe9a0';g.beginPath();g.ellipse(150,14,24,6,0,0,TAU);g.fill();
+ return PZ_STAGE[col]=c}
+function pzHub(){const Z=PZS(),tokH=++PZ.tok;PZ.on=false;PZ.hub=true;CAS.on=true;CAS.key=null;CAS.tok++;pzCastInit(PZ_ORDER[0]);try{pzMusicOn()}catch(e){}
+ const pick=()=>PZ_ORDER.slice().reverse().find(k=>pzOpen(k)&&!(Z.beat[k]>0))||PZ_ORDER.filter(pzOpen).pop()||'gloop';
+ if(PZ.sel==null||(PZ.sel!=='shade'&&!pzOpen(PZ.sel)))PZ.sel=pick();
+ /* Slick Shade sometimes slides into the booth once a day, after you have beaten Grizzle and carry some gold */
+ if(!PZ.shadeChecked||PZ.shadeChecked!==pzDay()){PZ.shadeChecked=pzDay();PZ.shadeHere=false;if((Z.beat.grizzle||0)>0&&P.gold>=2000&&Z.shade.day!==pzDay()&&Math.random()<.12){PZ.shadeHere=true;Z.shade.day=pzDay();Z.shade.seen=(Z.shade.seen||0)+1;save()}}
+ if(PZ.sel==='shade'&&!PZ.shadeHere)PZ.sel=pick();
+ try{pzbSetup(52,Z.balls)}catch(e){}
+ const beatN=PZ_ORDER.filter(k=>(Z.beat[k]||0)>0).length,cap=casCap('pz');
+ const rng=R=>{const l=R.stakes.filter(s=>s<=cap);return l.length?`${cmn(l[0])}-${cmn(l[l.length-1])}`:''};
+ const rows=PZ_ORDER.map((k,i)=>{const R=PZ_REG[k],open=pzOpen(k),n=Z.beat[k]||0,next=open&&!n,prev=i?PZ_REG[PZ_ORDER[i-1]]:null,cue=PZ_CUES.find(c=>c.beat===k),cn=Math.min(3,n),cueOwn=cue&&Z.cues[cue.id];
+  const lv=Z.live&&Z.live.opp===k,st=lv?`<span class="pzst live"><i></i>LIVE ${Z.live.score[0]}-${Z.live.score[1]}</span>`:!open?`<span class="pzst lock"><i></i>locked</span>`:k==='mortimer'&&n?`<span class="pzst champ">♛ CHAMPION</span>`:n?`<span class="pzst won">✓ beaten ×${n}</span>`:`<span class="pzst next">NEXT UP</span>`;
+  return `<button class="pzrow ${PZ.sel===k?'sel':''} ${open?'':'lock'} ${next?'next':''}" data-k="${k}" ${open?'':'disabled'} style="--i:${i+1};--c:${R.c}"><em class="pzrk">${i+1}</em><canvas width="88" height="88" data-p="${k}"></canvas><span class="pzrn"><b>${open?R.n:'? ? ?'}</b><small>${open?`${R.k} · ${rng(R)}`:`Beat ${prev.n} to open this table`}</small></span><span class="pzrr"><em class="pzlv">${'★'.repeat(R.lvl)}<u>${'★'.repeat(7-R.lvl)}</u></em>${st}</span><span class="pzpips" title="${cue?cue.n:''}">${[0,1,2].map(j=>`<i class="${cueOwn||j<cn?'on':''}"></i>`).join('')}</span></button>`}).join('');
+ const shade=PZ.shadeHere?`<button class="pzrow shade ${PZ.sel==='shade'?'sel':''}" data-k="shade" style="--i:0;--c:#ffe066"><em class="pzrk">?</em><canvas width="88" height="88" data-p="shade"></canvas><span class="pzrn"><b>Slick Shade</b><small>The Hustler · 500-5,000</small></span><span class="pzrr"><span class="pzst shd">TONIGHT ONLY</span></span><span class="pzpips"></span></button>`:'';
+ const live=Z.live?`<div class="pzresume2" id="pzresume"><canvas width="88" height="88" data-p="${Z.live.opp}"></canvas><div><b>Match in progress</b><span>vs ${PZ_REG[Z.live.opp].n} · ${Z.live.score[0]} - ${Z.live.score[1]}${Z.live.stake&&!Z.live.practice?` · stake ${cmn(Z.live.stake)}`:' · practice'}</span></div><button id="pzrs1">Resume</button><button id="pzrs2" class="ghost">Forfeit</button></div>`:'';
+ const tr=typeof pzTrickTotal==='function'?pzTrickTotal():0,trT=typeof PZ_TRICK!=='undefined'?PZ_TRICK.length*3:30,own=pzOwnCount(),W=Z.wins||0,L=Z.losses||0,tro=pzTrophies(),troN=tro.filter(a=>P.ach&&P.ach[a.id]).length;
+ const trNext=typeof PZ_TRICK!=='undefined'?PZ_TRICK.findIndex((t,i)=>pzTrickStars(i)<3):-1,bounty=typeof PZ_TRICK!=='undefined'?PZ_TRICK.filter((t,i)=>pzTrickStars(i)<3).length:0;
+ const nav=[['trick','#7ad8ff','Trick Shots',`${tr} / ${trT} ★${trNext>=0?` · next: #${trNext+1}`:' · all done'}`,'T',tr/trT,bounty?'<s class="pzbdg g">+200</s>':''],
+  ['cues','#ffd45a','Cue Rack',`${own.n} / ${own.t} owned${own.nw?` · ${own.nw} new`:''}`,'C',own.n/own.t,own.nw?`<s class="pzbdg">${own.nw} NEW</s>`:''],
+  ['regs','#ff9ab0','The Regulars',`${W}W · ${L}L · ${troN} / ${tro.length} trophies`,'R',tro.length?troN/tro.length:0,''],
+  ['rules','#c8a0ff','How to Play','rules, controls, tutorials','H',-1,'']];
+ const np=pzNextPrize(),nets=Z.net||0;
+ show(`<div class="pzh pzh9 pzin" id="pzh"><canvas id="pzhbg" width="1600" height="900"></canvas><canvas id="pzhfg" width="1600" height="900"></canvas>
+  <button class="pzback" id="pzbk">‹&nbsp; Casino <kbd>Esc</kbd></button>
+  <div class="pzgold"><i></i><b id="pzgold">${cmn(P.gold)}</b></div>
+  <div class="pznet">Pool net <b class="${nets<0?'neg':''}">${nets<0?'−':'+'}${cmn(Math.abs(nets))}</b>${(Z.streak||0)>1?` · streak <b class="hot">${Z.streak}</b>`:''}</div>
+  <div class="pztitle pzsign"><span>The Crooked Cue</span></div><div class="pzprog"><b>${beatN}</b> of 7 regulars beaten · <b>${Z.dayN}</b> / ${PZ_DAILY} paid matches today</div>
+  <nav class="pznav">${nav.map(([a,c,t,s,k,p,x],i)=>`<button data-a="${a}" style="--c:${c};--i:${i}"><span class="pzni"><canvas width="72" height="72" data-ico="${a==='regs'?'trophy':a}"></canvas></span><span class="pznt"><b>${t}</b><span>${s}</span>${p>=0?`<em class="pznb"><i style="transform:scaleX(${Math.min(1,p)})"></i></em>`:''}</span><kbd>${k}</kbd>${x}</button>`).join('')}</nav>
+  <button class="pzgran" id="pzgran">★ Trick Shots with Granny</button>
+  <div class="pzboard pzboard9"><div class="pzh2">Tonight's Tables</div><div class="pzrows${PZ.shadeHere?' s8':''}" id="pzrows">${shade}${rows}</div>
+   <div class="pzbft">${np?`<canvas id="pznpc" width="96" height="40"></canvas><div class="pznp"><b>Next prize: ${np.it.n}${np.t==='felt'?' felt':''}</b><span>${np.need>1?`win ${np.need} more against`:'win one match against'} ${pzShort(np.id)}</span></div>`:`<div class="pznp"><b>Every prize collected</b><span>The bar salutes you.</span></div>`}<div class="pzrack7" title="Regulars beaten">${PZ_ORDER.map((k,i)=>`<img src="${pzbIcon(i+1,26)}" class="${(Z.beat[k]||0)>0?'on':''}" alt="">`).join('')}</div></div></div>
+  <div class="pzopp pzopp9" id="pzopp"></div>
+  <button class="pzrackem pzrack9" id="pzrackem"><span class="pzrk1">Rack 'em up!</span><span class="pzrkx"><small id="pzrkl">STAKE → PAYS</small><b id="pzrk2"></b><kbd>Enter</kbd></span><i class="pzshine"></i></button>
+  <button class="pzprac" id="pzprac"><b>Practice</b><span id="pzpracs">free</span><kbd>P</kbd></button>${live}</div>`,'casbg pzx');
+ const bg=$('pzhbg').getContext('2d');bg.drawImage(pzHubBake(),0,0);
+ /* the bar: regulars you have beaten (not the one you picked) come for a drink; the trio fills in until you have */
+ const fg=$('pzhfg').getContext('2d');fg.lineJoin='round';fg.lineCap='round';
+ const beaten=PZ_ORDER.filter(k=>(Z.beat[k]||0)>0&&k!==PZ.sel&&k!=='moldwick').reverse(),fill=['grizzle','gloop','barnacle'].filter(k=>k!==PZ.sel&&!beaten.includes(k)),bar=[...beaten,...fill].slice(0,3);
+ const slots=[[1100,846],[1278,846],[1462,846]].map(([x,y],i)=>{const id=bar[i];if(!id)return null;const f=pzMonFit(id,170,236,0);return {id,x:x-85+f.x,y:y-236+f.y,s:f.s,ex:Object.assign(pzCastEx(),PZ_EXP[['happy','smug','happy'][i]]),ph:i*2}}).filter(Boolean);
+ const granF=pzMonFit('moldwick',150,190,0),granEx=Object.assign(pzCastEx(),PZ_EXP.happy);
+ const drawFg=()=>{if(PZ.tok!==tokH)return;const t=performance.now()/1000;fg.clearRect(980,560,620,340);fg.clearRect(40,640,300,260);
+  for(const s of slots){fg.save();fg.translate(s.x,s.y);fg.scale(s.s,s.s);pzMon[s.id](fg,t+s.ph,s.ex,{breath:Math.sin(t*2.2+s.ph)*.012,tilt:0,bob:0,hop:0});fg.restore()}
+  fg.save();fg.translate(75+granF.x,898-190+granF.y);fg.scale(granF.s,granF.s);pzMon.moldwick(fg,t+1,granEx,{breath:Math.sin(t*2)*.012,tilt:0,bob:0,hop:0});fg.restore();
+  for(const [mx,my] of[[1150,770],[1320,770],[1500,770]].slice(0,slots.length)){fg.fillStyle='#f4e0a0';fg.beginPath();fg.roundRect(mx,my-34,26,34,5);fg.fill();fg.strokeStyle=PZ_O;fg.lineWidth=2;fg.stroke();fg.fillStyle='#fff';fg.beginPath();fg.ellipse(mx+13,my-34,15,6,0,0,TAU);fg.fill();fg.stroke()}
+  pzGlow(fg,250,790,40,'rgba(255,200,120,1)',.35+.1*Math.sin(t*5))};
+ LIVE.push({cv:$('pzhfg'),fn:drawFg,slow:2,ph:0});drawFg();
+ ov.querySelectorAll('#pzh canvas[data-p]').forEach(cv=>{const k=cv.dataset.p,g=cv.getContext('2d'),lock=cv.closest('.lock');const f=()=>pzCastPortrait(g,'mon',k,88,performance.now()/1000,Object.assign(pzCastEx(),PZ_EXP.neutral));f();
+  if(lock){g.globalCompositeOperation='source-in';g.fillStyle='#0c0818';g.fillRect(0,0,88,88);g.globalCompositeOperation='source-over'}});
+ ov.querySelectorAll('#pzh canvas[data-ico]').forEach(cv=>cv.getContext('2d').drawImage(pzIco(cv.dataset.ico,72),0,0));
+ {const c=$('pznpc');if(c&&np){try{pzRackThumb(c.getContext('2d'),np.t==='felt'?'felts':'cues',np.it,96,40)}catch(e){}}}
+ PZ.oppSwap=0;PZ.payShown=null;PZ.oppFace=null;pzHubOpp();
+ ov.querySelectorAll('.pzrow').forEach(b=>b.onclick=()=>{if(b.disabled)return;pzHubSel(b.dataset.k)});
+ const go=a=>{pzFx('tick');if(a==='practice'){pzMusicOff();pzStart({opp:PZ.sel==='shade'?'gloop':PZ.sel,practice:true})}else if(a==='cues')pzGo(pzCueRack);else if(a==='rules')pzGo(pzRules);else if(a==='regs')pzGo(pzRegs);else if(a==='trick'&&typeof pzTrick==='function')pzGo(pzTrick)};
+ ov.querySelectorAll('.pznav button').forEach(b=>b.onclick=()=>go(b.dataset.a));$('pzprac').onclick=()=>go('practice');$('pzgran').onclick=()=>go('trick');
+ $('pzbk').onclick=()=>{pzMusicOff();try{lobby()}catch(e){title()}};S.back=()=>$('pzbk').click();
+ $('pzrackem').onclick=()=>{if(Z.live){$('pzrs1').click();return}const sel=PZ.sel,R=PZ_REG[sel],lo=sel==='shade'?500:Math.min(...R.stakes.filter(s=>s<=casCap('pz')));if(P.gold<lo){pzMusicOff();pzNote('Not enough gold for stakes, so this one is a free practice game.');pzStart({opp:sel==='shade'?'gloop':sel,practice:true});return}const stake=sel==='shade'?PZ.shadeStake:pzStakeOf(sel);pzMusicOff();pzStart({opp:sel,stake})};
+ if(Z.live){$('pzrs1').onclick=()=>{pzStart({opp:Z.live.opp,resume:Z.live,race:Z.live.race})};$('pzrs2').onclick=function(){if(!this.dataset.sure){this.dataset.sure=1;const t=this.textContent;this.textContent=Z.live&&Z.live.stake&&!Z.live.practice?'Sure? You lose the stake':'Sure? Drop this match';setTimeout(()=>{if(this.isConnected){delete this.dataset.sure;this.textContent=t}},3200);return}const L=Z.live;Z.live=null;if(L.stake&&!L.practice){Z.losses++;Z.streak=0;ecSrc('pool',()=>cPay(L.stake,0));Z.net-=L.stake;const v=pzVs();v[L.opp]=v[L.opp]||[0,0];v[L.opp][1]++}save();const el=$('pzresume');el.classList.add('out');setTimeout(()=>{el.remove();pzHubOpp()},260)}}
+ setTimeout(()=>{const h=$('pzh');if(h&&PZ.tok===tokH)h.classList.remove('pzin')},1100);
+ pzFitTM();try{pzHubTour()}catch(e){}}
+/* pick a regular: the spotlight slides over to the new face, who hops and says hello */
+function pzHubSel(k){if(k===PZ.sel)return;const rows=[...ov.querySelectorAll('.pzrow')],b=rows.find(r=>r.dataset.k===k);if(!b||b.disabled)return;
+ const i0=rows.findIndex(r=>r.dataset.k===PZ.sel),i1=rows.indexOf(b);PZ.oppSwap=i1>i0?1:-1;PZ.sel=k;pzFx('tick');rows.forEach(x=>x.classList.toggle('sel',x===b));pzHubOpp()}
+function pzHubOpp(){const id=PZ.sel,R=PZ_REG[id],Z=PZS(),el=$('pzopp');if(!el)return;const hustler=id==='shade',cap=casCap('pz');
+ if(hustler&&!PZ.shadeStake)PZ.shadeStake=Math.min(cap,Math.max(500,Math.min(P.gold,1000)));
+ const stake=hustler?PZ.shadeStake:pzStakeOf(id),mult=pzMultS(id,stake),wise=Z.rep[id]||0,paid=Z.dayN<PZ_DAILY;
+ const list=hustler?[500,1000,2000,3000,5000].filter(s=>s<=cap):R.stakes.filter(s=>s<=cap),lo=list.length?Math.min(...list):0,poor=P.gold<lo;
+ const cue=hustler?PZ_CUES.find(c=>c.beatShade):PZ_CUES.find(c=>c.beat===id),cn=hustler?(Z.shade.beat||0):(Z.beat[id]||0),have=cue&&Z.cues[cue.id];
+ const vs=pzVs()[id]||[0,0],win=Math.round(stake*mult),fm=x=>x.toFixed(2).replace(/0$/,'').replace(/\.0$/,'');
+ const sw=PZ.oppSwap,newFace=sw!==0||PZ.oppFace!==id;PZ.oppSwap=0;PZ.oppFace=id;
+ const wiseShow=wise&&paid&&!poor,full=Math.min(R.mult,Math.floor(PZ_CAP/Math.max(1,stake)*100)/100);
+ const a=R.ai,mtr=hustler?null:[['Aim',1+(3-a.sig)/2.1*4],['Position',1+a.pos*5],['Safety',1+a.safe*9],['Planning',a.look*.62]];
+ el.innerHTML=`<div class="pzo9 ${sw?(sw>0?'swd':'swu'):''}"><div class="pzstage"><canvas class="pzstbg" width="300" height="424"></canvas><canvas id="pzoppc" width="300" height="360"></canvas><div class="pzbub ${newFace?'pop':''}">“${R.lines.hi[0]}”</div><div class="pzplate">${R.lvl?`LEVEL ${R.lvl} OF 7`:'RANDOM VISITOR'}</div></div>
+  <div class="pzoppi"><div class="pzh3" style="color:${R.c}">${R.n}</div><div class="pzsub2">${R.k}${R.lvl?` <span class="pzstars">${pzStars(R.lvl)}</span>`:''}</div>
+   <div class="pzfacts"><div><b>${R.race}</b><small>${R.race>1?'RACKS TO WIN':'RACK WINS IT'}</small></div><div class="g"><b>${wiseShow&&full>mult?`<s>×${fm(full)}</s>`:''}×${fm(mult)}</b><small>${wiseShow?'WISE TO YOU':'PAYS'}</small></div><div><b>${vs[0]||vs[1]||!cn?`${vs[0]}-${vs[1]}`:`${cn}W`}</b><small>YOUR RECORD</small></div></div>
+   <div class="pzhrc"><canvas width="44" height="44" data-ico="rules"></canvas><div><b>House rule</b><span>${R.houseTxt}</span><em>${PZ_TIPS[id]||''}</em></div></div>
+   ${mtr?`<div class="pzmtr">${mtr.map(([n,x])=>{const k=Math.max(1,Math.min(5,Math.round(x)));return `<div><span>${n}</span><i>${'<u class="on"></u>'.repeat(k)}${'<u></u>'.repeat(5-k)}</i></div>`}).join('')}</div>`:'<div class="pzmtr shd">Bets small, wins big, shows up when he likes. Beat him three times for the Shadow Cue.</div>'}
+   <div class="pzstk"><small>STAKE <kbd>←</kbd><kbd>→</kbd></small><div class="pzchips2 ${list.length>4?'many':''}">${list.map(s=>pzChip(s,s===stake,s>P.gold)).join('')}</div></div>
+   <div class="pzpay9">${poor?`<span class="warn">You need ${cmn(lo)} gold to play for stakes. Practice is free.</span>`:paid?`Win pays <b id="pzpayv">${cmn(PZ.payShown!=null&&!newFace?PZ.payShown:win)}</b><em>+${cmn(win-stake)} profit</em>`:`<span class="warn">Daily paid matches used: this one is a friendly.</span>`}</div>
+   ${cue?`<div class="pzrew ${have?'have':''}"><canvas id="pzrewc" width="180" height="30"></canvas><div><b>${cue.n}</b><span>${have?'Yours':`${Math.min(cn,3)} / 3 wins`}</span></div><em><i style="transform:scaleX(${have?1:Math.min(cn,3)/3})"></i></em></div>`:''}</div></div>`;
+ el.style.setProperty('--c',R.c);
+ el.querySelector('.pzstbg').getContext('2d').drawImage(pzStageBake(R.c),0,0);el.querySelectorAll('canvas[data-ico]').forEach(cv=>cv.getContext('2d').drawImage(pzIco(cv.dataset.ico,44),0,0));
+ const cv=$('pzoppc'),g=cv.getContext('2d');g.lineJoin='round';g.lineCap='round';const ex=Object.assign(pzCastEx(),PZ_EXP[newFace?'happy':'neutral']),fit=pzMonFit(id,300,340,14,1.15),t0=performance.now()/1000;let calm=!newFace;
+ const f=()=>{if(!cv.isConnected)return;const t=performance.now()/1000,ht=t-t0,hy=newFace&&ht<.55?-Math.sin(ht/.55*Math.PI)*22:0;if(ht>1.2&&!calm){Object.assign(ex,PZ_EXP.neutral);calm=true}
+  g.clearRect(0,0,300,360);g.save();g.translate(fit.x,fit.y+hy+12);g.scale(fit.s,fit.s);pzMon[id](g,t,ex,{breath:Math.sin(t*2.2)*.012,tilt:Math.sin(t*.8)*.025,bob:Math.sin(t*1.7)*1.4,hop:0});g.restore()};f();LIVE.push({cv,fn:f,slow:1,ph:1});
+ {const rc=$('pzrewc');if(rc&&cue){try{pzRackThumb(rc.getContext('2d'),'cues',cue,180,30)}catch(e){}}}
+ el.querySelectorAll('.pzchip2').forEach(b=>b.onclick=()=>{if(b.disabled)return;pzHubStake(+b.dataset.s)});
+ /* the payout rolls to its new value */
+ {const pv=$('pzpayv');if(pv&&PZ.payShown!=null&&PZ.payShown!==win&&!newFace){const from=PZ.payShown,t1=performance.now(),stp=()=>{if(!pv.isConnected)return;const u=Math.min(1,(performance.now()-t1)/300),e=1-Math.pow(1-u,3);pv.textContent=cmn(Math.round(from+(win-from)*e));if(u<1)requestAnimationFrame(stp)};requestAnimationFrame(stp)}PZ.payShown=paid&&!poor?win:null}
+ const rb=$('pzrackem');if(rb){rb.querySelector('.pzrk1').textContent=Z.live?'Resume match':poor?'Free game':(!paid?'Friendly game':"Rack 'em up!");
+  $('pzrkl').textContent=Z.live?'IN PROGRESS':poor||!paid?'NO STAKE':'STAKE → PAYS';$('pzrk2').textContent=Z.live?`vs ${pzShort(Z.live.opp)} ${Z.live.score[0]}-${Z.live.score[1]}`:poor||!paid?`vs ${pzShort(id)}`:`${cmn(stake)} → ${cmn(win)}`;rb.style.setProperty('--c',R.c)}
+ const ps=$('pzpracs');if(ps)ps.textContent=`free · vs ${pzShort(hustler?'gloop':id)}`}
+function pzHubStake(s){const id=PZ.sel;if(id==='shade')PZ.shadeStake=s;else{PZ.stk=PZ.stk||{};PZ.stk[id]=s}pzFx('tick');pzHubOpp();const b=ov.querySelector(`.pzchip2[data-s="${s}"]`);if(b)b.classList.add('pop')}
+/* keys on the hub (Enter and up/down come from 96j) */
+if(!window.__pzKeys9){window.__pzKeys9=1;addEventListener('keydown',e=>{try{if(e.repeat||!$('pzh')||PZ.modal||pzCoachActive())return;if(document.activeElement&&/INPUT|TEXTAREA/.test(document.activeElement.tagName))return;if(e.ctrlKey||e.metaKey||e.altKey)return;
+ const k=e.key;if(k==='ArrowLeft'||k==='ArrowRight'){const cs=[...ov.querySelectorAll('.pzchip2:not(:disabled)')];if(!cs.length)return;const i=cs.findIndex(c=>c.classList.contains('on')),n=cs[Math.max(0,Math.min(cs.length-1,(i<0?0:i)+(k==='ArrowRight'?1:-1)))];e.preventDefault();if(n&&!n.classList.contains('on'))pzHubStake(+n.dataset.s);return}
+ if(/^[1-7]$/.test(k)){const b=ov.querySelector(`.pzrow[data-k="${PZ_ORDER[+k-1]}"]`);if(b&&!b.disabled){e.preventDefault();pzHubSel(b.dataset.k)}return}
+ if(k==='n'||k==='N'){const b=ov.querySelector('.pzrow.next')||ov.querySelector('.pzrow.shade');if(b){e.preventDefault();pzHubSel(b.dataset.k)}return}
+ if(k==='p'||k==='P'){e.preventDefault();$('pzprac').click();return}
+ const m={t:'trick',c:'cues',h:'rules',r:'regs'}[k.toLowerCase()];if(m){const b=ov.querySelector(`.pznav button[data-a="${m}"]`);if(b){e.preventDefault();b.click()}}}catch(err){}})}
+function pzHubTour(){}
+/* the side screens fade back out to the hub and build themselves in */
+{for(const nm of['pzCueRack','pzRules','pzTrick']){const f0=window[nm];if(typeof f0!=='function')continue;window[nm]=function(){const r=f0.apply(this,arguments);try{const b=$('pzbk');if(b&&!$('pzh')){b.onclick=()=>pzGo(pzHub);S.back=()=>pzGo(pzHub)}const root=ov.querySelector(':scope>.pzr,:scope>.pzk');if(root&&!root.dataset.in){root.dataset.in=1;root.classList.add('pzscrin');setTimeout(()=>root.classList.remove('pzscrin'),900)}}catch(e){}return r}}}
+{const st=document.createElement('style');st.textContent=`
+.pzh9 .pzback{z-index:5;display:flex;align-items:center;gap:10px}.pzback kbd,.pzh9 kbd{display:inline-block;min-width:18px;padding:0 6px;border-radius:7px;background:#12081f;border:1px solid #4a3e90;font:800 11px/20px Poppins,sans-serif;color:#9a90c8;text-align:center}
+.pzgone{transition:opacity .15s,transform .15s;opacity:0!important;transform:translateY(10px)}
+.pzscrin>*:not(canvas):not(.pzktabs9):not(.pztsub){animation:pzrise .42s cubic-bezier(.25,1.25,.45,1) both}.pzscrin>.pzktabs9,.pzscrin>.pztsub{animation:pzfade .42s both}.pzscrin>*:nth-child(3){animation-delay:.04s}.pzscrin>*:nth-child(4){animation-delay:.08s}.pzscrin>*:nth-child(5){animation-delay:.12s}.pzscrin>*:nth-child(6){animation-delay:.16s}.pzscrin>*:nth-child(n+7){animation-delay:.2s}
+.pzh9 .pzgold{right:24px;width:220px;box-sizing:border-box}
+.pznet{position:absolute;right:24px;top:80px;padding:4px 12px;border-radius:12px;background:#100a30d0;border:2px solid #2a2468;font:700 12.5px Poppins,sans-serif;color:#c4badf;z-index:3}.pznet b{color:#8affb4}.pznet b.neg{color:#ff9a9a}.pznet b.hot{color:#ff9a4a}
+.pzh9 .pzsign{top:8px}
+.pzprog{position:absolute;left:50%;top:84px;transform:translateX(-50%);padding:4px 16px;border-radius:14px;background:#100a30e0;border:2px solid #4a3e90;font:600 13px Poppins,sans-serif;color:#c4badf;white-space:nowrap;z-index:3}.pzprog b{color:#ffd45a;font-weight:800}
+.pznav{position:absolute;left:24px;top:128px;width:274px;display:flex;flex-direction:column;gap:14px;z-index:3}
+.pznav button{position:relative;display:flex;align-items:center;gap:12px;height:100px;padding:0 14px 0 10px;border-radius:20px;text-align:left;color:#efe8ff;cursor:pointer;background:linear-gradient(180deg,#241c60,#110a32);border:3px solid #4a3e90;box-shadow:inset 0 1px 0 #ffffff24,0 10px 26px #0009;transition:transform .2s cubic-bezier(.3,1.5,.5,1)}
+.pznav button:hover,.pznav button:focus-visible{transform:translateX(8px);border-color:#ffd45a;outline:none}.pznav button:active{transform:translateX(5px) scale(.97)}
+.pzni{flex:none;width:72px;height:72px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#3a2f8a,#130b38 72%);border:3px solid #12081f;box-shadow:inset 0 0 0 2px #ffffff14;display:block;transition:transform .3s cubic-bezier(.3,1.7,.5,1)}
+.pzni canvas{width:72px;height:72px;display:block}.pznav button:hover .pzni{transform:rotate(-8deg) scale(1.1)}
+.pznt{flex:1;min-width:0}.pznt b{display:block;font:800 18px/1.2 Poppins,sans-serif;color:#fff}.pznt>span{display:block;margin-top:2px;font-size:12.5px;font-weight:600;color:#c4badf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pznb{display:block;margin-top:8px;margin-right:30px;height:7px;border-radius:5px;background:#12081f;overflow:hidden}.pznb i{display:block;height:100%;background:linear-gradient(90deg,var(--c),#ffd45a);transform-origin:0 50%}
+.pzbdg{position:absolute;right:10px;top:-11px;padding:2px 9px;border-radius:10px;background:#ff4a6a;color:#fff;font:800 11px Poppins,sans-serif;text-decoration:none;letter-spacing:.05em;border:2px solid #12081f;animation:pznewb 1.6s ease-in-out infinite}.pzbdg.g{background:#ffd45a;color:#2a1a04;animation:none}
+.pznav kbd{position:absolute;right:10px;bottom:9px;opacity:.8}
+.pzgran{position:absolute;left:52px;top:618px;padding:7px 14px;border-radius:13px;background:#100a30e8;border:2px solid #8affb4;color:#a8ffcc;font:800 13px Poppins,sans-serif;cursor:pointer;z-index:3;transition:transform .2s cubic-bezier(.3,1.6,.5,1)}.pzgran:hover{transform:translateY(-3px)}
+.pzboard9{left:314px;top:116px;width:588px;height:614px;box-sizing:border-box;padding:12px 18px}
+.pzboard9 .pzh2{margin:0 0 4px;font-size:44px}
+.pzboard9 .pzrows{gap:4px}
+.pzh9 .pzrow{position:relative;height:58px;padding:2px 10px 2px 4px;gap:10px;border-radius:14px}
+.pzrk{flex:none;width:18px;font:400 24px/1 "Pirata One",serif;font-style:normal;color:#f4f4e655;text-align:center}
+.pzh9 .pzrow canvas{width:46px;height:46px;flex:none}
+.pzrn{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}.pzh9 .pzrow .pzrn b{font:400 26px/1.05 "Pirata One",serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--c)}.pzh9 .pzrow.lock .pzrn b{color:#8a86a0}
+.pzh9 .pzrow .pzrn small{position:static;text-align:left;margin-top:1px;font:600 11.5px Poppins,sans-serif;color:#b8d0c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzh9 .pzrow.lock .pzrn small{color:#7a7690}
+.pzrr{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.pzlv{font-style:normal;font-size:10px;letter-spacing:1px;color:#ffd45a}.pzlv u{text-decoration:none;color:#ffffff22}
+.pzst{padding:3px 9px;border-radius:10px;font:800 11.5px Poppins,sans-serif;letter-spacing:.03em;border:2px solid #12081f}
+.pzh9 .pzrow .pzst.won{background:#1d4a32;color:#a8ffcc}.pzh9 .pzrow .pzst.next{background:#ffd45a;color:#2a1a04;animation:pznext 1.4s ease-in-out infinite}.pzh9 .pzrow .pzst.shd{background:#ffe066;color:#2a1a04}
+.pzh9 .pzrow .pzst.live{background:#5a1428;color:#ffb0c0;display:flex;align-items:center;gap:6px}.pzh9 .pzrow .pzst.live i{width:8px;height:8px;border-radius:50%;background:#ff4a6a;animation:pznext 1s ease-in-out infinite}.pzh9 .pzrow .pzst.champ{background:linear-gradient(180deg,#ffe27a,#f2b631);color:#2a1a04}
+.pzh9 .pzrow .pzst.lock{background:#241e32;color:#8a86a0;display:flex;align-items:center;gap:6px}.pzst.lock i{width:9px;height:8px;border-radius:2px;background:#8a86a0;position:relative;top:2px}.pzst.lock i::before{content:'';position:absolute;left:1px;top:-6px;width:3px;height:4px;border:2px solid #8a86a0;border-bottom:0;border-radius:4px 4px 0 0}
+.pzh9 .pzpips{position:static;flex:none;display:flex;gap:4px;width:44px;justify-content:flex-end}.pzh9 .pzpips i{width:10px;height:10px;border-radius:50%;background:#1a2a22;border:2px solid #4a6a58;box-sizing:border-box;transform:none}.pzh9 .pzpips i.on{background:var(--c);border-color:#12081f}
+.pzh9 .pzrows.s8 .pzrow{height:52px}.pzh9 .pzrows.s8 .pzrow canvas{width:40px;height:40px}
+.pzh9 .pzrow.sel{background:linear-gradient(90deg,#ffffff26,#ffffff0a);border-color:var(--c);transform:translateX(6px)}
+.pzh9 .pzrow.sel::before{content:'';position:absolute;left:-15px;top:50%;width:0;height:0;margin-top:-9px;border:9px solid transparent;border-left:11px solid #f4f4e6}
+.pzh9 .pzrow:hover:not(:disabled):not(.sel){transform:translateX(4px)}
+.pzbft{position:absolute;left:18px;right:18px;bottom:10px;height:48px;display:flex;align-items:center;gap:12px;border-top:2px dashed #ffffff22;padding-top:8px}
+.pzbft canvas{width:96px;height:40px;flex:none;border-radius:8px}.pznp{flex:1;min-width:0}.pznp b{display:block;font:400 21px/1.1 "Pirata One",serif;color:#f4f4e6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pznp span{font:600 12px Poppins,sans-serif;color:#b8d0c0}
+.pzrack7{display:flex;gap:3px}.pzrack7 img{width:22px;height:22px;opacity:.22}.pzrack7 img.on{opacity:1}
+.pzopp9{left:916px;top:104px;width:660px;height:452px;box-sizing:border-box;overflow:hidden;border-width:3px}
+.pzo9{position:absolute;inset:0}
+.pzo9.swd{animation:pzswd .34s cubic-bezier(.25,1.2,.4,1) both}.pzo9.swu{animation:pzswu .34s cubic-bezier(.25,1.2,.4,1) both}
+.pzstage{position:absolute;left:12px;top:12px;width:300px;height:424px;border-radius:18px;overflow:hidden;border:2px solid #12081f}
+.pzstage canvas{position:absolute;left:0}.pzstbg{top:0;width:300px;height:424px}#pzoppc{top:44px;width:300px;height:360px}
+.pzstage .pzbub{position:absolute;left:14px;right:14px;top:22px;margin:0}
+.pzbub{padding:9px 13px;border-radius:14px;background:#fff8ec;color:#24124a;font:600 italic 13.5px/1.35 Poppins,sans-serif;border:3px solid #12081f;text-align:center;transform-origin:50% 100%}
+.pzbub.pop{animation:pzbub .45s .1s cubic-bezier(.3,1.6,.5,1) both}
+.pzbub::after{content:'';position:absolute;left:50%;bottom:-12px;margin-left:-9px;border:9px solid transparent;border-top:10px solid #12081f;border-bottom:0}
+.pzplate{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);padding:3px 12px;border-radius:9px;background:#12081f;border:2px solid var(--c);font:800 11px Poppins,sans-serif;letter-spacing:.12em;color:var(--c);white-space:nowrap}
+.pzopp9 .pzoppi{position:absolute;left:326px;top:12px;right:14px;text-align:left}
+.pzopp9 .pzoppi .pzh3{font-size:40px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pzsub2{margin-top:2px;font:700 13px Poppins,sans-serif;color:#c4badf}.pzsub2 .pzstars{font-size:12px;letter-spacing:1px}
+.pzfacts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:8px 0 7px}.pzfacts div{padding:6px 4px 5px;border-radius:12px;background:#140c36;border:2px solid #3a3070;text-align:center}
+.pzfacts b{display:block;font:400 26px/1 "Pirata One",serif;color:#efe8ff}.pzfacts b s{font-size:16px;color:#ff9a9a;margin-right:4px}.pzfacts .g b{color:#ffd45a}.pzfacts small{display:block;margin-top:2px;font:800 9.5px Poppins,sans-serif;letter-spacing:.12em;color:#9a90c8}
+.pzhrc{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:12px;background:#1a1046;border:2px solid var(--c)}.pzhrc canvas{width:36px;height:36px;flex:none}
+.pzhrc b{display:block;font:800 12.5px Poppins,sans-serif;color:#ffd45a}.pzhrc span{display:block;font:500 12px/1.35 Poppins,sans-serif;color:#e2dafc}.pzhrc em{display:block;margin-top:2px;font:600 11.5px/1.35 Poppins,sans-serif;font-style:normal;color:#9ad8b0}
+.pzmtr{display:grid;grid-template-columns:1fr 1fr;gap:3px 16px;margin:7px 2px 0}.pzmtr div{display:flex;align-items:center;justify-content:space-between}.pzmtr span{font:800 10px Poppins,sans-serif;letter-spacing:.08em;color:#c4badf;text-transform:uppercase}
+.pzmtr i{display:flex;gap:3px}.pzmtr u{width:16px;height:7px;border-radius:3px;background:#2a2468}.pzmtr u.on{background:var(--c)}.pzmtr.shd{display:block;font:600 12px/1.4 Poppins,sans-serif;color:#ffe9a0}
+.pzstk{display:flex;align-items:center;gap:10px;margin-top:6px}.pzstk small{flex:none;width:44px;font:800 10px/1.6 Poppins,sans-serif;letter-spacing:.1em;color:#c4badf}.pzstk small kbd{margin:2px 2px 0 0;min-width:12px;padding:0 3px;font-size:10px;line-height:16px}
+.pzchips2{display:flex;gap:7px}.pzchips2.many{gap:5px}.pzchips2.many .pzchip2{width:44px;height:44px}.pzchips2.many .pzchip2 b{font-size:12px}
+.pzchip2{position:relative;width:50px;height:50px;padding:0;border-radius:50%;border:3px solid #12081f;cursor:pointer;background:repeating-conic-gradient(var(--cc) 0 22.5deg,#fff 22.5deg 30deg,var(--cc) 30deg 45deg);transition:transform .22s cubic-bezier(.3,1.7,.5,1);box-shadow:0 4px 0 #0008}
+.pzchip2 i{position:absolute;inset:6px;border-radius:50%;background:var(--cc);border:2px dashed #ffffffa0}
+.pzchip2 b{position:relative;font:800 14px/1 Poppins,sans-serif;color:var(--ct)}
+.pzchip2:hover:not(:disabled){transform:translateY(-4px)}.pzchip2.on{transform:translateY(-7px);box-shadow:0 0 0 3px #ffd45a,0 10px 0 #0006}.pzchip2.pop{animation:pzchipspin .5s cubic-bezier(.3,1.4,.5,1)}
+.pzchip2:disabled{opacity:.28;cursor:default}
+.pzpay9{margin-top:4px;font:700 14px Poppins,sans-serif;color:#efe8ff;min-height:34px;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px}.pzpay9 b{font:400 34px/1 "Pirata One",serif;color:#ffd45a}.pzpay9 em{font-style:normal;color:#8affb4;font-size:13px;font-weight:800}.pzpay9 .warn{font-size:13px;color:#ffc89a}
+.pzrew{display:flex;align-items:center;gap:10px;margin-top:6px;padding:6px 10px 8px;border-radius:12px;background:#0c0824;border:2px solid #2a2468;position:relative}
+.pzrew canvas{width:150px;height:25px;flex:none}.pzrew div{flex:1;min-width:0;text-align:right}.pzrew b{display:block;font:800 12px Poppins,sans-serif;color:#efe8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzrew span{font:700 11.5px Poppins,sans-serif;color:#ffd45a}
+.pzrew em{position:absolute;left:10px;right:10px;bottom:3px;height:3px;border-radius:2px;background:#2a2468;overflow:hidden}.pzrew em i{display:block;height:100%;background:#ffd45a;transform-origin:0 50%}.pzrew.have span{color:#8affb4}.pzrew.have em i{background:#8affb4}
+.pzrack9{left:916px;top:572px;width:500px;height:92px;display:flex;align-items:center;justify-content:space-between;padding:0 22px 0 28px;box-sizing:border-box;overflow:hidden;animation:pzrkb 2.6s ease-in-out 1.4s infinite}
+.pzrk1{font:400 52px/1 "Pirata One",Georgia,serif;white-space:nowrap}.pzrkx{display:flex;flex-direction:column;align-items:flex-end;gap:2px;color:#5a3a06}.pzrkx small{font:800 10px Poppins,sans-serif;letter-spacing:.12em}.pzrkx b{font:800 17px Poppins,sans-serif;color:#2a1a04;white-space:nowrap}
+.pzrack9 kbd{background:#2a1a04;color:#ffe27a;border-color:#2a1a04}
+.pzshine{position:absolute;top:-20px;bottom:-20px;left:0;width:90px;background:linear-gradient(100deg,transparent,#ffffffa0,transparent);transform:translateX(-160px) skewX(-18deg);animation:pzshine 3.6s ease-in-out 1.6s infinite;pointer-events:none}
+.pzrack9:hover{animation:none;transform:translateY(-3px) scale(1.01)}
+.pzprac{position:absolute;left:1428px;top:572px;width:148px;height:92px;border-radius:22px;background:linear-gradient(180deg,#241c60,#110a32);border:3px solid #8affb4;color:#efe8ff;cursor:pointer;z-index:2;box-shadow:0 8px 0 #0a0620,0 12px 26px #000a;transition:transform .15s cubic-bezier(.3,1.6,.5,1)}
+.pzprac b{display:block;font:800 18px Poppins,sans-serif;margin-top:6px}.pzprac span{display:block;margin-top:2px;font:600 11.5px Poppins,sans-serif;color:#a8ffcc}.pzprac kbd{position:absolute;right:8px;top:8px}.pzprac:hover{transform:translateY(-3px)}.pzprac:active{transform:translateY(4px)}
+.pzresume2{position:absolute;left:314px;top:744px;width:588px;box-sizing:border-box;padding:10px 14px;border-radius:18px;background:linear-gradient(180deg,#3a1e70,#1e0f48);border:3px solid #ffd45a;display:flex;align-items:center;gap:12px;z-index:4;box-shadow:0 10px 26px #000a;animation:pzbIn .5s .5s cubic-bezier(.2,1.4,.4,1) both}
+.pzresume2.out{animation:pzbOut .26s both}.pzresume2 canvas{width:52px;height:52px;border-radius:50%;background:#2a1a4a;border:2px solid #c99a3a;flex:none}
+.pzresume2 div{flex:1}.pzresume2 b{display:block;font:800 15px Poppins,sans-serif;color:#ffd45a}.pzresume2 span{font:600 13px Poppins,sans-serif;color:#e2dafc}
+.pzresume2 button{padding:10px 16px;border-radius:12px;border:2px solid #12081f;background:#ffd45a;color:#2a1a04;font:800 14px Poppins,sans-serif;cursor:pointer}.pzresume2 button.ghost{background:#3a2f8a;color:#efe8ff}
+/* the entrance: sign drops, tiles slide in, the board rises and its rows cascade, the spotlight slides in, the buttons pop */
+.pzh9.pzin .pzsign{animation:pzsign .65s cubic-bezier(.25,1.5,.45,1) both}
+.pzh9.pzin .pzprog{animation:pzfadeY .5s .2s both}
+.pzh9.pzin .pznav button{animation:pzfromL .42s calc(.05s + var(--i)*.05s) cubic-bezier(.25,1.3,.45,1) both}
+.pzh9.pzin .pzboard9{animation:pzrise .45s .05s cubic-bezier(.25,1.25,.45,1) both}
+.pzh9.pzin .pzrow{animation:pzrowIn .34s calc(.16s + var(--i)*.035s) cubic-bezier(.25,1.3,.45,1) both}
+.pzh9.pzin .pzopp9{animation:pzfromR .45s .1s cubic-bezier(.25,1.25,.45,1) both}
+.pzh9.pzin .pzrack9{animation:pzpopIn .45s .3s cubic-bezier(.25,1.6,.45,1) both,pzrkb 2.6s ease-in-out 1.4s infinite}
+.pzh9.pzin .pzprac{animation:pzpopIn .45s .36s cubic-bezier(.25,1.6,.45,1) both}
+.pzh9.pzin .pzgold,.pzh9.pzin .pznet,.pzh9.pzin .pzback,.pzh9.pzin .pzgran{animation:pzfade .5s .2s both}
+.pzh9.pzin #pzhfg{animation:pzfade .7s .2s both}
+@keyframes pzsign{0%{opacity:0;transform:translateY(-60px) rotate(-3deg)}60%{opacity:1;transform:translateY(6px) rotate(1deg)}100%{transform:none}}
+@keyframes pzfromL{from{opacity:0;transform:translateX(-80px)}to{opacity:1;transform:none}}
+@keyframes pzfromR{from{opacity:0;transform:translateX(90px)}to{opacity:1;transform:none}}
+@keyframes pzrise{from{opacity:0;transform:translateY(40px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes pzrowIn{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+@keyframes pzpopIn{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:none}}
+@keyframes pzfade{from{opacity:0}to{opacity:1}}@keyframes pzfadeY{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translateX(-50%)}}
+@keyframes pzswd{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}@keyframes pzswu{from{opacity:0;transform:translateY(-26px)}to{opacity:1;transform:none}}
+@keyframes pzbub{from{opacity:0;transform:scale(.5) translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pznext{0%,100%{transform:none}50%{transform:scale(1.07)}}
+@keyframes pznewb{0%,100%{transform:none}50%{transform:translateY(-3px)}}
+@keyframes pzchipspin{0%{transform:translateY(-7px) rotate(0)}100%{transform:translateY(-7px) rotate(360deg)}}
+@keyframes pzrkb{0%,100%{transform:none}50%{transform:scale(1.015)}}
+@keyframes pzshine{0%{transform:translateX(-160px) skewX(-18deg)}45%,100%{transform:translateX(660px) skewX(-18deg)}}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: first-visit tours of the screens (96u) =====
+   The hub, Trick Shots and the Cue Rack each explain themselves once (P.pz.tut.hub / trick / rack).
+   How to Play has a button that plays every tutorial again. */
+function pzHubTour(){const Z=PZS();if(Z.tut.hub||Z.live)return;const tk=PZ.tok;setTimeout(()=>{if(PZ.tok!==tk||!$('pzh')||pzCoachActive())return;
+ pzCoach('hub',[
+  {title:'Welcome to the Crooked Cue!',text:'Play 8-ball against the casino\'s monster regulars. Beat one to open the next table, win their gold and collect their <b>signature cues</b>.',w:440},
+  {sel:'.pzboard9',side:'right',title:"Tonight's tables",text:'Each regular plays better than the last; the stars show how tough they are. Beat one to open the next table. <b>Click a name</b> (or use <kbd>↑</kbd> <kbd>↓</kbd>) to pick your opponent.',w:340},
+  {sel:'#pzopp',side:'left',title:'Know your opponent',text:'Every regular has a <b>house rule</b> and a weakness (the tip). Pick a <b>stake chip</b> (or <kbd>←</kbd> <kbd>→</kbd>): the card shows what a win pays. Beat them 3 times to earn their cue.',w:330},
+  {sel:'#pzrackem',side:'left',title:"Rack 'em up!",text:'Starts the match. Paid matches take your stake now and pay it back, with the winnings, if you win.',w:330},
+  {sel:'#pzprac',side:'left',title:'New to pool?',text:'<b>Practice</b> against the selected regular is free: no stake, no pressure. It is the best place to learn the controls.',w:330},
+  {sel:['.pznav button[data-a="trick"]','.pznav button[data-a="cues"]'],side:'right',title:'Trick Shots and the Cue Rack',text:'<b>Trick Shots</b> are one-shot puzzles that pay gold for stars. The <b>Cue Rack</b> holds the cues, felts and ball sets you win or buy. They only change the look.',w:340},
+  {sel:['.pznav button[data-a="regs"]','.pznav button[data-a="rules"]'],side:'right',title:'Your record and the rules',text:'<b>The Regulars</b> keeps your record and trophies. <b>How to Play</b> has the rules and controls, and a button to see these tips again. Ready?',w:340,extra:['Practice first',()=>{pzMusicOff();pzStart({opp:'gloop',practice:true})}]}
+ ],{kicker:'THE CROOKED CUE',last:'Got it'})},700)}
+{const f0=pzTrick;pzTrick=function(){const r=f0.apply(this,arguments);try{const Z=PZS(),tk=PZ.tok;if(!Z.tut.trick)setTimeout(()=>{if(PZ.tok!==tk||pzCoachActive()||!ov.querySelector('.pzti'))return;
+ pzCoach('trick',[
+  {sel:'.pzti',side:'right',title:'Trick Shots',text:'Every puzzle is <b>one shot</b> from a set layout, with a goal under its name. Click a card to try it; a miss puts the balls back.',w:340},
+  {sel:'.pztsub',side:'bottom',title:'Stars and gold',text:'Make it within <b>3 tries</b> for 3 stars, within 8 for 2. Your first 3 stars on a puzzle pay <b>200 gold</b>. Granny Moldwick will give you a hint.',w:420}
+ ],{kicker:'FIRST VISIT'})},900)}catch(e){}return r}}
+{const f0=pzCueRack;pzCueRack=function(){const r=f0.apply(this,arguments);try{const Z=PZS(),tk=PZ.tok;if(!Z.tut.rack)setTimeout(()=>{if(PZ.tok!==tk||pzCoachActive()||!ov.querySelector('.pzkwall'))return;
+ pzCoach('rack',[
+  {sel:'.pzktabs',side:'bottom',title:'The Cue Rack',text:'Your <b>cues</b>, table <b>felts</b> and <b>ball sets</b>. Switch between them here.',w:360},
+  {sel:'.pzkwall',side:'right',title:'Win them or buy them',text:'Signature cues come from beating a regular <b>3 times</b>; felts and ball sets from beating certain regulars. Some can be bought with gold.',w:340},
+  {sel:'.pzkdet',side:'left',title:'Equip',text:'Pick anything you own and press <b>Equip</b>. You will see it at your next match.',w:320}
+ ],{kicker:'FIRST VISIT'})},900)}catch(e){}return r}}
+/* ===== 9.5 THE CROOKED CUE: How to Play (96v) =====
+   House Rules becomes an illustrated, tabbed How to Play: Basics, Shooting, Fouls, the 8 and Controls, each lesson a
+   baked little diagram and two lines. The full screen (from the hub) also has "Replay tutorials" and "Practice";
+   the pause menu shows the same tabs in its wide modal. */
+const PZ_HOW_ART={};
+function pzHowArt(kind){if(PZ_HOW_ART[kind])return PZ_HOW_ART[kind];const W=320,H=180,c=pzCv(W*2,H*2),g=c.getContext('2d');g.scale(2,2);g.lineJoin='round';g.lineCap='round';const O=PZ_O;
+ const tbl=()=>{g.fillStyle='#6a3414';pzRR(g,6,6,W-12,H-12,16);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();g.fillStyle=pzLin(g,0,20,0,H-20,[[0,'#2e8f5e'],[1,'#1b6a45']]);pzRR(g,20,20,W-40,H-40,6);g.fill();g.lineWidth=2;g.stroke();
+  for(const [x,y] of[[20,20],[W/2,17],[W-20,20],[20,H-20],[W/2,H-17],[W-20,H-20]]){g.fillStyle='#07040a';g.beginPath();g.arc(x,y,9,0,TAU);g.fill();g.strokeStyle='#c99a3a';g.lineWidth=2;g.stroke()}
+  g.fillStyle='rgba(255,255,255,.07)';g.fillRect(24,24,W-48,10)};
+ const PAL=['#fff8ec','#f2c230','#2a5ad8','#d83a2a','#7a3ab8','#f07a20','#1a8a4a','#8a2a1a','#141414'];
+ const ball=(x,y,n,r)=>{r=r||10;const s=n>8,col=n===0?PAL[0]:PAL[n>8?n-8:n];g.fillStyle=s?'#fff8ec':col;g.beginPath();g.arc(x,y,r,0,TAU);g.fill();
+  if(s){g.save();g.beginPath();g.arc(x,y,r,0,TAU);g.clip();g.fillStyle=col;g.fillRect(x-r,y-r*.5,r*2,r);g.restore()}
+  if(n>0){g.fillStyle='#fff';g.beginPath();g.arc(x,y,r*.45,0,TAU);g.fill();g.fillStyle='#12081f';g.font=`800 ${Math.round(r*.62)}px Poppins,sans-serif`;g.textAlign='center';g.textBaseline='middle';g.fillText(n,x,y+.5)}
+  g.fillStyle='rgba(255,255,255,.5)';g.beginPath();g.ellipse(x-r*.35,y-r*.4,r*.28,r*.18,-.5,0,TAU);g.fill();g.strokeStyle=O;g.lineWidth=2.2;g.beginPath();g.arc(x,y,r,0,TAU);g.stroke()};
+ const dots=(pts,col,w)=>{g.setLineDash([2,7]);g.strokeStyle=col;g.lineWidth=w||3.5;g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke();g.setLineDash([])};
+ const ring=(x,y,col)=>{g.strokeStyle=col;g.lineWidth=3.5;g.beginPath();g.arc(x,y,15,0,TAU);g.stroke()};
+ const cross=(x,y,s)=>{s=s||9;g.strokeStyle='#12081f';g.lineWidth=8;g.beginPath();g.moveTo(x-s,y-s);g.lineTo(x+s,y+s);g.moveTo(x+s,y-s);g.lineTo(x-s,y+s);g.stroke();g.strokeStyle='#ff5a5a';g.lineWidth=4.5;g.stroke()};
+ const tick=(x,y)=>{g.strokeStyle='#12081f';g.lineWidth=8;g.beginPath();g.moveTo(x-9,y);g.lineTo(x-2,y+8);g.lineTo(x+11,y-8);g.stroke();g.strokeStyle='#8affb4';g.lineWidth=4.5;g.stroke()};
+ const arrow=(x0,y0,x1,y1,col)=>{const a=Math.atan2(y1-y0,x1-x0);g.strokeStyle=O;g.lineWidth=8;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();g.beginPath();g.moveTo(x1,y1);g.lineTo(x1-Math.cos(a-.5)*13,y1-Math.sin(a-.5)*13);g.moveTo(x1,y1);g.lineTo(x1-Math.cos(a+.5)*13,y1-Math.sin(a+.5)*13);g.stroke();
+  g.strokeStyle=col;g.lineWidth=4;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.moveTo(x1,y1);g.lineTo(x1-Math.cos(a-.5)*13,y1-Math.sin(a-.5)*13);g.moveTo(x1,y1);g.lineTo(x1-Math.cos(a+.5)*13,y1-Math.sin(a+.5)*13);g.stroke()};
+ const cue=(x,y,a,len)=>{g.save();g.translate(x,y);g.rotate(a);g.fillStyle='#e8c88a';g.fillRect(-len,-3,len*.7,6);g.fillStyle='#5a1a1a';g.fillRect(-len,-4,len*.3,8);g.fillStyle='#3a70d8';g.fillRect(-len*.3-4,-3,4,6);g.strokeStyle=O;g.lineWidth=2;g.strokeRect(-len,-4,len,8);g.restore()};
+ const label=(t,x,y,col)=>{g.font='800 12px Poppins,sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=4;g.strokeStyle=O;g.strokeText(t,x,y);g.fillStyle=col||'#fff';g.fillText(t,x,y)};
+ if(kind==='groups'){tbl();[[70,70,1],[95,100,2],[70,120,3],[110,62,4]].forEach(([x,y,n])=>ball(x,y,n));[[215,70,9],[245,100,10],[210,118,11],[250,58,12]].forEach(([x,y,n])=>ball(x,y,n));label('SOLIDS 1-7',90,148,'#ffd45a');label('STRIPES 9-15',230,148,'#ffd45a')}
+ else if(kind==='eight'){tbl();ball(150,98,0);ball(232,60,8);dots([[232,60],[W-28,26]],'#ffd45a');ring(W-20,20,'#8affb4');arrow(110,124,140,105,'#efe8ff');label('CALLED',W-60,48,'#8affb4')}
+ else if(kind==='race'){g.fillStyle='#140c36';pzRR(g,6,6,W-12,H-12,16);g.fill();for(let k=0;k<3;k++){const x=70+k*90,y=96,on=k<2;g.save();g.translate(x,y);g.fillStyle=on?'#ffd45a':'#2a2070';g.beginPath();g.moveTo(0,-34);g.lineTo(34,26);g.lineTo(-34,26);g.closePath();g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();
+   if(on){for(const [bx,by,n] of[[0,-14,1],[-10,4,9],[10,4,3]])ball(bx,by,n,8.5)}g.restore()}label('FIRST TO THE RACE TARGET WINS',W/2,154,'#efe8ff')}
+ else if(kind==='aim'){tbl();ball(76,110,0);g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=2;g.setLineDash([3,5]);g.beginPath();g.arc(196,76,10,0,TAU);g.stroke();g.setLineDash([]);dots([[86,106],[190,78]],'#efe8ff',2.5);ball(214,70,3);dots([[214,70],[W-28,26]],'#ffd45a');ring(W-20,20,'#8affb4');dots([[196,76],[232,140]],'#7ad8ff');label('GOLD: THE BALL',100,40,'#ffd45a');label('BLUE: CUE BALL',236,152,'#7ad8ff')}
+ else if(kind==='power'){tbl();ball(170,90,0);cue(152,90,0,110);arrow(118,118,62,118,'#ffd45a');label('PULL BACK',92,140,'#ffd45a');ball(250,90,5);arrow(186,66,232,66,'#8affb4');label('LET GO',210,46,'#8affb4')}
+ else if(kind==='spin'){g.fillStyle='#140c36';pzRR(g,6,6,W-12,H-12,16);g.fill();ball(90,90,0,52);for(const [dx,dy,col] of[[0,-30,'#8affb4'],[0,30,'#ff9a4a'],[30,0,'#c8a0ff']]){g.fillStyle=col;g.beginPath();g.arc(90+dx,90+dy,8,0,TAU);g.fill();g.strokeStyle=O;g.lineWidth=2;g.stroke()}
+  label('HIGH: FOLLOW',236,46,'#8affb4');label('LOW: DRAW BACK',236,90,'#ff9a4a');label('SIDE: BENDS',236,134,'#c8a0ff')}
+ else if(kind==='scratch'){tbl();ball(150,100,3);dots([[110,60],[146,96]],'#efe8ff',2.5);dots([[152,104],[W/2,H-24]],'#7ad8ff');g.globalAlpha=.85;ball(W/2,H-20,0,8);g.globalAlpha=1;cross(W/2+24,H-40);label('CUE BALL IN = FOUL',W/2,40,'#ff9a9a')}
+ else if(kind==='wrong'){tbl();ball(90,90,0);dots([[100,90],[184,90]],'#efe8ff',2.5);ball(196,90,11);ball(250,120,2);cross(196,60);label('YOU ARE SOLIDS',170,148,'#ffd45a');label('STRIPE FIRST = FOUL',170,34,'#ff9a9a')}
+ else if(kind==='bih'){tbl();ball(214,82,6);ball(250,120,4);g.save();g.translate(130,96);g.fillStyle='#f2d6b0';g.beginPath();g.ellipse(0,0,20,16,-.3,0,TAU);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();for(let i=0;i<3;i++){g.beginPath();g.ellipse(-12+i*10,-16,5,9,0,0,TAU);g.fillStyle='#f2d6b0';g.fill();g.stroke()}g.restore();ball(150,118,0);arrow(150,150,150,132,'#8affb4');label('PLACE IT ANYWHERE',W/2,40,'#8affb4')}
+ else if(kind==='guide'){tbl();ball(70,120,0);ball(170,84,2);dots([[170,84],[W-28,26]],'#ffd45a');ring(W-20,20,'#8affb4');tick(W-46,48);ball(230,140,13);dots([[80,118],[160,90]],'#efe8ff',2.5);dots([[160,92],[200,150],[W/2+20,H-24]],'#7ad8ff');cross(W/2+18,H-22);label('RING = IT DROPS',110,40,'#8affb4')}
+ else if(kind==='taunt'){g.fillStyle='#140c36';pzRR(g,6,6,W-12,H-12,16);g.fill();g.fillStyle='#efe8ff';pzRR(g,40,46,240,52,14);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();g.font='700 22px Poppins,sans-serif';g.textAlign='left';g.textBaseline='middle';g.fillStyle='#8a80c8';g.fillText('drip drip',60,72);g.fillStyle='#24124a';g.fillText('drip',60,72);
+  g.fillStyle='#12081f';pzRR(g,40,112,240,14,7);g.fill();g.fillStyle='#ff9ad0';pzRR(g,42,114,150,10,5);g.fill();label('TYPE IT: THEIR NEXT SHOT WOBBLES',W/2,150,'#ff9ad0')}
+ else if(kind==='fast'){g.fillStyle='#140c36';pzRR(g,6,6,W-12,H-12,16);g.fill();g.fillStyle='#2a2070';pzRR(g,84,52,152,58,14);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();label('SPACE',160,82,'#fff2c8');for(let k=0;k<2;k++){g.fillStyle='#ffd45a';g.beginPath();g.moveTo(250+k*22,62);g.lineTo(270+k*22,82);g.lineTo(250+k*22,102);g.closePath();g.fill();g.strokeStyle=O;g.lineWidth=2.5;g.stroke()}label('HOLD TO FAST-FORWARD',W/2,142,'#efe8ff')}
+ return PZ_HOW_ART[kind]=c}
+const PZ_HOW=[
+ {k:'basics',t:'Basics',cards:[['groups','Solids or stripes','After the break, the first ball you pot picks your group. Your opponent gets the other one.'],['eight','Then the 8','Clear your group, <b>call a pocket</b> and sink the 8 there to win the rack. Sink it early and you lose the rack.'],['race','Win the race','A match is a race: the first to win the target number of racks (shown at the top) takes the pot.']]},
+ {k:'shoot',t:'Shooting',cards:[['aim','Aim','<b>Move the mouse</b>. The guide shows the shot: gold for the ball you hit, blue for the cue ball.'],['power','Power','<b>Press on the table, pull back and let go</b>. Or set the power bar and press SHOOT (<kbd>Space</kbd>).'],['spin','Spin','Click the <b>spin ball</b> at the bottom left. Low draws the cue ball back, high makes it follow.']]},
+ {k:'fouls',t:'Fouls',cards:[['scratch','Scratch','The cue ball drops in a pocket. Also a foul: hitting nothing, or no ball reaching a cushion after the hit.'],['wrong','Wrong ball first','Your first contact must be one of your own balls (or any ball while the table is open).'],['bih','Ball in hand','After a foul the other player may <b>place the cue ball anywhere</b>. Do not hand it to the monsters!']]},
+ {k:'extras',t:'Guide & extras',cards:[['guide','The guide','A <b>green ring</b> means the ball drops, a <b>red cross</b> means you would scratch. <kbd>G</kbd> switches Full / Short / Pro.'],['taunt','Taunts','When a monster misses you may get a taunt: <b>type it in time</b> and its next shot wobbles. <kbd>Esc</kbd> skips it.'],['fast','Fast-forward','Hold <kbd>Space</kbd> or the mouse while balls roll or a monster thinks. Paid matches run a shot clock.']]},
+ {k:'keys',t:'Controls',keys:[['Mouse','Aim; press, pull back and let go to shoot'],['Shift / right button','Fine aim (slow mouse)'],['Wheel, ◀ ▶ arrows','Nudge the aim (Shift for tiny steps)'],['Space','Shoot with the power bar; hold to fast-forward'],['W A S D / R','Set the spin / reset it'],['1 - 6','Call a pocket for the 8'],['G','Change the guide'],['Esc','Menu (pause, rules, settings, forfeit)']]}];
+function pzHowBody(tab,full){const T=PZ_HOW.find(x=>x.k===tab)||PZ_HOW[0];
+ const body=T.keys?`<div class="pzhowk">${T.keys.map(([a,b])=>`<div><kbd>${a}</kbd><span>${b}</span></div>`).join('')}</div>`:`<div class="pzhowc">${T.cards.map(([art,h,p],i)=>`<div class="pzhcard" style="--i:${i}"><canvas width="640" height="360" data-how="${art}"></canvas><b>${h}</b><p>${p}</p></div>`).join('')}</div>`;
+ return `<div class="pzhow ${full?'full':''}"><div class="pzhtabs">${PZ_HOW.map(x=>`<button data-h="${x.k}" class="${x.k===T.k?'on':''}">${x.t}</button>`).join('')}</div><div class="pzhbody" id="pzhbody">${body}</div></div>`}
+function pzHowWire(host,full){const draw=()=>host.querySelectorAll('canvas[data-how]').forEach(cv=>{const g=cv.getContext('2d');g.drawImage(pzHowArt(cv.dataset.how),0,0)});draw();
+ host.querySelectorAll('.pzhtabs button').forEach(b=>b.onclick=()=>{PZ.howTab=b.dataset.h;pzFx('tick');const box=host.querySelector('.pzhow');const n=document.createElement('div');n.innerHTML=pzHowBody(PZ.howTab,full);box.replaceWith(n.firstElementChild);pzHowWire(host,full)})}
+function pzRules(){const tk=PZ.tok;PZ.howTab=PZ.howTab||'basics';
+ show(`<div class="pzr pzhowscr" id="pzr"><canvas id="pzrbg" width="1600" height="900"></canvas><button class="pzback" id="pzbk">‹&nbsp; The bar</button><div class="pztitle sm">How to Play</div>
+  <div class="pzrp pzhp">${pzHowBody(PZ.howTab,true)}<div class="pzhfoot"><button class="pzmb" id="pzhre">Replay the tutorials</button><button class="pzmb gold" id="pzhpr">Try it at the Practice Table</button></div></div></div>`,'casbg pzx');
+ $('pzrbg').getContext('2d').drawImage(pzHubBake(),0,0);$('pzbk').onclick=()=>pzHub();S.back=()=>pzHub();pzHowWire($('pzr'),true);
+ $('pzhre').onclick=()=>{pzCoachReset();pzFx('place');pzNote('Tutorials reset: they will show again as you play.');PZ.sel=null;const tk=PZ.tok;setTimeout(()=>{if(PZ.tok===tk&&$('pzhbody'))pzHub()},700)};
+ $('pzhpr').onclick=()=>{pzMusicOff();pzStart({opp:'gloop',practice:true})};
+ pzFitTM()}
+if(!window.__pzHowKeys){window.__pzHowKeys=1;addEventListener('keydown',e=>{try{if(!$('pzhbody')||e.repeat||pzCoachActive())return;if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;const bs=[...document.querySelectorAll('.pzhtabs button')],i=bs.findIndex(b=>b.classList.contains('on')),n=bs[(i+(e.key==='ArrowRight'?1:-1)+bs.length)%bs.length];if(n){e.preventDefault();e.stopImmediatePropagation();n.click()}}catch(err){}},true)}
+function pzRulesModal(){PZ.howTab=PZ.howTab||'basics';const m=pzModal(`<div class="pzh2">How to Play</div>${pzHowBody(PZ.howTab,false)}<button class="pzmb gold" data-a="back">Back</button>`,'pause wide how');pzHowWire(m,false);m.querySelector('[data-a=back]').onclick=()=>pzPauseMenu(true)}
+{const st=document.createElement('style');st.textContent=`
+.pzhp{left:150px;top:132px;width:1300px;box-sizing:border-box;padding:18px 26px 22px}
+.pzhow{text-align:left}
+.pzhtabs{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+.pzhtabs button{height:44px;padding:0 20px;border-radius:14px;border:3px solid #12081f;background:#2a2070;color:#c4badf;font:800 15px Poppins,sans-serif;cursor:pointer;transition:transform .15s cubic-bezier(.3,1.6,.5,1)}
+.pzhtabs button:hover{transform:translateY(-2px)}.pzhtabs button.on{background:linear-gradient(180deg,#ffe27a,#f2b631);color:#2a1a04;transform:translateY(-3px);box-shadow:0 4px 0 #9a6a10}
+.pzhowc{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pzhcard{background:#140c36;border:2px solid #3a3070;border-radius:18px;padding:12px 12px 14px;animation:pzhcIn .4s calc(var(--i)*.07s) cubic-bezier(.25,1.3,.45,1) both}
+.pzhcard canvas{display:block;width:100%;aspect-ratio:16/9;border-radius:12px}
+.pzhcard>b{display:block;margin:10px 4px 4px;font:400 28px/1.1 "Pirata One",Georgia,serif;color:#ffd45a}
+.pzhcard p{margin:0 4px;font-size:14px;line-height:1.45;color:#d8d0f4;font-weight:500}.pzhcard p b{display:inline;margin:0;font:800 14px Poppins,sans-serif;color:#fff2c8}
+.pzhow kbd{display:inline-block;padding:0 6px;border-radius:6px;background:#0a0620;border:1px solid #5a4ca0;font:800 12px/20px Poppins,sans-serif;color:#fff2c8}
+.pzhowk{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;padding:6px 8px}
+.pzhowk div{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:14px;background:#140c36;border:2px solid #3a3070;animation:pzhcIn .35s both}
+.pzhowk kbd{flex:none;min-width:150px;text-align:center;font-size:14px;line-height:30px}.pzhowk span{font-size:15px;color:#e2dafc;font-weight:600}
+.pzhfoot{display:flex;justify-content:center;gap:14px;margin-top:18px}.pzhfoot .pzmb{width:auto;padding:0 24px;margin:0}
+.pzmod.how .pzmp{width:1120px}.pzmod.how .pzhowc{gap:12px}.pzmod.how .pzhcard>b{font-size:23px}.pzmod.how .pzhcard p{font-size:12.5px}.pzmod.how .pzhtabs button{height:38px;font-size:13px;padding:0 14px}
+.pzhowscr .pztitle{top:22px}
+@keyframes pzhcIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:none}}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: The Regulars (96w) =====
+   A screen for your career at the Crooked Cue: every regular as a card (your record against them, wins toward their
+   cue, their felt), your numbers, and the pool trophies with progress. Click a regular to go and play them. */
+function pzRegs(){const Z=PZS(),tk=++PZ.tok;PZ.on=false;PZ.hub=true;CAS.on=true;CAS.key=null;CAS.tok++;try{pzMusicOn()}catch(e){}
+ const v=pzVs(),ids=[...PZ_ORDER,...((Z.shade.seen||0)>0?['shade']:[])];
+ const card=(k,i)=>{const R=PZ_REG[k],open=k==='shade'||pzOpen(k),n=k==='shade'?(Z.shade.beat||0):(Z.beat[k]||0),r=v[k]||[0,0],cue=k==='shade'?PZ_CUES.find(c=>c.beatShade):PZ_CUES.find(c=>c.beat===k),felt=PZ_FELT.find(f=>f.beat===k),cn=Math.min(3,n),cueOwn=cue&&Z.cues[cue.id];
+  const prev=i?PZ_REG[PZ_ORDER[i-1]]:null;
+  return `<button class="pzrg ${open?'':'lock'} ${n?'won':''}" data-k="${k}" style="--c:${R.c};--i:${i}" ${open?'':'disabled'}><canvas width="176" height="176" data-p="${k}"></canvas>
+   <b>${open?R.n:'? ? ?'}</b><small>${open?R.k:`Beat ${prev?prev.n:'the last regular'} to meet them`}</small>
+   ${open?`<div class="pzrgr"><span><b>${r[0]}</b>W</span><span><b>${r[1]}</b>L</span><span><b>${n}</b>beaten</span></div>
+   <div class="pzrgc"><span>${cue?cue.n:''}</span><i>${[0,1,2].map(j=>`<u class="${cueOwn||j<cn?'on':''}"></u>`).join('')}</i></div>
+   ${felt?`<div class="pzrgf ${Z.felts[felt.id]?'on':''}">${felt.n} felt · ${Z.felts[felt.id]?'won':'win once'}</div>`:'<div class="pzrgf"></div>'}`:''}</button>`};
+ const W=Z.wins||0,L=Z.losses||0,tot=W+L,net=Z.net||0;
+ const stats=[[W,'Wins'],[L,'Losses'],[tot?Math.round(W/tot*100)+'%':'-','Win rate'],[Z.best||0,'Best streak'],[(net<0?'−':'+')+cmn(Math.abs(net)),'Pool net'],[Z.rackWins||0,'Racks won'],[Z.pots||0,'Balls potted'],[Z.banks||0,'Bank shots'],[Z.bnr||0,'Break & runs'],[Z.golden||0,'Golden breaks'],[Z.taunts||0,'Taunts typed'],[typeof pzTrickTotal==='function'?pzTrickTotal()+' ★':'-','Trick stars']];
+ const tro=pzTrophies(),got=tro.filter(a=>P.ach&&P.ach[a.id]).length;
+ show(`<div class="pzk pzrgs" id="pzk"><canvas id="pzkbg" width="1600" height="900"></canvas><button class="pzback" id="pzbk">‹&nbsp; The bar</button><div class="pzgold"><i></i><b>${cmn(P.gold)}</b></div>
+  <div class="pztitle sm">The Regulars</div>
+  <div class="pzrggrid">${ids.map(card).join('')}</div>
+  <div class="pzrgside"><div class="pzrgh">Your numbers</div><div class="pzrgst">${stats.map(([n,l],i)=>`<div style="--i:${i}"><b>${n}</b><small>${l}</small></div>`).join('')}</div>
+   <div class="pzrgh">Trophies <span>${got} / ${tro.length}</span></div><div class="pzrgtr">${tro.map(a=>{const on=!!(P.ach&&P.ach[a.id]);let pv=0;try{pv=Math.min(a.tg,Math.floor(a.v()))}catch(e){}return `<div class="${on?'on':''}" title="${a.d.replace(/"/g,'&quot;')}">${typeof trophy==='function'?trophy(a.t,on,24):''}<span><b>${a.n}</b><small>${on?'Earned':a.d}</small>${!on&&a.tg>1?`<em><i style="transform:scaleX(${pv/a.tg})"></i></em>`:''}</span></div>`}).join('')}</div></div></div>`,'casbg pzx');
+ $('pzkbg').getContext('2d').drawImage(pzHubBake(),0,0);
+ $('pzbk').onclick=()=>pzGo(pzHub);S.back=()=>pzGo(pzHub);
+ ov.querySelectorAll('.pzrg canvas[data-p]').forEach(cv=>{const k=cv.dataset.p,g=cv.getContext('2d'),lock=cv.closest('.lock');pzCastPortrait(g,'mon',k,176,1.3,Object.assign(pzCastEx(),PZ_EXP.happy));if(lock){g.globalCompositeOperation='source-in';g.fillStyle='#0c0818';g.fillRect(0,0,176,176);g.globalCompositeOperation='source-over'}});
+ ov.querySelectorAll('.pzrg').forEach(b=>b.onclick=()=>{if(b.disabled)return;const k=b.dataset.k;if(k==='shade'&&!PZ.shadeHere){pzNote('Slick Shade only turns up when he feels like it. Keep an eye on the bar.');return}PZ.sel=k;pzFx('tick');pzGo(pzHub)});
+ const root=$('pzk');root.classList.add('pzscrin');setTimeout(()=>{if(root.isConnected)root.classList.remove('pzscrin')},900);pzFitTM()}
+{const st=document.createElement('style');st.textContent=`
+.pzrggrid{position:absolute;left:28px;top:112px;width:1040px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;z-index:2}
+.pzrg{position:relative;height:362px;padding:12px 12px 10px;border-radius:22px;background:linear-gradient(180deg,#241c60,#110a32);border:3px solid #4a3e90;color:#efe8ff;cursor:pointer;text-align:center;box-shadow:inset 0 1px 0 #ffffff24,0 10px 26px #0009;transition:transform .22s cubic-bezier(.3,1.5,.5,1);animation:pzrise .45s calc(.05s + var(--i)*.04s) cubic-bezier(.25,1.25,.45,1) both}
+.pzrg:hover:not(:disabled){transform:translateY(-6px) rotate(-.6deg);border-color:var(--c)}.pzrg.won{border-color:var(--c)}
+.pzrg canvas{display:block;width:150px;height:150px;margin:0 auto 4px;border-radius:50%;background:radial-gradient(circle at 50% 42%,#4a3a8a,#140c36 70%);border:3px solid #12081f;box-shadow:0 0 0 3px var(--c)}
+.pzrg.lock canvas{box-shadow:0 0 0 3px #3a3456}.pzrg.lock{cursor:default;opacity:.7}
+.pzrg>b{display:block;font:400 25px/1.1 "Pirata One",serif;color:var(--c);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzrg.lock>b{color:#8a86a0}
+.pzrg>small{display:block;font:600 12px Poppins,sans-serif;color:#c4badf;min-height:16px}
+.pzrgr{display:flex;justify-content:center;gap:12px;margin:8px 0 6px;font:700 11px Poppins,sans-serif;color:#9a90c8}.pzrgr b{font:400 22px/1 "Pirata One",serif;color:#efe8ff;margin-right:3px}
+.pzrgc{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 10px;border-radius:11px;background:#0c0824;border:2px solid #2a2468;font:700 11.5px Poppins,sans-serif;color:#e2dafc}
+.pzrgc span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzrgc i{display:flex;gap:3px;flex:none}.pzrgc u{width:10px;height:10px;border-radius:50%;background:#2a2468;border:2px solid #12081f}.pzrgc u.on{background:var(--c)}
+.pzrgf{margin-top:6px;min-height:15px;font:700 11px Poppins,sans-serif;color:#8a80b8}.pzrgf.on{color:#8affb4}
+.pzrgside{position:absolute;left:1088px;top:112px;width:484px;height:764px;box-sizing:border-box;padding:14px 18px;border-radius:24px;background:linear-gradient(180deg,#221a5a,#100a30);border:3px solid #4a3e90;box-shadow:inset 0 1px 0 #ffffff1f,0 10px 28px #0009;z-index:2;animation:pzfromR .45s .1s cubic-bezier(.25,1.25,.45,1) both}
+.pzrgh{display:flex;justify-content:space-between;align-items:baseline;font:400 30px/1.1 "Pirata One",serif;color:#ffd45a;margin:2px 2px 8px}.pzrgh span{font:800 14px Poppins,sans-serif;color:#c4badf}
+.pzrgst{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.pzrgst div{padding:7px 4px 6px;border-radius:12px;background:#140c36;border:2px solid #3a3070;text-align:center;animation:pzpopIn .35s calc(.2s + var(--i)*.025s) both}
+.pzrgst b{display:block;font:400 24px/1 "Pirata One",serif;color:#efe8ff;white-space:nowrap}.pzrgst small{display:block;margin-top:2px;font:800 9px Poppins,sans-serif;letter-spacing:.08em;color:#9a90c8;text-transform:uppercase}
+.pzrgtr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;text-align:left}
+.pzrgtr>div{display:flex;align-items:center;gap:8px;padding:5px 8px;min-height:44px;box-sizing:border-box;border-radius:12px;background:#140c36;border:2px solid #2a2468;opacity:.78}.pzrgtr>div.on{opacity:1;border-color:#c99a3a}
+.pzrgtr svg{flex:none}.pzrgtr span{flex:1;min-width:0}.pzrgtr b{display:block;font:800 12px/1.2 Poppins,sans-serif;color:#efe8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzrgtr small{display:block;font:500 11px/1.3 Poppins,sans-serif;color:#9a90c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzrgtr .on small{color:#ffd45a}
+.pzrgtr em{display:block;height:4px;margin-top:3px;border-radius:2px;background:#2a2468;overflow:hidden}.pzrgtr em i{display:block;height:100%;background:#ffd45a;transform-origin:0 50%}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: feel and fairness at the table (96x) =====
+   From the first-time playtest:
+   - The aim holds still while the pointer is over the HUD (the bottom bar, the top cards, the far edges), so reaching for
+     SHOOT, the power bar or the spin ball never swings the cue.
+   - A shot needs a real pull: at least 7% power, mostly straight back. A sideways flick or a plain click says how instead.
+   - On the break, a cue ball you pick up and drag drops where you let go.
+   - No shot clock against Gloop or in your very first match.
+   - A run counter: every pot in the same visit lifts a "RUN x3" badge and a rising chime; a ball that rattles in the jaws
+     gets "So close!" (or a cheer when it is the monster's).
+   - A hold-to-speed-up button while the balls roll or the monster plays.
+   - A one-time first-win bonus for each regular (100 gold per level), shown on the results.
+   Floats that would land on top of each other stack upwards. */
+const PZ_AIMZ={x0:118,x1:1482,y0:126,y1:742};
+{const f0=pzBindMatch;pzBindMatch=function(tok){const r=f0.apply(this,arguments);try{const cv=PZ.cv;
+ cv.addEventListener('pointermove',e=>{if(PZ.tok!==tok||PZ.ph!=='aim'||PZ.mode!=='aim'||PZ.drag||PZ.dragT||e.shiftKey||PZ.fineBtn)return;const p=pzXY(e);
+  if(p.x<PZ_AIMZ.x0||p.x>PZ_AIMZ.x1||p.y<PZ_AIMZ.y0||p.y>PZ_AIMZ.y1){e.stopImmediatePropagation();PZ.lastPtr=null}},true);
+ cv.addEventListener('pointerdown',e=>{if(PZ.tok!==tok||e.button===2)return;const p=pzXY(e);PZ.pd={x:p.x,y:p.y,mode:PZ.mode,ph:PZ.ph}},true);
+ cv.addEventListener('pointerup',e=>{if(PZ.tok!==tok||e.button===2)return;const p=pzXY(e),pd=PZ.pd;PZ.pd=null;
+  /* a cue ball picked up on the break drops where you let go */
+  if(PZ.ph==='aim'&&PZ.mode==='place'&&pd&&pd.mode==='aim'&&Math.hypot(p.x-pd.x,p.y-pd.y)>12){const pl=PZ.place;if(pl&&pl.ok){pzPlaceCue(pl.x,pl.y);e.stopImmediatePropagation();return}}
+  const d=PZ.drag;if(!d||d.id!==e.pointerId||PZ.ph!=='aim'||PZ.mode!=='aim')return;const dist=Math.hypot(p.x-d.sx,p.y-d.sy),pow=PZ.aim.pow;
+  if(dist<=10){if(!pd||pd.ph==='aim')pztHint('Press on the table, pull straight back and let go to shoot (or use SHOOT).');return}
+  const pull=(d.sx-p.x)*Math.cos(d.ang)+(d.sy-p.y)*Math.sin(d.ang);if(pow<.07||pull/dist<.55){PZ.drag=null;PZ.aim.pow=PZ.lastPow||.5;pzHudBar();pzFx('no');pztHint('Pull straight back from the cue ball, then let go.');e.stopImmediatePropagation()}},true);
+ }catch(err){}return r}}
+function pztHint(t){const n=performance.now();if(PZ.hintAt&&n-PZ.hintAt<2500&&PZ.hintTx===t)return;PZ.hintAt=n;PZ.hintTx=t;try{pzSub(t,2200)}catch(e){}}
+/* no shot clock against Gloop or in the very first match */
+{const f0=pzBeginTurn;pzBeginTurn=function(){const r=f0.apply(this,arguments);try{const Z=PZS(),M=PZ.M;if(PZ.clockOn&&M&&(M.opp==='gloop'||((Z.wins||0)+(Z.losses||0))===0)){PZ.clockOn=false;pzHudClock()}}catch(e){}return r}}
+/* runs and near misses */
+PZSFX.run=(t,n)=>{const f=660*Math.pow(2,Math.min(12,n*2)/12);wcTone(t,f,.12,'sine',.07,{r:.2});wcTone(t+.06,f*1.5,.14,'triangle',.04,{r:.25})};
+PZSFX.close=t=>{wcTone(t,300,.18,'sine',.06,{to:180});wcNz(t,.12,.04,900,'bandpass',2)};
+{const f0=pzJudgeShot;pzJudgeShot=function(silent){const who=PZ.st?PZ.st.turn:-1;const r=f0.apply(this,arguments);try{if(silent||!PZ.M||PZ.M.trick)return r;const rep=PZ.rep||{},pk=rep.pk||[];
+  if(who===0){if(pk.length&&!rep.foul){PZ.run=(PZ.run||0)+pk.length;if(PZ.run>=2&&rep.keep){pzFloat(800,182,`RUN ×${PZ.run}`,PZ.run>=5?'#ff9a4a':'#ffd45a');pzSound('run',PZ.run);if(PZ.run===4||PZ.run===6)pzCastReact('mon','rattled',1400)}}if(!rep.keep||rep.foul)PZ.run=0}
+  else PZ.run=0;
+  /* a ball that kissed a jaw and stayed up */
+  if(!pk.length&&PZ.ev&&PZ.B){const j=PZ.ev.find(e=>e.t==='cu'&&e.j&&e.a>0&&PZ.B[e.a]&&PZ.B[e.a].on);if(j){const b=PZ.B[j.a];pzFloat(PZ_G.x+b.x,PZ_G.y+b.y-30,who===0?'So close!':'Rattled out!',who===0?'#ff9ad0':'#8affb4');pzSound('close');
+   if(who===0)pzCastReact('mon','smug',1200);else{pzCastReact('hero','happy',1200);pzCastReact('mon','angry',1200)}}}}catch(e){}return r}}
+{const f0=pzStart;pzStart=function(){const r=f0.apply(this,arguments);PZ.run=0;return r}}
+/* floats stack instead of landing on each other */
+function pzFloat(x,y,text,col){for(const f of PZ.floats||[]){if(f.t<.6&&Math.abs(f.x-x)<170&&Math.abs(f.y-y)<40)y=f.y-40}PZ.floats.push({x,y,text,col,t:0,d:1.3})}
+/* hold-to-speed-up button while the balls roll or the monster plays */
+{const f0=pzMount;pzMount=function(){const r=f0.apply(this,arguments);try{const m=$('pzm');if(m&&!$('pzffb')){const b=document.createElement('button');b.id='pzffb';b.className='pzffb';b.innerHTML='<i></i><i></i> Hold to speed up';m.appendChild(b);
+  const on=e=>{e.preventDefault();PZ.ffHeld=true;if(PZ.ph==='ai'&&PZ.ai)PZ.ai.skip=true;if(PZ.ph==='rerack'&&PZ.rk)PZ.rk.t=Math.max(PZ.rk.t,PZ.rk.dur-.05)},off=()=>{PZ.ffHeld=false};
+  b.addEventListener('pointerdown',on);for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,off);clearInterval(PZ.ffIv);PZ.ffIv=setInterval(pzFfTick,200)}}catch(e){}return r}}
+function pzFfTick(){const b=$('pzffb');if(!b||!b.isConnected){clearInterval(PZ.ffIv);PZ.ffIv=0;return}const busy=PZ.on&&PZ.M&&!PZ.M.trick&&!PZ.modal&&(PZ.ph==='ai'||PZ.ph==='roll'||PZ.ph==='settle'||PZ.ph==='gap'||PZ.ph==='rerack');if(b._on!==busy){b._on=busy;b.classList.toggle('on',busy)}}
+/* first win against each regular: a one-time bonus, shown on the results */
+{const f0=pzMatchEnd;pzMatchEnd=function(){const M=PZ.M,Z=PZS();let fb=0;try{if(M&&!M.practice&&M.over&&M.over.winner===0&&M.opp!=='shade'&&!(Z.beat[M.opp]>0)&&!(Z.first||{})[M.opp]){const R=PZ_REG[M.opp];fb=100*(R.lvl||1)}}catch(e){}
+ if(fb){try{Z.first=Z.first||{};Z.first[M.opp]=1;ecSrc('pool',()=>{P.gold+=fb;balUp(fb)});Z.net=(Z.net||0)+fb;save();PZ.fbPending=fb}catch(e){}}
+ try{return f0.apply(this,arguments)}finally{PZ.fbPending=0}}}
+{const st=document.createElement('style');st.textContent=`
+.pzffb{position:absolute;left:1306px;top:792px;height:48px;padding:0 16px 0 12px;border-radius:16px;border:3px solid #12081f;background:linear-gradient(180deg,#3a2f8a,#1e1660);color:#efe8ff;font:800 14px Poppins,sans-serif;cursor:pointer;display:flex;align-items:center;gap:2px;opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s,transform .2s;z-index:6}
+.pzffb.on{opacity:1;pointer-events:auto;transform:none}.pzffb:active{transform:scale(.96)}
+.pzffb i{width:0;height:0;border:8px solid transparent;border-left:11px solid #ffd45a;border-right:0;margin-right:1px}.pzffb i+i{margin-right:8px}
+.pzun.fb{border-color:#ffd45a}.pzun.fb b{color:#ffd45a}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: the results, redone (96y) =====
+   The monster on a lamp-lit stage saying their line, how the match ended, a rack-by-rack strip, the money as a sum
+   you can read (stake x pays + bonus = paid out, profit), the numbers, unlock cards that flip in one by one, your
+   next goal, and buttons with their keys (Enter, R, Esc). Coins fly into a gold counter that counts up. */
+const PZ_WHY={'8 ball':[w=>w?'You sank the 8 in the called pocket.':'{n} sank the 8.'],golden:[w=>w?'A golden break: the 8 dropped on the break!':'{n} sank the 8 on the break. Golden.'],
+ '8 too early':[w=>w?'{n} sank the 8 before clearing their group.':'You sank the 8 before your group was clear.'],'8 in the wrong pocket':[w=>w?'{n} put the 8 in the wrong pocket.':'The 8 went into a pocket you had not called.'],
+ '8 with a foul':[w=>w?'{n} fouled on the 8.':'You fouled while sinking the 8 (the cue ball dropped or hit the wrong ball first).'],forfeit:[()=>'You left the table.']};
+function pzWhyTxt(why,win,R){const f=PZ_WHY[why];return f?f[0](win).replace('{n}',R.n):''}
+function pzResults(res){PZ.on=false;PZ.resAt=performance.now();const R=PZ_REG[res.opp],win=res.win,Z=PZS(),tk=++PZ.tok;
+ const racks=res.racks||(PZ.M&&PZ.M.opp===res.opp&&PZ.M.racks)||[],last=racks[racks.length-1];
+ const why=res.forfeit?pzWhyTxt('forfeit',win,R):last?pzWhyTxt(last.why,last.w===0,R):'';
+ const line=res.practice?(R.lines.hi[1]||R.lines.hi[0]):win?(R.lines.lose||['...'])[0]:(R.lines.win||['Ha!'])[0];
+ const unl=[],fb=PZ.fbPending||0;if(fb)unl.push(`<div class="pzun open fb"><small>FIRST WIN BONUS</small><b>+${cmn(fb)} gold</b></div>`);
+ if(res.opened)unl.push(`<div class="pzun open"><small>NEW TABLE</small><b>${PZ_REG[res.opened].n}</b></div>`);
+ for(const u of res.unlocks)unl.push(`<div class="pzun"><small>NEW ${u.t==='cue'?'CUE':u.t==='felt'?'FELT':'BALL SET'}</small><b>${u.n}</b></div>`);
+ const cue=res.opp==='shade'?PZ_CUES.find(c=>c.beatShade):PZ_CUES.find(c=>c.beat===res.opp),cn=res.opp==='shade'?(Z.shade.beat||0):(Z.beat[res.opp]||0);
+ if(cue&&!res.practice&&!Z.cues[cue.id])unl.push(`<div class="pzun prog"><small>${cue.n}</small><b>${Math.min(cn,3)} / 3 wins</b><em><i style="transform:scaleX(${Math.min(cn,3)/3})"></i></em></div>`);
+ /* the next goal */
+ let goal='';if(!res.practice){if(res.opened)goal=`Next: a new regular, ${PZ_REG[res.opened].n}, is waiting at the bar.`;else if(cue&&!Z.cues[cue.id])goal=`Next: beat ${R.n} ${3-Math.min(cn,3)} more time${3-Math.min(cn,3)>1?'s':''} for the ${cue.n}.`;else{const nx=PZ_ORDER.find(k=>pzOpen(k)&&!(Z.beat[k]>0));if(nx)goal=`Next: ${PZ_REG[nx].n} has not lost to you yet.`;else if(!(Z.beat.mortimer>0))goal='Next: climb to Mortimer Bonechalk.'}}
+ else goal='Practice done. Ready to play for real?';
+ const fm=x=>x.toFixed(2).replace(/0$/,'').replace(/\.0$/,''),base=Math.round(res.stake*res.mult);
+ const money=res.practice?`<div class="pzmon0">Practice table · no stake, no prize</div>`:win?`<div class="pzmon"><div><small>STAKE</small><b>${cmn(res.stake)}</b></div><i>×</i><div><small>PAYS</small><b>${fm(res.mult)}</b></div>${res.bonus?`<i>+</i><div><small>BONUS</small><b>${cmn(res.bonus)}</b></div>`:''}<i>=</i><div class="pay"><small>PAID OUT</small><b id="pzpayn">0</b></div><div class="pro"><small>PROFIT</small><b>+${cmn(res.pay-res.stake)}</b></div></div>`
+  :`<div class="pzmon neg"><div class="pay"><small>STAKE LOST</small><b>−${cmn(res.stake)}</b></div><p>${R.n} keeps your stake. ${Z.dayN<PZ_DAILY?'A rematch costs the same stake.':''}</p></div>`;
+ const strip=racks.length?`<div class="pzstrip">${racks.map((r,i)=>`<span class="${r.w===0?'w':'l'}">Rack ${i+1} · ${r.w===0?'You':R.n.split(' ').pop()}${r.golden?' · golden':r.bnr?' · break & run':''}</span>`).join('')}</div>`:'';
+ const title=res.forfeit?'You forfeited':win?'You win!':'You lose';
+ show(`<div class="pzr pzres9" id="pzr"><canvas id="pzrbg" width="1600" height="900"></canvas><div class="pzgold" id="pzrg"><i></i><b id="pzrgv">${cmn(P.gold-(win&&!res.practice?res.pay:0)-fb)}</b></div><div class="pzrgd" id="pzrgd"></div>
+  <div class="pzresc ${win?'win':'lose'}"><div class="pzrstage"><canvas class="pzstbg" width="300" height="424"></canvas><canvas id="pzrpm" width="400" height="500"></canvas><div class="pzbub pop">“${line}”</div></div>
+  <div class="pzrpn"><div class="pzh1">${[...title].map((c,i)=>`<i style="--i:${i}">${c===' '?'&nbsp;':c}</i>`).join('')}</div>
+   <p class="pzrsub">${res.practice?'Practice table':`Race to ${res.race}`} · ${res.score[0]} - ${res.score[1]} · ${R.n} · ${Math.floor(res.time/60)}:${String(res.time%60).padStart(2,'0')}</p>${why?`<p class="pzwhy">${why}</p>`:''}${strip}
+   ${money}
+   <div class="pzstat"><div><b>${res.pots}</b><small>BALLS POTTED</small></div><div><b>${res.banks}</b><small>BANK SHOTS</small></div><div><b>${res.bnr}</b><small>BREAK &amp; RUNS</small></div><div><b>${res.golden||0}</b><small>GOLDEN BREAKS</small></div></div>
+   <div class="pzuns">${unl.join('')}</div>${goal?`<p class="pzgoal">${goal}</p>`:''}
+   <div class="pzrbt">${res.opened?`<button class="pzmb gold" id="pzch">Meet ${pzShort(res.opened)} <kbd>Enter</kbd></button><button class="pzmb" id="pzre">Rematch <kbd>R</kbd></button>`:`<button class="pzmb gold" id="pzre">${res.practice?'Again':'Rematch'} <kbd>Enter</kbd></button>`}<button class="pzmb" id="pzbb">The bar <kbd>Esc</kbd></button></div></div></div></div>`,'casbg pzx');
+ $('pzrbg').getContext('2d').drawImage(pzHubBake(),0,0);S.back=()=>{$('pzbb').click()};
+ ov.querySelector('.pzrstage .pzstbg').getContext('2d').drawImage(pzStageBake(win?'#6a6a8a':R.c),0,0);
+ const cv=$('pzrpm'),g=cv.getContext('2d');g.lineJoin='round';g.lineCap='round';const ex=Object.assign(pzCastEx(),PZ_EXP[res.practice?'happy':win?'sad':'cheer']),rf=pzMonFit(R.id,340,440,10,1.1);
+ const f=()=>{if(!cv.isConnected)return;const t=performance.now()/1000;g.clearRect(0,0,400,500);g.save();g.translate(rf.x+30,rf.y+30+(win?10:0));g.scale(rf.s,rf.s);g.translate(0,win||res.practice?0:-Math.abs(Math.sin(t*5))*16/rf.s);pzMon[R.id](g,t,ex,{breath:Math.sin(t*2.2)*.012,tilt:win?.06:Math.sin(t*3)*.03,bob:0,hop:0});g.restore()};f();LIVE.push({cv,fn:f,slow:1,ph:0});
+ $('pzbb').onclick=()=>{if(res.opened)PZ.sel=res.opened;pzGo(pzHub)};{const ch=$('pzch');if(ch)ch.onclick=()=>{PZ.sel=res.opened;pzGo(pzHub)}}
+ $('pzre').onclick=()=>{const k=res.opp;let stake=res.stake,prac=res.practice;if(!prac){const aff=(k==='shade'?[500,1000,2000,3000,5000]:PZ_REG[k].stakes).filter(s=>s<=casCap('pz')&&s<=P.gold);if(stake>P.gold||!stake){stake=aff.length?aff[aff.length-1]:0}if(!stake){prac=true;pzNote('Not enough gold for stakes: a free practice game.')}}pzMusicOff();pzStart({opp:k,stake,practice:prac})};
+ /* the paid-out number counts up, coins fly to the gold counter and it counts up too */
+ if(!res.practice&&win&&res.pay){const tgt=res.pay,all=tgt+fb,t0=performance.now(),el=$('pzpayn'),gv=$('pzrgv'),g0=P.gold-all,stp=()=>{if(!el.isConnected)return;const u=Math.min(1,(performance.now()-t0)/1300),e=1-Math.pow(1-u,3);el.textContent=cmn(Math.round(tgt*e));
+   const u2=Math.max(0,Math.min(1,(performance.now()-t0-700)/900)),e2=1-Math.pow(1-u2,3);gv.textContent=cmn(Math.round(g0+all*e2));if(u<1||u2<1)requestAnimationFrame(stp)};requestAnimationFrame(stp);pzResCoins2();const d=$('pzrgd');d.textContent=`+${cmn(all)}`;d.classList.add('on')}
+ if(win&&!res.practice&&!pzRM())pzConfetti();
+ pzFx(win?'win':'lose');pzFitTM();
+ if(!window.__pzResKeys){window.__pzResKeys=1;addEventListener('keydown',e=>{try{if(e.repeat||!$('pzr')||!ov.querySelector('.pzres9')||PZ.modal||pzCoachActive())return;if(performance.now()-(PZ.resAt||0)<700)return;const k=e.key.toLowerCase();if(k==='r'){const b=$('pzre');if(b){e.preventDefault();b.click()}}}catch(err){}})}}
+function pzResCoins2(){const host=ov.querySelector('.pzres9'),from=$('pzpayn'),to=$('pzrg');if(!host||!from||!to||pzRM())return;const hb=host.getBoundingClientRect(),s=hb.width/1600||1,a=from.getBoundingClientRect(),b=to.getBoundingClientRect();
+ const ax=(a.left+a.width/2-hb.left)/s,ay=(a.top+a.height/2-hb.top)/s,bx=(b.left+24-hb.left)/s,by=(b.top+b.height/2-hb.top)/s;
+ for(let i=0;i<18;i++){const c=document.createElement('i');c.className='pzcoin2';c.style.left=ax+'px';c.style.top=ay+'px';c.style.setProperty('--x',(bx-ax)+'px');c.style.setProperty('--y',(by-ay)+'px');c.style.setProperty('--m',(-60-Math.random()*120)+'px');c.style.setProperty('--d',(.35+i*.045)+'s');host.appendChild(c);setTimeout(()=>c.remove(),2200)}}
+function pzConfetti(){const host=ov.querySelector('.pzres9');if(!host)return;const cols=['#ffd45a','#8affb4','#7ad8ff','#ff9ad0','#c8a0ff'];for(let i=0;i<46;i++){const c=document.createElement('i');c.className='pzconf';c.style.left=(240+Math.random()*1120)+'px';c.style.background=cols[i%5];c.style.setProperty('--r',(Math.random()*720-360)+'deg');c.style.setProperty('--x',(Math.random()*160-80)+'px');c.style.setProperty('--d',(Math.random()*.6)+'s');c.style.setProperty('--t',(1.6+Math.random()*1)+'s');host.appendChild(c);setTimeout(()=>c.remove(),3400)}}
+{const st=document.createElement('style');st.textContent=`
+.pzres9 .pzresc{position:absolute;left:150px;top:96px;width:1300px;height:740px;box-sizing:border-box;border-radius:28px;padding:0;background:linear-gradient(180deg,#221a5a,#100a30);border:3px solid #4a3e90;box-shadow:inset 0 1px 0 #ffffff1f,0 16px 40px #000c;animation:pzrise .5s cubic-bezier(.25,1.25,.45,1) both;z-index:2}
+.pzres9 .pzresc.win{border-color:#ffd45a}.pzres9 .pzresc.lose{border-color:#c83a6a}
+.pzrstage{position:absolute;left:22px;top:22px;width:360px;height:692px;border-radius:22px;overflow:hidden;border:3px solid #12081f}
+.pzrstage .pzstbg{position:absolute;left:0;top:0;width:360px;height:692px}.pzrstage #pzrpm{position:absolute;left:-20px;top:150px;width:400px;height:500px}
+.pzrstage .pzbub{position:absolute;left:18px;right:18px;top:40px;font-size:15px}
+.pzres9 .pzrpn{position:absolute;left:412px;top:20px;right:28px;text-align:left}
+.pzres9 .pzh1{font:400 74px/1 "Pirata One",Georgia,serif;color:#ffd45a;text-shadow:0 4px 0 #12081f}.pzres9 .lose .pzh1{color:#ff8aa8}
+.pzres9 .pzh1 i{display:inline-block;font-style:normal;animation:pzlet .5s calc(.15s + var(--i)*.045s) cubic-bezier(.3,1.7,.5,1) both}
+.pzrsub{margin:4px 0 0!important;font:700 14px Poppins,sans-serif!important;color:#c4badf}
+.pzwhy{margin:6px 0 0!important;font:600 15px Poppins,sans-serif!important;color:#fff2c8}
+.pzstrip{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.pzstrip span{padding:4px 10px;border-radius:10px;font:800 12px Poppins,sans-serif;border:2px solid #12081f;animation:pzpopIn .35s both}.pzstrip .w{background:#ffd45a;color:#2a1a04}.pzstrip .l{background:#3a2f8a;color:#e2dafc}
+.pzmon{display:flex;align-items:flex-end;gap:12px;margin-top:14px;padding:14px 18px;border-radius:18px;background:#0c0824;border:2px solid #2a2468}.pzmon>i{font:800 22px Poppins,sans-serif;font-style:normal;color:#8a80c8;padding-bottom:4px}
+.pzmon small{display:block;font:800 10px Poppins,sans-serif;letter-spacing:.12em;color:#9a90c8}.pzmon b{font:400 34px/1 "Pirata One",serif;color:#efe8ff}.pzmon .pay b{font-size:58px;color:#8affb4}.pzmon .pro{margin-left:auto;text-align:right}.pzmon .pro b{font-size:34px;color:#8affb4}
+.pzmon.neg{flex-direction:column;align-items:flex-start;gap:4px}.pzmon.neg .pay b{color:#ff8aa8}.pzmon.neg p{margin:0;font:600 13px Poppins,sans-serif;color:#c4badf}
+.pzmon0{margin-top:14px;padding:16px 18px;border-radius:18px;background:#0c0824;border:2px solid #2a2468;font:700 16px Poppins,sans-serif;color:#c4badf}
+.pzres9 .pzstat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.pzres9 .pzstat div{padding:8px 4px;border-radius:14px;background:#140c36;border:2px solid #3a3070;text-align:center;animation:pzpopIn .35s .5s both}.pzres9 .pzstat b{display:block;font:400 30px/1 "Pirata One",serif}.pzres9 .pzstat small{font:800 9.5px Poppins,sans-serif;letter-spacing:.1em;color:#9a90c8}
+.pzres9 .pzuns{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;min-height:10px}
+.pzres9 .pzun{position:relative;min-width:150px;padding:9px 14px 10px;border-radius:14px;background:#1a1046;border:2px solid #4a3e90;animation:pzflip .45s cubic-bezier(.3,1.4,.5,1) both}
+.pzres9 .pzun:nth-child(2){animation-delay:.15s}.pzres9 .pzun:nth-child(3){animation-delay:.3s}.pzres9 .pzun:nth-child(4){animation-delay:.45s}.pzres9 .pzun:nth-child(1){animation-delay:.6s}
+.pzres9 .pzun small{display:block;font:800 10px Poppins,sans-serif;letter-spacing:.12em;color:#9a90c8}.pzres9 .pzun b{font:800 15px Poppins,sans-serif;color:#efe8ff}.pzres9 .pzun.open{border-color:#8affb4}.pzres9 .pzun.open b{color:#8affb4}
+.pzres9 .pzun em{display:block;height:5px;margin-top:5px;border-radius:3px;background:#2a2468;overflow:hidden}.pzres9 .pzun em i{display:block;height:100%;background:#ffd45a;transform-origin:0 50%;animation:pzgrow .8s 1s cubic-bezier(.3,1.3,.5,1) both}
+.pzgoal{margin:12px 0 0!important;font:700 14px Poppins,sans-serif!important;color:#ffd45a}
+.pzres9 .pzrbt{position:absolute;left:0;right:0;bottom:0;display:flex;gap:12px}.pzres9 .pzrpn{bottom:24px}.pzres9 .pzrbt .pzmb{flex:1;margin:0;height:58px;font-size:18px;display:flex;align-items:center;justify-content:center;gap:10px}
+.pzres9 .pzrbt kbd{display:inline-block;padding:0 6px;border-radius:7px;background:#12081f33;border:1px solid #12081f55;font:800 11px/20px Poppins,sans-serif}
+.pzrgd{position:absolute;right:28px;top:78px;font:800 18px Poppins,sans-serif;color:#8affb4;opacity:0;z-index:3}.pzrgd.on{animation:pzrgd 1.6s .9s both}
+.pzcoin2{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3b0,#ffd45a 50%,#c88a10);border:2px solid #12081f;z-index:8;pointer-events:none;animation:pzcoinfly .8s var(--d) cubic-bezier(.5,0,.4,1) both}
+.pzconf{position:absolute;top:-20px;width:10px;height:16px;border-radius:2px;z-index:7;pointer-events:none;animation:pzconf var(--t) var(--d) cubic-bezier(.3,.6,.5,1) both}
+@keyframes pzcoinfly{0%{opacity:0;transform:scale(.4)}15%{opacity:1;transform:translate(calc(var(--x)*.1),var(--m)) scale(1)}100%{opacity:1;transform:translate(var(--x),var(--y)) scale(.6)}}
+@keyframes pzconf{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--x),980px) rotate(var(--r))}}
+@keyframes pzrgd{0%{opacity:0;transform:translateY(8px)}20%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
+@keyframes pzgrow{from{transform:scaleX(0)}}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: the Cue Rack, redone (96z) =====
+   Cues stand upright on a wooden wall rack, split into the shop and the ones won at the tables, each with a hanging
+   tag (in hand, owned, price, wins so far, or ? for a regular you have not met). Felts and ball sets are big swatch
+   cards. The detail panel shows a large preview, where it comes from, the price as a sum (price, you have, after) and
+   a hold-to-buy button (700 ms; letting go cancels), or Equip, or the way to earn it with a "Challenge" shortcut.
+   A loadout strip shows what is in your hand. Keys: Q/E tabs, left/right pick, Enter equip (hold to buy), 1-3 tabs. */
+const PZ_RKTABS=[['cues','Cues'],['felts','Felts'],['balls','Ball sets']];
+function pzRkList(tab){return tab==='cues'?PZ_CUES:tab==='felts'?PZ_FELT:PZ_BALLS}
+function pzRkOwn(tab){const Z=PZS();return tab==='cues'?Z.cues:tab==='felts'?Z.felts:Z.ballsets}
+function pzRkEq(tab){const Z=PZS();return tab==='cues'?Z.cue:tab==='felts'?Z.felt:Z.balls}
+function pzRkWho(x){return x.beat?x.beat:x.beatShade?'shade':null}
+function pzRkTag(tab,x){const own=pzRkOwn(tab),eq=pzRkEq(tab),Z=PZS();if(eq===x.id)return ['inhand','IN HAND'];if(own[x.id])return ['own','✓ OWNED'];if(x.price)return [P.gold>=x.price?'buy':'poor',cmn(x.price)];
+ const who=pzRkWho(x);if(!who)return ['lock','?'];const met=who==='shade'?(Z.shade.seen||0)>0:pzOpen(who);if(!met)return ['lock','?'];const need=tab==='cues'?3:x.beatShade||1,n=who==='shade'?(Z.shade.beat||0):(Z.beat[who]||0);return ['prog',`${Math.min(n,need)} / ${need}`]}
+const PZ_UPRIGHT={};
+function pzCueUpright(id){if(PZ_UPRIGHT[id])return PZ_UPRIGHT[id];const c=pzCv(60,480),g=c.getContext('2d'),s=pzCueSprite(id),k=456/(PZ_CUE.L+22),it=PZ_CUES.find(x=>x.id===id);
+ if(it&&it.glow)pzGlow(g,30,150,60,pzRgba(it.glow),.35);g.translate(30,12);g.rotate(-Math.PI/2);g.scale(k,k*1.55);g.drawImage(s.c,-(s.L+10),-15,s.W/2,s.H/2);return PZ_UPRIGHT[id]=c}
+function pzCueRack(){const Z=PZS(),tab=PZ.rackTab||'cues';PZ.rackTab=tab;PZ.on=false;PZ.hub=true;CAS.on=true;CAS.key=null;CAS.tok++;try{pzMusicOn()}catch(e){}
+ const items=pzRkList(tab),own=pzRkOwn(tab),eq=pzRkEq(tab);PZ.rackSel=PZ.rackSel&&items.find(x=>x.id===PZ.rackSel)?PZ.rackSel:eq;
+ const cnt=t=>{const l=pzRkList(t),o=pzRkOwn(t);return `${l.filter(x=>o[x.id]).length}/${l.length}`};
+ const oc=pzOwnCount(),np=pzNextPrize();
+ show(`<div class="pzk pzrk9" id="pzk"><canvas id="pzkbg" width="1600" height="900"></canvas><button class="pzback" id="pzbk">‹&nbsp; The bar <kbd>Esc</kbd></button><div class="pzgold"><i></i><b id="pzkgold">${cmn(P.gold)}</b></div>
+  <div class="pztitle sm">The Cue Rack</div>
+  <div class="pzktabs pzktabs9"><i class="pzktp"></i>${PZ_RKTABS.map(([k,l],i)=>`<button class="${tab===k?'on':''}" data-t="${k}" style="--i:${i}">${l} <em>${cnt(k)}</em></button>`).join('')}<kbd class="q">Q</kbd><kbd class="e">E</kbd></div>
+  <div class="pzkwall ${tab}" id="pzkwall"></div><div class="pzkdet" id="pzkdet"></div>
+  <div class="pzkload"><div class="pzh3k">In your hand</div>${PZ_RKTABS.map(([k,l],i)=>{const it=pzRkList(k).find(x=>x.id===pzRkEq(k))||pzRkList(k)[0];return `<button class="pzkls" data-t="${k}"><small>${l.replace(/s$/,'').toUpperCase()}</small><b>${it.n}</b><canvas width="180" height="34" data-lt="${k}" data-li="${it.id}"></canvas><kbd>${i+1}</kbd></button>`}).join('')}
+   <div class="pzkcol"><div><b>Collection</b><span>${oc.n} / ${oc.t}</span></div><em><i style="transform:scaleX(${oc.n/oc.t})"></i></em><p>${np?`Next unlock: <b>${np.it.n}${np.t==='felt'?' felt':''}</b> · ${np.need>1?`beat ${pzShort(np.id)} ${np.need} more times`:`beat ${pzShort(np.id)} once`}`:'Everything won. A true collector.'}</p><p class="pzklook">Cosmetic only: they change the look, not the shots.</p></div></div></div>`,'casbg pzx');
+ $('pzkbg').getContext('2d').drawImage(pzHubBake(),0,0);$('pzbk').onclick=()=>pzGo(pzHub);S.back=()=>pzGo(pzHub);
+ ov.querySelectorAll('.pzktabs9 button').forEach(b=>b.onclick=()=>pzRkTab(b.dataset.t));
+ ov.querySelectorAll('.pzkls').forEach(b=>{b.onclick=()=>pzRkTab(b.dataset.t);const cv=b.querySelector('canvas');try{pzRkThumb(cv.getContext('2d'),cv.dataset.lt,pzRkList(cv.dataset.lt).find(x=>x.id===cv.dataset.li),180,34)}catch(e){}});
+ pzRkWall(true);pzRkDetail();pzRkPuck();pzFitTM()}
+function pzRkPuck(){const on=ov.querySelector('.pzktabs9 button.on'),p=ov.querySelector('.pzktp');if(on&&p){p.style.width=on.offsetWidth+'px';p.style.transform=`translateX(${on.offsetLeft}px)`}}
+function pzRkTab(t){if(t===PZ.rackTab)return;PZ.rackTab=t;PZ.rackSel=null;pzFx('tick');ov.querySelectorAll('.pzktabs9 button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));pzRkPuck();PZ.rackSel=pzRkEq(t);const w=$('pzkwall');if(w)w.className='pzkwall '+t;pzRkWall(true);pzRkDetail()}
+function pzRkWall(anim){const tab=PZ.rackTab,w=$('pzkwall');if(!w)return;const items=pzRkList(tab),sel=PZ.rackSel;
+ const tagH=x=>{const [k,t]=pzRkTag(tab,x),who=pzRkWho(x);return `<span class="pzktag ${k}">${k==='prog'&&who?`<canvas width="44" height="44" data-p="${who}"></canvas>`:''}${t}</span>`};
+ if(tab==='cues'){const shop=items.filter(x=>x.price!=null&&!x.beat&&!x.beatShade),won=items.filter(x=>x.beat||x.beatShade);const o=pzRkOwn(tab);
+  const col=(x,i)=>`<button class="pzki pzkc ${x.id===sel?'sel':''} ${o[x.id]?'':'lock'} ${pzRkEq(tab)===x.id?'eq':''} ${!o[x.id]&&!x.price?'dark':''}" data-i="${x.id}" style="--i:${i}" aria-label="${x.n}"><canvas width="60" height="480" data-cu="${x.id}"></canvas>${!PZS().seen[x.id]&&o[x.id]&&x.price!==0&&x.how!=='Free'?'<s class="pzknew">NEW</s>':''}${tagH(x)}</button>`;
+  w.innerHTML=`<div class="pzkrail t"></div><div class="pzkrail b"></div><div class="pzkhead s">THE SHOP · ${shop.filter(x=>o[x.id]).length} / ${shop.length}</div><div class="pzkhead w">WON AT THE TABLES · ${won.filter(x=>o[x.id]).length} / ${won.length}</div><div class="pzkcols">${shop.map(col).join('')}<i class="pzkgap"></i>${won.map((x,i)=>col(x,i+shop.length)).join('')}</div>`;
+  {const fs=w.querySelector('.pzkc'),fw=w.querySelector('.pzkgap+.pzkc'),hs=w.querySelector('.pzkhead.s'),hw=w.querySelector('.pzkhead.w');if(fs&&hs)hs.style.left=(fs.offsetLeft+28)+'px';if(fw&&hw)hw.style.left=(fw.offsetLeft+28)+'px'}
+ w.querySelectorAll('canvas[data-cu]').forEach(cv=>{const g=cv.getContext('2d'),id=cv.dataset.cu;g.drawImage(pzCueUpright(id),0,0);if(cv.closest('.dark')){g.globalCompositeOperation='source-atop';g.fillStyle='rgba(12,8,24,.86)';g.fillRect(0,0,60,480);g.globalCompositeOperation='source-over'}})}
+ else{const o=pzRkOwn(tab);w.innerHTML=`<div class="pzkcards">${items.map((x,i)=>`<button class="pzki pzksw ${x.id===sel?'sel':''} ${o[x.id]?'':'lock'} ${pzRkEq(tab)===x.id?'eq':''}" data-i="${x.id}" style="--i:${i}"><canvas width="300" height="${tab==='felts'?150:60}" data-sw="${x.id}"></canvas><b>${x.n}</b>${!PZS().seen[x.id]&&o[x.id]&&x.price!==0&&x.how!=='Free'?'<s class="pzknew">NEW</s>':''}${tagH(x)}</button>`).join('')}</div>`;
+  w.querySelectorAll('canvas[data-sw]').forEach(cv=>{const it=items.find(x=>x.id===cv.dataset.sw);try{pzRkThumb(cv.getContext('2d'),tab,it,300,tab==='felts'?150:60)}catch(e){}})}
+ w.querySelectorAll('canvas[data-p]').forEach(cv=>pzCastPortrait(cv.getContext('2d'),'mon',cv.dataset.p,44,1,Object.assign(pzCastEx(),PZ_EXP.neutral)));
+ w.querySelectorAll('.pzki').forEach(b=>{b.onclick=()=>{if(PZ.rackSel===b.dataset.i)return;PZ.rackSel=b.dataset.i;pzFx('tick');w.querySelectorAll('.pzki').forEach(x=>x.classList.toggle('sel',x===b));pzRkDetail()}});
+ if(anim){w.classList.remove('in');void w.offsetWidth;w.classList.add('in')}}
+function pzRkDetail(){const tab=PZ.rackTab,d=$('pzkdet');if(!d)return;const Z=PZS(),items=pzRkList(tab),it=items.find(x=>x.id===PZ.rackSel)||items[0],own=pzRkOwn(tab),have=!!own[it.id],eq=pzRkEq(tab)===it.id,who=pzRkWho(it);
+ const from=it.price===0?'The house gives you this one.':it.price?'From the shop.':who?`Won at the tables: ${it.how.toLowerCase().replace(/^beat/,'beat')}.`:it.how;
+ let act='';
+ if(have)act=`<button class="pzmb gold pzkbig" id="pzkeq" ${eq?'disabled':''}>${eq?'In your hand':'Equip'} ${eq?'':'<kbd>Enter</kbd>'}</button>`;
+ else if(it.price){const ok=P.gold>=it.price;act=`<div class="pzksum"><div><small>PRICE</small><b>${cmn(it.price)}</b></div><i>→</i><div><small>YOU HAVE</small><b>${cmn(P.gold)}</b></div><i>→</i><div class="${ok?'ok':'no'}"><small>AFTER</small><b>${ok?cmn(P.gold-it.price):'not enough'}</b></div></div>
+  <button class="pzmb gold pzkbig pzkhold" id="pzkbuy" ${ok?'':'disabled'}><i class="pzkfill"></i><span>${ok?`Hold to buy · ${cmn(it.price)}`:'Not enough gold'}</span>${ok?'<kbd>hold Enter</kbd>':''}</button>`}
+ else if(who){const met=who==='shade'?(Z.shade.seen||0)>0:pzOpen(who),need=tab==='cues'?3:(it.beatShade||1),n=who==='shade'?(Z.shade.beat||0):(Z.beat[who]||0);
+  act=`<div class="pzkprog"><div><b>${met?`${Math.min(n,need)} / ${need} wins against ${PZ_REG[who].n}`:'A regular you have not met yet'}</b><em><i style="transform:scaleX(${met?Math.min(n,need)/need:0})"></i></em></div></div>${met&&who!=='shade'?`<button class="pzmb pzkbig" id="pzkch">Challenge ${pzShort(who)} ›</button>`:`<button class="pzmb pzkbig" disabled>Locked</button>`}`}
+ d.innerHTML=`<div class="pzkpv"><canvas id="pzkpv" width="820" height="420"></canvas></div><div class="pzh3k">${it.n}</div><p class="pzkfrom">${from}</p>${act}`;
+ d.classList.remove('in');void d.offsetWidth;d.classList.add('in');
+ {const cv=$('pzkpv'),g=cv.getContext('2d');const f=()=>{if(!cv.isConnected)return;pzRackPreview(g,tab,it,performance.now()/1000)};f();LIVE.push({cv,fn:f,slow:1,ph:0})}
+ const e=$('pzkeq');if(e)e.onclick=()=>{if(tab==='cues')Z.cue=it.id;else if(tab==='felts')Z.felt=it.id;else Z.balls=it.id;save();pzFx('place');pzRkWall(false);pzRkDetail();pzRkLoad()};
+ const c=$('pzkch');if(c)c.onclick=()=>{PZ.sel=who;pzGo(pzHub)};
+ const b=$('pzkbuy');if(b&&!b.disabled)pzRkHold(b,()=>{if(it.price&&P.gold>=it.price&&cTake(it.price)){own[it.id]=1;Z.seen=Z.seen||{};Z.seen[it.id]=1;if(tab==='cues')Z.cue=it.id;else if(tab==='felts')Z.felt=it.id;else Z.balls=it.id;save();pzFx('win');const gd=$('pzkgold');if(gd)gd.textContent=cmn(P.gold);pzRkBurst(b);pzRkWall(false);pzRkDetail();pzRkLoad();pzNote(`${it.n} is yours, and in your hand.`)}})}
+function pzRkThumb(g,tab,it,w,h){if(tab!=='balls'){pzRackThumb(g,tab,it,w,h);return}g.clearRect(0,0,w,h);pzbSetup(PZ_BS.D||52,it.id);const n=[1,3,8,9,15],sz=h-4,gap=Math.min(sz+6,(w-sz)/(n.length-1));for(let i=0;i<n.length;i++){const M=pzbRot(pzbRot(pzbI(),0,1,0,.3+i*.2),1,0,0,-.2);pzbPaint(15,n[i],M);g.drawImage(PZ_BS.atlas,15*PZ_BS.D,0,PZ_BS.D,PZ_BS.D,w-sz-(n.length-1-i)*gap,2,sz,sz)}pzbSetup(PZ_BS.D,PZS().balls)}
+function pzRkLoad(){ov.querySelectorAll('.pzkls').forEach(b=>{const k=b.dataset.t,it=pzRkList(k).find(x=>x.id===pzRkEq(k))||pzRkList(k)[0];b.querySelector('b').textContent=it.n;const cv=b.querySelector('canvas');try{pzRkThumb(cv.getContext('2d'),k,it,180,34)}catch(e){}})}
+/* hold-to-buy: the fill grows for 700 ms; letting go early cancels */
+function pzRkHold(b,done){const fill=b.querySelector('.pzkfill');let t0=0,raf=0;const stop=()=>{t0=0;cancelAnimationFrame(raf);fill.style.transform='scaleX(0)'};
+ const step=()=>{if(!t0||!b.isConnected)return;const u=Math.min(1,(performance.now()-t0)/700);fill.style.transform=`scaleX(${u})`;if(u>=1){t0=0;done();return}raf=requestAnimationFrame(step)};
+ const start=()=>{if(t0)return;t0=performance.now();pzFx('tick');raf=requestAnimationFrame(step)};b._hold={start,stop};
+ b.addEventListener('pointerdown',e=>{e.preventDefault();start()});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,stop)}
+function pzRkBurst(b){const host=$('pzk');if(!host||pzRM())return;const r=b.getBoundingClientRect(),hb=host.getBoundingClientRect(),s=hb.width/1600||1,x=(r.left+r.width/2-hb.left)/s,y=(r.top-hb.top)/s;
+ for(let i=0;i<24;i++){const c=document.createElement('i');c.className='pzcoinfx';c.style.left=x+'px';c.style.top=y+'px';c.style.setProperty('--x',(Math.random()*500-250)+'px');c.style.setProperty('--y',(-(120+Math.random()*220))+'px');c.style.setProperty('--d',(Math.random()*.3)+'s');host.appendChild(c);setTimeout(()=>c.remove(),2000)}}
+if(!window.__pzRkKeys){window.__pzRkKeys=1;const kd=e=>{try{if(!ov.querySelector('.pzrk9')||PZ.modal||pzCoachActive())return;const k=e.key;
+ if(e.type==='keyup'){if(k==='Enter'){const b=$('pzkbuy');if(b&&b._hold)b._hold.stop()}return}
+ if(k==='Enter'){const b=$('pzkbuy');if(b&&b._hold&&!b.disabled){e.preventDefault();if(!e.repeat)b._hold.start();return}const q=$('pzkeq');if(q&&!q.disabled&&!e.repeat){e.preventDefault();q.click()}return}
+ if(e.repeat)return;const tabs=PZ_RKTABS.map(x=>x[0]),i=tabs.indexOf(PZ.rackTab);
+ if(k==='q'||k==='Q'){e.preventDefault();pzRkTab(tabs[(i+2)%3]);return}if(k==='e'||k==='E'){e.preventDefault();pzRkTab(tabs[(i+1)%3]);return}
+ if(/^[1-3]$/.test(k)){e.preventDefault();pzRkTab(tabs[+k-1]);return}
+ if(k==='ArrowLeft'||k==='ArrowRight'){const bs=[...ov.querySelectorAll('#pzkwall .pzki')],j=bs.findIndex(b=>b.classList.contains('sel')),n=bs[Math.max(0,Math.min(bs.length-1,j+(k==='ArrowRight'?1:-1)))];if(n){e.preventDefault();n.click()}}}catch(err){}};
+ addEventListener('keydown',kd);addEventListener('keyup',kd)}
+{const st=document.createElement('style');st.textContent=`
+.pzrk9 .pzback{display:flex;align-items:center;gap:10px}
+.pzktabs9{position:absolute;left:50%;top:92px;transform:translateX(-50%);display:flex;gap:0;padding:5px;border-radius:18px;background:#100a30;border:3px solid #4a3e90;z-index:3}
+.pzktabs9 button{position:relative;z-index:1;height:40px;padding:0 24px;border:0;border-radius:13px;background:transparent;box-shadow:none;color:#c4badf;font:800 16px Poppins,sans-serif;cursor:pointer}.pzktabs9 button.on{color:#2a1a04}.pzktabs9 button em{font-style:normal;font-size:12px;opacity:.75}
+.pzktp{position:absolute;left:0;top:5px;height:40px;border-radius:13px;background:linear-gradient(180deg,#ffe27a,#f2b631);box-shadow:0 3px 0 #9a6a10;transition:transform .3s cubic-bezier(.3,1.4,.5,1);z-index:0}
+.pzktabs9 kbd{position:absolute;top:13px;font:800 10px/18px Poppins,sans-serif;padding:0 5px;border-radius:6px;background:#12081f;border:1px solid #4a3e90;color:#9a90c8}.pzktabs9 kbd.q{left:-30px}.pzktabs9 kbd.e{right:-30px}
+.pzkwall{position:absolute;left:24px;top:152px;width:900px;height:596px;box-sizing:border-box;border-radius:24px;background:linear-gradient(180deg,#8a4a1e,#5a2c10);border:4px solid #12081f;box-shadow:inset 0 0 40px #0008,0 12px 30px #000a;z-index:2;overflow:hidden}
+.pzkwall::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 68px,#00000018 68px 70px);pointer-events:none}
+.pzkwall.felts,.pzkwall.balls{background:linear-gradient(180deg,#241c60,#110a32);border-color:#4a3e90}.pzkwall.felts::before,.pzkwall.balls::before{display:none}
+.pzkrail{position:absolute;left:18px;right:18px;height:20px;border-radius:10px;background:linear-gradient(180deg,#c87a3a,#7a3e18);border:3px solid #12081f}.pzkrail.t{top:52px}.pzkrail.b{top:470px}
+.pzkhead{position:absolute;top:14px;padding:4px 12px;border-radius:9px;background:#12081f;color:#ffd45a;font:800 11px Poppins,sans-serif;letter-spacing:.12em}.pzkhead.s{left:80px}.pzkhead.w{left:470px}
+.pzkcols{position:absolute;left:28px;right:28px;top:40px;bottom:16px;display:flex;justify-content:space-between;align-items:flex-start}
+.pzkgap{width:10px;flex:none}
+.pzkc{position:relative;width:60px;height:540px;padding:0;border:0;background:none;box-shadow:none;cursor:pointer;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
+.pzkc canvas{position:absolute;left:0;top:0;width:60px;height:480px}
+.pzkc:hover{transform:translateY(-8px)}.pzkc.sel{transform:translateY(-22px)}
+.pzkc.sel::before{content:'';position:absolute;left:-4px;right:-4px;top:-4px;height:492px;border:3px solid #ffd45a;border-radius:14px;pointer-events:none}
+.pzktag{position:absolute;left:50%;bottom:0;transform:translateX(-50%);min-width:54px;padding:4px 4px;border-radius:9px;border:2px solid #12081f;font:800 10px/1.1 Poppins,sans-serif;text-align:center;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:3px}
+.pzktag canvas{width:18px;height:18px;border-radius:50%}
+.pzrk9 .pzktag.inhand{background:#ffd45a;color:#2a1a04}.pzrk9 .pzktag.own{background:#8affb4;color:#06200f}.pzrk9 .pzktag.buy{background:#fff2c8;color:#2a1a04}.pzrk9 .pzktag.poor{background:#3a3456;color:#9a90c8}.pzrk9 .pzktag.prog{background:#3a2f8a;color:#efe8ff}.pzrk9 .pzktag.lock{background:#241e32;color:#8a86a0;min-width:30px}
+.pzknew{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);padding:2px 7px;border-radius:8px;background:#ff4a6a;color:#fff;font:800 10px Poppins,sans-serif;text-decoration:none;border:2px solid #12081f}
+.pzkwall.in .pzkc{animation:pzkcIn .45s calc(var(--i)*.03s) cubic-bezier(.3,1.4,.5,1) both}
+.pzkcards{position:absolute;inset:24px;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-content:start}
+.pzkwall.balls .pzkcards{grid-template-columns:1fr}
+.pzksw{position:relative;padding:12px 12px 40px;border-radius:18px;background:#140c36;border:3px solid #3a3070;color:#efe8ff;cursor:pointer;text-align:left;box-shadow:none;transition:transform .22s cubic-bezier(.3,1.5,.5,1)}
+.pzksw canvas{display:block;width:100%;height:auto;border-radius:12px}.pzksw b{display:block;margin-top:8px;font:400 24px/1.1 "Pirata One",serif}
+.pzksw .pzktag{left:auto;right:12px;bottom:10px;transform:none}.pzksw.lock canvas{opacity:.45}
+.pzksw:hover{transform:translateY(-4px)}.pzksw.sel{border-color:#ffd45a;transform:translateY(-4px)}
+.pzkwall.in .pzksw{animation:pzrise .4s calc(var(--i)*.05s) cubic-bezier(.25,1.3,.45,1) both}
+.pzkdet{position:absolute;left:944px;top:152px;width:632px;height:596px;box-sizing:border-box;padding:16px 20px;border-radius:24px;background:linear-gradient(180deg,#221a5a,#100a30);border:3px solid #c99a3a;box-shadow:inset 0 1px 0 #ffffff1f,0 12px 30px #000a;text-align:center;z-index:2}
+.pzkdet.in>*{animation:pzrise .35s cubic-bezier(.25,1.3,.45,1) both}.pzkdet.in>*:nth-child(2){animation-delay:.04s}.pzkdet.in>*:nth-child(3){animation-delay:.08s}.pzkdet.in>*:nth-child(n+4){animation-delay:.12s}
+.pzkpv{height:300px;border-radius:16px;overflow:hidden;background:#0c0824}.pzkpv canvas{width:586px;height:300px;display:block}
+.pzrk9 .pzh3k{margin:12px 0 0;font:400 46px/1 "Pirata One",serif;color:#ffd45a}.pzkfrom{margin:4px 0 0;font:600 14px Poppins,sans-serif;color:#c4badf}
+.pzksum{display:flex;align-items:center;justify-content:center;gap:14px;margin:12px 0 0;padding:10px;border-radius:14px;background:#0c0824;border:2px solid #2a2468}.pzksum>i{font-style:normal;color:#8a80c8;font-weight:800}
+.pzksum small{display:block;font:800 10px Poppins,sans-serif;letter-spacing:.1em;color:#9a90c8}.pzksum b{font:400 28px/1 "Pirata One",serif;color:#efe8ff}.pzksum .ok b{color:#8affb4}.pzksum .no b{color:#ff9a9a;font-size:20px}
+.pzkbig{position:relative;overflow:hidden;width:100%!important;height:60px;margin:12px 0 0!important;font-size:19px!important;display:flex;align-items:center;justify-content:center;gap:12px}
+.pzkbig kbd{display:inline-block;padding:0 6px;border-radius:7px;background:#12081f33;border:1px solid #12081f55;font:800 11px/20px Poppins,sans-serif}
+.pzkfill{position:absolute;inset:0;background:linear-gradient(90deg,#fff3b0,#ffd45a);transform-origin:0 50%;transform:scaleX(0);pointer-events:none}.pzkhold span,.pzkhold kbd{position:relative}
+.pzkprog{margin-top:12px;padding:10px 14px;border-radius:14px;background:#0c0824;border:2px solid #2a2468;text-align:left}.pzkprog b{display:block;font:700 14px Poppins,sans-serif;color:#efe8ff}.pzkprog em{display:block;height:7px;margin-top:6px;border-radius:4px;background:#2a2468;overflow:hidden}.pzkprog em i{display:block;height:100%;background:#ffd45a;transform-origin:0 50%}
+.pzkload{position:absolute;left:24px;top:766px;width:1552px;height:112px;box-sizing:border-box;padding:12px 18px;border-radius:24px;background:linear-gradient(180deg,#221a5a,#100a30);border:3px solid #4a3e90;display:flex;align-items:center;gap:14px;z-index:2;box-shadow:0 10px 26px #0009}
+.pzkload .pzh3k{width:110px;font:400 30px/1 "Pirata One",serif;color:#ffd45a;margin:0;text-align:left}
+.pzkls{position:relative;width:290px;height:84px;padding:8px 12px;border-radius:16px;background:#140c36;border:2px solid #3a3070;color:#efe8ff;text-align:left;cursor:pointer;box-shadow:none;transition:transform .2s cubic-bezier(.3,1.5,.5,1)}.pzkls:hover{transform:translateY(-3px);border-color:#ffd45a}
+.pzkls small{display:block;font:800 10px Poppins,sans-serif;letter-spacing:.12em;color:#9a90c8}.pzkls b{display:block;font:800 15px Poppins,sans-serif}.pzkls canvas{position:absolute;right:12px;bottom:8px;width:150px;height:28px}.pzkls kbd{position:absolute;right:10px;top:8px;font:800 10px/18px Poppins,sans-serif;padding:0 5px;border-radius:6px;background:#12081f;border:1px solid #4a3e90;color:#9a90c8}
+.pzkcol{flex:1;padding-left:10px}.pzkcol div{display:flex;justify-content:space-between;font:800 14px Poppins,sans-serif;color:#efe8ff}.pzkcol div span{color:#ffd45a}.pzkcol em{display:block;height:7px;margin:6px 0;border-radius:4px;background:#2a2468;overflow:hidden}.pzkcol em i{display:block;height:100%;background:linear-gradient(90deg,#8affb4,#ffd45a);transform-origin:0 50%}
+.pzkcol p{margin:0;font:600 12.5px Poppins,sans-serif;color:#c4badf}.pzkcol p b{color:#c8a0ff}.pzkcol .pzklook{color:#8a80b8;font-size:11.5px;margin-top:2px}
+.pzrk9 .pzkc{display:block;height:540px;padding:0;border-radius:0;background:none;border:0;box-shadow:none}.pzrk9 .pzkc canvas{width:60px;height:480px}
+.pzrk9 .pzksw{display:block;height:auto}.pzrk9 .pzkwall.balls .pzksw canvas{width:470px;height:94px}.pzrk9 .pzkwall.balls .pzksw{padding-bottom:16px}.pzrk9 .pzkwall.balls .pzksw .pzktag{bottom:auto;top:16px}.pzrk9 .pzksw canvas{height:auto}.pzrk9 .pzksw b{display:block;font:400 24px/1.1 "Pirata One",serif}
+.pzrk9 .pzktabs9 button,.pzrk9 .pzktabs9 button.on{background:transparent;border:0;box-shadow:none}
+@keyframes pzkcIn{from{opacity:0;transform:translateY(-60px)}to{opacity:1}}
+`;document.head.appendChild(st)}
+/* ===== 9.5 THE CROOKED CUE: pause, settings and the Trick Shots list (96za) =====
+   - Pause shows the match: both faces, the score and race, what the stake pays, the house rule, and the main keys.
+   - Settings: the aim guide with a line on what each mode shows, typing taunts, tutorial tips on/off and a replay.
+   - Trick Shots: the next unsolved puzzle is marked and focused, unclaimed 200-gold bounties wear a badge, and the
+     hint stays hidden until you have tried the puzzle (Granny still says it at the table). Puzzles that need the cue
+     ball to finish in an area draw that area on the felt. */
+function pzPauseMenu(again){if(!PZ.on||(PZ.modal&&!again)||PZ.ph==='over'||PZ.ph==='intro')return;PZ.paused=true;const Z=PZS(),M=PZ.M,R=PZ.reg,trick=!!M.trick;
+ const fm=x=>x.toFixed(2).replace(/0$/,'').replace(/\.0$/,'');
+ const info=trick?`Trick shot ${M.trick.n+1} · ${PZ_TRICK[M.trick.n].n} · try ${M.trick.tries+1}`:M.practice?`Practice table · race to ${M.race}`:`Stake ${cmn(M.stake)} · a win pays ${cmn(Math.round(M.stake*M.mult))} (×${fm(M.mult)})`;
+ const m=pzModal(`<div class="pzh2">Paused</div>
+  <div class="pzpvs"><canvas width="88" height="88" id="pzpvh"></canvas><div><b>${trick?'Trick Shots':`${M.score[0]} <i>-</i> ${M.score[1]}`}</b><small>${trick?'with Granny Moldwick':`You vs ${R.n} · race to ${M.race} · rack ${M.rack}`}</small></div><canvas width="88" height="88" id="pzpvo"></canvas></div>
+  <p class="pzpinf">${info}</p>${!trick&&R.houseTxt?`<p class="pzpinf hr"><b>House rule</b> ${R.houseTxt}</p>`:''}
+  <button class="pzmb gold" data-a="resume">Resume <kbd>Esc</kbd></button><div class="pzprow"><button class="pzmb" data-a="rules">How to play</button><button class="pzmb" data-a="set">Settings</button></div>${trick?`<button class="pzmb" data-a="list">Puzzle list</button>`:''}<button class="pzmb red" data-a="forfeit">${trick?'Leave Trick Shots':M.practice?'Leave the table':'Forfeit match'}</button>
+  <div class="pzpkeys"><span><kbd>Mouse</kbd> aim, press + pull back to shoot</span><span><kbd>Space</kbd> shoot / speed up</span><span><kbd>W A S D</kbd> spin</span><span><kbd>G</kbd> guide</span></div>`,'pause p9');
+ try{const ex=Object.assign(pzCastEx(),PZ_EXP.neutral);pzCastPortrait($('pzpvh').getContext('2d'),'hero',null,88,1,ex);pzCastPortrait($('pzpvo').getContext('2d'),'mon',R.id,88,1,Object.assign(pzCastEx(),PZ_EXP.smug))}catch(e){}
+ S.back=()=>{const b=document.querySelector('#pzmod [data-a=resume]');if(b)b.click();else if(PZ.modal)pzPauseMenu(true)};
+ m.querySelector('[data-a=resume]').onclick=()=>{pzModalClose();S.back=()=>pzPauseMenu()};
+ m.querySelector('[data-a=rules]').onclick=()=>{pzRulesModal()};
+ m.querySelector('[data-a=set]').onclick=()=>{pzSettingsModal()};
+ {const l=m.querySelector('[data-a=list]');if(l)l.onclick=()=>{pzModalClose();pzTrick()}}
+ m.querySelector('[data-a=forfeit]').onclick=()=>{if(trick){pzModalClose();pzTrick();return}pzModal(`<div class="pzh2">${M.practice?'Leave the table?':'Forfeit?'}</div><p class="pzmm">${M.practice?'It is only practice, so nothing is lost.':`You will lose your stake of <b>${cmn(M.stake)}</b>.`}</p><button class="pzmb red" data-a="yes">${M.practice?'Leave':'Forfeit'}</button><button class="pzmb gold" data-a="no">Keep playing</button>`,'pause');
+  const mm=$('pzmod');mm.querySelector('[data-a=yes]').onclick=()=>{pzModalClose();pzForfeit()};mm.querySelector('[data-a=no]').onclick=()=>pzPauseMenu(true)}}
+function pzSettingsModal(){const Z=PZS();const gd={full:'Full: the whole shot, where every ball goes and which pockets take them.',short:'Short: the ghost ball and the start of each line.',pro:'Pro: only the aim line to the first ball (and it counts for a trophy against Mortimer).'};
+ const seg=(k,opts,cur)=>`<div class="pzseg" data-k="${k}">${opts.map(([v,l])=>`<button class="${cur===v?'on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
+ const m=pzModal(`<div class="pzh2">Settings</div>
+ <div class="pzset"><span>Aim guide</span>${seg('guide',[['full','Full'],['short','Short'],['pro','Pro']],Z.guide)}</div><p class="pzmm small pzgdtxt">${gd[Z.guide]||''}</p>
+ <div class="pzset"><span>Typing taunts</span>${seg('tauntsOn',[[true,'On'],[false,'Off']],Z.tauntsOn)}</div>
+ <div class="pzset"><span>Tutorial tips</span>${seg('tutOff',[[false,'On'],[true,'Off']],!!Z.tutOff)}</div>
+ <button class="pzmb" data-a="replay">Replay every tutorial</button><button class="pzmb gold" data-a="back">Back</button>`,'pause p9');
+ m.querySelectorAll('.pzseg').forEach(sg=>sg.querySelectorAll('button').forEach(b=>b.onclick=()=>{const k=sg.dataset.k,v=b.dataset.v==='true'?true:b.dataset.v==='false'?false:b.dataset.v;Z[k]=v;save();pzGuideNote();sg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));pzFx('tick');try{pzHudAll()}catch(e){}if(k==='guide'){const t=m.querySelector('.pzgdtxt');if(t)t.textContent=gd[v]||''}}));
+ m.querySelector('[data-a=replay]').onclick=function(){pzCoachReset();Z.tutOff=false;save();this.textContent='Tutorials reset: they show again as you play';pzFx('place')};
+ m.querySelector('[data-a=back]').onclick=()=>pzPauseMenu(true)}
+/* the puzzle pause (96o) keeps Hint, Restart and the list, and gains How to play and Settings */
+{const f0=pzTrickPause;pzTrickPause=function(){const r=f0.apply(this,arguments);try{const m=$('pzmod'),l=m&&m.querySelector('[data-a=list]');if(l&&!m.querySelector('[data-a=set]')){l.insertAdjacentHTML('beforebegin','<div class="pzprow"><button class="pzmb" data-a="rules">How to play</button><button class="pzmb" data-a="set">Settings</button></div>');m.querySelector('[data-a=rules]').onclick=()=>pzRulesModal();m.querySelector('[data-a=set]').onclick=()=>pzSettingsModal()}}catch(e){}return r}}
+/* the tips switch */
+{const f0=pzCoach;pzCoach=function(id,steps,o){if(PZS().tutOff&&!(o&&o.force))return false;return f0.apply(this,arguments)}}
+/* a modal hides any free tutorial card (it would sit on top of the menu) */
+{const f0=pzModal;pzModal=function(){const r=f0.apply(this,arguments);try{if(pzCoachActive()&&PZC.cur.steps[PZC.cur.i]&&PZC.cur.steps[PZC.cur.i].free)pzCoachEnd(false,true)}catch(e){}return r}}
+/* ---------- the Trick Shots list ---------- */
+{const f0=pzTrick;pzTrick=function(){const r=f0.apply(this,arguments);try{const Z=PZS(),cards=[...ov.querySelectorAll('.pzti')];const next=PZ_TRICK.findIndex((t,i)=>pzTrickStars(i)<3);
+ cards.forEach((c,i)=>{c.style.setProperty('--i',i);const st=pzTrickStars(i);if(!Z.trick['$'+i])c.insertAdjacentHTML('beforeend','<s class="pztbty">+200</s>');if(i===next){c.classList.add('next');c.insertAdjacentHTML('beforeend','<s class="pztnext">NEXT</s>')}
+  const p=c.querySelector('p');if(p&&!st&&!(Z.trick['t'+i]))p.innerHTML='<i class="pzthid">Granny gives you a hint at the table.</i>'});
+ const root=ov.querySelector('.pzt');if(root)root.classList.add('pzt9');if(next>=0&&cards[next])try{cards[next].focus({preventScroll:true})}catch(e){}}catch(e){}return r}}
+{const f0=pzTrickJudge;pzTrickJudge=function(){try{const Z=PZS(),M=PZ.M;if(M&&M.trick){Z.trick['t'+M.trick.n]=1}}catch(e){}return f0.apply(this,arguments)}}
+/* the finish area for cue-ball goals, drawn on the felt under the balls */
+{const f0=pzDrawTray;pzDrawTray=function(g){const r=f0.apply(this,arguments);try{const M=PZ.M;if(M&&M.trick){const goal=PZ_TRICK[M.trick.n].goal;if(goal.cueIn){const [x0,y0,x1,y1]=goal.cueIn,G=PZ_G,t=performance.now()/1000,a=.16+.06*Math.sin(t*3);
+ g.save();g.fillStyle=`rgba(138,255,180,${a})`;g.fillRect(G.x+x0,G.y+y0,x1-x0,y1-y0);g.setLineDash([10,8]);g.lineDashOffset=-t*20;g.strokeStyle='rgba(138,255,180,.75)';g.lineWidth=3;g.strokeRect(G.x+x0+2,G.y+y0+2,x1-x0-4,y1-y0-4);g.setLineDash([]);
+ g.font='800 15px Poppins,sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=5;g.strokeStyle='#12081f';const tx=G.x+(x0+x1)/2,ty=G.y+y1-24;g.strokeText('CUE BALL ENDS HERE',tx,ty);g.fillStyle='#a8ffcc';g.fillText('CUE BALL ENDS HERE',tx,ty);g.restore()}}}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.pzmod.p9 .pzmp{width:520px}
+.pzpvs{display:flex;align-items:center;justify-content:center;gap:18px;margin:6px 0 4px}.pzpvs canvas{width:70px;height:70px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#4a3a8a,#140c36);border:3px solid #c99a3a}
+.pzpvs b{display:block;font:400 44px/1 "Pirata One",serif;color:#efe8ff}.pzpvs b i{font-style:normal;color:#8a80c8;margin:0 6px}.pzpvs small{font:700 12px Poppins,sans-serif;color:#c4badf}
+.pzpinf{margin:6px 0 0!important;font:700 13.5px Poppins,sans-serif!important;color:#ffd45a!important}.pzpinf.hr{color:#c4badf!important;font-weight:600!important}.pzpinf.hr b{color:#ffd45a}
+.pzmod.p9 .pzmb{display:flex;align-items:center;justify-content:center;gap:10px}.pzmod.p9 .pzmb kbd{padding:0 6px;border-radius:7px;background:#12081f33;border:1px solid #12081f55;font:800 11px/20px Poppins,sans-serif}
+.pzprow{display:flex;gap:10px}.pzprow .pzmb{flex:1}
+.pzpkeys{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:center;margin-top:14px;font:600 11.5px Poppins,sans-serif;color:#9a90c8}.pzpkeys kbd{padding:0 5px;border-radius:6px;background:#12081f;border:1px solid #4a3e90;font:800 10.5px/18px Poppins,sans-serif;color:#efe8ff}
+.pzgdtxt{min-height:34px;margin:2px 0 8px!important}
+.pzt9 .pzti{transition:transform .22s cubic-bezier(.3,1.5,.5,1);animation:pzrise .4s calc(var(--i,0)*.04s) cubic-bezier(.25,1.3,.45,1) both}.pzt9 .pzti:hover,.pzt9 .pzti:focus-visible{transform:translateY(-6px);border-color:#ffd45a;outline:none}
+.pzt9 .pzti.next{border-color:#ffd45a;box-shadow:inset 0 1px 0 #ffffff1f,0 0 0 3px #ffd45a55,0 10px 28px #0009}
+.pztbty{position:absolute;right:10px;top:-10px;padding:2px 8px;border-radius:9px;background:#ffd45a;color:#2a1a04;font:800 11px Poppins,sans-serif;text-decoration:none;border:2px solid #12081f}
+.pztnext{position:absolute;left:10px;top:-10px;padding:2px 9px;border-radius:9px;background:#8affb4;color:#06200f;font:800 11px Poppins,sans-serif;text-decoration:none;border:2px solid #12081f;animation:pznewb 1.6s ease-in-out infinite}
+.pzti .pzthid{font-style:italic;color:#8a80b8;letter-spacing:normal;font-size:inherit}
+.pzt9 .pztsub{display:inline-block;left:50%;right:auto;white-space:nowrap;transform:translateX(-50%);padding:5px 16px;border-radius:14px;background:#100a30e0;border:2px solid #4a3e90}
+`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

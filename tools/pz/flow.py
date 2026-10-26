@@ -4,7 +4,7 @@ from playwright.async_api import async_playwright
 D=os.path.dirname(__file__)
 H='file://'+os.path.abspath(os.path.join(D,'..','..','type-warriors-source','out.html'))
 SC=open(os.path.join(D,'scen.js')).read()
-PRE="()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true}"
+PRE="()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true}"
 fails=[]
 def chk(name,ok,info=''):
   print(('PASS ' if ok else 'FAIL ')+name,info if not ok else '')
@@ -15,8 +15,8 @@ async def main():
     pg.on('pageerror',lambda e:er.append(str(e)[:400]))
     await pg.goto(H);await pg.wait_for_timeout(1500);await pg.evaluate(PRE);await pg.evaluate("()=>{P.gold=5000;P.pz=null;save()}");await pg.evaluate(SC)
     # --- A: play one shot, reload, resume
-    await pg.evaluate("()=>{casinoOpen();gameOpen('pz');pzStart({opp:'gloop',stake:200,seed:5})}");await pg.wait_for_timeout(400);await pg.evaluate("()=>{document.getElementById('pzintro').click()}");await pg.evaluate("()=>SC.ready()")
-    chk('stake taken',await pg.evaluate("()=>P.gold")==4800)
+    await pg.evaluate("()=>{casinoOpen();gameOpen('pz');PZS().losses=1;pzStart({opp:'moldwick',stake:250,seed:5})}");await pg.wait_for_timeout(400);await pg.evaluate("()=>{document.getElementById('pzintro').click()}");await pg.evaluate("()=>SC.ready()")
+    chk('stake taken',await pg.evaluate("()=>P.gold")==4750)
     await pg.evaluate("()=>{PZ.aim.pow=.8;pzFireHuman()}")
     for i in range(80):
       await pg.wait_for_timeout(250)
@@ -28,14 +28,14 @@ async def main():
     snap=await pg.evaluate("()=>({ph:PZ.ph,sc:PZ.M.score,B:PZ.B.map(b=>[b.id,Math.round(b.x),Math.round(b.y),b.on?1:0]),turn:PZ.st.turn,live:!!PZS().live})")
     chk('live snapshot saved',snap['live'] and snap['ph']=='aim',snap['ph'])
     await pg.reload();await pg.wait_for_timeout(1500);await pg.evaluate(PRE);await pg.evaluate(SC)
-    chk('gold after reload (stake still held)',await pg.evaluate("()=>P.gold")==4800,await pg.evaluate("()=>P.gold"))
+    chk('gold after reload (stake still held)',await pg.evaluate("()=>P.gold")==4750,await pg.evaluate("()=>P.gold"))
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz')}");await pg.wait_for_timeout(800)
     chk('resume prompt shown',await pg.evaluate("()=>!!document.getElementById('pzresume')"))
     await pg.click('#pzrs1');await pg.wait_for_timeout(1200)
     r=await pg.evaluate("()=>({ph:PZ.ph,sc:PZ.M.score,B:PZ.B.map(b=>[b.id,Math.round(b.x),Math.round(b.y),b.on?1:0]),turn:PZ.st.turn,stake:PZ.M.stake})")
     same=json.dumps(snap['B'])==json.dumps(r['B'])
     chk('resume restores the table',same,(snap['B'][:3],r['B'][:3]))
-    chk('resume restores score and stake',r['sc']==snap['sc'] and r['stake']==200,r)
+    chk('resume restores score and stake',r['sc']==snap['sc'] and r['stake']==250,r)
     # --- B: shot clock foul
     await pg.evaluate("()=>SC.ready()")
     await pg.evaluate("()=>{PZ.clock=.05}");await pg.wait_for_timeout(600)
@@ -45,7 +45,7 @@ async def main():
     await pg.wait_for_timeout(500)
     await pg.evaluate("()=>pzForfeit()");await pg.wait_for_timeout(900)
     r=await pg.evaluate("()=>({gold:P.gold,live:PZS().live,ph:PZ.ph,losses:PZS().losses})")
-    chk('forfeit: stake lost, no live match',r['gold']==4800 and not r['live'] and r['losses']>=1,r)
+    chk('forfeit: stake lost, no live match',r['gold']==4750 and not r['live'] and r['losses']>=1,r)
     # --- D: reload mid-match then forfeit from the prompt
     await pg.evaluate("()=>{pzStart({opp:'gloop',stake:100,seed:8})}");await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()");await pg.wait_for_timeout(300)
     g1=await pg.evaluate("()=>P.gold");await pg.reload();await pg.wait_for_timeout(1500);await pg.evaluate(PRE);await pg.evaluate(SC)

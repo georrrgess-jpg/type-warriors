@@ -8,7 +8,7 @@ async def main():
     b=await p.chromium.launch();pg=await b.new_page(viewport={'width':1600,'height':900});er=[]
     pg.on('pageerror',lambda e:er.append(str(e)[:400]));pg.on('console',lambda m:er.append('console:'+m.text[:300]) if m.type=='error' and 'ERR_' not in m.text and 'WebSocket' not in m.text else None)
     await pg.goto(H);await pg.wait_for_timeout(1500)
-    await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null;casinoOpen();gameOpen('pz');pzStart({opp:'grizzle',stake:200,seed:11})}")
+    await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null;casinoOpen();gameOpen('pz');pzStart({opp:'grizzle',stake:200,seed:11})}")
     await pg.wait_for_timeout(500);await pg.evaluate("()=>document.getElementById('pzintro').click()");await pg.wait_for_timeout(2600)
     st=await pg.evaluate("()=>[PZ.ph,PZ.mode,PZ.B[0].x,PZ.B[0].y]");print('start',st)
     cx,cy=360+st[2],214+st[3]

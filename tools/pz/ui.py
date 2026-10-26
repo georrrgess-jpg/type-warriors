@@ -8,7 +8,7 @@ async def main():
     b=await p.chromium.launch();pg=await b.new_page(viewport={'width':1600,'height':900});er=[]
     pg.on('pageerror',lambda e:er.append(str(e)[:400]));pg.on('console',lambda m:er.append('console:'+m.text[:300]) if m.type=='error' and 'ERR_' not in m.text and 'WebSocket' not in m.text else None)
     await pg.goto(H);await pg.wait_for_timeout(1500)
-    await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=48250;P.pz=null;const Z=PZS();Z.beat={gloop:4,moldwick:2,grizzle:1};Z.cues.slime=1;Z.cues.maple=1;save()}")
+    await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=48250;P.pz=null;const Z=PZS();Z.beat={gloop:4,moldwick:2,grizzle:1};Z.cues.slime=1;Z.cues.maple=1;save()}")
     async def snap(n,wait=500):
       await pg.wait_for_timeout(wait);await pg.screenshot(path=out+'/'+n+'.png')
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz')}");await snap('01_hub_vesper')

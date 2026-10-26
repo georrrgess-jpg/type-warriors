@@ -10,7 +10,7 @@ async def main():
     b=await p.chromium.launch();pg=await b.new_page(viewport={'width':1600,'height':900});er=[]
     pg.on('pageerror',lambda e:er.append(str(e)[:400]));pg.on('console',lambda m:er.append('console:'+m.text[:300]) if m.type=='error' and 'ERR_' not in m.text and 'WebSocket' not in m.text else None)
     await pg.goto(H);await pg.wait_for_timeout(1500)
-    await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=1000;P.pz=null;const Z=PZS();Z.trick={0:3,1:2,3:1}}");await pg.evaluate(SC)
+    await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=1000;P.pz=null;const Z=PZS();Z.trick={0:3,1:2,3:1}}");await pg.evaluate(SC)
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz');pzTrick()}");await pg.wait_for_timeout(700);await pg.screenshot(path=out+'/01_list.png')
     await pg.click('.pzti[data-i="0"]');await pg.wait_for_timeout(2200);await pg.screenshot(path=out+'/02_puzzle1.png')
     print('ph',await pg.evaluate("()=>[PZ.ph,PZ.M.trick.n,PZ.B.filter(b=>b.on).length]"))

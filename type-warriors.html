@@ -44165,6 +44165,9 @@ function rpSamp(pts){const sp=rpSpline(pts),S=[];let acc=0,prev=sp[0];S.push({x:
  for(let i=0;i<S.length;i++){const a=S[Math.max(0,i-3)],b=S[Math.min(S.length-1,i+3)];S[i].a=Math.atan2(b.y-a.y,b.x-a.x)}
  return{S,len:(S.length-1)*4}}
 const rpDTo=(S,x,y,st)=>{let m=1e9;for(let i=0;i<S.length;i+=st||2){const q=S[i],d=(q.x-x)*(q.x-x)+(q.y-y)*(q.y-y);if(d<m)m=d}return Math.sqrt(m)};
+/* pad placement knobs (9.2): road distance window, base clearance from the road centre, cover radius, diminishing return, distance
+   penalty, spacing */
+const RPPADQ={dmin:80,dmax:150,edge:40,r:205,dim:1.6,pen:400,sp:144,bw:50,bh:21};
 function rpGeo(map){if(RPGEO[map.id])return RPGEO[map.id];
  const paths=map.paths.map(rpSamp);
  /* own[i]: the sample is not a repeat of an earlier road (shared stretches are drawn and counted once) */
@@ -44176,28 +44179,29 @@ function rpGeo(map){if(RPGEO[map.id])return RPGEO[map.id];
  const gate=paths[0].S[paths[0].S.length-1];
  const ent=[];for(const P of paths){const q=P.S[Math.min(P.S.length-1,18)];if(ent.every(e=>Math.hypot(e.x-q.x,e.y-q.y)>60))ent.push({x:q.x,y:q.y,a:q.a})}
  const lake=map.lake,inLake=(x,y,m)=>lake&&((x-lake[0])/(lake[2]+m))**2+((y-lake[1])/(lake[3]+m))**2<1;
- /* 9.2: a pad must hold a whole tower: its stone base (an ellipse 58 x 22 under the pad centre) clears the road edge, the river banks,
-    the lava lake, the vents, the caves/portals and the castle, and its body (x +-38, up to 110 px tall) clears the lake, vents and caves */
- const B=RP_PADBOX,vents=map.vents||[],caves=ent.map(e=>({x:Math.max(30,e.x-14),y:e.y}));
- const ring=[];for(let k=0;k<16;k++){const a=k/16*TAU;ring.push([4+Math.cos(a)*58,16+Math.sin(a)*22])}
+ /* 9.2: a pad must hold a whole tower: its stone (top face 50 x 21, foot 15 px lower) clears the road edge, the river banks,
+    the lava lake, the vents, the caves/portals and the castle, and its body (x +-38, up to 110 px tall) clears the vents and caves. The body
+    may stand in front of the lava lake (the base is on the shore), so the pads between Ember Crown's two forks, which guard both roads, stay */
+ const B=RP_PADBOX,Q=RPPADQ,vents=map.vents||[],caves=ent.map(e=>({x:Math.max(30,e.x-14),y:e.y}));
+ const ring=[];for(let k=0;k<16;k++){const a=k/16*TAU,c=Math.cos(a)*Q.bw,sn=Math.sin(a)*Q.bh;ring.push([c,sn<0?sn:15+sn])}/* the stone: its top face and its foot */
  const col=[];for(let yy=-110;yy<=0;yy+=10)for(const dx of[-38,0,38])col.push([dx,yy]);
- const blocked=(px,py)=>(map.lake&&inLake(px,py,6))||vents.some(v=>Math.hypot(px-v[0],(py-v[1])/.8)<46)||caves.some(c=>px>c.x-76&&px<c.x+76&&py>c.y-98&&py<c.y+62)||px>gate.x-150;
+ const blocked=(px,py,body)=>(!body&&map.lake&&inLake(px,py,8))||vents.some(v=>Math.hypot(px-v[0],(py-v[1])/.8)<46)||caves.some(c=>px>c.x-76&&px<c.x+76&&py>c.y-98&&py<c.y+62)||px>gate.x-150;
  /* road and river samples in 64 px cells: a capped nearest distance in a few cells instead of a scan of every sample */
  const grid=(S)=>{const M=new Map();for(const q of S){const k=(q.x>>6)*512+(q.y>>6);let L=M.get(k);if(!L)M.set(k,L=[]);L.push(q)}return M};
  const GU=grid(U),GR=RV?grid(RV.S):null,near=(M,x,y,cap)=>{if(!M)return 1e9;let m=cap*cap;const r=Math.ceil(cap/64),cx=x>>6,cy=y>>6;
   for(let i=cx-r;i<=cx+r;i++)for(let j=cy-r;j<=cy+r;j++){const L=M.get(i*512+j);if(L)for(const q of L){const d=(q.x-x)*(q.x-x)+(q.y-y)*(q.y-y);if(d<m)m=d}}return Math.sqrt(m)};
- const ok=(x,y)=>{if(x<B.x0||x>B.x1||y<B.y0||y>B.y1)return false;const d0=near(GU,x,y,160);if(d0<80||d0>150)return false;
-  for(const [dx,dy] of ring){const px=x+dx,py=y+dy;if(near(GU,px,py,48)<41||near(GR,px,py,64)<56||blocked(px,py))return false}
-  for(const [dx,dy] of col){const px=x+dx,py=y+dy;if(blocked(px,py)||near(GR,px,py,40)<30)return false}return true};
+ const ok=(x,y)=>{if(x<B.x0||x>B.x1||y<B.y0||y>B.y1)return false;const d0=near(GU,x,y,160);if(d0<Q.dmin||d0>Q.dmax)return false;
+  for(const [dx,dy] of ring){const px=x+dx,py=y+dy;if(near(GU,px,py,48)<Q.edge||near(GR,px,py,64)<56||blocked(px,py))return false}
+  for(const [dx,dy] of col){const px=x+dx,py=y+dy;if(blocked(px,py,1)||near(GR,px,py,40)<30)return false}return true};
  /* greedy cover, weighted by traffic: every road counts, so a shared stretch (all the monsters) is worth more than a fork */
  const C=[];for(const P of paths)for(let i=0;i<P.S.length;i+=3)if(P.S[i].x>0&&P.S[i].x<gate.x-20)C.push(P.S[i]);
  const GC=new Map();C.forEach((q,k)=>{const key=(q.x>>6)*512+(q.y>>6);let L=GC.get(key);if(!L)GC.set(key,L=[]);L.push(k)});
  const cand=[];for(let y=B.y0;y<=B.y1;y+=10)for(let x=B.x0;x<=B.x1;x+=10){if(!ok(x,y))continue;
-  const ids=[];for(let i=(x-205)>>6;i<=(x+205)>>6;i++)for(let j=(y-115)>>6;j<=(y+115)>>6;j++){const L=GC.get(i*512+j);if(L)for(const k of L){const dx=C[k].x-x,dy=(C[k].y-y)/RPFX.sq;if(dx*dx+dy*dy<205*205)ids.push(k)}}if(ids.length)cand.push({x,y,ids,d:near(GU,x,y,160)})}
+  const ids=[],rr=Q.r;for(let i=(x-rr)>>6;i<=(x+rr)>>6;i++)for(let j=(y-rr)>>6;j<=(y+rr)>>6;j++){const L=GC.get(i*512+j);if(L)for(const k of L){const dx=C[k].x-x,dy=(C[k].y-y)/RPFX.sq;if(dx*dx+dy*dy<rr*rr)ids.push(k)}}if(ids.length)cand.push({x,y,ids,d:near(GU,x,y,160)})}
  const cov=new Float32Array(C.length),pads=[],want=map.pads||12;
- while(pads.length<want){let best=null,bs=0;for(const c of cand){if(c.used)continue;let s=0;for(const j of c.ids)s+=1/(1+1.6*cov[j]);s*=1-(c.d-80)/400;if(s>bs){bs=s;best=c}}
+ while(pads.length<want){let best=null,bs=0;for(const c of cand){if(c.used)continue;let s=0;for(const j of c.ids)s+=1/(1+Q.dim*cov[j]);s*=1-(c.d-Q.dmin)/Q.pen;if(s>bs){bs=s;best=c}}
   if(!best)break;best.used=1;pads.push({x:best.x,y:best.y});for(const j of best.ids)cov[j]++;
-  for(const c of cand)if(!c.used&&(c.x-best.x)**2+((c.y-best.y)*1.15)**2<144*144)c.used=1}
+  for(const c of cand)if(!c.used&&(c.x-best.x)**2+((c.y-best.y)*1.15)**2<Q.sp*Q.sp)c.used=1}
  pads.sort((a,b)=>a.x-b.x||a.y-b.y);
  return RPGEO[map.id]={paths,S:paths[0].S,len:paths[0].len,pads,dRoad,dRiver,RV,U,gate:{x:gate.x,y:gate.y},ent,inLake}}
 function rpAt(G,s,pi){const P=G.paths[pi||0]||G.paths[0],S=P.S,f=Math.max(0,Math.min(S.length-1.001,s/4)),i=f|0,u=f-i,a=S[i],b=S[Math.min(S.length-1,i+1)];return{x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u,a:a.a,ice:P.ice[i]}}
@@ -46492,6 +46496,11 @@ const rpEndK=(w,boss)=>{if(w<=15)return 1;const a=Math.min(w,RPE.w2)-15,b=Math.m
   const k=map.hpk*(1+.12*(w-1)+.007*(w-1)*(w-1))*(1+(map.late||0)*(boss?.25:1)*rpRamp(map,w));return k*rpEndK(w,boss)}}
 {const w0=rpWave;rpWave=function(map,w){const W=w0.apply(this,arguments);if(!map||!map.endless||w<=15)return W;const ex=w-15,f=(1+ex*RPE.n)/(1+ex*.05);
   return W.map(g=>g.id==='behemoth'?g:Object.assign({},g,{n:Math.max(2,Math.round(g.n*f))}))}}
+/* Ember Crown: the 9.2 pads keep every tower off the road edge and out of the lava, so they sit a little farther from the road than
+   before and cover slightly less of it. The bot that used to win map 3 three times in four then lost it at the wave-10 boss every time.
+   A bigger starting supply (380 -> 440) gives the first towers back; with it the bot wins four in four. Monster stats are untouched, so
+   the Wonderland (which copies Ember's monsters for its first 15 waves) and the championship do not change. */
+RP_MAP('ember').start=440;
 /* ===== 9.2: smooth menu transitions (95p, after 95o) =====
    Menu screens used to swap in one frame. Now, when show() opens a different menu screen (S.mode 'title'), the new page rises 12 px
    and fades in (0.34 s, a soft overshoot curve) while a thin indigo veil over the stage fades out, so every screen change reads as one

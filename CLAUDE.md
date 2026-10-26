@@ -4,6 +4,9 @@ A single-file browser typing game. Everything ships as `type-warriors.html`; the
 `type-warriors-source.zip`. Read `type-warriors-source/HANDOFF.md` (inside the zip) for the history and
 internals of every mode. The latest update is 9.3 (casino limits: 5,000 max bet except Blackjack, Higher or Lower and Tower Climb; Mines pays at most 15,000). Before that 9.2 (the Tidecaller Shrine, a redesigned tower bar and build ring, smoother towers, pads clear of map features, an easier endless Wonderland, smooth menu transitions; modules `95c5`, `95l`–`95p`). Before that 9.1 (the Dragon Roost reworked) and 9.0: Runestone Tower Defense, formerly Runestone Ramparts, a tower-defense mode: harder maps, the Celestial Prism, the endless Wonderland with tiers 4–5, the Dragon Roost, the Wonderland Championship leaderboard with its prize and the Tower Skins screen; code prefix `rp`, modules `95a`–`95j`, `95b2`, `95c3`, `95c4`, `95h2`).
 
+**Planned next: 9.4, The Crooked Cue (a pool mode in the casino).** The full build plan is `POOL_PLAN.md` at the repo root, with
+tested prototypes (physics, rules, AI, ball renderer) and concept art in `pool_plan/`. Port the prototypes; follow its milestones.
+
 ## Setup in a new session
 1. `unzip -q type-warriors-source.zip` at the repo root (the folder is git-ignored; the zip is the tracked copy).
 2. `bash tools/bld.sh` must print `CMP OK` and `SYNTAX_OK`. See `tools/README.md` for the test scripts.

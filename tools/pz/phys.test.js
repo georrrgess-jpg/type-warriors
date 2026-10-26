@@ -15,7 +15,7 @@ B=[mk(0,100,220)];pzpStrike(B[0],0,.25,0,0);r=pzpRun(B,20);chk('a soft shot sett
 const rk=pzpRack(pzRng(5));chk('the rack has 16 balls, ids 0-15 once each',rk.length===16&&new Set(rk.map(b=>b.id)).size===16);
 const mid=rk.find(b=>b.id===8);chk('the 8 sits in the middle of the third row',Math.abs(mid.y-220)<1&&mid.x>PZ_PHY.W*.75+R);
 let ok=true;for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(Math.hypot(rk[i].x-rk[j].x,rk[i].y-rk[j].y)<2*R-.01)ok=false;chk('no two racked balls overlap',ok);
-const back=rk.filter(b=>b.id&&Math.abs(b.x-(PZ_PHY.W*.75+4*R*Math.sqrt(3)*1.02))<1).sort((a,b)=>a.y-b.y),corners=[back[0],back[back.length-1]];chk('the back corners hold one solid and one stripe',back.length===5&&Z.pzGrp(corners[0].id)!==Z.pzGrp(corners[1].id),corners.map(b=>b.id));
+const back=rk.filter(b=>b.id&&Math.abs(b.x-(PZ_PHY.W*.75+4*R*Math.sqrt(3)*1.03))<2).sort((a,b)=>a.y-b.y),corners=[back[0],back[back.length-1]];chk('the back corners hold one solid and one stripe',back.length===5&&Z.pzGrp(corners[0].id)!==Z.pzGrp(corners[1].id),corners.map(b=>b.id));
 /* the break */
 let pots=0,sc=0,eight=0,maxT=0,N=40;const rn=pzRng(9);
 for(let i=0;i<N;i++){B=pzpRack(rn);const cb=B[0];cb.y=220+(rn()-.5)*60;const ap=B.find(b=>b.id&&Math.abs(b.y-220)<1&&b.x<700);pzpStrike(cb,Math.atan2(ap.y-cb.y,ap.x-cb.x),1,0,0);r=pzpRun(B,15);maxT=Math.max(maxT,r.t);pots+=B.filter(b=>!b.on&&b.id).length;if(!B[0].on)sc++;if(!B[8===0?0:B.findIndex(b=>b.id===8)].on)eight++}

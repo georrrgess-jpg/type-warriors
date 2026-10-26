@@ -12,6 +12,9 @@ async def main():
     await pg.goto(H);await pg.wait_for_timeout(1500)
     await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null}");await pg.evaluate(SC)
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz');pzStart({opp:'gloop',stake:100,seed:11})}");await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()");await pg.wait_for_timeout(1800)
-    if js:await pg.evaluate("async()=>{"+js+"}");await pg.wait_for_timeout(500)
+    if js:
+      r=await pg.evaluate("async()=>{"+js+"}")
+      if r is not None:print("result",r)
+    await pg.wait_for_timeout(500)
     await pg.screenshot(path=out,clip={'x':clip[0],'y':clip[1],'width':clip[2],'height':clip[3]});print('errors',er);await b.close()
 asyncio.run(main())

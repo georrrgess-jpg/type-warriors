@@ -48,9 +48,9 @@ async def main():
     chk('forfeit: stake lost, no live match',r['gold']==4800 and not r['live'] and r['losses']>=1,r)
     # --- D: reload mid-match then forfeit from the prompt
     await pg.evaluate("()=>{pzStart({opp:'gloop',stake:100,seed:8})}");await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()");await pg.wait_for_timeout(300)
-    g1=await pg.evaluate("()=>P.gold");await pg.reload();await pg.wait_for_timeout(1500);await pg.evaluate(PRE)
+    g1=await pg.evaluate("()=>P.gold");await pg.reload();await pg.wait_for_timeout(1500);await pg.evaluate(PRE);await pg.evaluate(SC)
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz')}");await pg.wait_for_timeout(800)
-    await pg.click('#pzrs2');await pg.wait_for_timeout(400)
+    await pg.click('#pzrs2');await pg.wait_for_timeout(200);await pg.click('#pzrs2');await pg.wait_for_timeout(400)
     r=await pg.evaluate("()=>({gold:P.gold,live:PZS().live})")
     chk('forfeit from the resume prompt keeps the loss',r['gold']==g1 and not r['live'],(g1,r))
     # --- F: Slick Shade's offer after you win the first rack
@@ -64,6 +64,21 @@ async def main():
     await pg.click('#pzmod [data-a=yes]');await pg.wait_for_timeout(600)
     r=await pg.evaluate("()=>({race:PZ.M.race,mult:PZ.M.mult,ext:PZ.M.extended,ph:PZ.ph,score:PZ.M.score.slice()})")
     chk('let it ride: race to 3 at x3.2 and a fresh rack',r['race']==3 and r['mult']==3.2 and r['ext'] and r['score']==[1,0],r)
+    await pg.evaluate("()=>pzForfeit()");await pg.wait_for_timeout(400)
+    # --- G: reload during the VS intro: the stake must not vanish
+    await pg.evaluate("()=>{P.gold=9000;P.pz=null;save();casinoOpen();gameOpen('pz')}");await pg.wait_for_timeout(500)
+    await pg.evaluate("()=>{pzStart({opp:'gloop',stake:200,seed:3})}");await pg.wait_for_timeout(300)
+    chk('the match exists in the save the moment the stake is taken',await pg.evaluate("()=>!!(PZS().live&&PZS().live.pre&&PZS().live.stake===200)&&P.gold===8800"))
+    await pg.reload();await pg.wait_for_timeout(1500);await pg.evaluate(PRE);await pg.evaluate(SC)
+    await pg.evaluate("()=>{casinoOpen();gameOpen('pz')}");await pg.wait_for_timeout(700)
+    chk('reload in the intro: a resume prompt, stake still held',await pg.evaluate("()=>!!document.getElementById('pzresume')&&P.gold===8800"))
+    await pg.click('#pzrackem');await pg.wait_for_timeout(300)
+    chk('"Rack em up" with a match waiting resumes it (no second stake)',await pg.evaluate("()=>P.gold===8800&&PZ.on&&PZ.M&&PZ.M.stake===200"))
+    await pg.evaluate("()=>SC.skip&&SC.skip()");await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}")
+    for i in range(60):
+      await pg.wait_for_timeout(250)
+      if await pg.evaluate("()=>PZ.ph==='aim'"):break
+    chk('the resumed match reaches the break',await pg.evaluate("()=>PZ.ph==='aim'&&PZ.st&&PZ.st.brk"))
     await pg.evaluate("()=>pzForfeit()");await pg.wait_for_timeout(400)
     # --- E: leaving the mode via the back key mid-match asks first (pause menu) and the stake is not lost until forfeit
     print('errors',er)

@@ -12,7 +12,7 @@ async def main():
     await pg.goto(H);await pg.wait_for_timeout(1500)
     await pg.evaluate("()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=100000;P.pz=null}");await pg.evaluate(SC)
     async def start(opp,seed=5,stake=500):
-      await pg.evaluate("([o,s,k])=>{casinoOpen();gameOpen('pz');pzStart({opp:o,stake:k,seed:s})}",[opp,seed,stake]);await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()")
+      await pg.evaluate("([o,s,k])=>{PZS().live=null;PZ.on=false;casinoOpen();gameOpen('pz');pzStart({opp:o,stake:k,seed:s})}",[opp,seed,stake]);await pg.wait_for_timeout(400);await pg.evaluate("()=>{const i=document.getElementById('pzintro');if(i)i.click()}");await pg.evaluate("()=>SC.ready()")
     await start('vesper')
     await pg.screenshot(path=out+'/01_break.png')
     await pg.evaluate("()=>SC.bih()");await pg.mouse.move(900,420);await pg.wait_for_timeout(300);await pg.screenshot(path=out+'/02_bih.png')
@@ -29,7 +29,10 @@ async def main():
     for ch in "who gives a hoot":
       await pg.keyboard.press(ch if ch!=' ' else 'Space');await pg.wait_for_timeout(40)
     await pg.wait_for_timeout(600);await pg.screenshot(path=out+'/07_rattled.png')
-    await pg.keyboard.press('Escape');await pg.wait_for_timeout(500);await pg.screenshot(path=out+'/08_pause.png')
+    await pg.keyboard.press('Escape');await pg.wait_for_timeout(400)
+    if not await pg.evaluate("()=>!!document.querySelector('#pzmod [data-a=resume]')"):
+      await pg.keyboard.press('Escape');await pg.wait_for_timeout(400)
+    await pg.screenshot(path=out+'/08_pause.png')
     await pg.click('[data-a=set]');await pg.wait_for_timeout(300);await pg.screenshot(path=out+'/09_settings.png')
     await pg.click('[data-a=back]');await pg.wait_for_timeout(200);await pg.click('[data-a=rules]');await pg.wait_for_timeout(300);await pg.screenshot(path=out+'/10_rules.png')
     await pg.click('[data-a=back]');await pg.wait_for_timeout(200);await pg.click('[data-a=forfeit]');await pg.wait_for_timeout(300);await pg.screenshot(path=out+'/11_forfeit.png')

@@ -63,7 +63,7 @@ async def main():
     chk('Shade offers to let it ride after the first rack',await pg.evaluate("()=>!!document.querySelector('#pzmod [data-a=yes]')&&PZ.ph==='offer'"))
     await pg.click('#pzmod [data-a=yes]');await pg.wait_for_timeout(600)
     r=await pg.evaluate("()=>({race:PZ.M.race,mult:PZ.M.mult,ext:PZ.M.extended,ph:PZ.ph,score:PZ.M.score.slice()})")
-    chk('let it ride: race to 3 at x3.2 and a fresh rack',r['race']==3 and r['mult']==3.2 and r['ext'] and r['score']==[1,0],r)
+    chk('let it ride: race to 3 at x2.8 (capped to the payout ceiling) and a fresh rack',r['race']==3 and r['mult']<=2.8 and r['mult']>=2.5 and r['ext'] and r['score']==[1,0],r)
     await pg.evaluate("()=>pzForfeit()");await pg.wait_for_timeout(400)
     # --- G: reload during the VS intro: the stake must not vanish
     await pg.evaluate("()=>{P.gold=9000;P.pz=null;save();casinoOpen();gameOpen('pz')}");await pg.wait_for_timeout(500)

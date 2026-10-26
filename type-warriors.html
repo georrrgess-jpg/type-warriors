@@ -6056,7 +6056,7 @@ const GAMES=[
  {id:'sl',n:'Slot Machine',d:'Spin three reels. Match symbols on the middle line. Two cherries already pay.',m:(e,t)=>mSL(e,t)},
  {id:'ro',n:'Roulette',d:'European wheel with one zero. Bet on numbers, colours, odds, evens, halves and dozens together.',m:(e,t)=>mRO(e,t)},
  {id:'di',n:'Dice',d:'Roll from 0 to 100. Pick over or under and slide your win chance. Lower chance pays more.',m:(e,t)=>mDI(e,t)},
- {id:'mi',n:'Mines',d:'Uncover gems on a 5 by 5 board and avoid the hidden bombs. Every gem raises your payout.',m:(e,t)=>mMI(e,t)}];
+ {id:'mi',n:'Mines',d:'Uncover gems on a 5 by 5 board and avoid the hidden bombs. Every gem raises your payout (max payout 15,000).',m:(e,t)=>mMI(e,t)}];
 
 /* balance, stats and bets */
 function balUp(d){const e=$('cbal');if(!e)return;e.textContent=cmn(P.gold);if(d){const f=document.createElement('span');f.className='fl '+(d>0?'up':'dn');f.textContent=(d>0?'+':'−')+cmn(Math.abs(d));e.parentNode.appendChild(f);setTimeout(()=>f.remove(),1400)}}
@@ -6065,8 +6065,10 @@ function cPay(bet,pay){pay=Math.max(0,Math.floor(pay));P.gold+=pay;casTrack(bet,
  if(pay>=bet*6&&pay-bet>=200)try{bigWin(pay-bet,pay>=bet*25||pay-bet>=5000)}catch(e){}
  if(pay>bet){jingle(pay>=bet*5?'win':'boon')}else if(pay<bet)beep(170,.22,'sawtooth',.5)}
 function msg(t,c){const e=$('cm');if(!e)return;e.textContent=t||' ';e.style.color=c==='w'?'#7dff9a':c==='l'?'#ff8a98':'#ffe9a8'}
-function betBar(lab){return `<div class="bet"><div class="bv">${lab||'Bet'} <b id="bv">0</b> <small style="opacity:.6">max ${cmn(CAS_MAX)}</small></div><div class="chips">${[10,50,100,500,1000,5000].map(v=>`<button class="chip c${v}" data-a="${v}" aria-label="Add ${v}">${cab(v)}</button>`).join('')}</div><div class="bx"><button class="sm" data-m="c">Clear</button><button class="sm" data-m="h">½</button><button class="sm" data-m="d">2×</button><button class="sm" data-m="m">Max</button></div></div>`}
+function betBar(lab){return `<div class="bet"><div class="bv">${lab||'Bet'} <b id="bv">0</b> <small style="opacity:.6">max ${cmn(CAS.cap||CAS_MAX)}</small></div><div class="chips">${[10,50,100,500,1000,5000].map(v=>`<button class="chip c${v}" data-a="${v}" aria-label="Add ${v}">${cab(v)}</button>`).join('')}</div><div class="bx"><button class="sm" data-m="c">Clear</button><button class="sm" data-m="h">½</button><button class="sm" data-m="d">2×</button><button class="sm" data-m="m">Max</button></div></div>`}
 const CAS_MAX=7500;
+/* 9.3: the owner's table limits: 5,000 per bet in every casino game except Blackjack, Higher or Lower (its own 5,000) and Tower Climb */
+const CAS_LIM=5000,CAS_FULL=new Set(['bj','hl','tw']),casCap=id=>CAS_FULL.has(id)?CAS_MAX:id==='qz'&&typeof QZ!=='undefined'?Math.min(CAS_LIM,QZ.QCAP):CAS_LIM;
 function betRefresh(){CAS.bet=Math.max(0,Math.min(Math.floor(CAS.bet),P.gold,CAS.cap||Infinity));const e=$('bv');if(e)e.textContent=cmn(CAS.bet)}
 function wireBet(onch){const f=()=>{betRefresh();if(onch)onch()};
  ov.querySelectorAll('.bet [data-a]').forEach(b=>b.onclick=()=>{if(CAS.lock)return;CAS.bet=Math.min(P.gold,CAS.bet+ +b.dataset.a);f();beep(700,.04,'triangle',.5)});
@@ -6100,7 +6102,7 @@ ${gdLogo()}
  ov.querySelectorAll('.gdtab').forEach(b=>b.onclick=()=>{if(b.dataset.t===CAS.tab)return;CAS.tab=b.dataset.t;ov.querySelectorAll('.gdtab').forEach(x=>x.classList.toggle('on',x===b));grid();beep(620,.05,'triangle',.5)});
  grid()}
 const GDFOOT='In-game gold only.';
-function gameOpen(id){const g=GAMES.find(x=>x.id===id);if(!g)return;CAS.cap=CAS_MAX;cFlush();CAS.tok++;CAS.lock=false;CAS.key=null;const tok=CAS.tok;
+function gameOpen(id){const g=GAMES.find(x=>x.id===id);if(!g)return;CAS.cap=casCap(id);cFlush();CAS.tok++;CAS.lock=false;CAS.key=null;const tok=CAS.tok;
  cdCave();show(`<div class="cas"><div class="ctop"><button class="sm" id="cb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg><span>Lobby</span></button><h2>${g.n}</h2><div class="gbar"><span class="coin big"></span><b id="cbal">${cmn(P.gold)}</b></div></div><div id="cg" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:12px"></div></div>`,'casbg');
  S.back=()=>{if(!CAS.lock)lobby()};$('cb').onclick=S.back;
  try{g.m($('cg'),tok)}catch(err){console.error(err);lobby()}}
@@ -6191,22 +6193,22 @@ function mDI(el,tok){
 
 /* ---------- mines ---------- */
 function mMI(el,tok){
- const alive=()=>CAS.tok===tok;let nm=3,mines=new Set(),rev=new Set(),ph='idle',bet=0;
+ const alive=()=>CAS.tok===tok;let nm=3,mines=new Set(),rev=new Set(),ph='idle',bet=0;const MICAP=15000,mpay=k=>Math.min(MICAP,Math.floor(bet*mult(k)));/* 9.3: max payout 15,000 */
  const mult=k=>{if(k<1)return 1;let m=.96;for(let i=0;i<k;i++)m*=(25-i)/(25-nm-i);return Math.floor(m*100+1e-6)/100};
  el.innerHTML=`<div class="felt" style="flex-direction:row;gap:60px;padding:18px 40px"><div class="mgrid" id="mg">${Array.from({length:25},(_,i)=>`<button class="mt" data-i="${i}" disabled aria-label="Tile ${i+1}"></button>`).join('')}</div>
-<div class="msi"><span>Bombs</span><div class="seg2" id="mn">${[1,3,5,10,15,24].map(v=>`<button data-n="${v}" class="${v===3?'on':''}">${v}</button>`).join('')}</div><span>Gems found <b id="mk">0</b></span><span>Multiplier <b id="mm">1.00×</b></span><span>Next gem <b id="mx"></b></span><span>Payout now <b id="mp">0</b></span></div></div>
+<div class="msi"><span>Bombs</span><div class="seg2" id="mn">${[1,3,5,10,15,24].map(v=>`<button data-n="${v}" class="${v===3?'on':''}">${v}</button>`).join('')}</div><span>Gems found <b id="mk">0</b></span><span>Multiplier <b id="mm">1.00×</b></span><span>Next gem <b id="mx"></b></span><span>Payout now <b id="mp">0</b></span><span style="opacity:.7">Max payout <b>15,000</b></span></div></div>
 <p class="cmsg" id="cm"> </p><div class="ctl">${betBar()}<div class="btns"><button class="bbig" id="m0">Start</button><button class="bbig" id="mc" style="display:none">Cash out</button></div></div>`;
  const tiles=()=>[...ov.querySelectorAll('#mg .mt')];
- const U=()=>{const k=rev.size,safe=25-nm;$('mk').textContent=k+' / '+safe;$('mm').textContent=mult(k).toFixed(2)+'×';$('mx').textContent=k<safe?'×'+mult(k+1).toFixed(2):'-';$('mp').textContent=cmn(ph==='play'?bet*mult(k):0);
-  $('m0').style.display=ph==='idle'?'':'none';$('mc').style.display=ph==='play'?'':'none';$('mc').disabled=k<1;$('mc').textContent='Cash out '+cmn(bet*mult(k));
+ const U=()=>{const k=rev.size,safe=25-nm;$('mk').textContent=k+' / '+safe;$('mm').textContent=mult(k).toFixed(2)+'×';$('mx').textContent=k<safe?'×'+mult(k+1).toFixed(2):'-';$('mp').textContent=cmn(ph==='play'?mpay(k):0);
+  $('m0').style.display=ph==='idle'?'':'none';$('mc').style.display=ph==='play'?'':'none';$('mc').disabled=k<1;$('mc').textContent='Cash out '+cmn(mpay(k));
   ov.querySelectorAll('#mn button').forEach(b=>{b.disabled=ph!=='idle';b.classList.toggle('on',+b.dataset.n===nm)})};
  const end=(hit,i)=>{const T=tiles();T.forEach((b,j)=>{b.disabled=true;if(mines.has(j)){b.innerHTML=BOMB;b.classList.add(j===i?'bad':'dim')}else if(!rev.has(j)){b.innerHTML=GEM;b.classList.add('dim')}})};
- const finish=(cashed)=>{const k=rev.size,pay=cashed?Math.floor(bet*mult(k)):0;ph='idle';cPay(bet,pay);if(cashed)msg(`Cashed out ${mult(k).toFixed(2)}×  +${cmn(pay-bet)}`,'w');betLock(false);U();$('m0').textContent='Play again'};
+ const finish=(cashed)=>{const k=rev.size,pay=cashed?mpay(k):0;ph='idle';cPay(bet,pay);if(cashed)msg(pay>=MICAP?`Max payout reached: +${cmn(pay-bet)}`:`Cashed out ${mult(k).toFixed(2)}×  +${cmn(pay-bet)}`,'w');betLock(false);U();$('m0').textContent='Play again'};
  const start=()=>{if(ph!=='idle'||CAS.lock)return;if(CAS.bet<1){msg(broke()||'Place a bet first.');return}if(CAS.bet>P.gold){msg('Not enough gold.');return}bet=CAS.bet;if(!cTake(bet))return;betLock(true);
   mines=new Set();while(mines.size<nm)mines.add(Math.random()*25|0);rev=new Set();ph='play';tiles().forEach(b=>{b.className='mt';b.innerHTML='';b.disabled=false});U();msg('Uncover gems. Avoid the bombs.');beep(520,.05,'triangle',.5)};
  const pick=i=>{if(ph!=='play'||rev.has(i))return;const b=tiles()[i];
   if(mines.has(i)){ph='x';end(true,i);msg(`Boom! You lose ${cmn(bet)}.${broke()?' '+broke():''}`,'l');beep(90,.4,'sawtooth',.8);ph='play';finishLoss()}
-  else{rev.add(i);b.className='mt ok';b.innerHTML=GEM;b.disabled=true;beep(660+rev.size*30,.07,'triangle',.6);U();if(rev.size>=25-nm){msg('Every gem found!','w');end(false,-1);finish(true)}}};
+  else{rev.add(i);b.className='mt ok';b.innerHTML=GEM;b.disabled=true;beep(660+rev.size*30,.07,'triangle',.6);U();if(rev.size>=25-nm){msg('Every gem found!','w');end(false,-1);finish(true)}else if(mpay(rev.size)>=MICAP){end(false,-1);finish(true)}}};
  const finishLoss=()=>{ph='idle';cPay(bet,0);betLock(false);U();$('m0').textContent='Play again'};
  const cash=()=>{if(ph!=='play'||rev.size<1)return;end(false,-1);finish(true)};
  tiles().forEach(b=>b.onclick=()=>pick(+b.dataset.i));$('m0').onclick=start;$('mc').onclick=cash;
@@ -7857,12 +7859,12 @@ function mRO(el,tok){
  const tot=()=>Object.values(bets).reduce((x,y)=>x+y,0);
  const refresh=()=>{$('rud').disabled=st!=='idle'||!stack.length;$('rcl').disabled=st!=='idle'||!stack.length;$('rrp').disabled=st!=='idle'||!lastBets||!!stack.length;$('rsp').disabled=st!=='idle'};
  const paint=win=>{ov.querySelectorAll('.rc').forEach(b=>{const k=b.dataset.k,v=bets[k];let cb=b.querySelector('.cb');if(v){if(!cb){cb=document.createElement('span');b.appendChild(cb)}cb.className='cb '+roChip(v);cb.textContent=cab(v)}else if(cb)cb.remove();b.classList.toggle('win',!!(win&&v&&roWin(k,win.n)));b.classList.toggle('hit',!!(win&&b.dataset.k==='n'+win.n))});$('rs').textContent=cmn(tot());refresh()};
- const place=k=>{if(st!=='idle'||CAS.lock)return;const v=CAS.bet;if(v<1){msg(broke()||'Pick a chip size first.');return}if(tot()+v>P.gold){msg('Not enough gold for another chip.');return}if(tot()+v>CAS_MAX){msg('Table limit: '+cmn(CAS_MAX)+' per spin.');return}bets[k]=(bets[k]||0)+v;stack.push([k,v]);cur=null;paint();beep(760+Math.min(300,stack.length*14),.04,'triangle',.5)};
+ const place=k=>{if(st!=='idle'||CAS.lock)return;const v=CAS.bet;if(v<1){msg(broke()||'Pick a chip size first.');return}if(tot()+v>P.gold){msg('Not enough gold for another chip.');return}if(tot()+v>CAS_LIM){msg('Table limit: '+cmn(CAS_LIM)+' per spin.');return}bets[k]=(bets[k]||0)+v;stack.push([k,v]);cur=null;paint();beep(760+Math.min(300,stack.length*14),.04,'triangle',.5)};
  const hlOn=k=>{ov.querySelectorAll('.rc[data-k^="n"]').forEach(b=>b.classList.toggle('hl',k[0]!=='n'&&roWin(k,+b.dataset.k.slice(1))))};
  ov.querySelectorAll('.rc').forEach(b=>{b.onclick=()=>place(b.dataset.k);b.onmouseenter=()=>hlOn(b.dataset.k);b.onmouseleave=()=>hlOn('n0x')});
  const undo=()=>{if(st!=='idle'||!stack.length)return;const[k,v]=stack.pop();bets[k]-=v;if(bets[k]<=0)delete bets[k];paint();beep(480,.04,'triangle',.4)};
  const clear=()=>{if(st!=='idle'||!stack.length)return;bets={};stack=[];paint();beep(400,.05,'triangle',.4)};
- const repeat=()=>{if(st!=='idle'||!lastBets||stack.length)return;const t=Object.values(lastBets).reduce((x,y)=>x+y,0);if(t>P.gold){msg('Not enough gold to repeat those bets.');return}if(t>CAS_MAX){msg('Table limit: '+cmn(CAS_MAX)+' per spin.');return}for(const k in lastBets){bets[k]=lastBets[k];stack.push([k,lastBets[k]])}cur=null;paint();beep(700,.05,'triangle',.5);msg('Previous bets placed. Press Spin.')};
+ const repeat=()=>{if(st!=='idle'||!lastBets||stack.length)return;const t=Object.values(lastBets).reduce((x,y)=>x+y,0);if(t>P.gold){msg('Not enough gold to repeat those bets.');return}if(t>CAS_LIM){msg('Table limit: '+cmn(CAS_LIM)+' per spin.');return}for(const k in lastBets){bets[k]=lastBets[k];stack.push([k,lastBets[k]])}cur=null;paint();beep(700,.05,'triangle',.5);msg('Previous bets placed. Press Spin.')};
  $('rud').onclick=undo;$('rcl').onclick=clear;$('rrp').onclick=repeat;
  const hist=()=>{$('rr').innerHTML=res.map((v,i)=>`<span class="${i===0?'new':''}" style="background:${roCol(v)}">${v}</span>`).join('')};
  const spark=(x,y,n,cols,pw)=>{for(let i=0;i<n;i++){const an=Math.random()*TAU,v=(pw||160)*(.3+Math.random());parts.push({x,y,vx:Math.cos(an)*v,vy:Math.sin(an)*v-60,l:1,d:.7+Math.random()*.7,r:2+Math.random()*3,c:cols[i%cols.length]})}};

@@ -46650,7 +46650,7 @@ function pzMultS(id,stake){const m=pzMult(id);return stake>0?Math.min(m,Math.flo
    and the AI's look-ahead. Units: table pixels (playfield W x H = 880 x 440, origin at the top-left cushion nose), seconds.
    Each ball: {id,x,y,vx,vy,ux,uy,es,on}. (vx,vy) = centre velocity; (ux,uy) = "roll velocity" = surface speed from spin
    (ux,uy == vx,vy means pure rolling; 0 = stun/sliding; opposite = draw); es = side spin (english) in px/s at the equator. */
-const PZ_PHY={W:880,H:440,R:12,G:3390/* 9.81 m/s^2 in px (346 px/m) */,MUS:.2,MUR:.035,MUSP:.9/* side-spin decay, as a fraction of g */,
+const PZ_PHY={W:880,H:440,R:12,G:3390/* 9.81 m/s^2 in px (346 px/m) */,MUS:.2,MUR:.035,MURL:.06/* 9.6: extra rolling drag at crawling speed (fraction of g, fades out by VL px/s) */,VL:320,MUSP:.9/* side-spin decay, as a fraction of g */,
  EB:.95/* ball-ball restitution */,EC:.78/* cushion restitution */,CF:.97/* cushion tangential keep */,ENG:.35/* english -> rebound */,
  CM:31/* corner mouth: cushion stops this far from the corner along each rail */,SM:27/* side mouth half-width */,
  STOP:3,MAXV:3200};
@@ -46679,7 +46679,7 @@ function pzpStep(B,dt,ev,t0){t0=t0||0;let mv=0;for(const b of B)if(b.on){const s
    const dx=b.ux-b.vx,dy=b.uy-b.vy,dl=Math.hypot(dx,dy);
    if(dl>.5){const a=MUS*G*h,ex=dx/dl,ey=dy/dl;if(a*3.5>=dl){/* reaches rolling inside this step: 5v+2u over 7 */const rx=(5*b.vx+2*b.ux)/7,ry=(5*b.vy+2*b.uy)/7;b.vx=b.ux=rx;b.vy=b.uy=ry}
     else{b.vx+=ex*a;b.vy+=ey*a;b.ux-=ex*a*2.5;b.uy-=ey*a*2.5}}
-   else{const s=Math.hypot(b.vx,b.vy);if(s>0){const ns=Math.max(0,s-MUR*G*h);b.vx*=ns/s;b.vy*=ns/s}b.ux=b.vx;b.uy=b.vy}
+   else{const s=Math.hypot(b.vx,b.vy);if(s>0){const ns=Math.max(0,s-(MUR+(s<PZ_PHY.VL?PZ_PHY.MURL*(1-s/PZ_PHY.VL):0))*G*h);b.vx*=ns/s;b.vy*=ns/s}b.ux=b.vx;b.uy=b.vy}
    if(b.es){const d=MUSP*G*h*.15;b.es=Math.abs(b.es)<=d?0:b.es-Math.sign(b.es)*d}
    b.x+=b.vx*h;b.y+=b.vy*h}
   /* ball-ball */
@@ -48598,7 +48598,7 @@ function pzTipsTurn(){if(!pztOk()||!PZ.st)return;const st=PZ.st,Z=PZS(),T=Z.tut,
  if(st.bih&&PZ.mode==='place'&&!st.brk&&!T.bih){pzCoach('bih',[{sel:PZT_TBL,free:true,btn:false,kicker:'BALL IN HAND',title:'Put the cue ball anywhere',text:'Your opponent fouled, so <b>click anywhere</b> on the table to place the cue ball. Pick a spot with an easy shot, then aim as usual.',at:{x:14,y:236,side:'c'},w:296,until:()=>PZ.mode!=='place'||PZ.ph!=='aim'}]);return}
  if(pzrOn8(st)&&!T.call8){pzCoach('call8',[{sel:PZT_TBL,free:true,btn:false,kicker:'THE 8',title:'Call your pocket',text:'Only the 8 is left. <b>Click the pocket</b> you will sink it in (or press <kbd>1</kbd>-<kbd>6</kbd>), then shoot. The 8 in any other pocket loses the rack.',at:{x:14,y:236,side:'c'},w:296,until:()=>PZ.callManual||PZ.ph!=='aim'}]);return}
  if(!st.open&&st.grp[0]&&!T.grp){const g=st.grp[0];pzCoach('grp',[{sel:'#pzcm',side:'bottom',title:`You are ${pztGrpName(g)}`,text:`Your balls are the <b>${pztGrpName(g).toLowerCase()}</b> (${pztGrpNums(g)}), shown here; they fade as you pot them. Hit one of yours first on every shot. When they are gone, go for the <b>8</b>.`,w:420}],{kicker:'GROUPS'});return}
- if(!st.brk&&!T.guide&&Z.guide!=='pro'&&(M.rack>1||(st.shots||0)>=1)){pzCoach('guide',[{sel:PZT_TBL,side:'right',w:300,r:18,title:'Read the guide',text:'A <b style="color:#8affb4">green ring</b> on a pocket means the ball will drop. A <b style="color:#ff6a6a">red cross</b> means the cue ball would fall in, which is a foul. Change the guide with <kbd>G</kbd>.'}],{kicker:'TIP'});return}
+ if(!st.brk&&!T.guide&&Z.guide!=='pro'&&(M.rack>1||(st.shots||0)>=1)){pzCoach('guide',[{sel:PZT_TBL,side:'right',w:300,r:18,title:'Read the guide',text:'The <b style="color:#ffd45a">gold line</b> shows where the ball you hit heads, up to the first cushion. The <b style="color:#9fe8ff">blue line</b> is where the cue ball goes after the hit. Whether it drops is up to your eye! Change the guide with <kbd>G</kbd>.'}],{kicker:'TIP'});return}
  if(!T.spin&&(st.shots||0)>=4&&(PZ.humShots||0)>=2){pzCoach('spin',[{sel:'#pzspin',round:true,pad:6,side:'top',title:'Spin the cue ball',text:'Click this ball to choose where the cue hits it. <b>Low</b> = draw: the cue ball comes back. <b>High</b> = follow: it rolls on. Sides bend the bounce off a cushion. <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> work too, <kbd>R</kbd> resets.',w:430}],{kicker:'TIP'});return}
  if(!T.menu&&M.rack>=2){pzCoach('menu',[{sel:'#pzmb',side:'top',title:'The menu',text:'House rules, settings (aim guide, taunts) and forfeit are in the menu. <kbd>Esc</kbd> opens it too.',w:360}],{kicker:'TIP'});return}}
 /* the monster's first turn: show how to speed it up */
@@ -48912,7 +48912,7 @@ function pzHowArt(kind){if(PZ_HOW_ART[kind])return PZ_HOW_ART[kind];const W=320,
  else if(kind==='scratch'){tbl();ball(150,100,3);dots([[110,60],[146,96]],'#efe8ff',2.5);dots([[152,104],[W/2,H-24]],'#7ad8ff');g.globalAlpha=.85;ball(W/2,H-20,0,8);g.globalAlpha=1;cross(W/2+24,H-40);label('CUE BALL IN = FOUL',W/2,40,'#ff9a9a')}
  else if(kind==='wrong'){tbl();ball(90,90,0);dots([[100,90],[184,90]],'#efe8ff',2.5);ball(196,90,11);ball(250,120,2);cross(196,60);label('YOU ARE SOLIDS',170,148,'#ffd45a');label('STRIPE FIRST = FOUL',170,34,'#ff9a9a')}
  else if(kind==='bih'){tbl();ball(214,82,6);ball(250,120,4);g.save();g.translate(130,96);g.fillStyle='#f2d6b0';g.beginPath();g.ellipse(0,0,20,16,-.3,0,TAU);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();for(let i=0;i<3;i++){g.beginPath();g.ellipse(-12+i*10,-16,5,9,0,0,TAU);g.fillStyle='#f2d6b0';g.fill();g.stroke()}g.restore();ball(150,118,0);arrow(150,150,150,132,'#8affb4');label('PLACE IT ANYWHERE',W/2,40,'#8affb4')}
- else if(kind==='guide'){tbl();ball(70,120,0);ball(170,84,2);dots([[170,84],[W-28,26]],'#ffd45a');ring(W-20,20,'#8affb4');tick(W-46,48);ball(230,140,13);dots([[80,118],[160,90]],'#efe8ff',2.5);dots([[160,92],[200,150],[W/2+20,H-24]],'#7ad8ff');cross(W/2+18,H-22);label('RING = IT DROPS',110,40,'#8affb4')}
+ else if(kind==='guide'){tbl();ball(70,120,0);ball(170,84,2);dots([[170,84],[W-60,42]],'#ffd45a');ball(230,140,13);dots([[80,118],[160,90]],'#efe8ff',2.5);dots([[160,92],[196,140]],'#7ad8ff');label('GOLD = OBJECT BALL',110,40,'#ffd45a')}
  else if(kind==='taunt'){g.fillStyle='#140c36';pzRR(g,6,6,W-12,H-12,16);g.fill();g.fillStyle='#efe8ff';pzRR(g,40,46,240,52,14);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();g.font='700 22px Poppins,sans-serif';g.textAlign='left';g.textBaseline='middle';g.fillStyle='#8a80c8';g.fillText('drip drip',60,72);g.fillStyle='#24124a';g.fillText('drip',60,72);
   g.fillStyle='#12081f';pzRR(g,40,112,240,14,7);g.fill();g.fillStyle='#ff9ad0';pzRR(g,42,114,150,10,5);g.fill();label('TYPE IT: THEIR NEXT SHOT WOBBLES',W/2,150,'#ff9ad0')}
  else if(kind==='fast'){g.fillStyle='#140c36';pzRR(g,6,6,W-12,H-12,16);g.fill();g.fillStyle='#2a2070';pzRR(g,84,52,152,58,14);g.fill();g.strokeStyle=O;g.lineWidth=3;g.stroke();label('SPACE',160,82,'#fff2c8');for(let k=0;k<2;k++){g.fillStyle='#ffd45a';g.beginPath();g.moveTo(250+k*22,62);g.lineTo(270+k*22,82);g.lineTo(250+k*22,102);g.closePath();g.fill();g.strokeStyle=O;g.lineWidth=2.5;g.stroke()}label('HOLD TO FAST-FORWARD',W/2,142,'#efe8ff')}
@@ -48921,7 +48921,7 @@ const PZ_HOW=[
  {k:'basics',t:'Basics',cards:[['groups','Solids or stripes','After the break, the first ball you pot picks your group. Your opponent gets the other one.'],['eight','Then the 8','Clear your group, <b>call a pocket</b> and sink the 8 there to win the rack. Sink it early and you lose the rack.'],['race','Win the race','A match is a race: the first to win the target number of racks (shown at the top) takes the pot.']]},
  {k:'shoot',t:'Shooting',cards:[['aim','Aim','<b>Move the mouse</b>. The guide shows the shot: gold for the ball you hit, blue for the cue ball.'],['power','Power','<b>Press on the table, pull back and let go</b>. Or set the power bar and press SHOOT (<kbd>Space</kbd>).'],['spin','Spin','Click the <b>spin ball</b> at the bottom left. Low draws the cue ball back, high makes it follow.']]},
  {k:'fouls',t:'Fouls',cards:[['scratch','Scratch','The cue ball drops in a pocket. Also a foul: hitting nothing, or no ball reaching a cushion after the hit.'],['wrong','Wrong ball first','Your first contact must be one of your own balls (or any ball while the table is open).'],['bih','Ball in hand','After a foul the other player may <b>place the cue ball anywhere</b>. Do not hand it to the monsters!']]},
- {k:'extras',t:'Guide & extras',cards:[['guide','The guide','A <b>green ring</b> means the ball drops, a <b>red cross</b> means you would scratch. <kbd>G</kbd> switches Full / Short / Pro.'],['taunt','Taunts','When a monster misses you may get a taunt: <b>type it in time</b> and its next shot wobbles. <kbd>Esc</kbd> skips it.'],['fast','Fast-forward','Hold <kbd>Space</kbd> or the mouse while balls roll or a monster thinks. Paid matches run a shot clock.']]},
+ {k:'extras',t:'Guide & extras',cards:[['guide','The guide','<b>Gold</b>: where the ball you hit heads, up to its first cushion. <b>Blue</b>: the cue ball\'s first path. You judge the pocket. <kbd>G</kbd> switches Full / Short / Pro.'],['taunt','Taunts','When a monster misses you may get a taunt: <b>type it in time</b> and its next shot wobbles. <kbd>Esc</kbd> skips it.'],['fast','Fast-forward','Hold <kbd>Space</kbd> or the mouse while balls roll or a monster thinks. Paid matches run a shot clock.']]},
  {k:'keys',t:'Controls',keys:[['Mouse','Aim; press, pull back and let go to shoot'],['Shift / right button','Fine aim (slow mouse)'],['Wheel, ◀ ▶ arrows','Nudge the aim (Shift for tiny steps)'],['Space','Shoot with the power bar; hold to fast-forward'],['W A S D / R','Set the spin / reset it'],['1 - 6','Call a pocket for the 8'],['G','Change the guide'],['Esc','Menu (pause, rules, settings, forfeit)']]}];
 function pzHowBody(tab,full){const T=PZ_HOW.find(x=>x.k===tab)||PZ_HOW[0];
  const body=T.keys?`<div class="pzhowk">${T.keys.map(([a,b])=>`<div><kbd>${a}</kbd><span>${b}</span></div>`).join('')}</div>`:`<div class="pzhowc">${T.cards.map(([art,h,p],i)=>`<div class="pzhcard" style="--i:${i}"><canvas width="640" height="360" data-how="${art}"></canvas><b>${h}</b><p>${p}</p></div>`).join('')}</div>`;
@@ -49286,7 +49286,7 @@ function pzPauseMenu(again){if(!PZ.on||(PZ.modal&&!again)||PZ.ph==='over'||PZ.ph
  {const l=m.querySelector('[data-a=list]');if(l)l.onclick=()=>{pzModalClose();pzTrick()}}
  m.querySelector('[data-a=forfeit]').onclick=()=>{if(trick){pzModalClose();pzTrick();return}pzModal(`<div class="pzh2">${M.practice?'Leave the table?':'Forfeit?'}</div><p class="pzmm">${M.practice?'It is only practice, so nothing is lost.':`You will lose your stake of <b>${cmn(M.stake)}</b>.`}</p><button class="pzmb red" data-a="yes">${M.practice?'Leave':'Forfeit'}</button><button class="pzmb gold" data-a="no">Keep playing</button>`,'pause');
   const mm=$('pzmod');mm.querySelector('[data-a=yes]').onclick=()=>{pzModalClose();pzForfeit()};mm.querySelector('[data-a=no]').onclick=()=>pzPauseMenu(true)}}
-function pzSettingsModal(){const Z=PZS();const gd={full:'Full: the whole shot, where every ball goes and which pockets take them.',short:'Short: the ghost ball and the start of each line.',pro:'Pro: only the aim line to the first ball (and it counts for a trophy against Mortimer).'};
+function pzSettingsModal(){const Z=PZS();const gd={full:'Full: the ghost ball, where the ball you hit heads (up to its first cushion) and the cue ball\'s first path. Judging the pocket is up to you.',short:'Short: the ghost ball and the first stretch of each line.',pro:'Pro: only the aim line to the first ball (and it counts for a trophy against Mortimer).'};
  const seg=(k,opts,cur)=>`<div class="pzseg" data-k="${k}">${opts.map(([v,l])=>`<button class="${cur===v?'on':''}" data-v="${v}">${l}</button>`).join('')}</div>`;
  const m=pzModal(`<div class="pzh2">Settings</div>
  <div class="pzset"><span>Aim guide</span>${seg('guide',[['full','Full'],['short','Short'],['pro','Pro']],Z.guide)}</div><p class="pzmm small pzgdtxt">${gd[Z.guide]||''}</p>
@@ -49328,6 +49328,260 @@ function pzSettingsModal(){const Z=PZS();const gd={full:'Full: the whole shot, w
 .pzti .pzthid{font-style:italic;color:#8a80b8;letter-spacing:normal;font-size:inherit}
 .pzt9 .pztsub{display:inline-block;left:50%;right:auto;white-space:nowrap;transform:translateX(-50%);padding:5px 16px;border-radius:14px;background:#100a30e0;border:2px solid #4a3e90}
 `;document.head.appendChild(st)}
+/* ===== 9.6 THE CROOKED CUE: ball sets, redone and more of them (96zb) =====
+   One painter for every set, still per pixel into the same atlas, with a material per set:
+   classic (clear-coat phenolic), marble (veined stone, gold numbers), gem (faceted, sparkling), pearl (Moonstone,
+   iridescent), neon (dark glass with glowing bands), lava (cracked rock glowing from inside), galaxy (nebula and stars),
+   metal (Champion Gold: polished metal reflecting the room). Every set gets a fresnel rim, a crisp ring round the number
+   disc and the old lamp, window and felt bounce. Five new sets join the three old ones (the shop or the regulars). */
+Object.assign(PZ_BPAL.classic,{kind:'classic',rim:.22});
+Object.assign(PZ_BPAL.gem,{kind:'gem',rim:.3});
+Object.assign(PZ_BPAL.moon,{kind:'pearl',rim:.35});
+PZ_BPAL.marble={kind:'marble',col:{1:[236,200,96],2:[96,128,196],3:[200,96,96],4:[150,112,186],5:[226,150,92],6:[96,160,124],7:[150,86,80],8:[52,50,58]},white:[240,236,228],disc:[252,246,232],num:[150,104,20],spec:1.2,win:.14,rim:.25};
+PZ_BPAL.neon={kind:'neon',col:{1:[255,230,60],2:[60,170,255],3:[255,60,110],4:[190,90,255],5:[255,150,40],6:[60,255,160],7:[255,90,70],8:[220,220,240]},white:[244,244,255],disc:[24,20,36],num:[255,255,255],spec:1.3,win:.12,rim:.4};
+PZ_BPAL.lava={kind:'lava',col:{1:[255,200,40],2:[80,150,255],3:[255,70,40],4:[200,90,255],5:[255,130,30],6:[90,255,120],7:[255,60,60],8:[255,120,40]},white:[236,226,214],disc:[40,26,22],num:[255,190,90],spec:.9,win:.08,rim:.2};
+PZ_BPAL.galaxy={kind:'galaxy',col:{1:[255,210,90],2:[80,130,255],3:[255,90,140],4:[170,110,255],5:[255,150,80],6:[80,230,200],7:[230,100,120],8:[150,140,220]},white:[238,240,255],disc:[230,232,246],num:[30,26,70],spec:1.3,win:.14,rim:.35};
+PZ_BPAL.royal={kind:'metal',col:{1:[255,210,90],2:[120,170,255],3:[255,110,110],4:[200,140,255],5:[255,170,90],6:[110,230,160],7:[230,120,110],8:[70,64,84]},white:[248,244,232],disc:[255,248,226],num:[60,40,10],spec:1.6,win:.2,rim:.3};
+for(const b of[{id:'marble',n:'Carrara Marble',how:'Cue Rack: 2,500',price:2500},{id:'neon',n:'Neon Nights',how:'Cue Rack: 8,000',price:8000},{id:'lava',n:'Ember Core',how:'Beat Grizzle',beat:'grizzle'},{id:'galaxy',n:'Starfall',how:'Beat Professor Hootsworth',beat:'hootsworth'},{id:'royal',n:'Champion Gold',how:'Beat Mortimer',beat:'mortimer'}])
+ if(!PZ_BALLS.some(x=>x.id===b.id))PZ_BALLS.push(b);
+/* regular-won ball sets unlock with the felts (one win) */
+{const f0=pzUnlockSweep;pzUnlockSweep=function(){const got=f0.apply(this,arguments),Z=PZS();for(const b of PZ_BALLS)if(!Z.ballsets[b.id]&&b.beat&&(Z.beat[b.beat]||0)>=1){Z.ballsets[b.id]=1;got.push({t:'balls',id:b.id,n:b.n})}return got}}
+{const p0=PZS;PZS=function(){const Z=p0.apply(this,arguments);try{if(Z&&!PZ_BALLS.some(b=>b.id===Z.balls))Z.balls='classic'}catch(e){}return Z}}
+const pzbF=x=>x-Math.floor(x),pzbH=(x,y,z)=>pzbF(Math.sin(x*127.1+y*311.7+z*74.7)*43758.5453);
+function pzbPaint(slot,n,M){const P=PZ_BS,pal=P.pal,K=pal.kind||'classic',d=P.img.data,stripe=n>8,C=n===0?pal.white:pal.col[stripe?n-8:n],W=pal.white,DS=pal.disc,NM=pal.num,gl=n>0?P.gm[n]:null,
+ m0=M[0],m1=M[1],m2=M[2],m3=M[3],m4=M[4],m5=M[5],m6=M[6],m7=M[7],m8=M[8],sk=pal.spec,wk=pal.win,rk=pal.rim||.25,cue=n===0;if(!P.rimA||P.rimA.length!==P.n){P.rimA=new Float32Array(P.n);for(let j=0;j<P.n;j++)P.rimA[j]=Math.pow(1-P.nz[j],2.6)}const RA=P.rimA;
+ for(let j=0;j<P.n;j++){const wx=P.nx[j],wy=P.ny[j],wz=P.nz[j];
+  const lx=m0*wx+m3*wy+m6*wz,ly=m1*wx+m4*wy+m7*wz,lz=m2*wx+m5*wy+m8*wz;
+  /* band: 1 inside the coloured part (whole ball for solids), 0 on the white of a stripe */
+  let band=1;if(stripe){const ay=ly<0?-ly:ly;band=1-Math.max(0,Math.min(1,(ay-.56)/.035+.5))}
+  let r,g,b,er=0,eg=0,eb=0,lit=1,metal=0;
+  if(cue){r=W[0];g=W[1];b=W[2]}
+  else if(K==='marble'){const v=Math.sin(lx*3.1+ly*1.2+3.4*Math.sin(ly*2.7+lz*1.9+1.3*Math.sin(lx*5.1))+2.3*Math.sin(lz*4.1-lx*2.3)),v1=1-Math.abs(v),v2=v1*v1,v4=v2*v2,vm=v4*v4*v1*.55,cl=.93+.07*Math.sin(ly*7+lz*3+lx*2);
+   const br=C[0]+(W[0]-C[0])*.18,bg=C[1]+(W[1]-C[1])*.18,bb=C[2]+(W[2]-C[2])*.18;r=(W[0]+(br-W[0])*band)*cl;g=(W[1]+(bg-W[1])*band)*cl;b=(W[2]+(bb-W[2])*band)*cl;const vr=band?.45:.62;r*=1-vm*(1-vr);g*=1-vm*(1-vr);b*=1-vm*(1-vr)}
+  else if(K==='gem'){const fx=Math.round(lx*2.6),fy=Math.round(ly*2.6),fz=Math.round(lz*2.6),h=pzbH(fx,fy,fz),k=.72+.5*h;r=(W[0]+(C[0]-W[0])*band)*k;g=(W[1]+(C[1]-W[1])*band)*k;b=(W[2]+(C[2]-W[2])*band)*k;
+   const ins=wz*wz*.3*band;er=C[0]*ins;eg=C[1]*ins;eb=C[2]*ins;if(h>.86&&P.spe[j]<.2){const s=(h-.86)*6*Math.max(0,wz);er+=255*s*.5;eg+=255*s*.5;eb+=255*s*.5}}
+  else if(K==='pearl'){const a=6*lx+4*ly+(1-wz)*5,ir=(1-wz)*.6+.25;r=W[0]+(C[0]-W[0])*band+38*ir*Math.sin(a);g=W[1]+(C[1]-W[1])*band+38*ir*Math.sin(a+2.1);b=W[2]+(C[2]-W[2])*band+38*ir*Math.sin(a+4.2)}
+  else if(K==='neon'){const ring=stripe?band:Math.max(0,1-Math.abs(lz)/.2),dark=[24,22,38];r=dark[0];g=dark[1];b=dark[2];if(stripe&&!band){r=46;g=44;b=64}
+   const e=ring*.9+(stripe?0:.1);er=C[0]*e;eg=C[1]*e;eb=C[2]*e;const rim=RA[j]*.7;er+=C[0]*rim;eg+=C[1]*rim;eb+=C[2]*rim;lit=.8}
+  else if(K==='lava'){const c=Math.abs(Math.sin(lx*6.1+Math.sin(ly*3.7)*2)*Math.sin(ly*5.3+Math.sin(lz*4.1)*2)*Math.sin(lz*5.9+Math.sin(lx*3.3)*2)),cr=Math.max(0,1-c/.13);
+   const tint=band?.42:.12;r=44+(C[0]*.6-44)*tint;g=30+(C[1]*.6-30)*tint;b=26+(C[2]*.6-26)*tint;const hot=cr*cr*(band?1:.7);er=(C[0]*.6+255*.4)*hot;eg=(C[1]*.5+120*.5)*hot;eb=(C[2]*.3+30*.7)*hot}
+  else if(K==='galaxy'){const nb=.5+.5*Math.sin(lx*3.3+Math.sin(ly*4.1+lz*2.3)*1.6+Math.sin(lz*3.7)*.8),k2=nb*nb;
+   if(band){r=C[0]*.16+C[0]*.9*k2;g=C[1]*.16+C[1]*.9*k2;b=C[2]*.2+C[2]*.9*k2+20*(1-k2)}else{r=30+60*k2;g=28+50*k2;b=60+80*k2}
+   const qx=Math.floor(lx*13),qy=Math.floor(ly*13),qz=Math.floor(lz*13),h=pzbH(qx,qy,qz);if(h>.93){const cx=lx*13-qx-.5,cy=ly*13-qy-.5,cz=lz*13-qz-.5,dd=cx*cx+cy*cy+cz*cz,s=Math.max(0,1-dd*9)*(h-.93)*14;er+=255*s;eg+=245*s;eb+=255*s}}
+  else if(K==='metal'){metal=1;const rx=2*wz*wx,ry=2*wz*wy,env=.25+.75*Math.max(0,-ry*.6+.45)+.25*Math.max(0,ry)*.3+.35*Math.pow(Math.max(0,1-Math.abs(rx+.35)*1.4),3)*Math.max(0,-ry+.2),
+   tr=band?C[0]*.55+255*.45:250,tg=band?C[1]*.55+214*.45:236,tb=band?C[2]*.55+120*.45:206;r=tr*env;g=tg*env;b=tb*env;lit=0}
+  else{r=W[0]+(C[0]-W[0])*band;g=W[1]+(C[1]-W[1])*band;b=W[2]+(C[2]-W[2])*band}
+  /* number discs on both poles, with a crisp ring round each */
+  const az=lz<0?-lz:lz;
+  if(n>0){if(az>.8){const u=lx*2,v=ly*2,q=u*u+v*v;if(q<1.3){const dk=Math.max(0,Math.min(1,(1-q)/.1+.2)),fade=Math.min(1,(az-.8)/.03);
+    const s=lz>0?1:-1,gx=((u*s*.5+.5)*64)|0,gy=((v*.5+.5)*64)|0;let gm=0;if(gx>=0&&gx<64&&gy>=0&&gy<64)gm=gl[gy*64+gx]/255;
+    const t=dk*fade;let dr=DS[0]+(NM[0]-DS[0])*gm,dg=DS[1]+(NM[1]-DS[1])*gm,db=DS[2]+(NM[2]-DS[2])*gm;
+    if(K==='neon'){dr=DS[0];dg=DS[1];db=DS[2];const e=gm*t;er=er*(1-t)+C[0]*e*1.1+60*e;eg=eg*(1-t)+C[1]*e*1.1+60*e;eb=eb*(1-t)+C[2]*e*1.1+60*e}
+    else if(K==='lava'){er*=1-t;eg*=1-t;eb*=1-t;const e=gm*t;er+=255*e;eg+=170*e;eb+=60*e}
+    else{er*=1-t;eg*=1-t;eb*=1-t}
+    r+=(dr-r)*t;g+=(dg-g)*t;b+=(db-b)*t;
+    /* the ring */
+    const rg=Math.max(0,1-Math.abs(q-1.02)/.09)*fade*.5;r*=1-rg;g*=1-rg;b*=1-rg}}}
+  else{let dm=0;if(az>.93){const q=lx*lx+ly*ly;if(q<.026)dm=Math.min(1,(.026-q)/.006)}
+   else{const ax=lx<0?-lx:lx,ay=ly<0?-ly:ly;if(ax>.95){const q=ly*ly+lz*lz;if(q<.018)dm=Math.min(1,(.018-q)/.005)}else if(ay>.95){const q=lx*lx+lz*lz;if(q<.018)dm=Math.min(1,(.018-q)/.005)}}
+   if(dm>0){r+=(210-r)*dm;g+=(48-g)*dm;b+=(52-b)*dm}}
+  const f=metal?1:(P.dif[j]*lit+(1-lit)*.55),sp=P.spe[j]*255*sk,o=P.idx[j]*4,bo=P.bou[j]*38,wn=P.win[j]*255*wk,rim=RA[j]*255*rk;
+  let rr=r*f+sp+wn+rim*.86+er,gg=g*f+sp+wn+bo+rim*.9+eg,bb=b*f+sp+wn+bo*.4+rim+eb;d[o]=rr>255?255:rr<0?0:rr;d[o+1]=gg>255?255:gg<0?0:gg;d[o+2]=bb>255?255:bb<0?0:bb;d[o+3]=P.al[j]*255}
+ P.ax.putImageData(P.img,slot*P.D,0)}
+/* the richer sets cost more per ball: repaint moving balls round-robin inside a small time budget per frame
+   (the break still turns every ball; a ball may simply wait a frame) */
+function pzbSync(B){const all=PZ_BS.dirtyAll;PZ_BS.dirtyAll=0;let n=0;const L=B.length,o=(PZ_BS.rr=(PZ_BS.rr||0)+1)%L,t0=performance.now();
+ for(let k=0;k<L;k++){const b=B[(o+k)%L];if(all||b.dirty){if(!all&&n>=4&&performance.now()-t0>2.2){continue}pzbPaint(b.id,b.id,b.M);b.dirty=0;n++}}return n}
+/* the Cue Rack's ball wall: eight sets in two columns */
+{const st=document.createElement('style');st.textContent=`
+.pzrk9 .pzkwall.balls .pzkcards{grid-template-columns:1fr 1fr;gap:10px;inset:18px}
+.pzrk9 .pzkwall.balls .pzksw>canvas{width:330px;height:66px}
+.pzrk9 .pzkwall.balls .pzksw{padding:10px 14px 8px}
+.pzrk9 .pzkwall.balls .pzksw b{font-size:21px;margin-top:2px}
+.pzrk9 .pzkwall.balls .pzksw .pzktag{top:10px}
+.pzrk9 .pzkwall.balls .pzksw .pzktag canvas{width:18px;height:18px}
+`;document.head.appendChild(st)}
+/* ===== 9.6 THE CROOKED CUE: the cues, redrawn (96zc) =====
+   Same sprite size and anchor as 96h (tip at the right, butt at -L), so every user (table, rack, upright wall,
+   hand slot) picks it up. Built in slices so the round shading follows the taper: chalked leather tip, ivory ferrule,
+   grained maple shaft, a metal joint collar, a forearm with inlaid points, a stitched wrap, a butt sleeve with each
+   cue's own motif, gold rings and a rubber bumper. Baked once per cue. */
+function pzCueSprite(id){if(PZ_CUE.cache[id])return PZ_CUE.cache[id];const sk=PZ_CUES.find(c=>c.id===id)||PZ_CUES[0],L=PZ_CUE.L,S=2,W=(L+22)*S,H=30*S,c=pzCv(W,H),g=c.getContext('2d');
+ g.scale(S,S);g.translate(L+10,15);g.lineJoin='round';g.lineCap='round';
+ const J=-L*.58,FA=J-80,WR=FA-54,BT=-L+7;
+ const wd=x=>x<J?(3.0+(-x+J)/(L+J)*4.6):(2.45+(-x)/(-J)*.75);
+ const path=(x0,x1)=>{g.beginPath();g.moveTo(x0,-wd(x0));g.lineTo(x1,-wd(x1));g.lineTo(x1,wd(x1));g.lineTo(x0,wd(x0));g.closePath()};
+ const fill=(x0,x1,f)=>{g.fillStyle=f;path(x0,x1);g.fill()};
+ /* round shading in short slices so the light band follows the taper */
+ const shade=(x0,x1,k)=>{const lo=Math.min(x0,x1),hi=Math.max(x0,x1),r5=v=>Math.round(v*2)/2,n=Math.max(1,Math.ceil((hi-lo)/10));g.save();path(x0,x1);g.clip();
+  for(let i=0;i<n;i++){const a=r5(lo+(hi-lo)*i/n),b=r5(lo+(hi-lo)*(i+1)/n),w=wd((a+b)/2);
+   const q=g.createLinearGradient(0,-w,0,w);q.addColorStop(0,`rgba(255,255,255,${.30*k})`);q.addColorStop(.22,`rgba(255,255,255,${.42*k})`);q.addColorStop(.36,'rgba(255,255,255,0)');q.addColorStop(.7,`rgba(0,0,0,${.12*k})`);q.addColorStop(1,`rgba(0,0,0,${.42*k})`);
+   g.fillStyle=q;g.fillRect(a,-9,b-a,18)}g.restore()};
+ const ring=(x,w,col)=>{const h=wd(x)+.5;g.fillStyle=col;g.fillRect(x-w/2,-h,w,h*2);g.fillStyle='rgba(255,250,220,.75)';g.fillRect(x-w/2,-h,w,h*.45);g.fillStyle='rgba(0,0,0,.35)';g.fillRect(x-w/2,h*.5,w,h*.5)};
+ const gold='#e0aa3e',silver='#d8dce8';
+ /* soft shadow under the cue */
+ g.fillStyle='rgba(0,0,0,.2)';g.beginPath();g.moveTo(0,0);g.lineTo(-L,-4);g.lineTo(-L,10);g.lineTo(0,5);g.fill();
+ /* shaft: maple, light at the ferrule, the cue's own tint toward the joint, with wavy grain */
+ fill(-24,J,pzLin(g,-24,0,J,0,[[0,sk.a],[1,sk.b]]));
+ g.save();path(-24,J);g.clip();
+ for(let i=0;i<9;i++){g.strokeStyle=i%3?'rgba(110,64,16,.13)':'rgba(110,64,16,.22)';g.lineWidth=.45;g.beginPath();const y=(i-4)*.62;for(let x=-24;x>=J;x-=6){const yy=y*(wd(x)/2.9)+Math.sin(x*.045+i*1.7)*.35;x===-24?g.moveTo(x,yy):g.lineTo(x,yy)}g.stroke()}
+ g.restore();shade(-24,J,1);
+ /* ferrule (ivory) and the chalked leather tip */
+ g.fillStyle='#f6f0e0';g.beginPath();g.roundRect(-24,-2.55,17.5,5.1,1.2);g.fill();shade(-24,-6.5,.8);
+ g.fillStyle='rgba(120,100,70,.35)';g.fillRect(-23.4,-2.55,.7,5.1);
+ g.fillStyle='#2f6fd0';g.beginPath();g.roundRect(-7.2,-2.45,7.2,4.9,[0,2.4,2.4,0]);g.fill();
+ g.fillStyle='rgba(150,200,255,.75)';for(let i=0;i<6;i++)g.fillRect(-2.2+((i*37)%3)*.6,-1.8+i*.62,.9,.5);
+ g.fillStyle='rgba(255,255,255,.45)';g.fillRect(-6.4,-1.9,4.6,.9);
+ /* forearm (joint to wrap): the cue's dark wood with four inlaid points */
+ fill(J,FA,pzLin(g,J,0,FA,0,[[0,pzMix(sk.c,sk.b,.18)],[1,sk.c]]));
+ g.save();path(J,FA);g.clip();
+ for(let k=-1;k<=1;k+=2){/* each visible point: veneer outline in gold, body in the accent colour */
+  const base=FA,tip=J-6,mid=k*0;g.fillStyle=gold;g.beginPath();g.moveTo(base,mid-wd(base)*1.1*k);g.lineTo(tip,mid);g.lineTo(base,mid+wd(base)*.2*k);g.closePath();g.fill();
+  g.fillStyle=sk.d;g.beginPath();g.moveTo(base,mid-wd(base)*.9*k);g.lineTo(tip+6,mid-.15*k);g.lineTo(base,mid+wd(base)*.05*k);g.closePath();g.fill()}
+ g.fillStyle=sk.d;g.globalAlpha=.55;g.beginPath();g.moveTo(FA,-1.4);g.lineTo(J-14,0);g.lineTo(FA,1.4);g.fill();g.globalAlpha=1;
+ g.restore();shade(J,FA,1);
+ /* the joint collar */
+ const jc=sk.glow?silver:gold;fill(J+4,J-4,jc);shade(J+4,J-4,1.1);g.fillStyle='rgba(0,0,0,.45)';g.fillRect(J-.4,-wd(J)-.2,.8,wd(J)*2+.4);ring(J+4.4,1.2,'#14101a');
+ ring(FA-1,2.2,gold);ring(FA-4,1.2,sk.d);
+ /* the wrap: leather or linen, stitched in a crosshatch */
+ const w0=FA-6,w1=WR;fill(w0,w1,sk.wrap);
+ g.save();path(w0,w1);g.clip();
+ for(let x=w0;x>w1-6;x-=3.6){g.strokeStyle='rgba(255,255,255,.11)';g.lineWidth=.7;g.beginPath();g.moveTo(x,-wd(x));g.lineTo(x-4.2,wd(x));g.stroke();g.strokeStyle='rgba(0,0,0,.32)';g.beginPath();g.moveTo(x-1.4,-wd(x));g.lineTo(x+2.8,wd(x));g.stroke()}
+ for(let x=w0-2;x>w1;x-=7.2){g.fillStyle='rgba(255,255,255,.10)';g.fillRect(x,-.4,1.6,.8)}
+ g.restore();shade(w0,w1,1.2);ring(w0,2,gold);ring(w1,2,gold);
+ /* butt sleeve: dark, with the accent band and a motif per cue */
+ fill(w1-1,BT,pzLin(g,w1,0,BT,0,[[0,sk.c],[.5,pzMix(sk.c,sk.d,.22)],[1,sk.c]]));
+ g.save();path(w1-1,BT);g.clip();pzCueMotif(g,sk,w1-7,BT+11,wd);g.restore();shade(w1-1,BT,1.1);
+ ring(w1-5,1.1,sk.d);ring(BT+9,2.4,gold);ring(BT+5,1,silver);
+ /* rubber bumper */
+ const bw=wd(BT);g.fillStyle='#16121e';g.beginPath();g.roundRect(-L,-bw-.6,BT+L+.5,(bw+.6)*2,[3,0,0,3]);g.fill();g.fillStyle='rgba(255,255,255,.14)';g.fillRect(-L+1.5,-bw+.4,BT+L-2,1.1);
+ /* outline */
+ g.strokeStyle=PZ_O;g.lineWidth=1.4;g.beginPath();g.moveTo(-.3,-2.45);g.lineTo(-24,-2.55);g.lineTo(J,-wd(J));g.lineTo(BT,-wd(BT));g.lineTo(BT,-bw-.6);g.lineTo(-L+2,-bw-.6);g.quadraticCurveTo(-L,-bw-.6,-L,-bw+2);g.lineTo(-L,bw-2);g.quadraticCurveTo(-L,bw+.6,-L+2,bw+.6);g.lineTo(BT,bw+.6);g.lineTo(BT,wd(BT));g.lineTo(J,wd(J));g.lineTo(-24,2.55);g.lineTo(-.3,2.45);g.quadraticCurveTo(.8,0,-.3,-2.45);g.stroke();
+ /* the long gloss line along the top */
+ g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=.6;g.beginPath();g.moveTo(-26,-1.75);g.lineTo(J,-wd(J)+.9);g.stroke();
+ g.strokeStyle='rgba(255,255,255,.28)';g.beginPath();g.moveTo(FA-8,-wd(FA-8)+1.1);g.lineTo(BT+12,-wd(BT+12)+1.4);g.stroke();
+ return PZ_CUE.cache[id]={c,W,H,L,sk}}
+/* the butt-sleeve motif, between x0 (near the wrap) and x1 (near the bumper); clipped to the sleeve */
+function pzCueMotif(g,sk,x0,x1,wd){const d=sk.d,a=sk.a,n=x0-x1,id=sk.id,gold='#e0aa3e';
+ const dia=(x,s,f,o)=>{const w=wd(x)*s;g.fillStyle=f;g.beginPath();g.moveTo(x+w*1.6,0);g.lineTo(x,-w);g.lineTo(x-w*1.6,0);g.lineTo(x,w);g.closePath();g.fill();if(o){g.strokeStyle=o;g.lineWidth=.6;g.stroke()}};
+ const dot=(x,y,r,f)=>{g.fillStyle=f;g.beginPath();g.arc(x,y,r,0,TAU);g.fill()};
+ const step=n/4;
+ if(id==='ember'){/* flames licking up from the bumper */
+  const w=wd(x1);for(let i=0;i<5;i++){const yc=(i-2)*w*.42,len=n*(.42+.28*((i*3)%5)/4),s2=i%2?-1:1;g.fillStyle=i%2?'#ffd070':d;g.beginPath();g.moveTo(x1-1,yc-w*.5);g.quadraticCurveTo(x1+len*.55,yc-w*.55,x1+len,yc+s2*w*.25);g.quadraticCurveTo(x1+len*.45,yc+w*.45,x1-1,yc+w*.5);g.closePath();g.fill()}}
+ else if(id==='frost'){for(let i=0;i<4;i++){const x=x1+step*(i+.5),w=wd(x)*.8;g.strokeStyle=d;g.lineWidth=.9;for(let k=0;k<3;k++){const an=k*Math.PI/3;g.beginPath();g.moveTo(x-Math.cos(an)*w,-Math.sin(an)*w);g.lineTo(x+Math.cos(an)*w,Math.sin(an)*w);g.stroke()}dot(x,0,.9,'#ffffff')}}
+ else if(id==='dragonbone'){for(let x=x1+2;x<x0;x+=7){const w=wd(x);for(let r=-1;r<=1;r++){g.fillStyle=r?pzMix(sk.c,d,.45):d;g.beginPath();g.arc(x,r*w*.62,w*.38,-Math.PI/2,Math.PI/2);g.fill()}}}
+ else if(id==='slime'){for(let i=0;i<7;i++){const x=x1+6+i*n/7,w=wd(x);dot(x,-w*.2+Math.sin(i*2.1)*w*.4,w*(.28+.12*(i%3)),i%2?d:a)}g.fillStyle=d;g.fillRect(x0-6,-wd(x0),6,wd(x0)*2)}
+ else if(id==='mycelium'){for(let i=0;i<9;i++){const x=x1+5+i*n/9,w=wd(x);dot(x,(i%3-1)*w*.55,w*(.18+.1*(i%2)),i%2?d:'#fff4f8')}}
+ else if(id==='smasher'){for(let i=0;i<5;i++){const x=x1+6+i*n/5,w=wd(x);g.fillStyle='rgba(0,0,0,.4)';g.fillRect(x-1.2,-w,2.4,w*2);dot(x+4,-w*.5,.9,'#e8e8f0');dot(x+4,w*.5,.9,'#e8e8f0')}g.fillStyle=d;g.fillRect(x1,-wd(x1),4,wd(x1)*2)}
+ else if(id==='nightwing'){for(let i=0;i<4;i++){const x=x1+step*(i+.3),w=wd(x);g.fillStyle=d;g.beginPath();g.moveTo(x+10,0);g.lineTo(x,-w);g.lineTo(x+3,0);g.lineTo(x,w);g.closePath();g.fill()}}
+ else if(id==='harpoon'){/* rope wound round the butt */for(let x=x1+4;x<x1+n*.45;x+=3){const w=wd(x);g.strokeStyle=(x|0)%2?'#c8a878':'#a8885a';g.lineWidth=1.6;g.beginPath();g.moveTo(x,-w);g.lineTo(x+2.4,w);g.stroke()}dia(x1+n*.72,.7,d,gold)}
+ else if(id==='quill'){for(let x=x1+4;x<x0-2;x+=3.2){const w=wd(x);g.strokeStyle=pzMix(a,d,.4);g.lineWidth=.6;g.beginPath();g.moveTo(x,0);g.lineTo(x+4,-w);g.moveTo(x,0);g.lineTo(x+4,w);g.stroke()}g.strokeStyle=d;g.lineWidth=.8;g.beginPath();g.moveTo(x1,0);g.lineTo(x0,0);g.stroke()}
+ else if(id==='scepter'){for(let i=0;i<4;i++){const x=x1+step*(i+.5),w=wd(x);dot(x-3,-w*.35,w*.28,'#f4f0e6');dot(x-3,w*.35,w*.28,'#f4f0e6');g.fillStyle='#f4f0e6';g.fillRect(x-3,-w*.18,7,w*.36);dot(x+4,-w*.35,w*.28,'#f4f0e6');dot(x+4,w*.35,w*.28,'#f4f0e6')}dia(x0-4,.55,d)}
+ else if(id==='shadow'){for(let i=0;i<4;i++)dia(x1+step*(i+.5),.62,d,'#fff4b0');g.fillStyle=d;g.fillRect(x1+2,-.35,n-4,.7)}
+ else if(id==='maple'){for(let i=0;i<3;i++)dia(x1+n*(i+.5)/3,.55,a,gold)}
+ else{/* house cue: a plain pair of diamonds and a band */for(let i=0;i<2;i++)dia(x1+n*(i+.5)/2,.55,d,'#f0d8a0');g.fillStyle=d;g.fillRect(x1+n*.5-1,-wd(x1+n*.5),2,wd(x1+n*.5)*2)}}
+/* the old wall pictures and the upright rack art are cached per cue: start fresh */
+try{PZ_CUE.cache={};if(typeof PZ_UPRIGHT==='object')for(const k in PZ_UPRIGHT)delete PZ_UPRIGHT[k]}catch(e){}
+/* the player's portrait (HUD, VS, pause): a square head-and-shoulders crop centred on the face, not a squashed
+   wide strip of the whole sprite */
+{const f0=pzCastPortrait;pzCastPortrait=function(g,who,id,size,t,ex){if(who!=='hero')return f0.apply(this,arguments);
+ g.save();g.clearRect(0,0,size,size);const sp=PZ_CAST.sprites.idle;if(sp){const k=sp.width/344,cw=196*k;g.imageSmoothingQuality='high';g.drawImage(sp,60*k,6*k,cw,cw,0,size*.04,size,size)}g.restore()}}
+/* ===== 9.6 THE CROOKED CUE: the emblem (96zd) =====
+   One badge for the mode: a gold-ringed medallion, the 8-ball, a cue with a kink in it crossing behind, and a
+   ribbon. Inline SVG (static, no filters), used on the casino tile, the Special feature card, the switcher button
+   and beside the hub title. */
+function pzEmblem(px,opt){opt=opt||{};const rib=opt.ribbon!==false;
+ return `<svg class="pzemb" viewBox="0 0 200 ${rib?214:200}" width="${px}" height="${Math.round(px*(rib?214:200)/200)}" aria-hidden="true"><defs>
+ <linearGradient id="pzeG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".45" stop-color="#f2b938"/><stop offset=".75" stop-color="#c47c18"/><stop offset="1" stop-color="#ffd86a"/></linearGradient>
+ <radialGradient id="pzeF" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="#3fae78"/><stop offset=".6" stop-color="#17643f"/><stop offset="1" stop-color="#0a3424"/></radialGradient>
+ <radialGradient id="pzeB" cx=".36" cy=".3" r=".75"><stop offset="0" stop-color="#5a5468"/><stop offset=".35" stop-color="#1c1824"/><stop offset="1" stop-color="#050308"/></radialGradient>
+ <linearGradient id="pzeW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe2a6"/><stop offset="1" stop-color="#c8904a"/></linearGradient>
+ <linearGradient id="pzeR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8283c"/><stop offset="1" stop-color="#7a1022"/></linearGradient></defs>
+ <circle cx="100" cy="100" r="97" fill="#12081f"/>
+ <circle cx="100" cy="100" r="91" fill="url(#pzeG)"/>
+ <circle cx="100" cy="100" r="80" fill="#12081f"/>
+ <circle cx="100" cy="100" r="76" fill="url(#pzeF)"/>
+ ${[0,1,2,3,4,5,6,7,8,9,10,11].map(i=>{const a=i/12*Math.PI*2-Math.PI/2,x=100+Math.cos(a)*85.5,y=100+Math.sin(a)*85.5;return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${i%3?1.8:2.8}" fill="#12081f" opacity=".7"/>`}).join('')}
+ <ellipse cx="100" cy="66" rx="58" ry="26" fill="#fff6c0" opacity=".1"/>
+ <g stroke-linecap="round" stroke-linejoin="round">
+  <path d="M22 142 L78 120 L176 50" fill="none" stroke="#12081f" stroke-width="15"/>
+  <path d="M22 142 L78 120" fill="none" stroke="#3a1a2a" stroke-width="10"/>
+  <path d="M22 142 L48 131.8" fill="none" stroke="#8a2a2a" stroke-width="10"/><path d="M33 137.7 L37 136.1" fill="none" stroke="#f2b938" stroke-width="10"/>
+  <path d="M78 120 L176 50" fill="none" stroke="url(#pzeW)" stroke-width="7.5"/>
+  <path d="M80 117.4 L174 49.2" fill="none" stroke="#fff8e0" stroke-width="1.6" opacity=".7"/>
+  <path d="M75 122 L81 117.8" fill="none" stroke="#f2b938" stroke-width="11"/>
+  <path d="M166 57.1 L176 50" fill="none" stroke="#f6f0e0" stroke-width="7.5"/>
+  <path d="M174.8 50.9 L178.4 48.3" fill="none" stroke="#3a86e8" stroke-width="7.5"/></g>
+ <circle cx="100" cy="98" r="41" fill="#12081f"/>
+ <circle cx="100" cy="98" r="37.5" fill="url(#pzeB)"/>
+ <circle cx="100" cy="98" r="17" fill="#fbf7ee" stroke="#12081f" stroke-width="2"/>
+ <text x="100" y="108.5" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="800" font-size="28" fill="#12081f">8</text>
+ <ellipse cx="86" cy="80" rx="11" ry="6.5" transform="rotate(-30 86 80)" fill="#fff" opacity=".55"/>
+ <circle cx="80.5" cy="77.5" r="3" fill="#fff" opacity=".9"/>
+ <g fill="#ffe27a"><path d="M100 27l2.6 6 6 2.6-6 2.6-2.6 6-2.6-6-6-2.6 6-2.6z"/><path d="M52 60l1.6 3.6 3.6 1.6-3.6 1.6-1.6 3.6-1.6-3.6-3.6-1.6 3.6-1.6z"/><path d="M150 128l1.6 3.6 3.6 1.6-3.6 1.6-1.6 3.6-1.6-3.6-3.6-1.6 3.6-1.6z"/></g>
+ ${rib?`<g stroke="#12081f" stroke-width="3.5" stroke-linejoin="round">
+  <path d="M14 166 L36 160 L36 196 L14 202 L24 184 Z" fill="#7a1022"/><path d="M186 166 L164 160 L164 196 L186 202 L176 184 Z" fill="#7a1022"/>
+  <path d="M28 156 Q100 140 172 156 L172 192 Q100 176 28 192 Z" fill="url(#pzeR)"/></g>
+  <path d="M34 162 Q100 147 166 162" fill="none" stroke="#ffd86a" stroke-width="1.6" opacity=".8"/>
+  <path id="pzeT" d="M38 182 Q100 166 162 182" fill="none"/>
+  <text font-family="'Pirata One',serif" font-size="25" fill="#ffe08a" stroke="#12081f" stroke-width="1" paint-order="stroke" letter-spacing="1"><textPath href="#pzeT" startOffset="50%" text-anchor="middle">Crooked Cue</textPath></text>`:''}
+ </svg>`}
+/* the casino tile and the Special feature art: a lit felt with the emblem in the middle */
+TA.pz=`<svg viewBox="0 0 320 176" preserveAspectRatio="xMidYMid slice"><defs><radialGradient id="pzta2" cx=".5" cy=".45" r=".75"><stop offset="0" stop-color="#36a070"/><stop offset=".5" stop-color="#17643f"/><stop offset="1" stop-color="#062018"/></radialGradient><linearGradient id="pztw2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a85e2a"/><stop offset="1" stop-color="#4a220c"/></linearGradient></defs>
+ <rect width="320" height="176" fill="url(#pzta2)"/>
+ <rect x="-6" y="-6" width="332" height="188" rx="16" fill="none" stroke="url(#pztw2)" stroke-width="18"/><rect x="-6" y="-6" width="332" height="188" rx="16" fill="none" stroke="#12081f" stroke-width="2.5"/>
+ ${[[10,10],[160,6],[310,10],[10,166],[160,170],[310,166]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="10" fill="#0a0610" stroke="#c48a2a" stroke-width="3"/>`).join('')}
+ <ellipse cx="160" cy="80" rx="140" ry="70" fill="#fff4c0" opacity=".07"/>
+ ${[[52,128,'#f2c21b',0],[78,46,'#e0262e',0],[262,120,'#1e4fd8',1],[248,52,'#178a3e',0],[284,82,'#6a2aa8',1]].map(([x,y,c,s])=>`<g><circle cx="${x}" cy="${y}" r="10" fill="${s?'#f6f1e6':c}" stroke="#12081f" stroke-width="2"/>${s?`<path d="M${x-9.4} ${y-4}h18.8v8h-18.8z" fill="${c}"/><circle cx="${x}" cy="${y}" r="10" fill="none" stroke="#12081f" stroke-width="2"/>`:''}<circle cx="${x}" cy="${y}" r="4.4" fill="#fbf7ee"/><circle cx="${x-3.4}" cy="${y-3.8}" r="2.4" fill="#fff" opacity=".8"/></g>`).join('')}
+ <g transform="translate(98 2) scale(.62)">${pzEmblem(200).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')}</g></svg>`;
+/* hub title, switcher button, feature card badge */
+function pzEmbDeco(){try{
+ const t=document.querySelector('.pzh9 .pztitle.pzsign, .pztitle.pzsign');if(t&&!t.querySelector('.pzemb'))t.insertAdjacentHTML('afterbegin',`<i class="pzembw">${pzEmblem(88)}</i>`);
+ const b=document.querySelector('[data-sp=pz]');if(b&&!b.querySelector('.pzemb')){const d=b.querySelector('.nsdot');if(d)d.outerHTML=`<i class="pzembs">${pzEmblem(22,{ribbon:false})}</i>`}
+}catch(e){}}
+{const f0=pzHub;pzHub=function(){const r=f0.apply(this,arguments);pzEmbDeco();setTimeout(pzEmbDeco,60);return r}}
+{const f0=twLobby;twLobby=function(){const r=f0.apply(this,arguments);pzEmbDeco();const rb=document.querySelector('.pzrib');if(rb)rb.textContent='UPDATE 9.6';return r}}
+if(typeof casinoOpen==='function'){const f0=casinoOpen;casinoOpen=function(){const r=f0.apply(this,arguments);setTimeout(pzEmbDeco,0);setTimeout(pzEmbDeco,300);return r}}
+{const st=document.createElement('style');st.textContent=`
+.pzembw{display:inline-block;vertical-align:middle;margin:-22px 12px 0 0;transform-origin:50% 60%;animation:pzembIn .7s cubic-bezier(.3,1.6,.5,1) both}
+.pzembw .pzemb{display:block}
+.pzembs{display:inline-block;width:22px;height:22px;margin-right:7px;vertical-align:-6px}
+.pzembs .pzemb{display:block}
+@keyframes pzembIn{0%{transform:scale(.3) rotate(-40deg);opacity:0}100%{transform:none;opacity:1}}
+`;document.head.appendChild(st)}
+/* ===== 9.6 THE CROOKED CUE: ball speed and a fairer guide (96ze) =====
+   - No more automatic double speed at the end of a shot: balls used to speed up on screen just before they
+     stopped. The crawl is now ended by the table instead (PZ_PHY.MURL/VL in 96b: a little extra rolling drag
+     below VL px/s), so a shot slows down smoothly and settles. Holding Space or the mouse still fast-forwards.
+   - The guide no longer plays the shot for you. Full: the aim line, the ghost ball, where the ball you hit heads
+     up to the first ball or cushion (at most 230 px), and the first stretch of the cue ball's path (bent by
+     follow/draw). No simulated trails, no "it drops" rings or scratch crosses. Short: the first 80 / 36 px.
+     Pro: the aim line only. */
+function pzFF(){const ph=PZ.ph;if(PZ.slow&&PZ.slow.on)return 1;
+ if(PZ.ffHeld&&(ph==='roll'||ph==='settle'||ph==='gap'||ph==='ai'||ph==='endhold'||ph==='rerack'||ph==='stroke'))return 3;return 1}
+const PZ_GUIDE={full:{obj:230,tan:80,reb:90},short:{obj:80,tan:36,reb:45}};
+function pzDrawGuide(g,B,ang,mode,t,spinB){const cue=B[0],R=PZ_PHY.R,G=PZ_G,dx=Math.cos(ang),dy=Math.sin(ang),h=pzRay(B,cue.x,cue.y,dx,dy,0),out={hit:h,pocket:-1};if(!h)return out;
+ const K=PZ_GUIDE[mode]||null;
+ g.save();g.translate(G.x,G.y);g.lineCap='round';
+ const dash=(x0,y0,x1,y1,col,lw,gap)=>{g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(gap?[9,9]:[]);g.lineDashOffset=-(t*26%18);g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();g.setLineDash([])};
+ /* the aim line from the cue ball to the ghost ball (or the cushion) */
+ const sx=cue.x+dx*(R+3),sy=cue.y+dy*(R+3);dash(sx,sy,h.gx,h.gy,'rgba(0,0,0,.3)',3.6,true);dash(sx,sy,h.gx,h.gy,'rgba(255,255,255,.82)',2,true);
+ if(h.type==='ball'){const ob=h.b;
+  g.strokeStyle='rgba(255,255,255,.9)';g.lineWidth=2;g.beginPath();g.arc(h.gx,h.gy,R,0,TAU);g.stroke();g.fillStyle='rgba(255,255,255,.1)';g.beginPath();g.arc(h.gx,h.gy,R,0,TAU);g.fill();
+  const ux=ob.x-h.gx,uy=ob.y-h.gy,ul=Math.hypot(ux,uy)||1,ox=ux/ul,oy=uy/ul;
+  out.pocket=pzPocketToward(ob.x,ob.y,ox,oy);
+  if(K){/* the object ball's heading, stopped at the first thing it would meet; it fades toward the end */
+   const r2=pzRay(B,ob.x,ob.y,ox,oy,ob.id);let L1=K.obj;if(r2&&r2.t<L1)L1=r2.t;
+   const x0=ob.x+ox*R,y0=ob.y+oy*R,ex=ob.x+ox*L1,ey=ob.y+oy*L1;
+   if(L1>R){const q=g.createLinearGradient(x0,y0,ex,ey);q.addColorStop(0,'rgba(255,212,90,.95)');q.addColorStop(.7,'rgba(255,212,90,.8)');q.addColorStop(1,'rgba(255,212,90,.25)');
+    g.strokeStyle='rgba(0,0,0,.28)';g.lineWidth=4.4;g.beginPath();g.moveTo(x0,y0);g.lineTo(ex,ey);g.stroke();g.strokeStyle=q;g.lineWidth=2.6;g.beginPath();g.moveTo(x0,y0);g.lineTo(ex,ey);g.stroke()}
+   /* the cue ball after contact: the tangent line, bent forward (follow) or back (draw) by the spin */
+   const tx=-oy,ty=ox,side=(dx*tx+dy*ty)>=0?1:-1,cut=Math.abs(dx*ox+dy*oy);let ax=tx*side,ay=ty*side;const bend=(spinB||0)*.55*cut;ax=ax*(1-Math.abs(bend)*.4)+dx*bend;ay=ay*(1-Math.abs(bend)*.4)+dy*bend;const al=Math.hypot(ax,ay)||1;ax/=al;ay/=al;
+   const ln=Math.max(14,K.tan*(1-cut*.85));dash(h.gx+ax*R,h.gy+ay*R,h.gx+ax*(R+ln),h.gy+ay*(R+ln),'rgba(159,232,255,.85)',2.2,true)}}
+ else{/* a cushion first: show the start of the rebound */
+  g.fillStyle='rgba(255,255,255,.85)';g.beginPath();g.arc(h.gx,h.gy,3,0,TAU);g.fill();
+  if(K){const dd=dx*h.nx+dy*h.ny,rx=dx-2*dd*h.nx,ry=dy-2*dd*h.ny;dash(h.gx,h.gy,h.gx+rx*K.reb,h.gy+ry*K.reb,'rgba(255,255,255,.42)',2,true)}}
+ g.restore();return out}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

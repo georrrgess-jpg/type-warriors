@@ -8,3 +8,4 @@ lbt/
 tools/ui/out/
 tools/perf87/out/
 tools/econ/out/
+.claude/worktrees/

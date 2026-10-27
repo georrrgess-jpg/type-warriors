@@ -46540,14 +46540,12 @@ function mfxSEnter(){const main=ov.querySelector(':scope > main.mn'),els=main?[m
    cheaper or shorter sweeps changed no bot outcome once the fatigue was in. */
 const RPTB={fat:.5,half:8,bossCap:30,levKnock:70,levBoss:15};
 /* per tier 1..5: cost and sweep distance; the rest of RP_TW.tide (95l) stays */
-/* 9.6b: the owner set the price to 600 and asked for the power to match. Damage about 4x, faster waves, a little more range and sweep,
-   stronger whirlpools and Leviathan. Bot check (bot.js, Ballista/Brazier/Frost/Bell/Tide build): Mossgate 18, Frostfang 19, Ember 7
-   health left, against the no-Tide reference 10 / 17 / 8 and the old 150 Tide 17 / 2 / lost; Wonderland Dragon+Dragon+Tide wave 71,
-   the same as the reference Dragon+Dragon+Frost. A stronger trial (dmg x4.7, cd 1.9-1.4) was 19 / 19 / 10: too strong. */
-Object.assign(RP_TW.tide,{cost:[600,650,1000,1800,3000],range:[225,240,260,280,300],dmg:[140,220,350,560,850],cd:[2.1,1.95,1.8,1.65,1.5],knock:[130,150,170,190,210],whirl:[0,0,70,110,160],lev:[0,0,0,0,2200]});
+/* 9.6b: the owner set the build price to 600 and wants the power exactly as before; upgrades keep their prices, and selling refunds
+   the usual share of everything spent (600 included) */
+Object.assign(RP_TW.tide,{cost:[600,190,320,650,1050],knock:[100,120,140,160,180]});
 /* the help texts named the old price */
 try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]=h[1].replace('(I, 150 supply)','(I, 600 supply)')}catch(e){}
-{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{for(const p of ov.querySelectorAll('#rpmod .rphw p'))if(/Tidecaller Shrine\./.test(p.textContent))p.innerHTML=p.innerHTML.replace('A cheap water tower (150 supply, key I).','A heavy water tower (600 supply, key I).')}catch(e){}return r}}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{for(const p of ov.querySelectorAll('#rpmod .rphw p'))if(/Tidecaller Shrine\./.test(p.textContent))p.innerHTML=p.innerHTML.replace('A cheap water tower (150 supply, key I).','A water tower (600 supply, key I).')}catch(e){}return r}}
 const rptFat=e=>Math.pow(RPTB.fat,e.tdF||0);
 /* knock a monster back along its own road by d px at speed v (it slides, stunned, and keeps its place in the group). Near the road
    start it goes at most 60% of the way back to the cave, so a group there is squeezed but never stacked at s=0 */

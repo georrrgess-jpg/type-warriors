@@ -46540,7 +46540,14 @@ function mfxSEnter(){const main=ov.querySelector(':scope > main.mn'),els=main?[m
    cheaper or shorter sweeps changed no bot outcome once the fatigue was in. */
 const RPTB={fat:.5,half:8,bossCap:30,levKnock:70,levBoss:15};
 /* per tier 1..5: cost and sweep distance; the rest of RP_TW.tide (95l) stays */
-Object.assign(RP_TW.tide,{cost:[150,190,320,650,1050],knock:[100,120,140,160,180]});
+/* 9.6b: the owner set the price to 600 and asked for the power to match. Damage about 4x, faster waves, a little more range and sweep,
+   stronger whirlpools and Leviathan. Bot check (bot.js, Ballista/Brazier/Frost/Bell/Tide build): Mossgate 18, Frostfang 19, Ember 7
+   health left, against the no-Tide reference 10 / 17 / 8 and the old 150 Tide 17 / 2 / lost; Wonderland Dragon+Dragon+Tide wave 71,
+   the same as the reference Dragon+Dragon+Frost. A stronger trial (dmg x4.7, cd 1.9-1.4) was 19 / 19 / 10: too strong. */
+Object.assign(RP_TW.tide,{cost:[600,650,1000,1800,3000],range:[225,240,260,280,300],dmg:[140,220,350,560,850],cd:[2.1,1.95,1.8,1.65,1.5],knock:[130,150,170,190,210],whirl:[0,0,70,110,160],lev:[0,0,0,0,2200]});
+/* the help texts named the old price */
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]=h[1].replace('(I, 150 supply)','(I, 600 supply)')}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{for(const p of ov.querySelectorAll('#rpmod .rphw p'))if(/Tidecaller Shrine\./.test(p.textContent))p.innerHTML=p.innerHTML.replace('A cheap water tower (150 supply, key I).','A heavy water tower (600 supply, key I).')}catch(e){}return r}}
 const rptFat=e=>Math.pow(RPTB.fat,e.tdF||0);
 /* knock a monster back along its own road by d px at speed v (it slides, stunned, and keeps its place in the group). Near the road
    start it goes at most 60% of the way back to the cave, so a group there is squeezed but never stacked at s=0 */
@@ -49636,6 +49643,8 @@ function pzDrawGuide(g,B,ang,mode,t,spinB){const cue=B[0],R=PZ_PHY.R,G=PZ_G,dx=M
   g.fillStyle='rgba(255,255,255,.85)';g.beginPath();g.arc(h.gx,h.gy,3,0,TAU);g.fill();
   if(K){const dd=dx*h.nx+dy*h.ny,rx=dx-2*dd*h.nx,ry=dy-2*dd*h.ny;dash(h.gx,h.gy,h.gx+rx*K.reb,h.gy+ry*K.reb,'rgba(255,255,255,.42)',2,true)}}
  g.restore();return out}
+/* ===== 9.6: Mines max bet 2,500 (was 5,000; the 15,000 payout cap stays) (96zf). casCap is a const in 65, so the cap is set after gameOpen ===== */
+{const g0=gameOpen;gameOpen=function(id){const r=g0.apply(this,arguments);if(id==='mi'){CAS.cap=2500;if(CAS.bet>2500)CAS.bet=2500;const sm=ov.querySelector('.bv small');if(sm)sm.textContent='max '+cmn(2500);try{betRefresh()}catch(e){}}return r}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

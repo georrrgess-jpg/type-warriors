@@ -49624,7 +49624,7 @@ function pzDrawGuide(g,B,ang,mode,t,spinB){const cue=B[0],R=PZ_PHY.R,G=PZ_G,dx=M
  g.save();g.translate(G.x,G.y);g.lineCap='round';
  const dash=(x0,y0,x1,y1,col,lw,gap)=>{g.strokeStyle=col;g.lineWidth=lw;g.setLineDash(gap?[9,9]:[]);g.lineDashOffset=-(t*26%18);g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();g.setLineDash([])};
  /* the aim line from the cue ball to the ghost ball (or the cushion) */
- const sx=cue.x+dx*(R+3),sy=cue.y+dy*(R+3);dash(sx,sy,h.gx,h.gy,'rgba(0,0,0,.3)',3.6,true);dash(sx,sy,h.gx,h.gy,'rgba(255,255,255,.82)',2,true);
+ const sx=cue.x+dx*(R+3),sy=cue.y+dy*(R+3);dash(sx,sy,h.gx,h.gy,'rgba(0,0,0,.3)',3.6,true);dash(sx,sy,h.gx,h.gy,PZ.aimCol||'rgba(255,255,255,.82)',PZ.aimCol?2.6:2,true);
  if(h.type==='ball'){const ob=h.b;
   g.strokeStyle='rgba(255,255,255,.9)';g.lineWidth=2;g.beginPath();g.arc(h.gx,h.gy,R,0,TAU);g.stroke();g.fillStyle='rgba(255,255,255,.1)';g.beginPath();g.arc(h.gx,h.gy,R,0,TAU);g.fill();
   const ux=ob.x-h.gx,uy=ob.y-h.gy,ul=Math.hypot(ux,uy)||1,ox=ux/ul,oy=uy/ul;
@@ -49643,6 +49643,378 @@ function pzDrawGuide(g,B,ang,mode,t,spinB){const cue=B[0],R=PZ_PHY.R,G=PZ_G,dx=M
  g.restore();return out}
 /* ===== 9.6: Mines max bet 2,500 (was 5,000; the 15,000 payout cap stays) (96zf). casCap is a const in 65, so the cap is set after gameOpen ===== */
 {const g0=gameOpen;gameOpen=function(id){const r=g0.apply(this,arguments);if(id==='mi'){CAS.cap=2500;if(CAS.bet>2500)CAS.bet=2500;const sm=ov.querySelector('.bv small');if(sm)sm.textContent='max '+cmn(2500);try{betRefresh()}catch(e){}}return r}}
+/* ===== 9.7 THE CROOKED CUE: the Cue Rack from the concept art, a live ball-set table, a better buy button and cue mastery (96zj) =====
+   Overrides pzCueRack / pzRkTab and draws three layouts:
+   - Cues: the whole wall is the rack (shop cues, then the cues won at the tables), each cue standing on the shelf with its tag and
+     mastery level; below, the picked cue large with its mastery level, the 10-step reward track and the action, and "Your Loadout".
+   - Felts: big table cards on the left, the picked felt on a table in perspective on the right, with its status box.
+   - Ball sets: a table in perspective where a cue really plays the picked set (the game's own physics, pzpStep), filters, and a
+     strip of eight set cards.
+   The buy button (pzBuy97) is held for 0.7 s: coins fly from your purse into it, ticks rise in pitch, the button presses in; on
+   completion it pops, a PURCHASED stamp lands on the preview, coins burst and the card shines. Letting go early refunds nothing
+   because nothing was taken. Same ids as before (#pzkwall .pzki, #pzkdet, #pzkbuy, #pzkeq, .pzktabs) for keys, tests and tours.
+   Cue mastery (P.pz.mast[cueId] = xp): the equipped cue earns XP in paid matches (8 per ball you pot, 40 per rack you win, 120 for
+   a win or 30 for a loss, 30 per break & run or golden break; nothing for practice or a forfeit) and 25 per new Trick Shot star.
+   Ten levels (PZ_MAST.lv). Rewards: Lv2 chalk in the cue's colour, Lv3 150 gold, Lv4 a gold mastery ring, Lv5 300 gold, Lv6 an aim
+   line in the cue's colour, Lv7 500 gold, Lv8 strike sparks, Lv9 800 gold, Lv10 Mastered (gold-leaf butt cap, MASTER badge).
+   Gold is paid once per level (P.pz.mastPaid). */
+const PZ_MAST={lv:[0,100,250,450,700,1000,1400,1900,2500,3200],
+ rw:{1:['start','Start','Equip it and play paid matches.'],2:['chalk','Coloured chalk','The tip takes the cue\'s colour.'],3:['gold','150 gold',150],4:['ring','Mastery ring','A gold ring above the joint.'],5:['gold','300 gold',300],6:['aim','Aim glow','Your aim line glows in the cue\'s colour.'],7:['gold','500 gold',500],8:['spark','Strike sparks','Sparks fly when you strike.'],9:['gold','800 gold',800],10:['master','Mastered','A gold-leaf butt cap and a MASTER badge.']}};
+function pzMastSave(){const Z=PZS();if(!Z.mast||typeof Z.mast!=='object'||Array.isArray(Z.mast))Z.mast={};if(!Z.mastPaid||typeof Z.mastPaid!=='object'||Array.isArray(Z.mastPaid))Z.mastPaid={};return Z}
+function pzMastXP(id){const v=+pzMastSave().mast[id];return v>0&&isFinite(v)?Math.floor(v):0}
+function pzMastLvOf(xp){let l=1;for(let i=1;i<PZ_MAST.lv.length;i++)if(xp>=PZ_MAST.lv[i])l=i+1;return l}
+function pzMastInfo(id){const xp=pzMastXP(id),lv=pzMastLvOf(xp),a=PZ_MAST.lv[lv-1],b=PZ_MAST.lv[lv]==null?null:PZ_MAST.lv[lv];return {xp,lv,a,b,frac:b==null?1:(xp-a)/(b-a),max:b==null}}
+const pzMastLv=id=>pzMastLvOf(pzMastXP(id));
+function pzMastHas(id,perk){const L=pzMastLv(id);return perk==='chalk'?L>=2:perk==='ring'?L>=4:perk==='aim'?L>=6:perk==='spark'?L>=8:perk==='master'?L>=10:false}
+function pzMastCol(id){const c=PZ_CUES.find(x=>x.id===id)||PZ_CUES[0];return c.glow||c.d}
+/* add XP to a cue: pays the gold of every level crossed (once ever), returns what happened */
+function pzMastAdd(id,xp){const Z=pzMastSave();if(!(xp>0)||!Z.cues[id])return null;const from=pzMastLv(id),x0=pzMastXP(id);Z.mast[id]=x0+Math.round(xp);const to=pzMastLv(id);let gold=0;const got=[];
+ for(let l=from+1;l<=to;l++){const r=PZ_MAST.rw[l];got.push(r);if(r[0]==='gold'&&!(Z.mastPaid[id]>=l)){gold+=r[2]}Z.mastPaid[id]=Math.max(Z.mastPaid[id]||1,l)}
+ if(gold>0){try{ecSrc('pool',()=>{P.gold+=gold;balUp(gold)})}catch(e){P.gold+=gold}}
+ if(to>from){for(const k in PZ_CUE.cache)if(k===id||k.startsWith(id+'@'))delete PZ_CUE.cache[k];if(PZ_UPRIGHT[id])delete PZ_UPRIGHT[id];if(PZ_UP97[id])delete PZ_UP97[id]}
+ save();return {id,from,to,x0,x1:Z.mast[id],xp:Math.round(xp),gold,got}}
+/* mastery look on the cue sprite: chalk (Lv2), gold ring (Lv4), gold-leaf cap (Lv10). Same size and anchor as 96zc. */
+{const f0=pzCueSprite;pzCueSprite=function(id){let L=1;try{L=pzMastLv(id)}catch(e){}const tier=L>=10?3:L>=4?2:L>=2?1:0;if(!tier)return f0(id);const key=id+'@'+tier;if(PZ_CUE.cache[key])return PZ_CUE.cache[key];
+ const b=f0(id),c=pzCv(b.W,b.H),g=c.getContext('2d'),col=pzMastCol(id),Ln=b.L,J=-Ln*.58;g.drawImage(b.c,0,0);g.scale(2,2);g.translate(Ln+10,15);
+ const wd=x=>x<J?(3.0+(-x+J)/(Ln+J)*4.6):(2.45+(-x)/(-J)*.75);
+ if(tier>=1){g.fillStyle=col;g.beginPath();g.roundRect(-7.2,-2.45,7.2,4.9,[0,2.4,2.4,0]);g.fill();g.fillStyle='rgba(255,255,255,.5)';g.fillRect(-6.4,-1.9,4.6,.9)}
+ if(tier>=2){const x=J+16,h=wd(x)+.4;g.fillStyle='#ffd45a';g.fillRect(x-1.6,-h,3.2,h*2);g.fillStyle='rgba(255,255,230,.8)';g.fillRect(x-1.6,-h,3.2,h*.5)}
+ if(tier>=3){const x0=-Ln,x1=-Ln+30,q=g.createLinearGradient(0,-8,0,8);q.addColorStop(0,'#fff3b0');q.addColorStop(.45,'#f2b938');q.addColorStop(1,'#a8701a');g.fillStyle=q;g.beginPath();g.moveTo(x1,-wd(x1));g.lineTo(x0+2,-wd(x0)-.6);g.quadraticCurveTo(x0,-wd(x0)-.6,x0,-wd(x0)+2);g.lineTo(x0,wd(x0)-2);g.quadraticCurveTo(x0,wd(x0)+.6,x0+2,wd(x0)+.6);g.lineTo(x1,wd(x1));g.closePath();g.fill();g.strokeStyle=PZ_O;g.lineWidth=1.2;g.stroke();for(let k=0;k<3;k++){g.fillStyle='rgba(255,255,255,.35)';g.fillRect(x0+6+k*8,-wd(x0)+1,1.2,wd(x0)*2-2)}}
+ return PZ_CUE.cache[key]={c,W:b.W,H:b.H,L:b.L,sk:b.sk}}}
+/* Lv6 aim glow (read by pzDrawGuide in 96ze through PZ.aimCol) and Lv8 strike sparks */
+{const f0=pzDrawGuide;pzDrawGuide=function(){try{const id=PZS().cue;PZ.aimCol=PZ.M&&!PZ.M.trick&&pzMastHas(id,'aim')?pzRgba(pzMastCol(id)).replace(',1)',',.9)'):null}catch(e){PZ.aimCol=null}return f0.apply(this,arguments)}}
+{const f0=pzContact;pzContact=function(){const who=PZ.st?PZ.st.turn:1,b=PZ.B&&PZ.B[0],x=b?b.x:0,y=b?b.y:0;const r=f0.apply(this,arguments);try{const id=PZS().cue;if(who===0&&pzMastHas(id,'spark')&&!pzRM()){const col=pzMastCol(id);pzSpecks(PZ_G.x+x,PZ_G.y+y,16,col);PZ.rings.push({x:PZ_G.x+x,y:PZ_G.y+y,t:0,d:.3,r:24,c:pzRgba(col).replace(',1)',',.9)'),ring:1})}}catch(e){}return r}}
+/* XP from paid matches (after the result is settled and shown) */
+{const f0=pzMatchEnd;pzMatchEnd=function(){const M=PZ.M,prac=!M||M.practice||M.trick,forf=M&&M.forfeit;const r=f0.apply(this,arguments);try{const res=PZ.result;if(res&&!prac&&!forf&&!res.practice){const id=PZS().cue,xp=res.pots*8+res.score[0]*40+(res.win?120:30)+((res.bnr||0)+(res.golden||0))*30;const m=pzMastAdd(id,xp);if(m)pzMastResult(m)}}catch(e){}return r}}
+/* XP for new Trick Shot stars */
+{const f0=pzTrickJudge;pzTrickJudge=function(){const s0=pzTrickTotal();const r=f0.apply(this,arguments);try{const d=pzTrickTotal()-s0;if(d>0){const m=pzMastAdd(PZS().cue,d*25);if(m)setTimeout(()=>pzNote(m.to>m.from?`${pzCueName(m.id)} reached mastery level ${m.to}!${m.gold?` +${cmn(m.gold)} gold`:''}`:`+${m.xp} mastery XP for the ${pzCueName(m.id)}`),1800)}}catch(e){}return r}}
+const pzCueName=id=>(PZ_CUES.find(x=>x.id===id)||PZ_CUES[0]).n;
+/* the mastery card on the results screen: the bar fills from the old XP to the new, then a level-up pops */
+function pzMastResult(m){const host=ov.querySelector('.pzres9 .pzuns');if(!host)return;const it=PZ_CUES.find(x=>x.id===m.id)||PZ_CUES[0];
+ const fr=x=>{const l=pzMastLvOf(x),a=PZ_MAST.lv[l-1],b=PZ_MAST.lv[l];return b==null?1:(x-a)/(b-a)};
+ const d=document.createElement('div');d.className='pzun pzmres'+(m.to>m.from?' up':'');
+ d.innerHTML=`<small>${it.n.toUpperCase()} MASTERY</small><b>Lv ${m.from} <span>+${m.xp} XP</span></b><em><i style="transform:scaleX(${fr(m.x0)})"></i></em>${m.to>m.from?`<p class="pzmup">Level ${m.to}! ${m.got.map(r=>r[1]).join(' · ')}</p>`:''}`;host.appendChild(d);
+ setTimeout(()=>{const i=d.querySelector('em i');if(!i)return;if(m.to>m.from){i.style.transform='scaleX(1)';setTimeout(()=>{if(!d.isConnected)return;d.querySelector('b').firstChild.textContent=`Lv ${m.to} `;i.style.transition='none';i.style.transform='scaleX(0)';void i.offsetWidth;i.style.transition='';i.style.transform=`scaleX(${fr(m.x1)})`;d.classList.add('pop');pzFx('golden');if(m.gold){const g=$('pzrgv');if(g)setTimeout(()=>{g.textContent=cmn(P.gold)},700)}},650)}else i.style.transform=`scaleX(${fr(m.x1)})`},1400)}
+
+/* the Cue Rack tour: the last card sits above the detail, and a fourth one explains mastery */
+{const f0=pzCoach;pzCoach=function(id,steps,opts){if(id==='rack'&&Array.isArray(steps)&&steps.length===3){steps=steps.slice();steps[2]=Object.assign({},steps[2],{side:'top'});
+ steps.push({sel:'.pzkmast',side:'top',title:'Cue mastery',text:'Every cue levels up as you play <b>paid matches</b> with it: potted balls, racks and wins earn XP. Ten levels bring coloured chalk, a gold ring, an aim glow, strike sparks, gold and, at the top, a gold-leaf cap.',w:400})}return f0.call(this,id,steps,opts)}}
+/* ---------------- the table in perspective (shared by the felts preview and the live ball-set table) ---------------- */
+/* a projector: near edge (y=H) at scale a and screen y yN, far edge (y=0) at scale b and screen y yF */
+function pzPersp(cx,a,b,yN,yF){const H=PZ_PHY.H,W=PZ_PHY.W,dn=H*b/(a-b),F=a*dn,C=(yN-yF)/(1/dn-1/(dn+H)),hy=yN-C/dn;
+ return {W,H,cx,F,dn,C,hy,p(x,y){const d=Math.max(40,dn+(H-y));return {x:cx+(x-W/2)*F/d,y:hy+C/d,s:F/d}}}}
+const PZ_PB={};
+/* bake the table (and the bar behind it) for a felt at a size */
+function pzPersBake(P,felt,w,h){const key=felt.id+w+'x'+h+P.cx;if(PZ_PB[key])return PZ_PB[key];const c=pzCv(w,h),g=c.getContext('2d'),W=P.W,H=P.H;g.lineJoin='round';
+ /* the bar behind: the hub art, darkened, a little out of focus by scaling down then up */
+ try{const t=pzCv(400,225),tg=t.getContext('2d');tg.drawImage(pzHubBake(),0,0,1600,900,0,0,400,225);g.drawImage(t,0,0,400,130,0,0,w,h*.75)}catch(e){}
+ const bg=g.createLinearGradient(0,0,0,h);bg.addColorStop(0,'rgba(10,6,24,.55)');bg.addColorStop(.6,'rgba(10,6,24,.75)');bg.addColorStop(1,'rgba(10,6,24,.9)');g.fillStyle=bg;g.fillRect(0,0,w,h);
+ const quad=(x0,y0,x1,y1)=>{const a=P.p(x0,y0),b=P.p(x1,y0),c2=P.p(x1,y1),d=P.p(x0,y1);g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(c2.x,c2.y);g.lineTo(d.x,d.y);g.closePath()};
+ /* the far apron and its shadow */
+ {const a=P.p(-56,-56),b=P.p(W+56,-56);g.fillStyle='#1a0a06';g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(b.x,b.y+30*b.s);g.lineTo(a.x,a.y+30*a.s);g.closePath();g.fill()}
+ /* the wooden rails */
+ quad(-56,-56,W+56,H+56);{const tA=P.p(0,-56),tB=P.p(0,H+56),q=g.createLinearGradient(0,tA.y,0,tB.y);q.addColorStop(0,'#6a3214');q.addColorStop(.5,'#9a5424');q.addColorStop(1,'#b8682c');g.fillStyle=q;g.fill();g.strokeStyle=PZ_O;g.lineWidth=4;g.stroke()}
+ quad(-50,-50,W+50,H+50);g.strokeStyle='rgba(255,210,150,.28)';g.lineWidth=2;g.stroke();
+ /* the cushions */
+ quad(-16,-16,W+16,H+16);g.fillStyle=felt.c;g.fill();g.strokeStyle=PZ_O;g.lineWidth=2.5;g.stroke();
+ /* the bed: felt, a lamp pool and a soft edge */
+ quad(0,0,W,H);{const m=P.p(W/2,H*.45),q=g.createRadialGradient(m.x,m.y,10,m.x,m.y,w*.55);q.addColorStop(0,felt.a);q.addColorStop(.55,felt.b);q.addColorStop(1,felt.c);g.fillStyle=q;g.fill()}
+ g.save();quad(0,0,W,H);g.clip();{const m=P.p(W/2,H*.4),q=g.createRadialGradient(m.x,m.y,0,m.x,m.y,w*.35);q.addColorStop(0,'rgba(255,244,200,.2)');q.addColorStop(1,'rgba(255,244,200,0)');g.fillStyle=q;g.fillRect(0,0,w,h)}
+  let sd=7;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};for(let i=0;i<900;i++){const x=rnd()*W,y=rnd()*H,p=P.p(x,y);g.fillStyle=rnd()<.5?'rgba(255,255,255,.035)':'rgba(0,0,0,.05)';g.fillRect(p.x,p.y,1.4*p.s,1.4*p.s)}
+  /* the head string */
+  {const a=P.p(W*.25,0),b=P.p(W*.25,H);g.strokeStyle='rgba(255,255,255,.1)';g.lineWidth=1.5;g.setLineDash([8,8]);g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();g.setLineDash([])}
+  {const s=P.p(W*.75,H/2);g.fillStyle='rgba(255,255,255,.22)';g.beginPath();g.ellipse(s.x,s.y,3*s.s,1.6*s.s,0,0,TAU);g.fill()}
+ g.restore();
+ /* cushion top highlight */
+ {const a=P.p(-16,-16),b=P.p(W+16,-16);g.strokeStyle='rgba(255,255,255,.18)';g.lineWidth=2;g.beginPath();g.moveTo(a.x,a.y+2);g.lineTo(b.x,b.y+2);g.stroke()}
+ /* diamonds */
+ for(let k=1;k<8;k++){if(k===4)continue;for(const y of[-34,H+34]){const p=P.p(W*k/8,y);g.fillStyle='#f6ecd0';g.beginPath();g.ellipse(p.x,p.y,4*p.s,2.2*p.s,0,0,TAU);g.fill()}}
+ for(let k=1;k<4;k++)for(const x of[-34,W+34]){const p=P.p(x,H*k/4);g.fillStyle='#f6ecd0';g.beginPath();g.ellipse(p.x,p.y,2.4*p.s,3.4*p.s,0,0,TAU);g.fill()}
+ /* the pockets: dark holes with a gold rim, squashed by the view */
+ for(const pk of PZ_TBL.P){const p=P.p(pk[0],pk[1]),q=P.p(pk[0],pk[1]-20),rx=23*p.s,ry=Math.max(6,Math.abs(p.y-q.y))*1.05;g.fillStyle='#3a1a0a';g.beginPath();g.ellipse(p.x,p.y+2*p.s,rx+6*p.s,ry+5*p.s,0,0,TAU);g.fill();g.strokeStyle='#e0aa3e';g.lineWidth=2.6;g.stroke();
+  const q2=g.createRadialGradient(p.x,p.y-ry*.3,0,p.x,p.y,rx);q2.addColorStop(0,'#000');q2.addColorStop(1,'#140a12');g.fillStyle=q2;g.beginPath();g.ellipse(p.x,p.y,rx,ry,0,0,TAU);g.fill();g.strokeStyle=PZ_O;g.lineWidth=2;g.stroke()}
+ return PZ_PB[key]=c}
+/* draw balls (sorted far to near) with their shadows; B: [{id,x,y,on,M}], drops: pocket animations */
+function pzPersBalls(g,P,B,drops,t){const R=PZ_PHY.R,D=PZ_BS.D;const L=B.filter(b=>b.on).sort((a,b)=>a.y-b.y);
+ for(const b of L){const p=P.p(b.x+2,b.y+3),r=R*p.s;g.fillStyle='rgba(0,0,0,.32)';g.beginPath();g.ellipse(p.x+r*.25,p.y+r*.35,r*1.05,r*.5,0,0,TAU);g.fill()}
+ for(const b of L){const p=P.p(b.x,b.y),r=R*p.s;g.drawImage(PZ_BS.atlas,b.id*D,0,D,D,p.x-r,p.y-r*1.55,r*2,r*2)}
+ if(drops)for(const d of drops){const u=Math.min(1,d.t/.28),p=P.p(d.x,d.y),r=R*p.s*(1-u*.65);g.globalAlpha=1-u;g.drawImage(PZ_BS.atlas,d.id*D,0,D,D,p.x-r,p.y-r*1.55+u*r,r*2,r*2);g.globalAlpha=1}}
+/* draw a cue lying on the table: tip at table (x,y), pointing along ang, pulled back by gap */
+function pzPersCue(g,P,id,x,y,ang,gap,alpha){const s=pzCueSprite(id),dx=Math.cos(ang),dy=Math.sin(ang),R=PZ_PHY.R,tx=x-dx*(R+2+gap),ty=y-dy*(R+2+gap),a=P.p(tx,ty),b=P.p(tx-dx*80,ty-dy*80),ux=a.x-b.x,uy=a.y-b.y,k=Math.hypot(ux,uy)/80;
+ g.save();g.globalAlpha=alpha==null?1:alpha;g.translate(a.x,a.y-R*a.s*.55);g.rotate(Math.atan2(uy,ux));g.scale(k*1.05,k*2.3);g.drawImage(s.c,-(s.L+10),-15,s.W/2,s.H/2);g.restore()}
+
+/* ---------------- the live ball-set table: a cue plays the set with the real physics ---------------- */
+function pzDemoNew(){const rng=Math.random,B=pzpRack(rng);for(const b of B){b.vx=b.vy=b.ux=b.uy=b.es=0;b.on=true}pzbInitBalls(B,rng);return {B,ph:'aimIn',t:0,shots:0,drops:[],ang:0,pow:.9,cueX:0,cueY:0,fade:1,lastClick:0,ev:[],brk:true,acc:0}}
+/* a shot the eye believes: the best cut into a pocket with a clear line, else a firm hit on the nearest ball */
+function pzDemoAim(D){const B=D.B,c=B[0],R=PZ_PHY.R;let best=null;
+ for(const b of B){if(!b.on||!b.id)continue;for(const pk of PZ_TBL.P){const dx=pk[0]-b.x,dy=pk[1]-b.y,l=Math.hypot(dx,dy)||1,gx=b.x-dx/l*2*R,gy=b.y-dy/l*2*R,ax=gx-c.x,ay=gy-c.y,al=Math.hypot(ax,ay)||1,cut=(ax*dx+ay*dy)/(al*l);if(cut<.45)continue;
+  const h=pzRay(B,c.x,c.y,ax/al,ay/al,0);if(!h||h.type!=='ball'||h.id!==b.id)continue;const h2=pzRay(B,b.x,b.y,dx/l,dy/l,b.id);if(h2&&h2.type==='ball'&&h2.t<l-R)continue;
+  const sc=cut*2-(al+l)/1400+Math.random()*.25;if(!best||sc>best.sc)best={sc,ang:Math.atan2(ay,ax),pow:Math.max(.32,Math.min(.72,.22+(al+l)/1500))}}}
+ if(!best){let n=null,nd=1e9;for(const b of B){if(!b.on||!b.id)continue;const d=Math.hypot(b.x-c.x,b.y-c.y);if(d<nd){nd=d;n=b}}if(!n)return null;best={ang:Math.atan2(n.y-c.y,n.x-c.x)+(Math.random()-.5)*.08,pow:.6}}
+ return best}
+function pzDemoStep(D,dt){D.t+=dt;const B=D.B;for(const d of D.drops)d.t+=dt;D.drops=D.drops.filter(d=>d.t<.3);
+ if(D.ph==='aimIn'){if(D.t===dt){/* choose the shot */if(D.brk){D.ang=Math.atan2(B.find(b=>b.id&&Math.abs(b.y-PZ_PHY.H/2)<1&&b.x<PZ_PHY.W*.8).y-B[0].y,PZ_PHY.W*.75-B[0].x)+(Math.random()-.5)*.02;D.pow=.92}else{const s=pzDemoAim(D);if(!s){D.ph='rerack';D.t=0;return}D.ang=s.ang;D.pow=s.pow}D.spin=D.brk?0:(Math.random()-.5)*.8}
+  if(D.t>1.1){D.ph='pull';D.t=0}return}
+ if(D.ph==='pull'){if(D.t>.75){D.ph='strike';D.t=0}return}
+ if(D.ph==='strike'){if(D.t>=.07){pzpStrike(B[0],D.ang,D.pow,0,D.spin);pzFx('cue',D.pow);D.ph='roll';D.t=0;D.shots++;D.acc=0}return}
+ if(D.ph==='roll'){D.acc+=Math.min(dt,.05);let moving=true;const ev=[];while(D.acc>=1/120){D.acc-=1/120;moving=pzpStep(B,1/120,ev,0);for(const b of B)if(b.on)pzbRoll(b,1/120);if(!moving)break}
+  const now=performance.now();for(const e of ev){if(e.t==='bb'&&e.s>260&&now-D.lastClick>55){D.lastClick=now;pzFx('click',e.s)}else if(e.t==='pk'){D.drops.push({id:e.a,x:e.x,y:e.y,t:0});pzFx('pocket',e.a)}}
+  if(!moving&&D.t>.3){D.ph='rest';D.t=0;D.brk=false}return}
+ if(D.ph==='rest'){if(D.t>.7){const left=B.filter(b=>b.on&&b.id).length;if(!B[0].on){const c=B[0];c.on=true;c.x=PZ_PHY.W*.25;c.y=PZ_PHY.H/2;c.vx=c.vy=c.ux=c.uy=c.es=0;for(const b of B)if(b!==c&&b.on&&Math.hypot(b.x-c.x,b.y-c.y)<2*PZ_PHY.R+1){const p=pzpNearestPlace(B,c.x,c.y,true);c.x=p.x;c.y=p.y;break}}
+  if(left<=4||D.shots>=8){D.ph='rerack';D.t=0}else{D.ph='aimIn';D.t=0}}return}
+ if(D.ph==='rerack'){if(D.t>.5){const n=pzDemoNew();Object.assign(D,n);D.ph='aimIn';D.t=0;D.fadeIn=0}return}}
+function pzDemoDraw(g,P,D,bake,cueId,w,h){g.drawImage(bake,0,0,w,h);const B=D.B;
+ /* the cue: slides in, settles on the line, pulls back, strikes, follows through and leaves */
+ const c=B[0];let gap=null,al=1;if(D.ph==='aimIn'){const u=Math.min(1,D.t/1.1),e=1-Math.pow(1-u,3);gap=40+(1-e)*260;al=Math.min(1,u*2.5)}else if(D.ph==='pull'){const u=D.t/.75;gap=40+Math.sin(u*Math.PI*2)*6+u*u*50*D.pow}else if(D.ph==='strike'){const u=D.t/.07;gap=(40+50*D.pow)*(1-u)}else if(D.ph==='roll'&&D.t<.6){gap=-4+D.t*30;al=1-D.t/.6}
+ if(gap!=null&&c.on){if(D.ph==='roll'){pzPersCue(g,P,cueId,D.cueX,D.cueY,D.ang,gap,al)}else{D.cueX=c.x;D.cueY=c.y;pzPersCue(g,P,cueId,c.x,c.y,D.ang,gap,al)}}
+ pzbSync(B);pzPersBalls(g,P,B,D.drops);
+ if(D.ph==='strike'||(D.ph==='roll'&&D.t<.12)){const p=P.p(c.x,c.y);g.globalAlpha=D.ph==='roll'?1-D.t/.12:1;g.strokeStyle='rgba(255,255,240,.9)';g.lineWidth=3;g.beginPath();g.ellipse(p.x,p.y-PZ_PHY.R*p.s*.55,PZ_PHY.R*p.s*1.6,PZ_PHY.R*p.s*.9,0,0,TAU);g.stroke();g.globalAlpha=1}
+ if(D.ph==='rerack'){g.fillStyle=`rgba(10,6,24,${Math.min(1,D.t/.5)*.85})`;g.fillRect(0,0,w,h)}
+ if(D.fadeIn!=null&&D.fadeIn<1){D.fadeIn+=.06;g.fillStyle=`rgba(10,6,24,${(1-D.fadeIn)*.85})`;g.fillRect(0,0,w,h)}}
+
+/* ---------------- the screen ---------------- */
+const PZ_UP97={};
+/* a cue standing upright, chunky like the concept, with its shadow on the wall (2x canvas 128x640, shown 64x320) */
+function pzCueUp97(id){if(PZ_UP97[id])return PZ_UP97[id];const c=pzCv(128,600),g=c.getContext('2d'),s=pzCueSprite(id),it=PZ_CUES.find(x=>x.id===id);
+ const draw=(gg,ox)=>{gg.save();gg.scale(2,2);gg.translate(30+ox,8);gg.rotate(-Math.PI/2);gg.scale(.592,2.55);gg.drawImage(s.c,-(s.L+10),-15,s.W/2,s.H/2);gg.restore()};
+ const sh=pzCv(128,600),sg=sh.getContext('2d');draw(sg,0);sg.globalCompositeOperation='source-in';sg.fillStyle='rgba(8,2,0,1)';sg.fillRect(0,0,128,600);
+ if(it&&it.glow)pzGlow(g,60,470,110,pzRgba(it.glow),.35);g.globalAlpha=.32;g.drawImage(sh,10,6);g.globalAlpha=1;draw(g,0);return PZ_UP97[id]=c}
+const PZ_TAG97={classic:'The house set. Clean, bright, honest.',gem:'A precious look for every shot.',moon:'Pearly shimmer under the lamp.',marble:'Cut from cold Carrara stone.',neon:'Glows like the sign over the door.',lava:'Cracked rock with fire inside.',galaxy:'A night sky in every ball.',royal:'Polished gold for the champion.'};
+const PZ_FTAG97={tavern:'The house cloth. Easy on the eyes.',crimson:'Grizzle\'s favourite. Red as a warning.',royal:'Deep blue, cool and quiet.',violet:'A night at the bar, on the table.',gold:'Only champions play on gold.'};
+function pzRk97Status(tab,it){const own=pzRkOwn(tab),Z=PZS(),who=pzRkWho(it);if(pzRkEq(tab)===it.id)return {k:'eq'};if(own[it.id])return {k:'own'};if(it.price)return {k:'buy',ok:P.gold>=it.price};
+ if(!who)return {k:'lock'};const met=who==='shade'?(Z.shade.seen||0)>0:pzOpen(who),need=tab==='cues'?3:it.beatShade||1,n=who==='shade'?(Z.shade.beat||0):(Z.beat[who]||0);return met?{k:'prog',n:Math.min(n,need),need,who}:{k:'lock',who}}
+function pzRk97Chip(tab,it){const s=pzRk97Status(tab,it);if(s.k==='eq')return `<span class="pzc97 eq">${tab==='cues'?'✓ Equipped':'✓ EQUIPPED'}</span>`;if(s.k==='own')return `<span class="pzc97 own">✓ ${tab==='cues'?'Owned':'OWNED'}</span>`;
+ if(s.k==='buy')return `<span class="pzc97 buy ${s.ok?'':'poor'}"><i class="pzcoin"></i>${cmn(it.price)}</span>`;if(s.k==='prog')return `<span class="pzc97 prog" style="--rc:${PZ_REG[s.who]?PZ_REG[s.who].c:'#3a2f8a'}"><canvas width="44" height="44" data-p="${s.who}"></canvas>${s.n}/${s.need}</span>`;return `<span class="pzc97 lock"><i class="pzlk"></i>?</span>`}
+/* the action for a picked item: equip, buy (hold), challenge, or locked */
+function pzRk97Act(tab,it){const s=pzRk97Status(tab,it);
+ if(s.k==='eq')return `<div class="pzkeqd"><span>✓</span>${tab==='cues'?'Equipped':'In your hand'}<small>Selected for your next game.</small></div>`;
+ if(s.k==='own')return `<button class="pzmb gold pzkbig" id="pzkeq">Equip <kbd>Enter</kbd></button>`;
+ if(s.k==='buy')return pzBuy97Html(it.price);
+ if(s.k==='prog')return `<div class="pzkprog97"><b>${s.n} / ${s.need} wins against ${PZ_REG[s.who].n}</b><em><i style="transform:scaleX(${s.n/s.need})"></i></em></div>${s.who!=='shade'?`<button class="pzmb pzkbig" id="pzkch">Challenge ${pzShort(s.who)} ›</button>`:''}`;
+ return `<div class="pzkprog97 lk"><b>${s.who?'A regular you have not met yet.':'Locked.'}</b></div>`}
+function pzBuy97Html(price){const ok=P.gold>=price;return `<button class="pzbuy97 ${ok?'':'poor'}" id="pzkbuy"><i class="pzkfill"></i><i class="pzbsh"></i><span class="pzbstack"><i></i><i></i><i></i></span><span class="pzbtx"><small>${ok?'HOLD TO BUY':`NEED ${cmn(price-P.gold)} MORE`}</small><b>${cmn(price)}</b></span>${ok?'<kbd>hold Enter</kbd>':''}</button>`}
+/* hold to buy: 700 ms; coins fly from the purse into the button, ticks rise; letting go cancels */
+function pzBuy97Hold(b,done){const fill=b.querySelector('.pzkfill');let t0=0,raf=0,nc=0;
+ const stop=()=>{if(!t0)return;t0=0;cancelAnimationFrame(raf);b.classList.remove('hold');fill.style.transition='transform .25s';fill.style.transform='scaleX(0)'};
+ const step=()=>{if(!t0||!b.isConnected)return;const u=Math.min(1,(performance.now()-t0)/700);fill.style.transform=`scaleX(${u})`;const k=Math.floor(u*8);if(k>nc){nc=k;try{beep(520+k*70,.035,'square',.12)}catch(e){}pzBuy97Coin(b)}
+  if(u>=1){t0=0;b.classList.remove('hold');done();return}raf=requestAnimationFrame(step)};
+ const start=()=>{if(t0)return;t0=performance.now();nc=0;fill.style.transition='none';b.classList.add('hold');raf=requestAnimationFrame(step)};b._hold={start,stop};
+ b.addEventListener('pointerdown',e=>{e.preventDefault();start()});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,stop)}
+function pzRk97Pos(el){const host=$('pzk'),r=el.getBoundingClientRect(),hb=host.getBoundingClientRect(),s=hb.width/1600||1;return {x:(r.left+r.width/2-hb.left)/s,y:(r.top+r.height/2-hb.top)/s,s}}
+function pzBuy97Coin(b){const host=$('pzk'),gd=$('pzkgold');if(!host||!gd||pzRM())return;const a=pzRk97Pos(gd),z=pzRk97Pos(b),c=document.createElement('i');c.className='pzflyc';c.style.left=a.x+'px';c.style.top=a.y+'px';c.style.setProperty('--x',(z.x-a.x)+'px');c.style.setProperty('--y',(z.y-a.y)+'px');host.appendChild(c);setTimeout(()=>c.remove(),600)}
+function pzBuy97Party(b,price,stampOn){const host=$('pzk');if(!host)return;const z=pzRk97Pos(b);
+ const f=document.createElement('i');f.className='pzbflash';f.style.left=z.x+'px';f.style.top=z.y+'px';host.appendChild(f);setTimeout(()=>f.remove(),700);
+ if(!pzRM())for(let i=0;i<14;i++){const s=document.createElement('i'),a=i/14*TAU,d=90+Math.random()*90;s.className='pzbstar';s.style.left=z.x+'px';s.style.top=z.y+'px';s.style.setProperty('--x',Math.cos(a)*d+'px');s.style.setProperty('--y',Math.sin(a)*d*.7+'px');s.style.setProperty('--r',(Math.random()*180)+'deg');host.appendChild(s);setTimeout(()=>s.remove(),900)}
+ try{pzRkBurst(b)}catch(e){}
+ const gd=$('pzkgold');if(gd){const g0=P.gold+price;const p=pzRk97Pos(gd),m=document.createElement('i');m.className='pzbminus';m.textContent='−'+cmn(price);m.style.left=p.x+'px';m.style.top=(p.y+26)+'px';host.appendChild(m);setTimeout(()=>m.remove(),1300);const t0=performance.now();const roll=()=>{const u=Math.min(1,(performance.now()-t0)/650);gd.textContent=cmn(Math.round(g0-price*(1-Math.pow(1-u,3))));if(u<1&&gd.isConnected)requestAnimationFrame(roll)};roll()}
+ if(stampOn){const sp=pzRk97Pos(stampOn),st=document.createElement('div');st.className='pzstamp';st.innerHTML='<b>PURCHASED!</b>';st.style.left=sp.x+'px';st.style.top=sp.y+'px';host.appendChild(st);setTimeout(()=>st.remove(),1900)}}
+/* the screen shell; the body changes with the tab */
+function pzCueRack(){const Z=PZS(),tab=PZ.rackTab||'cues';PZ.rackTab=tab;PZ.on=false;PZ.hub=true;CAS.on=true;CAS.key=null;CAS.tok++;try{pzMusicOn()}catch(e){}pzMastSave();
+ const cnt=t=>{const l=pzRkList(t),o=pzRkOwn(t);return `${l.filter(x=>o[x.id]).length}/${l.length}`};
+ show(`<div class="pzk pzrk9 pzrk97" id="pzk"><canvas id="pzkbg" width="1600" height="900"></canvas><button class="pzback" id="pzbk">‹&nbsp; The bar <kbd>Esc</kbd></button><div class="pzgold"><i></i><b id="pzkgold">${cmn(P.gold)}</b></div>
+  <div class="pztitle sm">The Cue Rack</div>
+  <div class="pzktabs pzktabs9"><i class="pzktp"></i>${PZ_RKTABS.map(([k,l],i)=>`<button class="${tab===k?'on':''}" data-t="${k}" style="--i:${i}">${l} <em>${cnt(k)}</em></button>`).join('')}<kbd class="q">Q</kbd><kbd class="e">E</kbd></div>
+  <div id="pzk97b"></div></div>`,'casbg pzx');
+ $('pzkbg').getContext('2d').drawImage(pzHubBake(),0,0);$('pzbk').onclick=()=>pzGo(pzHub);S.back=()=>pzGo(pzHub);
+ ov.querySelectorAll('.pzktabs9 button').forEach(b=>b.onclick=()=>pzRkTab(b.dataset.t));
+ PZ.rackSel=PZ.rackSel&&pzRkList(tab).find(x=>x.id===PZ.rackSel)?PZ.rackSel:pzRkEq(tab);pzRk97Body(true);pzRkPuck();pzFitTM()}
+function pzRkTab(t){if(t===PZ.rackTab)return;PZ.rackTab=t;PZ.rackSel=pzRkEq(t);PZ.rackFilt='all';pzFx('tick');ov.querySelectorAll('.pzktabs9 button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));pzRkPuck();pzRk97Body(true)}
+function pzRk97Body(anim){const tab=PZ.rackTab,host=$('pzk97b');if(!host)return;const loadStrip=tab!=='cues';
+ host.className='pzk97b '+tab+(anim?' in':'');host.innerHTML=`<div class="pzkwall ${tab}" id="pzkwall"></div><div class="pzkdet ${tab}" id="pzkdet"></div>${tab==='cues'?'<div class="pzkloadc" id="pzkloadc"></div>':pzRk97Strip()}`;
+ pzRk97Wall();pzRk97Detail();if(tab==='cues')pzRk97Loadout();else pzRk97StripWire()}
+/* the "In your hand" strip (felts and ball sets) */
+function pzRk97Strip(){const oc=pzOwnCount(),np=pzNextPrize();return `<div class="pzkload"><div class="pzh3k">In your hand</div>${PZ_RKTABS.map(([k,l],i)=>{const it=pzRkList(k).find(x=>x.id===pzRkEq(k))||pzRkList(k)[0];return `<button class="pzkls" data-t="${k}"><small>${l.replace(/s$/,'').toUpperCase()}</small><b>${it.n}</b><canvas width="180" height="34" data-lt="${k}" data-li="${it.id}"></canvas><kbd>${i+1}</kbd></button>`}).join('')}
+ <div class="pzkcol"><div><b>Collection</b><span>${oc.n} / ${oc.t}</span></div><em><i style="transform:scaleX(${oc.n/oc.t})"></i></em><p>${np?`Next unlock: <b>${np.it.n}${np.t==='felt'?' felt':''}</b> · ${np.need>1?`beat ${pzShort(np.id)} ${np.need} more times`:`beat ${pzShort(np.id)} once`}`:'Everything won. A true collector.'}</p><p class="pzklook">Cosmetic only: they change the look, not the shots.</p></div></div>`}
+function pzRk97StripWire(){ov.querySelectorAll('.pzkls').forEach(b=>{b.onclick=()=>pzRkTab(b.dataset.t);const cv=b.querySelector('canvas');try{pzRkThumb(cv.getContext('2d'),cv.dataset.lt,pzRkList(cv.dataset.lt).find(x=>x.id===cv.dataset.li),180,34)}catch(e){}})}
+function pzRkLoad(){if(PZ.rackTab==='cues'){pzRk97Loadout();return}ov.querySelectorAll('.pzkls').forEach(b=>{const k=b.dataset.t,it=pzRkList(k).find(x=>x.id===pzRkEq(k))||pzRkList(k)[0];b.querySelector('b').textContent=it.n;const cv=b.querySelector('canvas');try{pzRkThumb(cv.getContext('2d'),k,it,180,34)}catch(e){}})}
+/* "Your Loadout" (cues tab) */
+function pzRk97Loadout(){const el=$('pzkloadc');if(!el)return;const oc=pzOwnCount(),np=pzNextPrize();
+ el.innerHTML=`<div class="pzh3k">Your Loadout</div><div class="pzklc">${PZ_RKTABS.map(([k,l])=>{const it=pzRkList(k).find(x=>x.id===pzRkEq(k))||pzRkList(k)[0];return `<button class="pzklcell" data-t="${k}"><small>${l.replace(/s$/,'').replace('Ball set','Ball set').toUpperCase()}</small><canvas width="300" height="56" data-lt="${k}" data-li="${it.id}"></canvas><b>${it.n}</b></button>`}).join('')}</div>
+ <div class="pzkcp"><div><b>Collection Progress</b><span>${oc.n} / ${oc.t}</span></div><em><i style="transform:scaleX(${oc.n/oc.t})"></i></em><p>${np?`Next unlock: <b>${np.it.n}${np.t==='felt'?' felt':''}</b> · ${np.need>1?`beat ${pzShort(np.id)} ${np.need} more times`:`beat ${pzShort(np.id)} once`}.`:'Everything won. A true collector.'}</p></div>`;
+ el.querySelectorAll('.pzklcell').forEach(b=>{b.onclick=()=>pzRkTab(b.dataset.t);const cv=b.querySelector('canvas');try{pzRkThumb(cv.getContext('2d'),cv.dataset.lt,pzRkList(cv.dataset.lt).find(x=>x.id===cv.dataset.li),300,56)}catch(e){}})}
+function pzRk97Wall(){const tab=PZ.rackTab,w=$('pzkwall');if(!w)return;const items=pzRkList(tab),sel=PZ.rackSel,o=pzRkOwn(tab),eq=pzRkEq(tab),Z=PZS();
+ const isNew=x=>!PZS().seen[x.id]&&o[x.id]&&x.price!==0&&x.how!=='Free';
+ if(tab==='cues'){const shop=items.filter(x=>x.price!=null&&!x.beat&&!x.beatShade),won=items.filter(x=>x.beat||x.beatShade);
+  const col=(x,i)=>{const s=pzRk97Status('cues',x),dark=s.k==='lock',L=o[x.id]?pzMastLv(x.id):0;return `<button class="pzki pzkc97 ${x.id===sel?'sel':''} ${o[x.id]?'':'lock'} ${eq===x.id?'eq':''} ${dark?'dark':''} ${L>=10?'master':''}" data-i="${x.id}" style="--i:${i}" aria-label="${x.n}"><canvas width="128" height="600" data-cu="${x.id}"></canvas>${isNew(x)?'<s class="pzknew">NEW</s>':''}<span class="pzktag97">${pzRk97Chip('cues',x)}</span><span class="pzklv97">${x.id===sel?`<b>${x.n}</b>`:L?`Lv ${L}`:''}</span></button>`};
+  w.innerHTML=`<div class="pzkrail97"></div><div class="pzkshelf97"></div><div class="pzkhead97 s">THE SHOP · ${shop.filter(x=>o[x.id]).length} / ${shop.length}</div><div class="pzkhead97 w">WON AT THE TABLES · ${won.filter(x=>o[x.id]).length} / ${won.length}</div><div class="pzkcols97">${shop.map(col).join('')}<i class="pzkgap97"></i>${won.map((x,i)=>col(x,i+shop.length)).join('')}</div>`;
+  {const fs=w.querySelector('.pzkc97'),fw=w.querySelector('.pzkgap97+.pzkc97'),hs=w.querySelector('.pzkhead97.s'),hw=w.querySelector('.pzkhead97.w');if(fs&&hs)hs.style.left=(fs.offsetLeft+fs.offsetWidth/2-20)+'px';if(fw&&hw)hw.style.left=(fw.offsetLeft+fw.offsetWidth/2-20)+'px'}
+  w.querySelectorAll('canvas[data-cu]').forEach(cv=>{const g=cv.getContext('2d');g.drawImage(pzCueUp97(cv.dataset.cu),0,0);if(cv.closest('.dark')){g.globalCompositeOperation='source-atop';g.fillStyle='rgba(14,8,24,.88)';g.fillRect(0,0,128,600);g.globalCompositeOperation='source-over'}else if(cv.closest('.lock')){g.globalCompositeOperation='source-atop';g.fillStyle='rgba(14,8,24,.35)';g.fillRect(0,0,128,600);g.globalCompositeOperation='source-over'}})}
+ else if(tab==='felts'){const n=items.length;w.innerHTML=`<div class="pzkfg">${items.map((x,i)=>{const s=pzRk97Status('felts',x),wide=n%2&&i===n-1,unk=s.k==='lock';return `<button class="pzki pzkfc ${x.id===sel?'sel':''} ${o[x.id]?'':'lock'} ${eq===x.id?'eq':''} ${wide?'wide':''} ${unk?'unk':''}" data-i="${x.id}" style="--i:${i}"><canvas width="${wide?1520:740}" height="264" data-ft="${x.id}"></canvas><b>${unk?'???':x.n}</b>${isNew(x)?'<s class="pzknew">NEW</s>':''}${pzRk97Chip('felts',x)}</button>`}).join('')}</div>`;
+  w.querySelectorAll('canvas[data-ft]').forEach(cv=>{const it=items.find(x=>x.id===cv.dataset.ft);pzFeltCard97(cv,it,cv.closest('.unk'))})}
+ else{const f=PZ.rackFilt||'all',vis=items.filter(x=>f==='all'?true:f==='owned'?!!o[x.id]:f==='shop'?!!x.price:!x.price&&x.price!==0&&!!(x.beat||x.beatShade));
+  w.innerHTML=`<div class="pzkbstrip">${vis.map((x,i)=>{const s=pzRk97Status('balls',x);return `<button class="pzki pzkbc ${x.id===sel?'sel':''} ${o[x.id]?'':'lock'} ${eq===x.id?'eq':''}" data-i="${x.id}" style="--i:${i}"><canvas width="300" height="100" data-sw="${x.id}"></canvas><b>${x.n}</b>${isNew(x)?'<s class="pzknew">NEW</s>':''}${pzRk97Chip('balls',x)}</button>`}).join('')||'<p class="pzkempty">Nothing here yet.</p>'}</div>`;
+  w.querySelectorAll('canvas[data-sw]').forEach(cv=>{const it=items.find(x=>x.id===cv.dataset.sw);pzBallCard97(cv,it)});pzDemoSet()}
+ w.querySelectorAll('canvas[data-p]').forEach(cv=>pzCastPortrait(cv.getContext('2d'),'mon',cv.dataset.p,44,1,Object.assign(pzCastEx(),PZ_EXP.neutral)));
+ w.querySelectorAll('.pzki').forEach(b=>{b.onclick=()=>{if(PZ.rackSel===b.dataset.i)return;PZ.rackSel=b.dataset.i;pzFx('tick');w.querySelectorAll('.pzki').forEach(x=>{x.classList.toggle('sel',x===b);const lv=x.querySelector('.pzklv97');if(lv&&tab==='cues'){const it=items.find(y=>y.id===x.dataset.i),L=o[it.id]?pzMastLv(it.id):0;lv.innerHTML=x===b?`<b>${it.n}</b>`:L?`Lv ${L}`:''}});pzRk97Detail()}})}
+/* a felt card: a top-down table with a rack, baked */
+function pzFeltCard97(cv,it,unk){const g=cv.getContext('2d'),w=cv.width,h=cv.height;g.clearRect(0,0,w,h);const tw=Math.min(w-16,(h-12)*2.45),th=tw/2.45,x=(w-tw)/2,y=(h-th)/2,r=th*.1;
+ g.fillStyle='rgba(0,0,0,.35)';pzRR(g,x+6,y+8,tw,th,22);g.fill();
+ const wood=g.createLinearGradient(0,y,0,y+th);wood.addColorStop(0,'#b8682c');wood.addColorStop(1,'#7a3a16');g.fillStyle=unk?'#2a2440':wood;pzRR(g,x,y,tw,th,22);g.fill();g.strokeStyle=PZ_O;g.lineWidth=5;g.stroke();
+ const fx=x+r,fy=y+r,fw=tw-2*r,fh=th-2*r;const q=g.createRadialGradient(fx+fw/2,fy+fh/2,10,fx+fw/2,fy+fh/2,fw*.6);q.addColorStop(0,unk?'#3a3456':it.a);q.addColorStop(1,unk?'#241e38':it.c);g.fillStyle=q;g.fillRect(fx,fy,fw,fh);g.strokeStyle=PZ_O;g.lineWidth=3;g.strokeRect(fx,fy,fw,fh);
+ for(const [px,py] of[[fx,fy],[fx+fw/2,fy],[fx+fw,fy],[fx,fy+fh],[fx+fw/2,fy+fh],[fx+fw,fy+fh]]){g.fillStyle='#07040a';g.beginPath();g.arc(px,py,r*.62,0,TAU);g.fill();g.strokeStyle=unk?'#4a4466':'#d8a03a';g.lineWidth=4;g.stroke()}
+ if(unk){g.fillStyle='rgba(200,190,240,.55)';g.font=`400 ${th*.5}px "Pirata One",serif`;g.textAlign='center';g.textBaseline='middle';g.fillText('?',w/2,h/2+4);return}
+ const br=fh*.055,cx=fx+fw*.27,cy=fy+fh/2;g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.arc(cx+2,cy+3,br,0,TAU);g.fill();g.fillStyle='#fbf7ee';g.beginPath();g.arc(cx,cy,br,0,TAU);g.fill();g.strokeStyle=PZ_O;g.lineWidth=2;g.stroke();
+ const cols=['#f2c21b','#1e4fd8','#e0262e','#6a2aa8','#f27a1b','#178a3e','#8a1a1a','#14121a'];let k=0;const ax=fx+fw*.72;for(let c=0;c<5;c++)for(let j=0;j<=c;j++){const bx=ax+c*br*1.75,by=cy+(j-c/2)*br*2.02,col=cols[(k++)%8];g.fillStyle=col;g.beginPath();g.arc(bx,by,br,0,TAU);g.fill();g.strokeStyle=PZ_O;g.lineWidth=1.6;g.stroke();g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.arc(bx-br*.35,by-br*.35,br*.3,0,TAU);g.fill()}
+ const sh=g.createRadialGradient(fx+fw*.4,fy+fh*.35,10,fx+fw/2,fy+fh/2,fw*.7);sh.addColorStop(0,'rgba(255,240,190,.16)');sh.addColorStop(1,'rgba(0,0,0,.25)');g.fillStyle=sh;g.fillRect(fx,fy,fw,fh)}
+/* a ball-set card: three balls of the set */
+function pzBallCard97(cv,it){const g=cv.getContext('2d');g.clearRect(0,0,300,100);const D0=PZ_BS.D||64;pzbSetup(D0,it.id);const n=[1,3,8];for(let i=0;i<3;i++){const M=pzbRot(pzbRot(pzbI(),0,1,0,.25+i*.22),1,0,0,-.22);pzbPaint(15,n[i],M);const sz=88;g.fillStyle='rgba(0,0,0,.35)';g.beginPath();g.ellipse(58+i*92,94,34,6,0,0,TAU);g.fill();g.drawImage(PZ_BS.atlas,15*PZ_BS.D,0,PZ_BS.D,PZ_BS.D,14+i*92,2,sz,sz)}pzbSetup(D0,PZ.rackSel&&PZ.rackTab==='balls'?PZ.rackSel:PZS().balls)}
+function pzRk97Detail(){const tab=PZ.rackTab,d=$('pzkdet');if(!d)return;const Z=PZS(),items=pzRkList(tab),it=items.find(x=>x.id===PZ.rackSel)||items[0],own=pzRkOwn(tab),have=!!own[it.id],who=pzRkWho(it),st=pzRk97Status(tab,it);
+ const from=it.price===0?'The house gives you this one.':it.price?'From the shop.':who?`Won at the tables: ${it.how.toLowerCase()}.`:it.how;
+ if(tab==='cues'){const mi=pzMastInfo(it.id),L=mi.lv,nx=PZ_MAST.rw[Math.min(10,L+1)];
+  d.innerHTML=`<div class="pzkdh"><div class="pzkdn"><div class="pzh3k">${st.k==='lock'&&!have?'???':it.n}</div><p class="pzkfrom">${from}</p></div>
+   <div class="pzkmast ${have?'':'off'} ${mi.max?'max':''}"><div class="pzkmed"><svg viewBox="0 0 64 64"><path d="M32 3l25 14v30L32 61 7 47V17z" fill="#12081f"/><path d="M32 8l21 12v24L32 56 11 44V20z" fill="${mi.max?'url(#pzmg)':have?'#3a2f8a':'#241e38'}" stroke="${have?'#ffd45a':'#4a4466'}" stroke-width="3"/><defs><linearGradient id="pzmg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset="1" stop-color="#c47c18"/></linearGradient></defs></svg><b>${have?L:1}</b></div>
+    <div class="pzkmx"><small>CUE MASTERY ${mi.max?'· MASTERED':''}</small><em><i style="transform:scaleX(${have?mi.frac:0})"></i></em><span>${have?(mi.max?`${cmn(mi.xp)} XP · every reward won`:`${cmn(mi.xp-mi.a)} / ${cmn(mi.b-mi.a)} XP to Lv ${L+1}`):'Own it to start mastering it.'}</span></div></div></div>
+   <div class="pzkcpv"><canvas id="pzkcpv" width="1840" height="150"></canvas></div>
+   <div class="pzkrow"><div class="pzktrack">${[1,2,3,4,5,6,7,8,9,10].map(l=>{const r=PZ_MAST.rw[l];return `<i class="pzkn ${have&&L>=l?'done':''} ${have&&L+1===l?'next':''}" data-l="${l}" title="Lv ${l}: ${r[1]}${r[0]==='gold'?'':' · '+r[2]}"><span class="ic ${r[0]}"></span><em>${l}</em></i>`}).join('')}<p class="pzktcap" id="pzktcap">${have?(mi.max?'Mastered. The gold-leaf cap is yours.':`Next · Lv ${L+1}: <b>${nx[1]}</b>${nx[0]==='gold'?'':` · ${nx[2]}`}`):'Mastery: pot balls, win racks and matches with this cue in paid games.'}</p></div>
+    <div class="pzkact">${pzRk97Act(tab,it)}</div></div>`;
+  const cv=$('pzkcpv'),g=cv.getContext('2d'),s=pzCueSprite(it.id);if(st.k!=='lock'||have){const q=g.createRadialGradient(920,75,10,920,75,700);q.addColorStop(0,'rgba(130,110,230,.35)');q.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=q;g.fillRect(0,0,1840,150);if(it.glow)pzGlow(g,600,75,300,pzRgba(it.glow),.28);g.save();g.translate(1820,72);g.scale(3.72,4.6);g.drawImage(s.c,-(s.L+10),-15,s.W/2,s.H/2);g.restore();if(!have){g.globalCompositeOperation='source-atop';g.fillStyle='rgba(14,8,24,.45)';g.fillRect(0,0,1840,150);g.globalCompositeOperation='source-over'}}
+  d.querySelectorAll('.pzkn').forEach(n=>n.onmouseenter=()=>{const l=+n.dataset.l,r=PZ_MAST.rw[l],c=$('pzktcap');if(c)c.innerHTML=`Lv ${l}: <b>${r[1]}</b>${r[0]==='gold'?'':` · ${r[2]}`}`})}
+ else if(tab==='felts'){const unk=st.k==='lock'&&!have;
+  d.innerHTML=`<div class="pzkfpv"><canvas id="pzkfpv" width="1340" height="720"></canvas><div class="pzh3k">${unk?'???':it.n}</div></div>
+   <div class="pzkfst"><div class="pzkfsx"><b class="${st.k==='eq'?'ok':''}">${st.k==='eq'?'In your hand':st.k==='own'?'Yours':st.k==='buy'?'For sale':unk?'Not met yet':'Win it'}</b><p>${st.k==='prog'||unk?from:(PZ_FTAG97[it.id]||'')+' Cosmetic only: it changes the look, not the shots.'}</p></div><div class="pzkact">${pzRk97Act(tab,it)}</div></div>`;
+  pzFeltPv97($('pzkfpv'),unk?{id:'unk',a:'#3a3456',b:'#2a2440',c:'#1a1630'}:it)}
+ else{d.innerHTML=`<canvas id="pzkdemo" width="1544" height="396"></canvas><div class="pzkfil">${[['all','All'],['owned','Owned'],['shop','Shop'],['earned','Earned']].map(([k,l])=>`<button data-f="${k}" class="${(PZ.rackFilt||'all')===k?'on':''}">${l}</button>`).join('')}</div>
+   <div class="pzkbhd"><div class="pzkbt"><div class="pzh3k">${it.n}</div>${st.k==='eq'?'<span class="pzc97 eq big">✓ EQUIPPED</span>':st.k==='own'?'<span class="pzc97 own big">✓ OWNED</span>':''}</div><p>${PZ_TAG97[it.id]||from}</p><div class="pzkact">${st.k==='eq'?'':pzRk97Act(tab,it)}</div></div>`;
+  d.querySelectorAll('.pzkfil button').forEach(b=>b.onclick=()=>{PZ.rackFilt=b.dataset.f;pzFx('tick');d.querySelectorAll('.pzkfil button').forEach(x=>x.classList.toggle('on',x===b));pzRk97Wall()});pzDemoMount()}
+ d.classList.remove('in');void d.offsetWidth;d.classList.add('in');
+ const e=$('pzkeq');if(e)e.onclick=()=>{if(tab==='cues')Z.cue=it.id;else if(tab==='felts')Z.felt=it.id;else Z.balls=it.id;save();pzFx('place');pzRk97Wall();pzRk97Detail();pzRkLoad();pzRk97Pop(it.id)};
+ const c=$('pzkch');if(c)c.onclick=()=>{PZ.sel=who;pzGo(pzHub)};
+ const b=$('pzkbuy');if(b){if(b.classList.contains('poor'))b.onclick=()=>{b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');pzFx('foul');pzNote(`You need ${cmn(it.price-P.gold)} more gold for the ${it.n}.`)};
+  else pzBuy97Hold(b,()=>{if(it.price&&P.gold>=it.price&&cTake(it.price)){own[it.id]=1;Z.seen=Z.seen||{};Z.seen[it.id]=1;if(tab==='cues')Z.cue=it.id;else if(tab==='felts')Z.felt=it.id;else Z.balls=it.id;save();pzFx('win');
+   const pv=tab==='balls'?$('pzkdemo'):tab==='felts'?$('pzkfpv'):$('pzkcpv');pzBuy97Party(b,it.price,pv);setTimeout(()=>{if(!$('pzk97b'))return;pzRk97Wall();pzRk97Detail();pzRkLoad();pzRk97Pop(it.id);ov.querySelectorAll('.pzktabs9 button').forEach(x=>{const k=x.dataset.t,l=pzRkList(k),o=pzRkOwn(k);const em=x.querySelector('em');if(em)em.textContent=`${l.filter(y=>o[y.id]).length}/${l.length}`})},420);pzNote(`${it.n} is yours, and in your hand.`)}})}}
+/* the card that just changed shines */
+function pzRk97Pop(id){const c=ov.querySelector(`#pzkwall .pzki[data-i="${id}"]`);if(c){c.classList.remove('justgot');void c.offsetWidth;c.classList.add('justgot')}}
+/* the felts preview: the table in perspective with a rack, the cue resting by the cue ball */
+function pzFeltPv97(cv,it){if(!cv)return;const g=cv.getContext('2d'),w=cv.width,h=cv.height,P=pzPersp(w/2,1.72,1.12,h*.86,h*.2);g.drawImage(pzPersBake(P,it,w,h),0,0);
+ const D0=PZ_BS.D||64;pzbSetup(D0,PZS().balls);const B=pzpRack(()=>.5);const rng=(()=>{let s=3;return()=>{s=(s*16807)%2147483647;return s/2147483647}})();pzbInitBalls(B,rng);for(const b of B){b.on=true;pzbPaint(b.id,b.id,b.M)}PZ_BS.dirtyAll=1;
+ pzPersCue(g,P,PZS().cue,B[0].x,B[0].y,-.08,46,1);pzPersBalls(g,P,B,null)}
+/* the live table: one per screen, restarted when the set changes */
+let PZ_DEMO=null;
+function pzDemoSet(){const id=PZ.rackSel||PZS().balls;if(PZ_BS.set!==id||PZ_BS.D!==64){pzbSetup(64,id);PZ_BS.dirtyAll=1}}
+function pzDemoMount(){const cv=$('pzkdemo');if(!cv)return;const g=cv.getContext('2d'),w=cv.width,h=cv.height,felt=PZ_FELT.find(x=>x.id===PZS().felt)||PZ_FELT[0],P=pzPersp(w*.5,1.92,1.24,h*.97,h*.21),bake=pzPersBake(P,felt,w,h);
+ if(!PZ_DEMO||!PZ_DEMO.B)PZ_DEMO=pzDemoNew();const D=PZ_DEMO;D.cv=cv;pzDemoSet();let last=performance.now();
+ const f=()=>{if(!cv.isConnected||PZ_DEMO!==D||D.cv!==cv)return;const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;if(PZ.modal||document.hidden)return;pzDemoSet();pzDemoStep(D,dt);pzDemoDraw(g,P,D,bake,PZS().cue,w,h)};f();LIVE.push({cv,fn:f,slow:0,ph:0})}
+
+{const st=document.createElement('style');st.textContent=`
+.pzrk97 .pzk97b>*{z-index:2}
+.pzrk97 .pzk97b.in .pzkwall{animation:pzrise .45s cubic-bezier(.25,1.3,.45,1) both}.pzrk97 .pzk97b.in .pzkdet{animation:pzrise .45s .06s cubic-bezier(.25,1.3,.45,1) both}.pzrk97 .pzk97b.in .pzkloadc,.pzrk97 .pzk97b.in .pzkload{animation:pzrise .45s .12s cubic-bezier(.25,1.3,.45,1) both}
+/* chips */
+.pzc97{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:56px;height:24px;padding:0 9px;box-sizing:border-box;border-radius:12px;border:2px solid #12081f;font:800 11px/1 Poppins,sans-serif;white-space:nowrap}
+.pzc97.eq,.pzrk97 .pzki .pzc97.eq{background:#ffd45a;color:#2a1a04}.pzrk97 .pzki .pzc97.own{color:#06200f}.pzrk97 .pzki.eq .pzklv97{color:#ffe9b0}.pzc97.own{background:#5ee08e;color:#06200f}.pzc97.buy{background:linear-gradient(180deg,#fff6d0,#ffd45a);color:#2a1a04}.pzc97.buy.poor{background:#3a3456;color:#b0a8d0}
+.pzc97.prog{background:var(--rc);color:#fff;padding-left:3px}.pzc97.prog canvas{width:18px;height:18px;border-radius:50%;background:#12081f}.pzc97.lock{background:#241e32;color:#8a86a0;min-width:34px}
+.pzc97.big{height:32px;padding:0 14px;font-size:14px;border-radius:16px}
+.pzcoin{display:inline-block;width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#f2b631 60%,#a8701a);border:1.5px solid #12081f;box-sizing:border-box}
+.pzlk{display:inline-block;width:9px;height:8px;margin-top:3px;border-radius:2px;background:#8a86a0;position:relative}.pzlk::before{content:'';position:absolute;left:1.5px;top:-5px;width:6px;height:6px;border:1.5px solid #8a86a0;border-bottom:0;border-radius:4px 4px 0 0;box-sizing:border-box}
+/* --- cues: the wall rack --- */
+.pzrk97 .pzkwall.cues{left:18px;top:160px;width:1564px;height:452px;background:linear-gradient(180deg,#9a5424,#6a3214);border:4px solid #12081f;border-radius:24px}
+.pzrk97 .pzkwall.cues::before{background:repeating-linear-gradient(90deg,transparent 0 118px,#00000020 118px 121px,#ffffff0c 121px 123px)}
+.pzkrail97{position:absolute;left:16px;right:16px;top:54px;height:18px;border-radius:9px;background:linear-gradient(180deg,#d88a42,#8a4a1e);border:3px solid #12081f;box-shadow:0 6px 0 #0003}
+.pzkshelf97{position:absolute;left:10px;right:10px;top:350px;height:26px;border-radius:8px;background:linear-gradient(180deg,#e09a50,#a85a24 55%,#6a3214);border:3px solid #12081f;box-shadow:0 8px 0 #0004}
+.pzkhead97{position:absolute;z-index:3;top:7px;padding:5px 14px;border-radius:9px;background:#12081f;color:#ffd45a;font:800 12px Poppins,sans-serif;letter-spacing:.12em;white-space:nowrap}
+.pzkcols97{position:absolute;left:34px;right:34px;top:30px;bottom:0;display:flex;justify-content:space-between;align-items:flex-start}
+.pzkgap97{width:18px;flex:none}
+.pzrk97 .pzkc97{position:relative;width:100px;height:410px;padding:0;border:0;border-radius:0;background:none;box-shadow:none;cursor:pointer;display:block;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
+.pzkc97>canvas{position:absolute;left:18px;top:30px;width:64px;height:300px;transition:transform .25s cubic-bezier(.3,1.5,.5,1)}
+.pzkc97:hover>canvas{transform:translateY(-8px)}.pzkc97.sel>canvas{transform:translateY(-14px)}
+.pzkc97.sel::before{content:'';position:absolute;left:6px;right:6px;top:2px;height:340px;border:4px solid #ffd45a;border-radius:16px;box-shadow:0 0 0 3px #12081f,inset 0 0 0 2px #12081f;pointer-events:none}
+.pzkc97.sel::after{content:'';position:absolute;left:10px;right:10px;top:6px;height:332px;border-radius:12px;background:radial-gradient(ellipse at 50% 70%,#ffd45a33,transparent 70%);pointer-events:none}
+.pzktag97{position:absolute;left:50%;top:352px;transform:translateX(-50%);z-index:2}
+.pzklv97{position:absolute;left:50%;top:382px;transform:translateX(-50%);font:800 11px Poppins,sans-serif;color:#ffe9b0;white-space:nowrap;text-shadow:0 1px 0 #12081f}
+.pzklv97 b{display:block;padding:2px 9px;border-radius:8px;background:#12081f;color:#fff;font:800 12px Poppins,sans-serif}
+.pzkc97.master .pzklv97{color:#ffd45a}
+.pzrk97 .pzkwall.in .pzkc97,.pzrk97 .pzk97b.in .pzkc97{animation:pzkcIn .5s calc(var(--i)*.035s + .1s) cubic-bezier(.3,1.4,.5,1) both}
+/* --- cues: detail + loadout --- */
+.pzrk97 .pzkdet.cues{left:18px;top:628px;width:978px;height:260px;padding:14px 22px;text-align:left;border-color:#4a3e90;background:linear-gradient(180deg,#221a5a,#0e0830)}
+.pzkdh{display:flex;justify-content:space-between;align-items:flex-start;height:62px}
+.pzrk97 .pzkdet.cues .pzh3k{margin:0;font:400 44px/1 "Pirata One",serif;color:#ffd45a}.pzrk97 .pzkdet .pzkfrom{margin:2px 0 0;font:600 14px Poppins,sans-serif;color:#c4badf}
+.pzkmast{display:flex;align-items:center;gap:12px;padding:6px 14px 6px 8px;border-radius:16px;background:#0c0824;border:2px solid #2a2468}.pzkmast.off{opacity:.7}
+.pzkmed{position:relative;width:50px;height:50px}.pzkmed svg{width:50px;height:50px}.pzkmed b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:400 26px/1 "Pirata One",serif;color:#fff}.pzkmast.max .pzkmed b{color:#2a1a04}
+.pzkmx small{display:block;font:800 10px Poppins,sans-serif;letter-spacing:.12em;color:#ffd45a}.pzkmx em{display:block;width:250px;height:9px;margin:5px 0 4px;border-radius:5px;background:#2a2468;overflow:hidden}.pzkmx em i{display:block;height:100%;background:linear-gradient(90deg,#8affb4,#ffd45a);transform-origin:0 50%;transition:transform .6s cubic-bezier(.3,1.2,.5,1)}.pzkmx span{font:700 12px Poppins,sans-serif;color:#c4badf}
+.pzkcpv{height:75px;margin:6px -8px 0;overflow:hidden}.pzkcpv canvas{width:920px;height:75px;display:block;animation:pzcfl 4s ease-in-out infinite}
+@keyframes pzcfl{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.pzkrow{display:flex;align-items:center;gap:18px;margin-top:8px}
+.pzktrack{position:relative;flex:1;display:flex;justify-content:space-between;padding:0 4px 40px}
+.pzktrack::before{content:'';position:absolute;left:20px;right:20px;top:17px;height:4px;border-radius:2px;background:#2a2468}
+.pzkn{position:relative;z-index:1;width:36px;height:36px;border-radius:50%;background:#1a1440;border:3px solid #3a3070;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-style:normal;cursor:default;transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
+.pzkn:hover{transform:scale(1.15)}.pzkn em{position:absolute;top:34px;font:800 10px Poppins,sans-serif;font-style:normal;color:#8a80b8}
+.pzkn.done{background:linear-gradient(180deg,#ffe27a,#d8941e);border-color:#12081f}.pzkn.done em{color:#ffd45a}
+.pzkn.next{border-color:#ffd45a;animation:pzknp 1.4s ease-in-out infinite}@keyframes pzknp{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+.pzkn .ic{width:18px;height:18px;display:block;background:center/contain no-repeat}
+.pzkn .ic.gold{border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#f2b631 60%,#a8701a);border:2px solid #12081f;width:15px;height:15px}
+.pzkn .ic.start{width:8px;height:8px;border-radius:50%;background:#c4badf}
+.pzkn .ic.chalk{width:13px;height:13px;border-radius:3px;background:#3a86e8;border:2px solid #12081f}
+.pzkn .ic.ring{width:14px;height:14px;border-radius:50%;border:3px solid #ffd45a;box-shadow:0 0 0 1.5px #12081f}
+.pzkn .ic.aim{width:16px;height:16px;border-radius:50%;border:2px solid #9fe8ff;background:radial-gradient(circle,#9fe8ff 0 2px,transparent 3px)}
+.pzkn .ic.spark{background:conic-gradient(from 0deg,#fff 0 10%,transparent 10% 25%,#fff 25% 35%,transparent 35% 50%,#fff 50% 60%,transparent 60% 75%,#fff 75% 85%,transparent 85%);border-radius:50%}
+.pzkn .ic.master{width:18px;height:12px;background:linear-gradient(180deg,#fff3b0,#f2b631);clip-path:polygon(0 100%,0 20%,25% 60%,50% 0,75% 60%,100% 20%,100% 100%)}
+.pzkn.done .ic.start,.pzkn.done .ic.aim{filter:none}
+.pzktcap{position:absolute;left:4px;right:4px;bottom:0;margin:0;font:600 12px Poppins,sans-serif;color:#c4badf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pzktcap b{color:#ffd45a}
+.pzkact{width:300px;flex:none}
+.pzrk97 .pzkact .pzkbig{margin:0!important;height:62px}
+.pzkeqd{display:flex;flex-wrap:wrap;align-items:center;gap:0 10px;padding:8px 14px;border-radius:16px;background:#0c2a1a;border:3px solid #5ee08e;color:#8affb4;font:800 18px Poppins,sans-serif}.pzkeqd span{width:26px;height:26px;border-radius:50%;background:#5ee08e;color:#06200f;display:flex;align-items:center;justify-content:center;font-size:15px}.pzkeqd small{width:100%;font:600 11.5px Poppins,sans-serif;color:#a8e8c0;margin-top:2px}
+.pzkprog97{padding:8px 12px;border-radius:14px;background:#0c0824;border:2px solid #2a2468;margin-bottom:8px}.pzkprog97 b{display:block;font:700 13px Poppins,sans-serif;color:#efe8ff}.pzkprog97 em{display:block;height:7px;margin-top:6px;border-radius:4px;background:#2a2468;overflow:hidden}.pzkprog97 em i{display:block;height:100%;background:#ffd45a;transform-origin:0 50%}.pzkprog97.lk{text-align:center}
+.pzkprog97+.pzkbig{height:50px!important}
+.pzkloadc{position:absolute;left:1012px;top:628px;width:570px;height:260px;box-sizing:border-box;padding:14px 20px;border-radius:24px;background:linear-gradient(180deg,#221a5a,#0e0830);border:3px solid #4a3e90;box-shadow:0 12px 30px #000a}
+.pzkloadc .pzh3k{margin:0!important;font:400 34px/1 "Pirata One",serif!important;color:#ffd45a;text-align:left}
+.pzklc{display:flex;gap:10px;margin-top:10px}.pzklcell{flex:1;height:96px;padding:8px 10px;border-radius:14px;background:#140c36;border:2px solid #3a3070;color:#efe8ff;text-align:left;cursor:pointer;box-shadow:none;transition:transform .2s cubic-bezier(.3,1.5,.5,1)}.pzklcell:hover{transform:translateY(-3px);border-color:#ffd45a}
+.pzklcell small{display:block;font:800 10px Poppins,sans-serif;letter-spacing:.12em;color:#9a90c8}.pzklcell{min-width:0}.pzklcell canvas{display:block;width:100%;height:auto;max-height:30px;margin:6px 0 4px}.pzklcell b{display:block;font:800 13px Poppins,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pzkcp{margin-top:12px}.pzkcp div{display:flex;justify-content:space-between;font:800 15px Poppins,sans-serif;color:#ffd45a}.pzkcp div span{color:#ffd45a}.pzkcp em{display:block;height:9px;margin:6px 0;border-radius:5px;background:#2a2468;overflow:hidden}.pzkcp em i{display:block;height:100%;background:linear-gradient(90deg,#8affb4,#ffd45a);transform-origin:0 50%}.pzkcp p{margin:0;font:600 12.5px Poppins,sans-serif;color:#c4badf}.pzkcp p b{color:#efe8ff}
+/* --- felts --- */
+.pzrk97 .pzkwall.felts{left:28px;top:156px;width:820px;height:598px;background:linear-gradient(180deg,#241c60,#110a32);border:3px solid #4a3e90;border-radius:24px}
+.pzkfg{position:absolute;inset:16px;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:182px;gap:12px}
+.pzrk97 .pzkfc{position:relative;display:block;height:182px;padding:10px 12px;border-radius:18px;background:#140c36;border:3px solid #3a3070;color:#efe8ff;text-align:left;cursor:pointer;box-shadow:none;transition:transform .22s cubic-bezier(.3,1.5,.5,1)}
+.pzkfc.wide{grid-column:1/3}.pzkfc canvas{display:block;width:100%;height:132px}.pzkfc.wide canvas{width:100%}
+.pzkfc b{position:absolute;left:16px;bottom:10px;font:400 28px/1 "Pirata One",serif}.pzkfc .pzc97{position:absolute;right:14px;bottom:12px}
+.pzkfc:hover{transform:translateY(-4px)}.pzkfc.sel{border-color:#ffd45a;box-shadow:0 0 0 3px #12081f,0 10px 24px #0008}
+.pzrk97 .pzk97b.in .pzkfc{animation:pzrise .45s calc(var(--i)*.06s + .1s) cubic-bezier(.25,1.3,.45,1) both}
+.pzrk97 .pzkdet.felts{left:866px;top:156px;width:706px;height:598px;padding:14px;border-color:#c99a3a}
+.pzkfpv{position:relative;height:420px;border-radius:16px;overflow:hidden;background:#0c0824}.pzkfpv canvas{display:block;width:670px;height:360px}
+.pzkfpv .pzh3k{position:absolute;left:0;right:0;bottom:6px;margin:0!important;font:400 56px/1 "Pirata One",serif!important;color:#ffd45a;text-shadow:0 3px 0 #12081f,0 0 18px #000}
+.pzkfst{display:flex;align-items:center;gap:16px;margin-top:14px;padding:14px 16px;border-radius:18px;background:#0c0824;border:2px solid #2a2468;text-align:left}
+.pzkfsx{flex:1}.pzkfsx b{display:block;font:800 20px Poppins,sans-serif;color:#efe8ff}.pzkfsx b.ok{color:#ffd45a}.pzkfsx p{margin:4px 0 0;font:600 13px Poppins,sans-serif;color:#c4badf}
+.pzkfst .pzkact{width:260px}
+/* --- ball sets --- */
+.pzrk97 .pzkdet.balls{left:28px;top:156px;width:1544px;height:400px;padding:0;overflow:hidden;border-color:#c99a3a}
+.pzkdet.balls #pzkdemo{position:absolute;left:0;top:0;width:1538px;height:394px;display:block}
+.pzkfil{position:absolute;left:18px;top:16px;display:flex;gap:6px;padding:5px;border-radius:16px;background:#100a30e8;border:2px solid #4a3e90}
+.pzkfil button{height:34px;padding:0 20px;border-radius:12px;border:0;background:transparent;color:#c4badf;font:800 14px Poppins,sans-serif;cursor:pointer;box-shadow:none;transition:transform .2s cubic-bezier(.3,1.5,.5,1)}.pzkfil button:hover{transform:translateY(-2px)}.pzkfil button.on{background:linear-gradient(180deg,#ffe27a,#f2b631);color:#2a1a04;box-shadow:0 3px 0 #9a6a10}
+.pzkbhd{position:absolute;right:0;top:0;width:520px;padding:18px 26px 20px 60px;text-align:right;background:linear-gradient(270deg,#0c0824e0 40%,#0c082400)}
+.pzkbt{display:flex;justify-content:flex-end;align-items:center;gap:14px}.pzkbhd .pzh3k{margin:0!important;font:400 50px/1 "Pirata One",serif!important;color:#ffd45a;text-shadow:0 3px 0 #12081f}
+.pzkbhd p{margin:6px 0 10px;font:600 15px Poppins,sans-serif;color:#efe8ff;text-shadow:0 2px 4px #000}
+.pzkbhd .pzkact{width:300px;margin-left:auto}.pzkbhd .pzkprog97{text-align:left}
+.pzrk97 .pzkwall.balls{left:28px;top:568px;width:1544px;height:186px;background:linear-gradient(180deg,#241c60,#110a32);border:3px solid #4a3e90;border-radius:24px}
+.pzkbstrip{position:absolute;inset:12px;display:flex;gap:10px}
+.pzrk97 .pzkbc{position:relative;flex:1;max-width:186px;height:162px;padding:10px 8px;border-radius:16px;background:#140c36;border:3px solid #3a3070;color:#efe8ff;cursor:pointer;box-shadow:none;display:flex;flex-direction:column;align-items:center;transition:transform .22s cubic-bezier(.3,1.5,.5,1)}
+.pzkbc canvas{width:150px;height:50px}.pzkbc b{margin:6px 0 8px;font:400 22px/1 "Pirata One",serif;white-space:nowrap}.pzkbc:hover{transform:translateY(-4px)}.pzkbc.sel{border-color:#ffd45a;box-shadow:0 0 0 3px #12081f,0 10px 24px #0008;transform:translateY(-4px)}
+.pzkbc.lock canvas{opacity:.55}
+.pzrk97 .pzk97b.in .pzkbc{animation:pzrise .4s calc(var(--i)*.05s + .15s) cubic-bezier(.25,1.3,.45,1) both}
+.pzkempty{margin:auto;font:700 15px Poppins,sans-serif;color:#8a80b8}
+/* shine on a card that was just bought or equipped */
+.pzki.justgot{animation:pzjg .55s cubic-bezier(.3,1.6,.5,1) both;overflow:hidden}.pzki.justgot::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 30%,#fff8 50%,transparent 70%);animation:pzjgs .9s .1s ease-out both;pointer-events:none;border-radius:inherit}
+.pzkc97.justgot::after{inset:auto;left:10px;right:10px;top:6px;height:332px}
+@keyframes pzjg{0%{transform:scale(.92)}60%{transform:scale(1.06)}100%{transform:scale(1)}}@keyframes pzjgs{from{transform:translateX(-120%)}to{transform:translateX(120%)}}
+/* --- the buy button --- */
+.pzbuy97{position:relative;width:100%;height:62px;padding:0 18px 0 14px;border-radius:18px;border:3px solid #12081f;background:linear-gradient(180deg,#ffe98a,#f6b92e 55%,#d8901a);box-shadow:0 6px 0 #8a5a0a,0 10px 20px #0008,inset 0 2px 0 #fff8c8;color:#2a1a04;display:flex;align-items:center;gap:12px;cursor:pointer;overflow:hidden;transition:transform .12s cubic-bezier(.3,1.6,.5,1)}
+.pzbuy97:hover{transform:translateY(-2px)}.pzbuy97.hold{transform:translateY(5px) scale(.98)}
+.pzbuy97 .pzkfill{position:absolute;inset:0;background:linear-gradient(90deg,#fff6c8,#fff 90%);opacity:.75;transform-origin:0 50%;transform:scaleX(0);pointer-events:none}
+.pzbsh{position:absolute;top:0;bottom:0;width:60px;left:-80px;background:linear-gradient(100deg,transparent,#ffffffa0,transparent);animation:pzbsh 2.6s ease-in-out infinite;pointer-events:none}@keyframes pzbsh{0%,55%{transform:translateX(0)}100%{transform:translateX(480px)}}
+.pzbstack{position:relative;width:34px;height:34px;flex:none}.pzbstack i{position:absolute;left:3px;width:28px;height:11px;border-radius:50%;background:linear-gradient(180deg,#fff3b0,#e0a020);border:2px solid #12081f;box-sizing:border-box}.pzbstack i:nth-child(1){top:20px}.pzbstack i:nth-child(2){top:13px}.pzbstack i:nth-child(3){top:6px}
+.pzbuy97.hold .pzbstack i:nth-child(3){animation:pzbj .18s ease-in-out infinite alternate}@keyframes pzbj{to{transform:translateY(-4px)}}
+.pzbtx{position:relative;display:flex;flex-direction:column;align-items:flex-start;line-height:1}.pzbtx small{font:800 10.5px Poppins,sans-serif;letter-spacing:.12em}.pzbtx b{font:400 30px/1 "Pirata One",serif}
+.pzbuy97 kbd{position:relative;margin-left:auto;padding:0 6px;border-radius:7px;background:#12081f22;border:1px solid #12081f55;font:800 11px/20px Poppins,sans-serif}
+.pzbuy97.poor{background:linear-gradient(180deg,#4a4270,#2e2850);box-shadow:0 6px 0 #1a1630,0 10px 20px #0008;color:#c4badf;cursor:not-allowed}.pzbuy97.poor .pzbsh{display:none}.pzbuy97.poor .pzbstack{opacity:.5}
+.pzbuy97.shake{animation:pzbsk .35s}@keyframes pzbsk{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+.pzflyc{position:absolute;z-index:40;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#f2b631 60%,#a8701a);border:2px solid #12081f;pointer-events:none;animation:pzflyc .5s cubic-bezier(.5,0,.7,1) both}
+@keyframes pzflyc{0%{transform:translate(0,0) scale(1)}60%{transform:translate(calc(var(--x)*.6),calc(var(--y)*.6 - 60px)) scale(1.1)}100%{transform:translate(var(--x),var(--y)) scale(.5);opacity:.4}}
+.pzbflash{position:absolute;z-index:41;width:420px;height:420px;margin:-210px 0 0 -210px;border-radius:50%;background:radial-gradient(circle,#fffbe0 0,#ffd45a88 30%,transparent 65%);pointer-events:none;animation:pzbfl .6s ease-out both}@keyframes pzbfl{0%{transform:scale(.2);opacity:1}100%{transform:scale(1.4);opacity:0}}
+.pzbstar{position:absolute;z-index:42;width:16px;height:16px;margin:-8px 0 0 -8px;background:#ffd45a;clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);pointer-events:none;animation:pzbst .85s cubic-bezier(.2,.8,.4,1) both}@keyframes pzbst{0%{transform:translate(0,0) rotate(0) scale(.4)}70%{opacity:1}100%{transform:translate(var(--x),var(--y)) rotate(var(--r)) scale(1.1);opacity:0}}
+.pzbminus{position:absolute;z-index:42;margin-left:-40px;font:800 20px Poppins,sans-serif;color:#ff8a8a;text-shadow:0 2px 0 #12081f;pointer-events:none;animation:pzbmi 1.2s ease-out both}@keyframes pzbmi{0%{transform:translateY(-10px);opacity:0}20%{opacity:1}100%{transform:translateY(30px);opacity:0}}
+.pzstamp{position:absolute;z-index:43;pointer-events:none;animation:pzstp 1.8s cubic-bezier(.3,1.5,.5,1) both}.pzstamp b{display:block;transform:translate(-50%,-50%) rotate(-10deg);padding:10px 30px;border:6px solid #5ee08e;border-radius:18px;background:#0c2a1ae0;color:#8affb4;font:400 64px/1 "Pirata One",serif;letter-spacing:.04em;text-shadow:0 3px 0 #12081f;white-space:nowrap}
+@keyframes pzstp{0%{transform:scale(2.6);opacity:0}18%{transform:scale(.92);opacity:1}26%{transform:scale(1)}80%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.05)}}
+/* mastery on the results screen */
+.pzmres{min-width:240px;text-align:left}.pzmres b span{font:700 13px Poppins,sans-serif;color:#8affb4;margin-left:6px}.pzmres em{display:block;height:8px;margin-top:6px;border-radius:4px;background:#2a2468;overflow:hidden}.pzmres em i{display:block;height:100%;background:linear-gradient(90deg,#8affb4,#ffd45a);transform-origin:0 50%;transition:transform .6s cubic-bezier(.3,1.1,.5,1)}
+.pzmup,.pzres9 .pzun p.pzmup{margin:6px 0 0;font:800 12px Poppins,sans-serif;color:#ffd45a;opacity:0}.pzmres.pop .pzmup{animation:pzrise .4s cubic-bezier(.25,1.6,.45,1) both}.pzmres.pop{animation:pzjg .5s cubic-bezier(.3,1.6,.5,1) both}
+`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

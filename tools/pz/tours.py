@@ -22,7 +22,7 @@ async def main():
     await E("()=>{pzHub();0;}");await walk('hub',7)
     print('tut',await E("()=>JSON.stringify(PZS().tut)"),'on',await E("()=>PZ.on"))
     await E("()=>{pzTrick();0;}");await walk('trick',2)
-    await E("()=>{pzCueRack();0;}");await walk('rack',3)
+    await E("()=>{pzCueRack();0;}");await walk('rack',4)
     print('tut',await E("()=>JSON.stringify(PZS().tut)"))
     print('errors',er)
     await b.close()

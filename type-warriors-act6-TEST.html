@@ -51241,6 +51241,11 @@ UPDATES.push({id:'u-8.7',ts:Date.UTC(2026,9,27,17,0),tag:'New',h:'8.7 The Crooke
 CC_BUILTIN.push({text:'CROOKEDCUE',type:'gold',n:2500,id:'',max:0,used:0,builtin:1});
 /* the Special card's ribbon carries the public update number */
 {const f0=twLobby;twLobby=function(){const r=f0.apply(this,arguments);try{const rb=document.querySelector('.pzrib');if(rb)rb.textContent='UPDATE 8.7'}catch(e){}return r}}
+/* ===== Mines removed from the casino (96zl) =====
+   At the owner's request the Mines game is gone: it leaves the game list (All Games and Chance tabs) and gameOpen('mi') goes back
+   to the lobby. Its code in 65/66 stays unused; the 9.6 Mines bet cap in 96zf no longer matters. */
+{const i=GAMES.findIndex(g=>g.id==='mi');if(i>=0)GAMES.splice(i,1)}
+{const g0=gameOpen;gameOpen=function(id){if(id==='mi'){try{lobby()}catch(e){}return}return g0.apply(this,arguments)}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

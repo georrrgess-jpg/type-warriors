@@ -6131,7 +6131,7 @@ function mBJ(el,tok){
   while(val(d)<17){d.push(sh.pop());R('d');beep(520,.05,'triangle',.5);await csleep(650);if(!alive())return}
   const pv=val(p),dv=val(d);fin(dv>21||pv>dv?'win':pv===dv?'push':'lose')};
  const deal=async()=>{if(ph!=='idle'||CAS.lock)return;if(CAS.bet<1){msg(broke()||'Place a bet first.');return}if(CAS.bet>P.gold){msg('Not enough gold.');return}
-  if(sh.length<90)shoe();bet=CAS.bet;if(!cTake(bet))return;betLock(true);p=[];d=[];hid=true;ph='deal';msg('');B();R();
+  shoe();bet=CAS.bet;if(!cTake(bet))return;betLock(true);p=[];d=[];hid=true;ph='deal';msg('');B();R();
   for(const s of['p','d','p','d']){await csleep(280);if(!alive())return;(s==='p'?p:d).push(sh.pop());beep(520,.05,'triangle',.5);R(s)}
   await csleep(320);if(!alive())return;
   if(isBJ(p)||isBJ(d)){hid=false;R('rv');await csleep(500);if(!alive())return;fin(isBJ(p)&&isBJ(d)?'push':isBJ(p)?'bj':'lose');return}
@@ -6143,7 +6143,7 @@ function mBJ(el,tok){
  msg('Place your bet and press Deal. Keys: H hit, S stand, D double, Space deal or stand.');B()}
 
 /* ---------- higher or lower ---------- */
-const HLMAX=20000,HLE=1.075,HLBET=5000,HLGUESS=3,HLFACE=.75,HLTIE=(1/13)*.65;/* max payout, edge, max bet, guesses per round, and the cut applied to multipliers when the shown card is a J, Q, K or A *//* Higher or Lower: hard cap on total payout, and the per-guess multiplier edge (was 1.1) */
+const HLMAX=20000,HLE=.99,HLBET=5000,HLGUESS=3,HLFACE=1,HLTIE=(1/13)*.65;/* max payout, edge, max bet, guesses per round, and the cut applied to multipliers when the shown card is a J, Q, K or A *//* Higher or Lower: hard cap on total payout, and the per-guess multiplier edge (was 1.1) */
 /* the payout cap applies to each round: reaching it cashes the player out automatically */
 const hlLeft=()=>HLMAX,hlAddPaid=()=>{};
 function mHL(el,tok){
@@ -7022,10 +7022,10 @@ function mQZ(el,tok){
   let cells='';for(let r=0;r<5;r++)for(let c=0;c<5;c++){const t=G.grid[c][r];cells+=`<button class="qt${t.done?' used':''}" data-c="${c}" data-r="${r}" ${t.done?'disabled':''}>${t.done?'':t.v}</button>`}
   $('qmain').innerHTML=`<div class="qb"><div class="qh">${G.cats.map(c=>`<div>${esc(c)}</div>`).join('')}</div><div class="qg">${cells}</div></div>`;
   ov.querySelectorAll('.qt:not(.used)').forEach(b=>b.onclick=()=>open(+b.dataset.c,+b.dataset.r));
-  const m2=QZ.mult(score),can=picks>0&&m2>0;
+  const m2=QZ.mult(score),can=picks>=(QZ.MINP||1)&&m2>0;
   $('qctl').innerHTML=`<div class="btns"><button class="bbig" id="qco" ${can?'':'disabled'}>Cash out ${can?cmn(Math.floor(bet*m2)):''}</button></div>`;$('qco').onclick=cashout;
   CAS.key={c:()=>{if(can)cashout()}};msg(m||' ')};
- const cashout=()=>{if(ph!=='board'||picks<1||QZ.mult(score)<=0)return;const pay=settle();ph='end';results(true,pay)};
+ const cashout=()=>{if(ph!=='board'||picks<(QZ.MINP||1)||QZ.mult(score)<=0)return;const pay=settle();ph='end';results(true,pay)};
  const open=(ci,ri)=>{if(ph!=='board')return;const c=G.grid[ci][ri];c.done=1;picks++;cur=c;P.qs.push(c.id);
   if(c.dd){ph='dd';dd()}else clue(QZ.T[ri])};
  /* ---- daily double ---- */
@@ -51295,6 +51295,50 @@ CC_BUILTIN.push({text:'CROOKEDCUE',type:'gold',n:2500,id:'',max:0,used:0,builtin
    to the lobby. Its code in 65/66 stays unused; the 9.6 Mines bet cap in 96zf no longer matters. */
 {const i=GAMES.findIndex(g=>g.id==='mi');if(i>=0)GAMES.splice(i,1)}
 {const g0=gameOpen;gameOpen=function(id){if(id==='mi'){try{lobby()}catch(e){}return}return g0.apply(this,arguments)}}
+/* ===== CASINO 9.7c: exploit and balance pass (96zm, after 96zl) =====
+   An audit of every casino game except Pool, Wildcard and Nebula Scratch (return to player of every option, reload/leave/
+   double-click flows, bet limits, hidden outcomes, trophy farming). Changes, together with two careful edits:
+   - Higher or Lower (65_casino.js): HLE 1.075 -> .99 and no face-card cut (HLFACE 1). Every guess paid 107.5% on 2-10 and the
+     face-card cut was dodged by cashing out on J-A, so a simple strategy returned ~109.5% (~+1,400 gold/min at 1,000 a bet).
+     Now every guess returns at most 99% and a round 95-97.5% (multipliers are rounded down).
+   - Quiz Showdown (67c_quiz.js + here): the top payout 2.5x -> 1.5x, cash-out only after QZ.MINP (4) clues, and after
+     QZD.full (5) winning quizzes in a day the profit part of the payout is QZD.k (25%). A perfect player made ~2,500 gold/min;
+     now ~1,000/min for the first five quizzes of the day and ~250/min after, in line with the typing modes (250-400/min).
+   - Rocket: the crash curve gave exactly 100% at 1.5x and at 60x-1000x. It now returns 96% at every cash-out target, and a
+     single round pays at most RKWIN (250,000; 5,000 x 1,000 used to pay 5,000,000).
+   - Slots: crowns pay 125 (was 100): 94.6% -> 96.0%, in line with Dice, Plinko and the Wheel.
+   - Blackjack (65_casino.js): a fresh 6-deck shoe for every hand. The shoe used to last until 90 cards were left, so a card
+     counter betting 1 / 3,750 by the count beat the house (100.9%); basic strategy stays at 99.05%.
+   - Tower Climb: the launch-day boost (110% on 2026-10-06) is retired; setting the computer clock back to that day turned it on.
+   - Trophies for multipliers and streaks (To the Moon, Jackpot!, Bullseye, Fortune Favors, the Tower Climb floors, the
+     Blackjack streak trophies) need a bet of at least
+     CASTRO (100); they were farmed with 1-gold bets. A round that only returns the stake no longer extends Lucky Streak. */
+const RKWIN=250000,CASTRO=100,QZD={full:5,k:.25};
+/* which game a payout belongs to (cFlush pays rounds left in the air while leaving, before the new game is set) */
+{const g0=gameOpen;gameOpen=function(id){const r=g0.apply(this,arguments);CAS.gid=id;return r}}
+{const l0=lobby;lobby=function(){const r=l0.apply(this,arguments);CAS.gid=null;return r}}
+/* the last stake taken, for the trophy floor */
+{const t0=cTake;cTake=function(b){const ok=t0.apply(this,arguments);if(ok)CAS.lb=Math.floor(b);return ok}}
+{const s0=stat,TRO=new Set(['rk','slotx','plk','whl','twf','tws','bj','bjn']);stat=function(k,v,m){if(TRO.has(k)&&CAS&&CAS.on!==false&&(CAS.lb||0)<CASTRO)return;return s0.apply(this,arguments)}}
+{const c0=casTrack;casTrack=function(bet,pay){if(Math.floor(pay)===Math.floor(bet)&&P.as)P.as.cwc=0;return c0.apply(this,arguments)}}
+/* Rocket: P(crash >= x) = .96/x for every x up to 1,000 */
+function rkCrash(){if(typeof window.__rkcp==='number')return window.__rkcp;const u=g01();return Math.min(1000,Math.max(1,Math.floor(96/(1-u))/100))}
+/* Tower Climb: no more boost day */
+TW.BOOST_DAY='retired';
+/* Slots */
+SLP.crown=125;
+/* Quiz Showdown */
+QZ.CAP=1.5;QZ.MINP=4;
+const qzDay=()=>{const t=dlLocal(new Date());let d=P.qzd;if(!d||typeof d!=='object'||d.d!==t)d=P.qzd={d:t,n:0};d.n=Math.max(0,Math.floor(+d.n||0));return d};
+{const m0=QZ.mult;QZ.mult=function(s){const m=m0.call(QZ,s);return m>1&&qzDay().n>=QZD.full?1+(m-1)*QZD.k:m}}
+{const p0=cPay;cPay=function(bet,pay){
+  if(CAS.gid==='rk'&&pay>RKWIN){pay=RKWIN;try{setTimeout(()=>msg('Maximum payout reached: '+cmn(RKWIN)+'.','w'),0)}catch(e){}}
+  if(CAS.gid==='qz'&&pay>bet)qzDay().n++;
+  return p0.call(this,bet,pay)}}
+/* texts */
+try{const a=ACH.find(x=>x.id==='qz2x');if(a)a.d='Finish a Quiz Showdown with the top payout, 1.5x your stake.'}catch(e){}
+try{const g=GAMES.find(x=>x.id==='qz');if(g)g.d='Pick clues from a category board and answer for points. Daily Double, Final Clue. Your score sets the payout (up to 1.5x; cash out after 4 clues). The first 5 winning quizzes each day pay in full.'}catch(e){}
+try{const g=GAMES.find(x=>x.id==='rk');if(g)g.d+=' Max payout '+cmn(RKWIN)+' per round.'}catch(e){}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

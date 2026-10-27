@@ -49,10 +49,10 @@ springy animations. New art should sit next to the fishing mode without looking 
 - Tower defense (Ramparts) changes: `python3 t_ramparts.py` (about 57 checks plus a bot that plays every map and the endless Wonderland; `--quick` for map 1 only).
 - Championship or Dragon Roost changes: `PYTHONPATH=../../pylib python3 t_rpboard.py` (28 checks, starts its own local relays).
 - Tidecaller, tower bar/ring, pads, Wonderland curve or menu transitions: `python3 t_ui92.py` (15 checks).
-- Tidecaller balance, waves and health: `python3 t_td96.py` (13 checks).
+- Tidecaller balance, waves and health: `python3 t_td96.py` (13 checks); Tidecaller aim, twin jet, swept wave, push-back cap and the leads of other towers: `python3 t_td97.py` (13 checks).
 - Casino limits: `python3 t_cas93.py` (13 checks).
 - Pool (The Crooked Cue) changes: `python3 t_pool.py` (about 86 checks, including the 9.5 hub, tutorials, Regulars, How to Play, hold-to-buy and aim fixes; code hygiene, save repair, physics/rules/AI, hub and cue rack, a full match with the money checked, resume/forfeit/shot clock, Trick Shots, frame cost); `node tools/pz/phys.test.js` (28 checks, no browser); `python3 tools/pz/flow.py` (reload/resume/Shade flows); `node tools/pz/trick.js` (every Trick Shot is solvable); see `tools/pz/README.md`. 9.6 pool art, speed and guide: `python3 t_pool96.py` (17 checks). 9.7 menus: `python3 t_pz97a.py` (hub + Trick Shots, 34), `t_pz97b.py` (How to Play, 50), `t_pz97c.py` (Cue Rack + mastery, 23).
-- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (51 tests), `tools/servers.sh stop`.
+- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (52 tests), `tools/servers.sh stop`.
   `t_fishing` can time out under load and `t_leaderboard` fails in a frozen copy; rerun either alone.
 
 ## Delivery, every time

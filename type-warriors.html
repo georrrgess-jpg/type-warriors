@@ -46579,6 +46579,55 @@ function rptWaves(R,dt){const T=RP_TW.tide,fade=Math.pow(.5,dt/RPTB.half);
 /* Freeplay oozelets: rpKillFoe resets the split children's hit points without the Freeplay bonus that rpSpawn gives every other monster */
 {const k0=rpKillFoe;rpKillFoe=function(e,src){const R=RPX,n0=R&&R.foes?R.foes.length:0,dead0=e&&e.dead;const r=k0.apply(this,arguments);
   try{if(R&&R.free&&!dead0&&R.foes.length>n0){const k=1+.05*(R.wave-R.map.waves);for(let j=n0;j<R.foes.length;j++){const c=R.foes[j];if(c.id===(RP_FOE[e.id]||{}).split){c.hp=c.mx=Math.round(c.mx*k)}}}}catch(x){}return r}}
+/* ===== RUNESTONE TOWER DEFENSE 9.7b: the Tidecaller reviewed for the late endless waves, and how it works with the other towers (95r, after 95q) =====
+   Found with a headless bot that plays Wonderland waves 1-95 with every tower at tier 5 (no NaN, no monster left at full health,
+   no monster ever pushed into the cave where towers cannot reach it). Fixes:
+   - aiming: the jet used to land 46 px ahead of where the target WAS, even when that monster was already sliding back from an
+     earlier wave or stunned, so the new wave often rolled over empty road. It now predicts where the target will be when the
+     water lands (rptPred: the rest of its slide, its stun, its slow, ice) and prefers a target that is not already sliding;
+   - the tier 4-5 twin jet: with no second monster in range it used to land 90 px BEHIND the first one and roll away from it
+     (an empty wave on every attack against a lone monster); it now crashes onto the same target;
+   - the wave front is swept: a monster that crosses it between two frames (high game speed, slow frames) is still hit;
+   - other towers lead with the same prediction: Brazier embers and Dragon fire used to aim ahead of a monster that was actually
+     being swept back or stunned and burst on empty road;
+   - a monster can never be held out of reach for good: the sweep fatigue (95q) bounds the total push-back, and a monster that
+     has been swept back more than RPTC.cap px in the last few seconds is still hurt and soaked but no longer pushed. */
+const RPTC={lead:30,cap:420,capHalf:4};
+/* where a monster will be along its road after t seconds */
+function rptPred(R,e,t){let s=e.s,left=t;
+ if(e.kb>0&&e.kbV>0){const ts=e.kb/e.kbV;if(ts>=left)return s-e.kbV*left;s-=e.kb;left-=ts}
+ const st=Math.max(0,(e.stun||0)-(t-left));if(e.kb>0)left=Math.max(0,left-.05);left=Math.max(0,left-st);
+ let k=e.slowT>0?1-(e.slowK||0):1;if(!e.air&&e.ice)k*=RPT.ICE_K;
+ return Math.min(rpLen(R,e),s+e.sp*k*left)}
+const rptSliding=e=>e.kb>8;
+function rptAim(R,tw,rg,not){const r2=rg*rg;let best=null,bv=-1e9,bestAny=null,ba=-1e9;
+ const qn=not?rpPos(R,not):null;
+ for(const e of R.foes){if(e.dead||e.air||e.s<0||e===not)continue;const p=rpPos(R,e),d2=rpD2(p.x,p.y,tw.x,tw.y);if(d2>r2)continue;
+  if(qn&&Math.hypot(p.x-qn.x,p.y-qn.y)<70)continue;
+  let v=not?Math.hypot(p.x-qn.x,p.y-qn.y):tw.prio==='strong'?e.hp:tw.prio==='close'?-d2:e.s/rpLen(R,e);
+  if(v>ba){ba=v;bestAny=e}if(!rptSliding(e)&&v>bv){bv=v;best=e}}
+ let tg=best||bestAny;if(!tg&&not&&!not.dead&&not.s>=0)tg=not;if(!tg)return null;
+ const len=rpLen(R,tg),s=Math.max(4,Math.min(len-12,rptPred(R,tg,RPTD.jet)+RPTC.lead)),p=rpAt(R.G,s,tg.pi);return{e:tg,pi:tg.pi||0,s,x:p.x,y:p.y}}
+/* the swept front and the push-back cap: wrap the knock and remember where each wave front was a frame ago */
+{const k0=rptKnock;rptKnock=function(e,d,v){if(e.dead)return;if((e.tdP||0)>=RPTC.cap){e.tdF=(e.tdF||0)+1;return}
+  const kb0=e.kb||0;k0.call(this,e,d,v);e.tdP=(e.tdP||0)+Math.max(0,(e.kb||0)-kb0)}}
+{const w0=rptWaves;rptWaves=function(R,dt){const T=RP_TW.tide;
+  for(const w of R.tdWaves)w.ps=w.s;const ws=R.tdWaves.slice();
+  const r=w0.apply(this,arguments);
+  /* a monster on the wave's own road between the old and the new front (it crossed it this frame) counts as hit */
+  for(const w of ws){if(w.ps===undefined)continue;const i=Math.max(0,Math.min(4,w.tier-1)),over=w.tw.over>0?1.15:1;
+   for(const e of R.foes){if(e.dead||e.air||e.s<0||w.hit.has(e)||(e.pi||0)!==(w.pi||0))continue;if(e.s>w.ps+4||e.s<w.s-4)continue;
+    w.hit.add(e);rpHurt(e,T.dmg[i]*over,T.ap[i],w.tw);rptSoak(e);if(e.dead)continue;
+    const L=(e.boss?Math.min(RPTB.bossCap,T.knock[i]*.25):T.knock[i])*rptFat(e);rptKnock(e,L,w.v*(e.boss?.25:1))}}
+  const fade=Math.pow(.5,dt/RPTC.capHalf);for(const e of R.foes)if(e.tdP>0){e.tdP*=fade;if(e.tdP<1)e.tdP=0}
+  return r}}
+/* Brazier embers lead with the prediction (they used to aim ahead of monsters that were being swept back or were stunned) */
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type!=='brazier')return f0.apply(this,arguments);
+  const T=RP_TW.brazier,i=tw.tier-1,n0=R.shots.length,e=rpTarget(R,tw,T.range[i],!!T.air,!!T.ground,tw.prio,false);const r=f0.apply(this,arguments);
+  if(e&&R.shots.length>n0){const s=R.shots[R.shots.length-1];if(s.k==='ember'&&s.tw===tw){const p=rpAt(R.G,Math.max(0,rptPred(R,e,s.d)),e.pi);s.x1=p.x;s.y1=p.y}}
+  return r}}
+/* Dragon fire leads the same way */
+function rpdLead(R,e,k){const p=rpAt(R.G,Math.max(0,rptPred(R,e,k)),e.pi),o=e.off||0;return{x:p.x-Math.sin(p.a)*o,y:p.y+Math.cos(p.a)*o-(e.air?40:18)}}
 /* ===== 9.4 THE CROOKED CUE (pool mode): data, save normaliser (96a) =====
    Code prefix `pz`, save P.pz, casino id 'pz'. See POOL_PLAN.md. Everything here is data; art is 96e-96h, rules 96b-96d. */
 const PZ_O='#12081f';

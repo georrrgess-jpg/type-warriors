@@ -46520,6 +46520,60 @@ function mfxSEnter(){const main=ov.querySelector(':scope > main.mn'),els=main?[m
 {const s0=show;show=function(html,cls){const key=mfxSKey(html,cls),first=!MFX.n++;const r=s0.apply(this,arguments);
   try{if(!first&&S.mode==='title'&&key!==MFX.last&&!mfxNoMo())mfxSEnter()}catch(e){}MFX.last=key;return r}}
 {const st=document.createElement('style');st.textContent=`.mfxveil{position:absolute;inset:0;z-index:40;pointer-events:none;background:radial-gradient(120% 90% at 50% 40%,#1e1650,#08051a);opacity:0}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 9.6: the Tidecaller balanced, the shaman pile fixed, wave and health fixes (95q, after 95p) =====
+   The glitch: a Tidecaller wave CARRIED every ground monster it touched to the spot where the wave ended, so a whole group collapsed
+   into one pile at one point of the road. A pile of Hex Shamans (Ember Crown / Frostfang wave 8 is only shamans and flyers) then
+   healed each other (every shaman's 8% pulse reached every other shaman in the pile, stacking with no limit) faster than any tower
+   hurt them, while the shrine kept sweeping the pile back out of the other towers' reach: the wave never ended. Fixes:
+   - the wave no longer carries monsters to its end: each monster it reaches is knocked back by its OWN distance (it slides back at
+     the wave's speed), so a group keeps its spacing instead of collapsing into one pile;
+   - diminishing returns: every sweep tires a monster (e.tdF +1, fading with an 8 s half-life) and each further sweep moves it only
+     RPTB.fat^tdF as far, so stacked shrines (or one shrine on a slow monster) cannot hold monsters forever (the Leviathan's shove too);
+   - shaman healing itself is unchanged: capping heals per pulse (tried 1, 2 and 4) made the tuned endless Wonderland 7-18 waves
+     easier for the reference builds (two Dragons + Frost Spire: 71 -> 80/80/77), and with the pile gone nothing stalls without it;
+   - with two bosses on the road (endless wave 30+, late Freeplay) the boss bar moves to the next one instead of vanishing;
+   - Freeplay oozelets keep the Freeplay hit-point bonus of every other Freeplay monster.
+   Balance (t_ramparts-style bot): with the fatigue the shrine is a support tower on a par with the Frost Spire: Ballista+Tide+Bell
+   wins all three maps at 20/20 like Ballista+Frost+Bell (17-20); Tide only loses (it cannot touch flyers); a Tide without its sweep
+   loses Ember. Wonderland (each tower to tier 5 in turn): Dragon+Dragon+Tide 71 and Dragon+Tide+Dragon 65 against the reference
+   Dragon+Dragon+Frost 71 (before: tide builds stalled forever at waves 8-23). Cost and sweep distance stay (150-1050, 100-180 px):
+   cheaper or shorter sweeps changed no bot outcome once the fatigue was in. */
+const RPTB={fat:.5,half:8,bossCap:30,levKnock:70,levBoss:15};
+/* per tier 1..5: cost and sweep distance; the rest of RP_TW.tide (95l) stays */
+Object.assign(RP_TW.tide,{cost:[150,190,320,650,1050],knock:[100,120,140,160,180]});
+const rptFat=e=>Math.pow(RPTB.fat,e.tdF||0);
+/* knock a monster back along its own road by d px at speed v (it slides, stunned, and keeps its place in the group). Near the road
+   start it goes at most 60% of the way back to the cave, so a group there is squeezed but never stacked at s=0 */
+function rptKnock(e,d,v){if(e.dead)return;d=Math.min(d,Math.max(0,e.s)*.6);if(!(d>0))return;e.kb=Math.max(e.kb||0,d);e.kbV=Math.max(40,v||200);e.tdF=(e.tdF||0)+1}
+function rptWaves(R,dt){const T=RP_TW.tide,fade=Math.pow(.5,dt/RPTB.half);
+ for(const j of R.tdJets){j.t+=dt;if(j.t>=j.d&&!j.done){j.done=1;rptLand(R,j)}}R.tdJets=R.tdJets.filter(j=>!j.done||j.t<j.d+.15);
+ for(const w of R.tdWaves){const tw=w.tw,i=Math.max(0,Math.min(4,w.tier-1)),over=tw.over>0?1.15:1,step=Math.min(w.left,w.v*dt);w.t+=dt;w.left-=step;w.s=Math.max(0,w.s-step);
+  const p=rpAt(R.G,w.s,w.pi),p2=rpAt(R.G,Math.max(0,w.s-6),w.pi);w.x=p.x;w.y=p.y;w.dx=p2.x-p.x;
+  w.tt-=dt;if(w.tt<=0){w.tt=R.lite?.09:.05;w.trail.push({x:p.x,y:p.y,t:0,w:1});if(w.trail.length>22)w.trail.shift()}
+  for(const f of w.trail)f.t+=dt;
+  for(const e of R.foes){if(e.dead||e.air||e.s<0||w.hit.has(e))continue;const q=rpPos(R,e);if(Math.hypot(q.x-p.x,(q.y-p.y)/.85)>46)continue;
+   w.hit.add(e);rpHurt(e,T.dmg[i]*over,T.ap[i],tw);rptSoak(e);if(e.dead)continue;
+   const L=(e.boss?Math.min(RPTB.bossCap,T.knock[i]*.25):T.knock[i])*rptFat(e);rptKnock(e,L,w.v*(e.boss?.25:1))}
+  if(w.left<=0||w.s<=0){w.done=1;if(T.whirl[i])R.tdWhirls.push({x:p.x,y:p.y,r:58,t:0,d:RPTD.whirl,dps:T.whirl[i],tw,tier:w.tier})}}
+ R.tdWaves=R.tdWaves.filter(w=>!w.done);
+ for(const h of R.tdWhirls){h.t+=dt;for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,h.x,h.y)<h.r*h.r){const fl=e.fl;rpHurt(e,h.dps*dt,99,h.tw);e.fl=fl;e.slowK=Math.max(e.slowK||0,.5);e.slowT=Math.max(e.slowT||0,.25);e.soak=Math.max(e.soak||0,.5)}}}
+ R.tdWhirls=R.tdWhirls.filter(h=>h.t<h.d);
+ for(const L of R.tdLevs){L.t+=dt;const u=L.t/RPTD.lev;if(!L.hit&&u>=.32){L.hit=true;const T5=T.lev[4]*(L.tw.over>0?1.15:1);R.shake=Math.max(R.shake||0,6);
+   for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(Math.hypot(q.x-L.x,(q.y-L.y)/.75)<100){rpHurt(e,T5,99,L.tw);rptSoak(e);if(!e.dead)rptKnock(e,(e.boss?RPTB.levBoss:RPTB.levKnock)*rptFat(e),300)}}
+   R.rings.push({x:L.x,y:L.y,t:0,d:.8,max:110,c:'#fff6d8',w:6,tide:1,tier:5});try{beep(70,.4,'sawtooth',.25)}catch(e){}}}
+ R.tdLevs=R.tdLevs.filter(L=>L.t<RPTD.lev);
+ /* knock-back slides, sweep fatigue fading, soak drying */
+ for(const e of R.foes){if(e.dead){e.kb=0;continue}
+  if(e.kb>0){const d=Math.min(e.kb,e.kbV*dt);e.kb-=d;e.s=Math.max(0,e.s-d);if(e.s<=0)e.kb=0;if(!e.boss)e.stun=Math.max(e.stun||0,.05)}
+  if(e.tdF>0){e.tdF*=fade;if(e.tdF<.01)e.tdF=0}
+  if(e.soak>0)e.soak=Math.max(0,e.soak-dt)}}
+/* the boss bar follows the next living boss */
+{const s0=rpStep;rpStep=function(R,dt){const r=s0.apply(this,arguments);
+ if(R&&(!R.boss||R.boss.dead)){R.boss=null;for(const e of R.foes)if(e.boss&&!e.dead){R.boss=e;break}}
+ return r}}
+/* Freeplay oozelets: rpKillFoe resets the split children's hit points without the Freeplay bonus that rpSpawn gives every other monster */
+{const k0=rpKillFoe;rpKillFoe=function(e,src){const R=RPX,n0=R&&R.foes?R.foes.length:0,dead0=e&&e.dead;const r=k0.apply(this,arguments);
+  try{if(R&&R.free&&!dead0&&R.foes.length>n0){const k=1+.05*(R.wave-R.map.waves);for(let j=n0;j<R.foes.length;j++){const c=R.foes[j];if(c.id===(RP_FOE[e.id]||{}).split){c.hp=c.mx=Math.round(c.mx*k)}}}}catch(x){}return r}}
 /* ===== 9.4 THE CROOKED CUE (pool mode): data, save normaliser (96a) =====
    Code prefix `pz`, save P.pz, casino id 'pz'. See POOL_PLAN.md. Everything here is data; art is 96e-96h, rules 96b-96d. */
 const PZ_O='#12081f';

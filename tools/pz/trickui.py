@@ -12,7 +12,7 @@ async def main():
     await pg.goto(H);await pg.wait_for_timeout(1500)
     await pg.evaluate("()=>{RS_ASK=false;PZ_TUT_OFF=true;WCRELAYS=[];ST.perfAsked=1;PFW.asked=true;P.gold=1000;P.pz=null;const Z=PZS();Z.trick={0:3,1:2,3:1}}");await pg.evaluate(SC)
     await pg.evaluate("()=>{casinoOpen();gameOpen('pz');pzTrick()}");await pg.wait_for_timeout(700);await pg.screenshot(path=out+'/01_list.png')
-    await pg.click('.pzti[data-i="0"]');await pg.wait_for_timeout(2200);await pg.screenshot(path=out+'/02_puzzle1.png')
+    await pg.dblclick('.pzti[data-i="0"]');await pg.wait_for_timeout(2200);await pg.screenshot(path=out+'/02_puzzle1.png')
     print('ph',await pg.evaluate("()=>[PZ.ph,PZ.M.trick.n,PZ.B.filter(b=>b.on).length]"))
     # miss: aim away
     await pg.evaluate("()=>{PZ.aim.ang+=0.6;PZ.aim.pow=.5}");await pg.wait_for_timeout(700);await pg.evaluate("()=>pzFireHuman()");await pg.wait_for_timeout(4500);await pg.screenshot(path=out+'/03_miss.png')

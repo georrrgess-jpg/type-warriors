@@ -32,7 +32,7 @@ springy animations. New art should sit next to the fishing mode without looking 
 
 ## Hard rules from the owner
 - **Never add or push an Updates-tab (bell) notification unless explicitly asked, and ask for an okay first.**
-  (The 8.4, 8.6 and 8.7 notices already exist and were approved; small wording edits to them are fine. 8.7 is The Crooked Cue, `96zk_update87.js`, code CROOKEDCUE.)
+  (The 8.4, 8.6, 8.7 and 8.8 notices already exist and were approved; small wording edits to them are fine. 8.7 is The Crooked Cue, `96zk_update87.js`, code CROOKEDCUE; 8.8 is Penalty Kings, `96zy_update88.js`, code PENALTYKINGS.)
 - Do not change the Celestial or Graveyard chest animations.
 - No Wix, no Firebase.
 - Kill test servers by PID only (`tools/servers.sh stop`), never `pkill -f`.

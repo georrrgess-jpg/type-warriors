@@ -52,8 +52,9 @@ springy animations. New art should sit next to the fishing mode without looking 
 - Tidecaller balance, waves and health: `python3 t_td96.py` (13 checks); Tidecaller aim, twin jet, swept wave, push-back cap and the leads of other towers: `python3 t_td97.py` (13 checks).
 - Thunder Mortar (the eighth tower, 9.8): `python3 t_td98.py` (18 checks: targeting, dead zone, splash, craters, cluster, barrage, art, info panel, frame cost, a Wonderland wave).
 - Casino limits: `python3 t_cas93.py` (13 checks). Casino balance and exploits (Higher or Lower, Quiz, Rocket, Tower boost, Blackjack shoe, Slots, Plinko nerf and 20,000 cap, trophy bet floor): `python3 t_cas97.py` (16 checks).
+- Penalty Kings (casino, 9.8b), the tower bar sort and the Choose a mode sheet: `python3 t_pk98.py` (16 checks).
 - Pool (The Crooked Cue) changes: `python3 t_pool.py` (about 86 checks, including the 9.5 hub, tutorials, Regulars, How to Play, hold-to-buy and aim fixes; code hygiene, save repair, physics/rules/AI, hub and cue rack, a full match with the money checked, resume/forfeit/shot clock, Trick Shots, frame cost); `node tools/pz/phys.test.js` (28 checks, no browser); `python3 tools/pz/flow.py` (reload/resume/Shade flows); `node tools/pz/trick.js` (every Trick Shot is solvable); see `tools/pz/README.md`. 9.6 pool art, speed and guide: `python3 t_pool96.py` (17 checks). 9.7 menus: `python3 t_pz97a.py` (hub + Trick Shots, 34), `t_pz97b.py` (How to Play, 50), `t_pz97c.py` (Cue Rack + mastery, 23).
-- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (54 tests), `tools/servers.sh stop`.
+- Before delivery: `tools/servers.sh start`, `tools/regress.sh` (55 tests), `tools/servers.sh stop`.
   `t_fishing` can time out under load and `t_leaderboard` fails in a frozen copy; rerun either alone.
 
 ## Delivery, every time

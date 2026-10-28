@@ -52081,7 +52081,7 @@ function pkShotP(o,T,c,r,q){const K=pkKeeperDist(o,T);if(q==='wild')return r===0
 function pkKickDist(o,T){const p=[0,0,0];for(let k=0;k<3;k++)p[k]=k===T?o.a+.05:(1-o.a-.05)/2;return p}
 /* chance you win a save kick diving to column d (0..2) */
 function pkSaveP(o,T,d){const K=pkKickDist(o,T);let s=0;for(let c=0;c<3;c++)for(const r of [0,1]){const pr=K[c]*(r===0?.45:.55),miss=r===0?o.mT:o.mL;let sv=0;
-  if(d===c)sv=r===0?(c===1?1:o.saveT):1;else if(r===1){if(d!==1&&c===1)sv=o.reachS;else if(d===1&&c!==1)sv=o.reachC}
+  if(d===c)sv=1;
   s+=pr*(miss+(1-miss)*sv)}return s}
 /* best play per kick type (the tell side is symmetric, so T=0 for shots and T=0 for saves; a centre tell is priced too) */
 function pkBest(o,kind){if(kind==='shoot'){let b=0;for(let c=0;c<3;c++)for(const r of [0,1])b=Math.max(b,pkShotP(o,0,c,r,'clean'));return b}
@@ -52098,8 +52098,8 @@ function pkShot(o,T,c,r,q){const K=pkKeeperDist(o,T);let u=Math.random(),k=0;for
 /* resolve a save: returns {win, col, row, how:'saved'|'miss'|'goal'} */
 function pkSave(o,T,d){const K=pkKickDist(o,T);let u=Math.random(),c=0;for(;c<2;c++){if(u<K[c])break;u-=K[c]}const r=Math.random()<.45?0:1;
  if(Math.random()<(r===0?o.mT:o.mL))return{win:true,col:c,row:r,how:'miss'};
- let sv=0;if(d===c)sv=r===0?(c===1?1:o.saveT):1;else if(r===1){if(d!==1&&c===1)sv=o.reachS;else if(d===1&&c!==1)sv=o.reachC}
- return Math.random()<sv?{win:true,col:c,row:r,how:'saved'}:{win:false,col:c,row:r,how:'goal'}}
+ /* 9.9c: a dive saves exactly when it goes to the column the shot goes to (top or low); a wrong dive never saves */
+ return d===c?{win:true,col:c,row:r,how:'saved'}:{win:false,col:c,row:r,how:'goal'}}
 /* tells: the keeper's side (0 left / 2 right, seen from the shooter) or the kicker's column, and the words for it */
 const PK_TELLK={moss:['eyes drifting left','leaning on his left foot','glancing at the left post'],gloop:['wobbling to the left','stretching left','bubbling on the left side'],grim:['left rune glowing','grinding to the left','left shoulder low']};
 function pkTell(o,kind){if(kind==='shoot'){const T=Math.random()<.5?0:2,base=PK_TELLK[o.id][(Math.random()*3)|0];return{T,txt:T===0?base:base.replace(/left/g,'right')}}
@@ -52670,7 +52670,7 @@ function pkHeelLeg(hj,side,s,lift){/* swing leg seen from behind: knee under the
   /* arms: the left arm flies out for balance, the right swings back and across */
   const bal=pkSm((k-.12)/.22)*(1-rec);R.hands=[{x:X-40-38*bal,y:R.hip.y-4-38*bal},{x:X+40+16*bal-30*fol*(1-rec),y:R.hip.y-4+10*bal-6*fol}];R.eb=[1,-1];return R}
  if(st==='headhands'){const D=pkKickerPose(X,Y,{st:'idle'},t),hp=pkL(D.hip,0,0,-PKR.to-20);D.hip.y+=3;D.th=Math.sin(t*2)*.04;
-  /* hands on the back of the head, elbows out wide */D.hands=[{x:hp.x-17,y:hp.y-6},{x:hp.x+17,y:hp.y-6}];D.eb=[-1,1];D.mood=1;return D}
+  /* hands on the back of the head, elbows out wide */D.hands=[{x:hp.x-17,y:hp.y-6},{x:hp.x+17,y:hp.y-6}];D.eb=[-1,1];D.mood=1;D.hf=1;return D}
  const r=k0.apply(this,arguments);if(!r.kn)r.kn=[null,null];if(!r.sole)r.sole=[false,false];return r}}
 {const k0=pkKeeperPose;pkKeeperPose=function(x0,gy,P,t){if(P.blend)return pkPoseLerp2(pkKeeperPose(x0,gy,P.blend[0],t),pkKeeperPose(x0,gy,P.blend[1],t),P.blend[2]);
  if(P.st==='headhands'){const D=k0.call(this,x0,gy,{st:'ready',x:P.x},t),hp=pkL(D.hip,0,0,-PKR.to-20);D.hands=[{x:hp.x-20,y:hp.y-20},{x:hp.x+20,y:hp.y-20}];D.eb=[-1,1];D.mood=1;D.kn=[null,null];D.sole=[false,false];return D}
@@ -52678,7 +52678,7 @@ function pkHeelLeg(hj,side,s,lift){/* swing leg seen from behind: knee under the
 /* blending also carries explicit knees (resolved to plain IK joints when only one side has one) */
 function pkPoseLerp2(A,B,k){const R=pkPoseLerp(A,B,k),kn=[null,null],so=[false,false];
  for(let i=0;i<2;i++){const a=A.kn&&A.kn[i],b=B.kn&&B.kn[i];if(a&&b)kn[i]=pkLp(a,b,k);else if(a&&k<.5)kn[i]=a;else if(b&&k>=.5)kn[i]=b;so[i]=k<.5?!!(A.sole&&A.sole[i]):!!(B.sole&&B.sole[i])}
- R.kn=kn;R.sole=so;return R}
+ R.kn=kn;R.sole=so;R.hf=k<.5?A.hf:B.hf;return R}
 pkRigDraw=function(g,R,o,t,back,sc){g.save();if(sc&&sc!==1){const p=R.feet[0].y>R.feet[1].y?R.feet[0]:R.feet[1];g.translate(R.hip.x,p.y);g.scale(sc,sc);g.translate(-R.hip.x,-p.y)}
  const th=R.th,hip=R.hip,hL=pkL(hip,th,-PKR.hw,0),hR=pkL(hip,th,PKR.hw,0),SW=25,sL=pkL(hip,th,-SW,-PKR.to+13),sR=pkL(hip,th,SW,-PKR.to+13);
  const kn=R.kn||[null,null],so=R.sole||[false,false];
@@ -52699,8 +52699,10 @@ pkRigDraw=function(g,R,o,t,back,sc){g.save();if(sc&&sc!==1){const p=R.feet[0].y>
  g.save();g.translate(hip.x,hip.y);g.rotate(th);
  g.fillStyle='#2a2460';g.beginPath();g.roundRect(-25,-12,50,26,9);g.fill();g.save();g.clip();g.fillStyle=kit2;g.fillRect(-25,-1,6,15);g.fillRect(19,-1,6,15);g.restore();g.beginPath();g.roundRect(-25,-12,50,26,9);pkOut(g,3);
  g.restore();
- /* upper arms, behind the shirt */
- const arm=(s,a)=>pkLimb(g,[s,a.j],15,kit);arm(sL,ar[0]);arm(sR,ar[1]);
+ /* arms are one continuous limb (no break at the elbow); seen from behind they hang behind the shirt and the head */
+ const hand=a=>{const ang=Math.atan2(a.e.y-a.j.y,a.e.x-a.j.x);if(back){g.fillStyle=skin;g.beginPath();g.arc(a.e.x,a.e.y,9,0,TAU);g.fill();pkOut(g,2.6)}else{g.save();g.translate(a.e.x,a.e.y);g.rotate(ang+Math.PI/2);pkGlove(g,0,-6,.78,'#ffd45a');g.restore()}};
+ const arm=(s,a,fore)=>{pkLimb(g,fore?[a.j,a.e]:[s,a.j,a.e],14.5,kit);pkLimb(g,[pkLp(a.j,a.e,.74),a.e],14.5,kit2);hand(a)};
+ if(back){arm(sL,ar[0]);arm(sR,ar[1])}
  /* the shirt */
  g.save();g.translate(hip.x,hip.y);g.rotate(th);
  g.beginPath();g.moveTo(-23,-8);g.quadraticCurveTo(-30,-PKR.to*.55,-29,-PKR.to+4);g.quadraticCurveTo(0,-PKR.to-6,29,-PKR.to+4);g.quadraticCurveTo(30,-PKR.to*.55,23,-8);g.quadraticCurveTo(0,-3,-23,-8);g.closePath();
@@ -52712,14 +52714,13 @@ pkRigDraw=function(g,R,o,t,back,sc){g.save();if(sc&&sc!==1){const p=R.feet[0].y>
   g.fillStyle='#ffd45a';g.beginPath();g.arc(-13,-PKR.to+18,4,0,TAU);g.fill();pkOut(g,1.6)}
  g.restore();
  /* sleeve caps: round shoulders joining the arms to the shirt (outlined on the outside only) */
- for(const [s,sd,a] of [[sL,-1,ar[0]],[sR,1,ar[1]]]){const ua=Math.atan2(a.j.y-s.y,a.j.x-s.x);g.fillStyle=kit;g.beginPath();g.arc(s.x,s.y,10.5,0,TAU);g.fill();
+ const caps=()=>{for(const [s,sd,a] of [[sL,-1,ar[0]],[sR,1,ar[1]]]){const ua=Math.atan2(a.j.y-s.y,a.j.x-s.x);g.fillStyle=kit;g.beginPath();g.arc(s.x,s.y,10.5,0,TAU);g.fill();
   const out=th+(sd<0?Math.PI:0);g.beginPath();g.arc(s.x,s.y,10.5,out-1.5,out+1.5);g.lineWidth=3.2;g.strokeStyle=PKO;g.stroke();
-  g.fillStyle=kit2;g.beginPath();g.arc(s.x+Math.cos(ua)*7,s.y+Math.sin(ua)*7,4,0,TAU);g.fill()}
+  g.fillStyle=kit2;g.beginPath();g.arc(s.x+Math.cos(ua)*7,s.y+Math.sin(ua)*7,4,0,TAU);g.fill()}};if(back)caps();
  /* head */
  const hp=pkL(hip,th,0,-PKR.to-20);g.save();g.translate(hp.x,hp.y);g.rotate(R.ha||th*.5);g.scale(PKR.hd,PKR.hd);if(back)pkBackHead(g,o.id,t);else pkHead(g,o.id,R.look||0,R.mood||0,t);g.restore();
- /* forearms and hands, on top */
- [ar[0],ar[1]].forEach(a=>{pkLimb(g,[a.j,a.e],14,kit);const cf=pkLp(a.j,a.e,.74);pkLimb(g,[cf,a.e],14,kit2);const ang=Math.atan2(a.e.y-a.j.y,a.e.x-a.j.x);
-  if(back){g.fillStyle=skin;g.beginPath();g.arc(a.e.x,a.e.y,9,0,TAU);g.fill();pkOut(g,2.6)}else{g.save();g.translate(a.e.x,a.e.y);g.rotate(ang+Math.PI/2);pkGlove(g,0,-6,.78,'#ffd45a');g.restore()}});
+ /* from the front the arms are in front of the body (a sleeve cap over each shoulder); from behind, only hands on the head come over it */
+ if(!back){arm(sL,ar[0]);arm(sR,ar[1]);caps()}else if(R.hf){arm(sL,ar[0],1);arm(sR,ar[1],1)}
  g.restore()};
 /* ===== PENALTY KINGS 9.9b: the game screen rebuilt from the owner's concept (96zw, after 96zv; markup in 96zs) =====
    Top bar: the tell chip (what the monster gives away, and a plain "do this" line with the keys), Kick n/10 and ten numbered kick icons.
@@ -52786,6 +52787,51 @@ function pkKeyChip(g,x,y,k,on){g.save();g.translate(x,y);const w=34,h=30;g.fillS
 .pkw.pk2 .pkleft p.cmsg{margin:0;font:600 14px/1.3 var(--ui)!important;text-align:left;padding:6px 10px}
 .pk2 .pkmid{overflow:visible;align-items:center}.pk2 .pkmid .ctl{transform:scale(.8);transform-origin:top center;margin-top:-10px}
 .pk2 .pkstat{justify-content:flex-start;gap:12px;font-size:12px}`;document.head.appendChild(st)}
+/* 9.9c: the hint line over the pitch is gone (the tell chip and the step bar carry the instructions) */
+{const st=document.createElement('style');st.textContent='.pk2 .pkhint{display:none!important}';document.head.appendChild(st)}
+/* ===== PENALTY KINGS 9.9c: a new casino tile with a NEW ribbon, first in the casino (96zx, after 96zw) =====
+   Floodlit night stadium, crowd, striped pitch, the goal with a bulging net, Mossback at full stretch with his gold glove, the ball
+   ripping into the top corner with a streak and sparks, a gold crown, and a pulsing red-and-gold NEW badge on the tile's corner (CSS). Penalty Kings moves
+   to the front of the GAMES list (top left of the casino grid). */
+TA.pk=`<svg viewBox="0 0 320 176" preserveAspectRatio="xMidYMid slice"><defs>
+<linearGradient id="pk9s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#090726"/><stop offset=".55" stop-color="#2a1660"/><stop offset="1" stop-color="#4a2a8a"/></linearGradient>
+<linearGradient id="pk9p" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4cc25a"/><stop offset="1" stop-color="#1e6a2c"/></linearGradient>
+<linearGradient id="pk9b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6c8" stop-opacity=".55"/><stop offset="1" stop-color="#fff6c8" stop-opacity="0"/></linearGradient>
+<radialGradient id="pk9g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff3b0"/><stop offset=".4" stop-color="#ffd45a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd45a" stop-opacity="0"/></radialGradient>
+<linearGradient id="pk9t" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff6d0" stop-opacity=".95"/></linearGradient>
+<pattern id="pk9c" width="12" height="10" patternUnits="userSpaceOnUse"><circle cx="3" cy="4" r="2.6" fill="#6a4ab0"/><circle cx="9" cy="8" r="2.6" fill="#8a5ac8"/><circle cx="9" cy="2" r="1.6" fill="#c8a0ff" opacity=".6"/></pattern>
+<pattern id="pk9n" width="9" height="9" patternUnits="userSpaceOnUse"><path d="M0 0L9 9M9 0L0 9" stroke="#e8e4ff" stroke-width=".9" opacity=".55"/></pattern>
+<linearGradient id="pk9j" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb060"/><stop offset="1" stop-color="#d0601a"/></linearGradient>
+</defs>
+<rect width="320" height="176" fill="url(#pk9s)"/>
+<path d="M18 0L-10 120H60Z" fill="url(#pk9b)"/><path d="M302 0L250 120H330Z" fill="url(#pk9b)"/>
+<rect x="6" y="2" width="26" height="9" rx="3" fill="#fff6d8" stroke="#12081f" stroke-width="2"/><rect x="288" y="2" width="26" height="9" rx="3" fill="#fff6d8" stroke="#12081f" stroke-width="2"/>
+<rect x="0" y="54" width="320" height="56" fill="url(#pk9c)"/><rect x="0" y="100" width="320" height="10" fill="#2a1a5a"/>
+<path d="M0 108H320V176H0Z" fill="url(#pk9p)"/><path d="M0 120H320M0 140H320M0 160H320" stroke="#5ad26a" stroke-width="9" opacity=".35"/>
+<path d="M40 176L76 126H244L280 176" fill="none" stroke="#e8ffe8" stroke-width="2.4" opacity=".75"/>
+<rect x="74" y="44" width="172" height="82" fill="#1a1440" opacity=".55"/><rect x="74" y="44" width="172" height="82" fill="url(#pk9n)"/>
+<path d="M214 46q14 10 28 2" fill="none" stroke="#fff" stroke-width="2" opacity=".7"/>
+<path d="M70 128V40H250V128" fill="none" stroke="#12081f" stroke-width="10" stroke-linejoin="round"/><path d="M70 128V40H250V128" fill="none" stroke="#fff" stroke-width="5.5" stroke-linejoin="round"/>
+<g transform="translate(232 58)"><circle r="34" fill="url(#pk9g)"/>
+<path d="M14 18L66 82" stroke="url(#pk9t)" stroke-width="13" stroke-linecap="round"/>
+<g stroke="#ffd45a" stroke-width="3" stroke-linecap="round"><path d="M-22 -4l-9 -2M-16 -18l-6 -7M-2 -24l0 -9M14 -20l6 -7M20 2l9 2"/></g>
+<circle r="13" fill="#fff" stroke="#12081f" stroke-width="3"/><path d="M0 -5l5 3.5-2 6h-6l-2-6z" fill="#12081f"/><path d="M-12 -3l5 2M12 -3l-5 2M-6 11l2-5M6 11l-2-5M0 -12v6" stroke="#12081f" stroke-width="2"/></g>
+<g transform="translate(150 86) rotate(-28)">
+<path d="M-38 6q-8 10-20 14" stroke="#12081f" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M-38 6q-8 10-20 14" stroke="#2a2460" stroke-width="7" stroke-linecap="round" fill="none"/>
+<path d="M-34 -4q-12 0-26 -6" stroke="#12081f" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M-34 -4q-12 0-26 -6" stroke="#2a2460" stroke-width="7" stroke-linecap="round" fill="none"/>
+<rect x="-40" y="-14" width="50" height="28" rx="12" fill="url(#pk9j)" stroke="#12081f" stroke-width="3.5"/>
+<text x="-15" y="7" font-family="Pirata One,Georgia,serif" font-size="17" fill="#fff8e0" stroke="#12081f" stroke-width="3" paint-order="stroke" text-anchor="middle">1</text>
+<path d="M8 -8q30 -10 58 -14" stroke="#12081f" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M8 -8q30 -10 58 -14" stroke="#ff8a2a" stroke-width="7" stroke-linecap="round" fill="none"/>
+<g transform="translate(70 -23) rotate(-8)"><path d="M-8 -9h12q8 0 8 9t-8 9h-12z" fill="#ffd45a" stroke="#12081f" stroke-width="3"/><path d="M4 -9v-5m4 5v-4" stroke="#12081f" stroke-width="2.5"/></g>
+<g transform="translate(22 -2)"><circle r="17" fill="#7ac24a" stroke="#12081f" stroke-width="3.5"/><path d="M-10 -18l4 6 3-8 3 8 4-7 2 7" fill="#3a8a2a" stroke="#12081f" stroke-width="2"/>
+<circle cx="-5" cy="-1" r="4.6" fill="#fff" stroke="#12081f" stroke-width="2"/><circle cx="7" cy="-2" r="4.6" fill="#fff" stroke="#12081f" stroke-width="2"/><circle cx="-4" cy="-1" r="2" fill="#d02a3a"/><circle cx="8" cy="-2" r="2" fill="#d02a3a"/>
+<path d="M-6 9q6 4 12 -1" fill="none" stroke="#12081f" stroke-width="2.5"/><path d="M-15 -4l-9 -6 4 10z" fill="#5a9a34" stroke="#12081f" stroke-width="2"/></g></g>
+<g transform="translate(160 22)"><path d="M-16 8l-4 -16 10 8 10 -14 10 14 10 -8 -4 16z" fill="#ffd45a" stroke="#12081f" stroke-width="3" stroke-linejoin="round"/><circle cx="0" cy="-12" r="2.4" fill="#ff6a8a"/><rect x="-16" y="8" width="32" height="5" rx="2" fill="#e8a018" stroke="#12081f" stroke-width="2"/></g>
+
+</svg>`;
+{const i=GAMES.findIndex(g=>g.id==='pk');if(i>0){const [g]=GAMES.splice(i,1);GAMES.unshift(g)}}
+{const st=document.createElement('style');st.textContent=`.gdt[data-g="pk"]{position:relative}.gdt[data-g="pk"]::after{content:'NEW';position:absolute;left:10px;top:10px;z-index:3;padding:3px 9px 2px;border-radius:9px;background:linear-gradient(180deg,#ff5a6e,#c8203a);border:2px solid #ffd45a;box-shadow:0 0 0 2px #12081f,0 4px 10px #0008;font:900 12px/1.1 Poppins,system-ui,sans-serif;letter-spacing:.12em;color:#fff8e0;pointer-events:none;animation:pknewb 1.6s ease-in-out infinite}
+@keyframes pknewb{0%,100%{transform:scale(1) rotate(-6deg)}50%{transform:scale(1.1) rotate(-6deg)}}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

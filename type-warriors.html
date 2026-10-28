@@ -46628,6 +46628,285 @@ function rptAim(R,tw,rg,not){const r2=rg*rg;let best=null,bv=-1e9,bestAny=null,b
   return r}}
 /* Dragon fire leads the same way */
 function rpdLead(R,e,k){const p=rpAt(R.G,Math.max(0,rptPred(R,e,k)),e.pi),o=e.off||0;return{x:p.x-Math.sin(p.a)*o,y:p.y+Math.cos(p.a)*o-(e.air?40:18)}}
+/* ===== RUNESTONE TOWER DEFENSE 9.8: the Thunder Mortar, art (95s, after 95r) =====
+   A siege mortar in a round stone gun pit: masonry pit wall with a gold rim, a bronze turntable, two oak cradle cheeks with iron
+   straps, sandbags on the front rim and a shell crate. The barrel is a short fat bronze mortar (breech bulb, two bands, dolphin
+   handles, a flared gold-lipped muzzle) on trunnions between the cheeks; it leans toward its target, kicks down on firing, flashes
+   and smokes, and its fuse glows while the next shell is readied.
+   Tiers: 1 bronze; 2 bigger, a pennant and a crate of shells; 3 rune-etched barrel and rune shells (blue); 4 Mythic (violet stone,
+   dark-iron barrel with violet runes and gold bands, gems, orbiting runes); 5 Celestial (marble, white-gold barrel with sky runes and
+   wing fins, a storm rod crackling at the back, wings and halo).
+   Plugs into the shared tower pipeline of 95c (RPPAL/RPLAY/RPPULSE/RPWING/RPHALO + wrapped rpBodyArt, rpGlowList, rpTowerParts), so
+   rpTowerDraw, the build and upgrade animations, the tier 4-5 ascension, icons and warming all work as for the first four towers.
+   Baked: the body per tier (pad, pit, cradle, rack), the barrel per tier, the shell, the crater, the reticle. Live: barrel transform,
+   fuse glow, muzzle flash and smoke, rune pulse, storm-rod sparks. No shadowBlur, no ctx.filter; glows are the shared sprites.
+   API
+     rpMortarMuzzle(tier,aim,fire)       the muzzle tip relative to the pad centre {x,y} (shells start there)
+     rpMortarShell(g,x,y,tier,rot)       a flying shell
+     rpMortarCrater(g,x,y,r,k,t,tier)    scorched ground (ground layer), k = 0..1 strength
+     rpMortarReticle(g,x,y,r,u,tier)     the landing warning ring (ground layer), u = 0..1 flight progress
+     rpMortarBoom(g,x,y,r,u,tier,storm)  the explosion (top layer), u = 0..1 */
+RPTW.mortar={n:'Thunder Mortar',role:'Long-range artillery',col:'#ffb04a'};
+RPSKIN.mortar=['base'];
+RPPAL.mortar={base:{stone:RPSTONE.base,br:['#ffe6a8','#dc9a42','#8a5418','#4e2c0c'],iron:'#3c3652',ironL:'#7a7498',ironD:'#1c182c',
+ wood:'#93602f',woodL:'#c99258',woodD:'#55331a',trim:'#ffd45a',trimL:'#fff0a8',trimD:'#b07a1a',rune:'#5ac8ff',runeL:'#e2f6ff',
+ sand:'#d6bd8a',sandD:'#9a7e4c',flag:'#e0602a',flagD:'#8a2a14',fuse:'#ff9a3a',glow:'#ff9a3a',glow2:'#ffd27a'}};
+/* per tier: pit {rx,h}, piv = trunnion height, bl = barrel scale, rack = shells in the crate, top, inl = tier 4-5 gems */
+RPLAY.mortar=[0,
+ {rx:36,h:13,piv:-34,bl:1.03,rack:0,flag:0,top:92,runes:[]},
+ {rx:38,h:15,piv:-38,bl:1.13,rack:2,flag:1,top:100,runes:[]},
+ {rx:40,h:17,piv:-42,bl:1.22,rack:3,flag:1,top:110,runes:[[0,-66]]},
+ {rx:41,h:18,piv:-43,bl:1.3,rack:3,flag:1,top:124,runes:[[0,-70]],inl:[[0,9,4.4],[-31,3,3.6],[31,3,3.6]]},
+ {rx:42,h:19,piv:-44,bl:1.36,rack:3,flag:0,top:134,runes:[[0,-72]],rod:1,inl:[[0,9,4.6],[-31,3,3.8],[31,3,3.8]]}];
+RPPULSE.mortar=[3.1,.2];RPWING.mortar=[38,-30];RPHALO.mortar=[-118,24];
+const rpqT=t=>Math.max(1,Math.min(5,t|0||1));
+/* barrel metals per tier: [light, mid, dark, outline-dark], band, rune */
+const rpqMet=tier=>tier>=5?{m:['#fffdf4','#f0dca0','#c9a24a','#7a5a1a'],band:'#ffe27a',bandD:'#b0842a',rune:'#9ae8ff',runeL:'#ffffff',lip:'#fff6c8'}
+ :tier===4?{m:['#8e86b8','#4e4672','#2a2244','#14102a'],band:'#ffd45a',bandD:'#a8741a',rune:'#c08aff',runeL:'#f0e0ff',lip:'#ffd45a'}
+ :{m:['#ffe6a8','#dc9a42','#8a5418','#4e2c0c'],band:'#6a3e12',bandD:'#3e2208',rune:'#5ac8ff',runeL:'#e2f6ff',lip:'#ffd45a'};
+const rpqShellC=tier=>tier>=5?'#ffe27a':tier===4?'#c08aff':tier===3?'#5ac8ff':'#ff9a3a';
+
+/* ---------- static body ---------- */
+function rpqSandbag(g,x,y,w,h,P){g.beginPath();g.ellipse(x,y,w,h,0,0,TAU);g.fillStyle=rpVG(g,y-h,y+h,P.sand,P.sandD);g.fill();rpOut(g,2);
+ g.strokeStyle='rgba(90,60,30,.55)';g.lineWidth=1.2;g.beginPath();g.moveTo(x-w*.6,y-h*.1);g.quadraticCurveTo(x,y+h*.35,x+w*.6,y-h*.1);g.stroke()}
+function rpqShellArt(g,x,y,r,tier,P){g.beginPath();g.arc(x,y,r,0,TAU);g.fillStyle=rpHG(g,x-r,x+r,'#6a6488','#34304a','#16121f');g.fill();rpOut(g,1.8);
+ g.fillStyle='rgba(255,255,255,.45)';g.beginPath();g.ellipse(x-r*.35,y-r*.4,r*.32,r*.22,-.5,0,TAU);g.fill();
+ const c=rpqShellC(tier);if(tier>=3){g.strokeStyle=c;g.lineWidth=1.4;g.beginPath();g.arc(x,y,r*.6,-.6,.9);g.stroke()}
+ g.fillStyle=tier>=3?c:P.fuse;g.fillRect(x-1.2,y-r-3,2.4,3)}
+function rpqBodyArt(g,tier,P){const L=RPLAY.mortar[tier],S=P.stone,rx=L.rx,h=L.h,ty=2-h;
+ rpPadArt(g);
+ /* pit wall: masonry cylinder with a gold-trimmed rim */
+ rpSide(g,0,2,rx,rx-2,h);g.fillStyle=rpHG(g,-rx,rx,S.l,S.m,S.d);g.fill();rpOut(g,2.6);
+ g.save();rpSide(g,0,2,rx,rx-2,h);g.clip();g.strokeStyle=rpA(S.k,.55);g.lineWidth=1.3;
+ for(let i=-4;i<=4;i++){const a=i*.34,x=Math.sin(a)*rx;g.beginPath();g.moveTo(x,2+Math.cos(a)*rx*RPSQ-(i%2?0:h*.5));g.lineTo(x,2+Math.cos(a)*rx*RPSQ-(i%2?h*.5:h));g.stroke()}
+ g.beginPath();g.ellipse(0,2-h*.5,rx,rx*RPSQ,0,0,Math.PI);g.stroke();g.restore();
+ g.beginPath();g.ellipse(0,ty,rx-2,(rx-2)*RPSQ,0,0,TAU);g.fillStyle=rpVG(g,ty-rx*RPSQ,ty+rx*RPSQ,S.top,S.topD);g.fill();rpOut(g,2.4);
+ g.beginPath();g.ellipse(0,ty,rx-2,(rx-2)*RPSQ,0,0,TAU);g.lineWidth=1.6;g.strokeStyle=P.trim;g.stroke();
+ /* the dark pit and the bronze turntable */
+ g.beginPath();g.ellipse(0,ty+1,rx-9,(rx-9)*RPSQ,0,0,TAU);g.fillStyle='#1c1428';g.fill();rpOut(g,1.8);
+ g.beginPath();g.ellipse(0,ty-1,rx-13,(rx-13)*RPSQ,0,0,TAU);g.fillStyle=rpHG(g,-(rx-13),rx-13,P.br[0],P.br[1],P.br[2]);g.fill();rpOut(g,1.8);
+ for(let i=0;i<10;i++){const a=i/10*TAU;g.fillStyle=P.br[3];g.beginPath();g.arc(Math.cos(a)*(rx-17),ty-1+Math.sin(a)*(rx-17)*RPSQ,1.3,0,TAU);g.fill()}
+ /* pennant at the back left */
+ if(L.flag){const fx=-rx+8,fy=ty-2;g.strokeStyle=P.woodD;g.lineWidth=3;g.beginPath();g.moveTo(fx,fy);g.lineTo(fx,fy-52);g.stroke();g.strokeStyle=RPTO;g.lineWidth=1;g.stroke();
+  g.beginPath();g.moveTo(fx+1,fy-51);g.quadraticCurveTo(fx+14,fy-50,fx+24,fy-44);g.quadraticCurveTo(fx+14,fy-40,fx+1,fy-38);g.closePath();g.fillStyle=rpVG(g,fy-51,fy-38,P.flag,P.flagD);g.fill();rpOut(g,1.6);
+  g.fillStyle=P.trim;g.beginPath();g.arc(fx,fy-53,2.4,0,TAU);g.fill();rpOut(g,1)}
+ /* storm rod (tier 5): gold rod with coils and a crystal ball, back right */
+ if(L.rod){const rx0=rx-10,ry0=ty-4;g.strokeStyle=P.trimD;g.lineWidth=4.6;g.beginPath();g.moveTo(rx0,ry0);g.lineTo(rx0,ry0-78);g.stroke();g.strokeStyle=P.trimL;g.lineWidth=2;g.stroke();
+  for(let i=0;i<4;i++){g.strokeStyle=P.trim;g.lineWidth=2;g.beginPath();g.ellipse(rx0,ry0-20-i*12,6,2.2,0,0,TAU);g.stroke()}
+  g.beginPath();g.arc(rx0,ry0-84,6.5,0,TAU);g.fillStyle=rpHG(g,rx0-7,rx0+7,'#ffffff','#bfefff','#5ab0e0');g.fill();rpOut(g,1.8)}
+ /* oak cradle cheeks with iron straps (the barrel sits between them) */
+ for(const k of [-1,1]){const x0=k*14,x1=k*25,yb=ty+1,yt=L.piv-7;
+  g.beginPath();g.moveTo(x0,yb);g.lineTo(x1+k*2,yb);g.lineTo(x1,yt+6);g.quadraticCurveTo((x0+x1)/2,yt-4,x0,yt+4);g.closePath();
+  g.fillStyle=rpHG(g,Math.min(x0,x1),Math.max(x0,x1),k<0?P.woodL:P.wood,P.wood,k<0?P.wood:P.woodD);g.fill();rpOut(g,2);
+  g.strokeStyle=P.iron;g.lineWidth=2.6;g.beginPath();g.moveTo(x0,yb-6);g.lineTo(x1+k*1.5,yb-6);g.stroke();
+  g.fillStyle=P.trim;g.beginPath();g.arc((x0+x1)/2,yb-6,1.6,0,TAU);g.fill()}
+ /* sandbags on the front rim (left) */
+ rpqSandbag(g,-22,4+rx*RPSQ*.55,9,4.6,P);rpqSandbag(g,-8,6+rx*RPSQ*.62,9,4.6,P);rpqSandbag(g,-15,-1+rx*RPSQ*.55,8,4.2,P);
+ /* shell crate (front right) */
+ if(L.rack){const cx=21,cy=rx*RPSQ*.5+1;g.beginPath();g.rect(cx-9,cy-9,20,12);g.fillStyle=rpVG(g,cy-9,cy+3,P.woodL,P.wood);g.fill();rpOut(g,1.8);
+  g.strokeStyle=P.woodD;g.lineWidth=1.2;g.beginPath();g.moveTo(cx-9,cy-3);g.lineTo(cx+11,cy-3);g.stroke();
+  for(let i=0;i<L.rack;i++)rpqShellArt(g,cx-4+i*7,cy-13+(i===1?-2:0),4.2,tier,P)}
+ if(tier>=4)rpAscArt(g,'mortar',tier,P,L)}
+{const b0=rpBodyArt;rpBodyArt=function(g,type,tier,P){if(type==='mortar')return rpqBodyArt(g,tier,P);return b0.apply(this,arguments)}}
+{const l0=rpGlowList;rpGlowList=function(type,tier,P,L){if(type!=='mortar')return l0.apply(this,arguments);const G=[],A=(x,y,rx,ry,c,a)=>G.push([x,y,rx,ry,c,a]);
+ A(0,2-L.h,L.rx*.9,L.rx*.5,P.glow,.22);if(L.rack)A(21,L.rx*RPSQ*.5-12,14,9,rpqShellC(tier),tier>=3?.55:.25);if(L.rod)A(L.rx-10,2-L.h-88,18,18,'#9ae8ff',.8);
+ if(tier>=4){const A4=RPASC[tier];for(const [x,y,z] of L.inl)A(x,y,z*3.4,z*3.4,A4.glow,.85);A(0,-L.top*.5,46,L.top*.5,A4.glow,.16)}return G}}
+
+/* ---------- the barrel (pointing up, pivot = trunnions at 0,0) ---------- */
+function rpqBarrelArt(g,tier){const M=rpqMet(tier),m=M.m;
+ /* breech bulb */
+ g.beginPath();g.ellipse(0,7,15,12,0,0,TAU);g.fillStyle=rpHG(g,-15,15,m[0],m[1],m[2]);g.fill();rpOut(g,2.4);
+ g.beginPath();g.arc(0,19,3.4,0,TAU);g.fillStyle=m[2];g.fill();rpOut(g,1.6);
+ /* body, flaring to the muzzle */
+ g.beginPath();g.moveTo(-13.5,4);g.quadraticCurveTo(-12,-16,-10.5,-30);g.lineTo(10.5,-30);g.quadraticCurveTo(12,-16,13.5,4);g.closePath();
+ g.fillStyle=rpHG(g,-13.5,13.5,m[0],m[1],m[2]);g.fill();rpOut(g,2.4);
+ g.fillStyle='rgba(255,255,255,.32)';g.beginPath();g.moveTo(-8,2);g.quadraticCurveTo(-7.5,-14,-6.5,-27);g.lineTo(-4,-27);g.quadraticCurveTo(-4.6,-14,-4.6,2);g.closePath();g.fill();
+ /* bands */
+ for(const [y,w] of [[-1,13.4],[-17,12]]){g.beginPath();g.rect(-w,y-2.6,w*2,5.2);g.fillStyle=rpHG(g,-w,w,M.band,M.band,M.bandD);g.fill();rpOut(g,1.6);
+  if(tier>=4){g.fillStyle=tier>=5?'#ffffff':'#fff0a8';g.beginPath();g.arc(0,y,1.8,0,TAU);g.fill()}}
+ /* dolphin handles */
+ for(const k of [-1,1]){g.beginPath();g.moveTo(k*7,-20);g.quadraticCurveTo(k*15,-26,k*9,-29);g.lineWidth=3.6;g.strokeStyle=RPTO;g.stroke();g.lineWidth=1.8;g.strokeStyle=M.band;g.stroke()}
+ /* runes (tier 3+) */
+ if(tier>=3){g.strokeStyle=M.rune;g.lineWidth=1.6;g.beginPath();g.moveTo(-5,-8);g.lineTo(-2,-13);g.lineTo(1,-8);g.moveTo(3,-13);g.lineTo(3,-7);g.lineTo(6,-10);g.moveTo(-7,-24);g.lineTo(7,-24);g.stroke()}
+ /* wing fins (tier 5) */
+ if(tier>=5)for(const k of [-1,1]){g.beginPath();g.moveTo(k*11,-22);g.quadraticCurveTo(k*24,-30,k*22,-40);g.quadraticCurveTo(k*17,-32,k*10.5,-29);g.closePath();g.fillStyle=rpHG(g,k*10,k*24,'#ffffff','#ffe9b0','#d8b060');g.fill();rpOut(g,1.6)}
+ /* muzzle: a flared lip with a gold rim and the dark bore */
+ g.beginPath();g.ellipse(0,-31,14.5,5.4,0,0,TAU);g.fillStyle=rpHG(g,-14.5,14.5,M.lip,M.band,M.bandD);g.fill();rpOut(g,2.2);
+ g.beginPath();g.ellipse(0,-32,10,3.6,0,0,TAU);g.fillStyle='#120a14';g.fill();rpOut(g,1.2)}
+const rpqBarrelS=tier=>rpSpr('mt|bar|'+tier,-26,-46,52,72,g=>rpqBarrelArt(g,tier));
+const rpqShellS=tier=>rpSpr('mt|sh|'+rpqT(tier),-11,-13,22,24,g=>rpqShellArt(g,0,0,8,tier,RPPAL.mortar.base));
+/* barrel pose: lean toward the aim (radians, screen space), foreshortened when aiming up the screen, recoil 0..1 */
+function rpqPose(tier,aim,fire){const L=RPLAY.mortar[tier],c=Math.cos(aim||0),s=Math.sin(aim||0),lean=Math.max(-.62,Math.min(.62,c*.62)),sy=L.bl*(1-.16*Math.max(0,-s)),f=fire||0;
+ return{L,lean,sx:L.bl*(1+.08*f),sy:sy*(1-.13*f),dy:L.piv+6*f}}
+function rpMortarMuzzle(tier,aim,fire){tier=rpqT(tier);const p=rpqPose(tier,aim,fire),d=34*p.sy;return{x:Math.sin(p.lean)*d,y:p.dy-Math.cos(p.lean)*d}}
+
+/* ---------- live parts ---------- */
+function rpqLive(g,tier,P,t,o,L,ph){const M=rpqMet(tier),f=Math.max(0,Math.min(1,o.fire||0)),ch=Math.max(0,Math.min(1,o.charge||0)),p=rpqPose(tier,o.aim,f),lt=RPFX.lite;
+ /* barrel */
+ g.save();g.translate(0,p.dy);g.rotate(p.lean);g.scale(p.sx,p.sy);g.globalAlpha=RPGA;rpPut(g,rpqBarrelS(tier));
+ /* fuse: a spark at the breech that brightens as the shell is readied */
+ if(ch>.02){g.globalCompositeOperation='lighter';rpGlow(g,0,19,7+9*ch,7+9*ch,P.fuse,(.35+.65*ch)*(.75+.25*Math.sin(t*40+ph)));g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}
+ /* rune pulse */
+ if(tier>=3){g.globalCompositeOperation='lighter';rpGlow(g,0,-12,12,16,M.rune,.32+.22*Math.sin(t*3+ph*5)+.5*f);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}
+ g.restore();
+ /* trunnion caps over the barrel */
+ for(const k of [-1,1]){const cx=k*14.5*L.bl;g.beginPath();g.arc(cx,L.piv,4,0,TAU);g.fillStyle=rpHG(g,cx-4,cx+4,P.trimL,P.trim,P.trimD);g.fill();rpOut(g,1.6)}
+ /* muzzle flash and smoke */
+ const mz=rpMortarMuzzle(tier,o.aim,f);
+ if(f>.04){g.globalCompositeOperation='lighter';const fl=f*f;rpGlow(g,mz.x,mz.y-6,26+30*fl,22+26*fl,tier>=5?'#fff6d8':'#ffb04a',fl*1.1);rpGlow(g,mz.x,mz.y-4,10+10*fl,10+10*fl,'#ffffff',fl);
+  if(tier>=3)rpGlow(g,mz.x,mz.y-8,30,30,M.rune,.5*fl);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+  const n=lt?3:5;for(let i=0;i<n;i++){const u=1-f,a=p.lean+(i-(n-1)/2)*.42,r=(5+u*18)*(.7+.3*rpR(i+3)),d=6+u*(26+i*5);
+   g.fillStyle=`rgba(${tier>=4?'214,206,236':'206,198,186'},${(.62*f).toFixed(3)})`;g.beginPath();g.arc(mz.x+Math.sin(a)*d,mz.y-Math.cos(a)*d-u*10,r,0,TAU);g.fill()}}
+ else if(!lt){/* a thin idle wisp from the bore */const u=((t*.45+ph)%1);g.fillStyle=`rgba(200,192,180,${(.22*(1-u)).toFixed(3)})`;g.beginPath();g.arc(mz.x+Math.sin(u*6+ph)*3,mz.y-4-u*26,3+u*6,0,TAU);g.fill()}
+ /* storm rod crackle (tier 5) */
+ if(L.rod){const x=L.rx-10,y=2-L.h-88;g.globalCompositeOperation='lighter';rpGlow(g,x,y,14+4*Math.sin(t*7+ph),14,'#9ae8ff',.7+.3*ch);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+  if(!lt&&(((t*6+ph*3)|0)%3===0||ch>.6)){g.strokeStyle='rgba(220,248,255,.95)';g.lineWidth=1.4;g.beginPath();let px=x,py=y;g.moveTo(px,py);for(let i=0;i<4;i++){px+=(rpR(((t*20)|0)+i)-.5)*12;py-=5+rpR(((t*20)|0)+i+7)*5;g.lineTo(px,py)}g.stroke()}}
+ g.globalAlpha=RPGA}
+{const p0=rpTowerParts;rpTowerParts=function(g,type,tier,skin,t,o,nopad){if(type!=='mortar')return p0.apply(this,arguments);
+ const P=rpPalT(type,skin,tier),L=RPLAY[type][tier],ph=o.ph||0;
+ if(tier>=4){if(!nopad)rpAscGround(g,tier,t,ph,1);rpAscLive(g,type,tier,t,ph,L,0)}
+ g.globalAlpha=RPGA;rpPut(g,nopad?rpBody(type,tier,skin):rpBack(type,tier,skin));
+ {const q=RPPULSE[type];g.globalCompositeOperation='lighter';g.globalAlpha=RPGA*(1-q[1]+q[1]*Math.sin(t*q[0]+ph*7));rpPut(g,rpGlowLayer(type,tier,skin));g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}
+ if(!nopad){const u=((t+ph*2.3)*.28)%1;if(u<.12){const v=u/.12*tier,i=Math.min(tier-1,v|0);g.globalCompositeOperation='lighter';rpGlow(g,(i-(tier-1)/2)*10,RPPIPY-1,8,8,'#fff6c8',Math.sin(Math.PI*(v-i))*.95);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+ rpqLive(g,tier,P,t,o,L,ph);
+ if(tier>=4)rpAscLive(g,type,tier,t,ph,L,1);
+ g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+{const w0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){const r=w0.apply(this,arguments);if(type==='mortar'){tier=rpqT(tier);try{rpqBarrelS(tier);rpqShellS(tier)}catch(e){}}return r}}
+
+/* ---------- shells, craters, reticles and explosions ---------- */
+function rpMortarShell(g,x,y,tier,rot,sc){g.save();g.translate(x,y);g.rotate(rot||0);const k=sc||1.5;g.scale(k,k);rpPut(g,rpqShellS(tier));g.restore()}
+function rpqCraterArt(g,tier){/* unit crater, radius 50 */
+ const q=g.createRadialGradient(0,0,4,0,0,50);q.addColorStop(0,'rgba(24,12,8,.92)');q.addColorStop(.55,'rgba(52,30,18,.7)');q.addColorStop(.85,'rgba(80,52,30,.32)');q.addColorStop(1,'rgba(80,52,30,0)');
+ g.fillStyle=q;g.beginPath();g.arc(0,0,50,0,TAU);g.fill();
+ g.strokeStyle='rgba(18,8,6,.55)';g.lineWidth=2.4;for(let i=0;i<7;i++){const a=i/7*TAU+rpR(i)*.6;g.beginPath();g.moveTo(Math.cos(a)*10,Math.sin(a)*10);g.lineTo(Math.cos(a+.2)*26,Math.sin(a+.2)*26);g.lineTo(Math.cos(a-.1)*(36+rpR(i+4)*10),Math.sin(a-.1)*(36+rpR(i+4)*10));g.stroke()}
+ g.fillStyle='rgba(120,96,70,.6)';for(let i=0;i<10;i++){const a=rpR(i+20)*TAU,d=34+rpR(i+40)*12;g.beginPath();g.arc(Math.cos(a)*d,Math.sin(a)*d,2+rpR(i+60)*2.4,0,TAU);g.fill()}}
+function rpqCrackArt(g,col){g.strokeStyle=col;g.lineWidth=2.6;g.lineCap='round';for(let i=0;i<7;i++){const a=i/7*TAU+rpR(i)*.6;g.beginPath();g.moveTo(Math.cos(a)*8,Math.sin(a)*8);g.lineTo(Math.cos(a+.2)*26,Math.sin(a+.2)*26);g.lineTo(Math.cos(a-.1)*(34+rpR(i+4)*10),Math.sin(a-.1)*(34+rpR(i+4)*10));g.stroke()}}
+const rpqCraterS=()=>rpSpr('mt|cr',-52,-52,104,104,g=>rpqCraterArt(g,0),1);
+const rpqCrackS=tier=>rpSpr('mt|ck|'+rpqT(tier),-52,-52,104,104,g=>rpqCrackArt(g,tier>=5?'#ffe9a0':tier===4?'#d0a0ff':'#ff8a2a'),1);
+function rpMortarCrater(g,x,y,r,k,t,tier){if(k<=.01)return;const s=r/50;g.save();g.translate(x,y);g.scale(s,s*RPFX.sq);g.globalAlpha=Math.min(1,k*1.4)*.9;rpPut(g,rpqCraterS());
+ g.globalCompositeOperation='lighter';g.globalAlpha=Math.min(1,k)*(.55+.25*Math.sin(t*5+x));rpPut(g,rpqCrackS(tier));g.restore();
+ g.globalCompositeOperation='lighter';rpGlow(g,x,y,r*.8,r*.8*RPFX.sq,rpqShellC(tier),.22*k);g.globalCompositeOperation='source-over';g.globalAlpha=1;
+ if(!RPFX.lite){for(let i=0;i<3;i++){const u=((t*.6+i/3+x*.01)%1),a=rpR(i+(x|0))*TAU;g.fillStyle=`rgba(255,${150+i*30},70,${(.8*(1-u)*k).toFixed(3)})`;g.beginPath();g.arc(x+Math.cos(a)*r*.4,y+Math.sin(a)*r*.4*RPFX.sq-u*18,1.8,0,TAU);g.fill()}}}
+function rpMortarReticle(g,x,y,r,u,tier){const a=Math.min(1,u*1.6),c=rpqShellC(tier),rr=r*(1.25-.25*u);g.save();g.globalAlpha=.75*a;
+ g.lineWidth=4;g.strokeStyle='rgba(18,8,31,.55)';g.beginPath();g.ellipse(x,y,rr,rr*RPFX.sq,0,0,TAU);g.stroke();
+ g.lineWidth=2.2;g.strokeStyle=c;g.setLineDash([10,7]);g.lineDashOffset=-u*40;g.beginPath();g.ellipse(x,y,rr,rr*RPFX.sq,0,0,TAU);g.stroke();g.setLineDash([]);
+ g.globalAlpha=.3*a;g.fillStyle=c;g.beginPath();g.ellipse(x,y,rr*u,rr*u*RPFX.sq,0,0,TAU);g.fill();g.restore()}
+function rpMortarBoom(g,x,y,r,u,tier,storm){if(u<=0||u>=1)return;const c=storm?'#9ae8ff':rpqShellC(tier),sq=RPFX.sq,e=1-Math.pow(1-u,3);
+ g.save();g.globalCompositeOperation='lighter';
+ rpGlow(g,x,y-10,r*(.9+.6*e),r*(.7+.4*e),storm?'#c8f4ff':'#ffb04a',(1-u)*1.1);rpGlow(g,x,y-8,r*.5,r*.42,'#ffffff',Math.max(0,1-u*3));
+ if(tier>=3||storm)rpGlow(g,x,y-14,r*.9,r*.8,c,.5*(1-u));
+ g.globalCompositeOperation='source-over';
+ /* shock ring on the ground */
+ g.globalAlpha=(1-u)*.9;g.lineWidth=5*(1-u)+1;g.strokeStyle=storm?'#e8fbff':'#fff0c8';g.beginPath();g.ellipse(x,y,r*(.3+1.05*e),r*(.3+1.05*e)*sq,0,0,TAU);g.stroke();
+ /* a white-hot core, then fireball puffs that roll up and darken into smoke */
+ const e4=1-Math.pow(1-u,4),hot=storm?'#e8fbff':'#fff3b0',mid=storm?'#9ae8ff':'#ff8a2a',dark=tier>=4&&!storm?'#4e4468':'#4a4048';
+ if(u<.3){const k=1-u/.3;g.globalAlpha=k;g.fillStyle=hot;g.beginPath();g.ellipse(x,y-r*.22,r*(.3+.25*e4),r*(.26+.2*e4),0,0,TAU);g.fill()}
+ const n=RPFX.lite?5:9;for(let i=0;i<n;i++){const a=i/n*TAU+rpR(i+(x|0))*.8,d=r*.5*e4*(.55+.5*rpR(i+9)),pr=r*(.2+.16*e4)*(.75+.45*rpR(i+5)),k=Math.min(1,u*1.7);
+  const col=k<.45?rpMix(hot,mid,k/.45):rpMix(mid,dark,(k-.45)/.55);g.globalAlpha=Math.min(1,(1-u)*1.5)*.95;g.fillStyle=col;g.beginPath();g.arc(x+Math.cos(a)*d,y+Math.sin(a)*d*sq-r*.45*e4-(i%3)*4,pr,0,TAU);g.fill();
+  if(u<.5){g.lineWidth=1.6;g.strokeStyle=RPTO;g.globalAlpha*=.35;g.stroke()}}
+ /* flying debris streaks */
+ if(u<.45&&!RPFX.lite){g.globalAlpha=1-u/.45;g.strokeStyle=storm?'#e8fbff':'#ffe6a0';g.lineWidth=2.4;for(let i=0;i<8;i++){const a=-Math.PI*(.1+.8*rpR(i+31+(x|0))),d0=r*.3+r*.9*e4,d1=d0+10+r*.2;g.beginPath();g.moveTo(x+Math.cos(a)*d0,y-10+Math.sin(a)*d0);g.lineTo(x+Math.cos(a)*d1,y-10+Math.sin(a)*d1);g.stroke()}}
+ g.globalAlpha=1;g.restore()}
+/* lightning from the sky to a barrage impact point (tier 5) */
+function rpMortarBolt(g,x,y,u,seed){if(u<=0||u>=1)return;g.save();g.globalAlpha=1-u;g.strokeStyle='#e8fbff';g.lineWidth=3.2;g.beginPath();let px=x+(rpR(seed)-.5)*60,py=y-420;g.moveTo(px,py);
+ for(let i=1;i<=9;i++){const k=i/9;px=x+(rpR(seed+i)-.5)*40*(1-k);py=y-420+420*k;g.lineTo(px,py)}g.stroke();g.lineWidth=1.4;g.strokeStyle='#ffffff';g.stroke();
+ g.globalCompositeOperation='lighter';rpGlow(g,x,y-20,40,60,'#9ae8ff',.8*(1-u));g.restore()}
+/* ===== RUNESTONE TOWER DEFENSE 9.8: the Thunder Mortar in battle (95t, after 95s) =====
+   The eighth tower (key O). Long-range artillery that cannot hit flyers: it picks the spot where a shell will catch the most ground
+   monsters (it leads them with rptPred from 95r, so it also reads Tidecaller slides and Frost stuns), lights its fuse, fires, and the
+   shell arcs over the map for about a second while a warning ring shrinks on the landing spot. The blast hurts every ground monster in
+   the splash (full damage at the centre, 60% at the edge). It cannot fire at anything inside its dead zone (RPQM.minR).
+   Tier 3: scorched craters slow ground monsters standing in them. Tier 4: every shell scatters three bomblets. Tier 5: every
+   RP_TW.mortar.barrage[4]th volley calls a Thunder Barrage, five lightning shells down the road ahead of the target that also stun
+   (not bosses). Overcharge speeds it up and adds 15% damage like every other tower.
+   State on RPX: mtShells [{x0,y0,x1,y1,t,d,h,tw,tier,dmg,r,ap,kind:'main'|'bomb'|'storm',seed}], mtBooms [{x,y,r,t,d,tier,storm}],
+   mtCraters [{x,y,r,t,d,k,tier}]. Tower: tw.cd, tw.charge (fuse 0..1), tw.fire, tw.aim, tw.nv (volleys). */
+RP_TW.mortar={cost:[350,230,400,780,1250],range:[300,315,335,355,380],dmg:[85,140,230,370,560],cd:[3,2.8,2.6,2.45,2.3],splash:[78,86,96,106,118],
+ ap:[2,4,8,99,99],crater:[0,0,.4,.45,.5],cluster:[0,0,0,3,3],barrage:[0,0,0,0,5],air:0,ground:1,
+ desc:'Lobs heavy shells at the biggest crowd from far away. Huge splash, slow reload. Cannot hit flyers or anything close.',
+ up:['Heavier shells and a longer reach.','Rune shells: every blast leaves a scorched crater that slows.','Cluster shells: each shell scatters three bomblets.','Thunder Barrage: every fifth volley calls five lightning shells down the road.']};
+RP_TWORDER.push('mortar');RP_KEYS.push('O');
+const RPQM={minR:95,fuse:.55,craterT:3,bombK:.35,bombR:.55,stormK:.7,stormStun:.5,edge:.6};
+/* flight time grows a little with distance */
+const rpqFlight=d=>.85+d/1000;
+/* where a monster will be when a shell fired now lands */
+function rpqLand(R,e,ft){const s=typeof rptPred==='function'?rptPred(R,e,ft):e.s;const p=rpAt(R.G,Math.max(0,Math.min(rpLen(R,e),s)),e.pi),o=e.off||0;return{x:p.x-Math.sin(p.a)*o,y:p.y+Math.cos(p.a)*o,s}}
+/* the best landing spot: the predicted position of a monster in reach that has the most ground monsters inside the splash */
+function rpqAim(R,tw,T,i){const rg=T.range[i],r2=rg*rg,m2=RPQM.minR*RPQM.minR,cand=[];
+ for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e),d2=rpD2(q.x,q.y,tw.x,tw.y);if(d2>r2||d2<m2)continue;cand.push(e)}
+ if(!cand.length)return null;
+ const pr=new Map();const P=e=>{let v=pr.get(e);if(!v){const q=rpPos(R,e);v=rpqLand(R,e,rpqFlight(Math.sqrt(rpD2(q.x,q.y,tw.x,tw.y))));pr.set(e,v)}return v};
+ const sp=T.splash[i]*.8,s2=sp*sp;let best=null,bv=-1e18;
+ for(const e of cand){const L=P(e);let n=0,hp=0;for(const f of R.foes){if(f.dead||f.air||f.s<0)continue;const M=P(f);if(rpD2(M.x,M.y,L.x,L.y)<=s2){n++;hp+=f.hp}}
+  const pv=tw.prio==='strong'?e.hp/1e6:tw.prio==='close'?-rpD2(L.x,L.y,tw.x,tw.y)/1e6:e.s/rpLen(R,e);const v=n*10+pv+(e.boss?3:0);if(v>bv){bv=v;best={e,x:L.x,y:L.y,s:L.s}}}
+ return best}
+function rpMortarFire(R,tw,dt){const T=RP_TW.mortar,i=tw.tier-1,sp=tw.over>0?RPT.AB.over.k:1;tw.over=Math.max(0,tw.over-dt);
+ tw.fire=Math.max(0,(tw.fire||0)-dt*1.6);tw.cd-=dt*sp;tw.charge=tw.cd<RPQM.fuse?Math.min(1,1-tw.cd/RPQM.fuse):Math.max(0,(tw.charge||0)-dt*3);
+ if(tw.cd>0)return;const a=rpqAim(R,tw,T,i);if(!a){tw.cd=.15;tw.charge=Math.max(0,tw.charge-.4);return}
+ const dmgK=tw.over>0?1.15:1;tw.cd=T.cd[i];tw.fire=1;tw.charge=0;tw.aim=Math.atan2(a.y-tw.y,a.x-tw.x);tw.nv=(tw.nv||0)+1;
+ const m=rpMortarMuzzle(tw.tier,tw.aim,1),x0=tw.x+m.x,y0=tw.y+m.y,d=Math.hypot(a.x-x0,a.y-y0),ft=rpqFlight(d);
+ R.mtShells.push({x0,y0,x1:a.x,y1:a.y,t:0,d:ft,h:150+d*.32,tw,tier:tw.tier,dmg:T.dmg[i]*dmgK,r:T.splash[i],ap:T.ap[i],kind:'main',seed:Math.random()*99});
+ try{ptBurst(R.fx,x0,y0-6,R.lite?4:9,tw.tier>=5?['#ffffff','#fff2b0','#9ae8ff']:['#ffe6a0','#ff9a3a','#cfc6b8'],{v:150,s:3.2,up:1,g:260})}catch(e){}
+ R.shake=Math.max(R.shake||0,1.6);rpqSfx('fire');
+ /* tier 5: the Thunder Barrage */
+ const bn=T.barrage[i];if(bn&&tw.nv%bn===0){const e=a.e;for(let k=0;k<5;k++){const off=(k-2)*46,s=Math.max(0,Math.min(rpLen(R,e)-6,a.s+off)),p=rpAt(R.G,s,e.pi),dl=.35+k*.12;
+   R.mtShells.push({x0:p.x+(Math.random()-.5)*40,y0:p.y-460,x1:p.x,y1:p.y,t:-dl,d:.42,h:0,tw,tier:5,dmg:T.dmg[i]*RPQM.stormK*dmgK,r:T.splash[i]*.8,ap:99,kind:'storm',seed:Math.random()*99})}
+  rpText(tw.x,tw.y-RPLAY.mortar[5].top-14,'THUNDER BARRAGE','#9ae8ff',20);setTimeout(()=>rpqSfx('thunder'),300)}}
+function rpqSfx(k){try{if(k==='fire'){beep(70,.18,'square',.22);setTimeout(()=>beep(140,.06,'triangle',.25),20)}
+ else if(k==='boom'){beep(55+Math.random()*15,.32,'sawtooth',.2);setTimeout(()=>beep(40,.3,'triangle',.25),40)}
+ else if(k==='pop')beep(160+Math.random()*40,.08,'square',.1);
+ else if(k==='thunder'){beep(1800,.05,'sawtooth',.08);setTimeout(()=>beep(60,.5,'sawtooth',.25),60)}}catch(e){}}
+/* a shell lands: damage, crater, bomblets, effects */
+function rpqLandShell(R,s){const T=RP_TW.mortar,i=Math.max(0,Math.min(4,s.tw.tier-1)),x=s.x1,y=s.y1;
+ for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e),d2=rpD2(q.x,q.y,x,y);if(d2>s.r*s.r)continue;
+  const k=1-(1-RPQM.edge)*Math.sqrt(d2)/s.r;rpHurt(e,s.dmg*k,s.ap,s.tw);if(!e.dead&&s.kind==='storm'&&!e.boss)e.stun=Math.max(e.stun||0,RPQM.stormStun)}
+ R.mtBooms.push({x,y,r:s.r,t:0,d:s.kind==='bomb'?.45:.65,tier:s.tier,storm:s.kind==='storm',seed:s.seed});if(R.mtBooms.length>40)R.mtBooms.shift();
+ if(T.crater[i]&&s.kind!=='bomb'){R.mtCraters.push({x,y,r:s.r*.85,t:0,d:RPQM.craterT,k:T.crater[i],tier:s.tier});if(R.mtCraters.length>24)R.mtCraters.shift()}
+ if(s.kind==='main'&&T.cluster[i]){for(let k=0;k<T.cluster[i];k++){const a=Math.random()*TAU,dd=s.r*(.55+Math.random()*.35);
+   R.mtShells.push({x0:x,y0:y-6,x1:x+Math.cos(a)*dd,y1:y+Math.sin(a)*dd*RPFX.sq,t:-k*.06,d:.34,h:46,tw:s.tw,tier:s.tier,dmg:s.dmg*RPQM.bombK,r:s.r*RPQM.bombR,ap:s.ap,kind:'bomb',seed:Math.random()*99})}}
+ const big=s.kind!=='bomb';R.shake=Math.max(R.shake||0,big?3.2:1.2);
+ try{ptBurst(R.fx,x,y-8,R.lite?(big?6:3):(big?16:6),s.kind==='storm'?['#e8fbff','#9ae8ff','#ffffff']:['#ffd27a','#ff8a3a','#6a5a4a','#3a2a24'],{v:big?260:160,s:big?4:3,up:1,g:520})}catch(e){}
+ if(s.kind==='storm'){rpRing(x,y,'#9ae8ff',s.r*1.2,5);rpqSfx('pop')}else rpqSfx(big?'boom':'pop')}
+function rpqStep(R,dt){if(!R.mtShells)return;
+ for(const s of R.mtShells){s.t+=dt;if(s.t>=s.d&&!s.done){s.done=1;rpqLandShell(R,s)}}R.mtShells=R.mtShells.filter(s=>!s.done);
+ for(const b of R.mtBooms)b.t+=dt;R.mtBooms=R.mtBooms.filter(b=>b.t<b.d);
+ for(const c of R.mtCraters){c.t+=dt;for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,c.x,c.y)<c.r*c.r){e.slowK=Math.max(e.slowK||0,c.k);e.slowT=Math.max(e.slowT||0,.3)}}}
+ R.mtCraters=R.mtCraters.filter(c=>c.t<c.d)}
+/* hooks: fire routine, battle state, step, upgrade */
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type==='mortar')return rpMortarFire(R,tw,dt);return f0.apply(this,arguments)}}
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);if(RPX)Object.assign(RPX,{mtShells:[],mtBooms:[],mtCraters:[]});return r}}
+{const s0=rpStep;rpStep=function(R,dt){const r=s0.apply(this,arguments);try{rpqStep(R,dt)}catch(e){console.error(e)}return r}}
+{const u0=rpUpgrade;rpUpgrade=function(tw){const r=u0.apply(this,arguments);if(r&&tw&&tw.type==='mortar'){tw.charge=0;tw.fire=0}return r}}
+/* drawing: craters, landing rings and shell shadows on the ground; shells, blasts and barrage lightning on top */
+const rpqPos=s=>{const u=Math.max(0,Math.min(1,s.t/s.d));return{u,x:s.x0+(s.x1-s.x0)*u,y:s.y0+(s.y1-s.y0)*u-s.h*4*u*(1-u),gx:s.x0+(s.x1-s.x0)*u,gy:s.y0+(s.y1-s.y0)*u}};
+{const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.mtCraters){
+ for(const k of R.mtCraters){const f=Math.min(1,k.t*6,(k.d-k.t)/.8);rpMortarCrater(c,k.x,k.y,k.r,f,R.t,k.tier)}
+ for(const s of R.mtShells){if(s.t<0)continue;const p=rpqPos(s);if(s.kind!=='bomb')rpMortarReticle(c,s.x1,s.y1,s.r,p.u,s.tier);
+  if(s.kind==='main'){const k=.35+.65*p.u;c.fillStyle=`rgba(8,4,20,${(.35*k).toFixed(3)})`;c.beginPath();c.ellipse(p.gx,p.gy+2,8*k,3.4*k,0,0,TAU);c.fill()}}}}catch(e){console.error(e)}return r}}
+{const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);if(!R.mtShells)return;
+ for(const b of R.mtBooms){if(b.storm)rpMortarBolt(c,b.x,b.y,Math.min(.99,b.t/.25),b.seed|0);rpMortarBoom(c,b.x,b.y,b.r*(b.storm?.9:1),b.t/b.d,b.tier,b.storm)}
+ for(const s of R.mtShells){if(s.t<0)continue;const p=rpqPos(s),col=rpqShellC(s.tier);
+  if(s.kind==='storm'){c.save();c.globalCompositeOperation='lighter';c.strokeStyle='rgba(200,244,255,.8)';c.lineWidth=4;c.beginPath();c.moveTo(p.x,p.y-60);c.lineTo(p.x,p.y);c.stroke();rpGlow(c,p.x,p.y,24,24,'#9ae8ff',.9);c.restore();c.globalAlpha=1}
+  else{/* a trail of sparks behind the shell */c.save();c.globalCompositeOperation='lighter';const n=R.lite?2:4;for(let k=1;k<=n;k++){const q=rpqPos({x0:s.x0,y0:s.y0,x1:s.x1,y1:s.y1,h:s.h,t:Math.max(0,s.t-k*.035),d:s.d});rpGlow(c,q.x,q.y,12-k*1.6,12-k*1.6,col,.85-k*.14)}c.restore();c.globalAlpha=1}
+  rpMortarShell(c,p.x,p.y,s.tier,s.t*9,s.kind==='bomb'?1:1.6);
+  if(s.kind!=='storm'){c.save();c.globalCompositeOperation='lighter';rpGlow(c,p.x,p.y-8,6,6,col,.8+.2*Math.sin(R.t*40));c.restore();c.globalAlpha=1}}}}
+/* the info panel: range, damage, splash, fire rate */
+{const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='mortar')return r;try{const T=RP_TW.mortar,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
+  const seg=(v,max)=>Math.max(0,Math.min(6,Math.round(v/max*6))),bar=(lab,v,max,nv)=>`<div class="rpst"><span>${lab}</span><i>${[0,1,2,3,4,5].map(k=>`<s class="${k<seg(v,max)?'on':nv!=null&&k<seg(nv,max)?'up':''}"></s>`).join('')}</i></div>`;
+  const dmg=j=>Math.sqrt(T.dmg[j]*(1+T.cluster[j]*RPQM.bombK)/T.cd[j]*6);
+  const st=el.querySelector('.rpsts');if(st)st.innerHTML=bar('Range',T.range[i],380,nx!=null?T.range[nx]:null)+bar('Damage',dmg(i),Math.sqrt(1700),nx!=null?dmg(nx):null)+bar('Splash',T.splash[i],120,nx!=null?T.splash[nx]:null)+bar('Fire rate',1/T.cd[i],.6,nx!=null?1/T.cd[nx]:null);
+  const hgt=el.offsetHeight||420;el.style.top=rpClamp(tw.y-hgt*.62,76,770-hgt)+'px'}catch(e){console.error(e)}return r}}
+/* the range ring also shows the dead zone while a mortar is selected or being placed */
+{const d0=rpDraw;rpDraw=function(){const r=d0.apply(this,arguments);try{const R=RPX;if(!R||!S.rp)return r;const c=ctx;let x=null,y=null;
+  if(R.sel&&R.sel.type==='mortar'){x=R.sel.x;y=R.sel.y}else if(R.place==='mortar'&&R.ghost){x=R.ghost.x;y=R.ghost.y}
+  if(x!=null){c.save();c.setTransform(RS,0,0,RS,0,0);c.setLineDash([7,7]);c.lineWidth=2.2;c.strokeStyle='rgba(255,110,110,.85)';c.beginPath();c.ellipse(x,y,RPQM.minR,RPQM.minR*RPFX.sq,0,0,TAU);c.stroke();c.setLineDash([]);c.fillStyle='rgba(255,90,90,.08)';c.fill();c.restore()}}catch(e){}return r}}
+/* key O picks it */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1&&e.key.toLowerCase()==='o'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('mortar');return}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+/* eight tiles in the bar: a little narrower */
+{const st=document.createElement('style');st.textContent=`.rph.rp7.rp8 .rpbar{gap:5px}.rph.rp7.rp8 .rpcard{width:99px}.rph.rp7.rp8 .rpct>b{max-width:94px;font-size:13.5px}.rph.rp7.rp8 .rpcard img{width:74px;height:74px;margin-left:-37px;top:-22px}`;document.head.appendChild(st)}
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h&&RP_TWORDER.length>=8)h.classList.add('rp8')}catch(e){}return r}}
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=' The Thunder Mortar (O, 350 supply) lobs heavy shells at the biggest crowd from very far away; it cannot hit flyers or anything close to it.'}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Thunder Mortar.</b> Long-range artillery (350 supply, key O). It aims each shell where it will catch the most ground monsters; a ring shows where it will land. It cannot hit flyers or anything inside its dead zone (red ring). Tier 3 leaves slowing craters, tier 4 adds cluster bomblets, tier 5 calls a Thunder Barrage every fifth volley.</p>`)}catch(e){}return r}}
 /* ===== 9.4 THE CROOKED CUE (pool mode): data, save normaliser (96a) =====
    Code prefix `pz`, save P.pz, casino id 'pz'. See POOL_PLAN.md. Everything here is data; art is 96e-96h, rules 96b-96d. */
 const PZ_O='#12081f';

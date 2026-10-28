@@ -46821,7 +46821,7 @@ function rpMortarBolt(g,x,y,u,seed){if(u<=0||u>=1)return;g.save();g.globalAlpha=
    (not bosses). Overcharge speeds it up and adds 15% damage like every other tower.
    State on RPX: mtShells [{x0,y0,x1,y1,t,d,h,tw,tier,dmg,r,ap,kind:'main'|'bomb'|'storm',seed}], mtBooms [{x,y,r,t,d,tier,storm}],
    mtCraters [{x,y,r,t,d,k,tier}]. Tower: tw.cd, tw.charge (fuse 0..1), tw.fire, tw.aim, tw.nv (volleys). */
-RP_TW.mortar={cost:[350,230,400,780,1250],range:[300,315,335,355,380],dmg:[85,140,230,370,560],cd:[3,2.8,2.6,2.45,2.3],splash:[78,86,96,106,118],
+RP_TW.mortar={cost:[550,360,630,1220,1960],range:[300,315,335,355,380],dmg:[85,140,230,370,560],cd:[3,2.8,2.6,2.45,2.3],splash:[78,86,96,106,118],
  ap:[2,4,8,99,99],crater:[0,0,.4,.45,.5],cluster:[0,0,0,3,3],barrage:[0,0,0,0,5],air:0,ground:1,
  desc:'Lobs heavy shells at the biggest crowd from far away. Huge splash, slow reload. Cannot hit flyers or anything close.',
  up:['Heavier shells and a longer reach.','Rune shells: every blast leaves a scorched crater that slows.','Cluster shells: each shell scatters three bomblets.','Thunder Barrage: every fifth volley calls five lightning shells down the road.']};
@@ -46905,8 +46905,8 @@ const rpqPos=s=>{const u=Math.max(0,Math.min(1,s.t/s.d));return{u,x:s.x0+(s.x1-s
 /* eight tiles in the bar: a little narrower */
 {const st=document.createElement('style');st.textContent=`.rph.rp7.rp8 .rpbar{gap:5px}.rph.rp7.rp8 .rpcard{width:99px}.rph.rp7.rp8 .rpct>b{max-width:94px;font-size:13.5px}.rph.rp7.rp8 .rpcard img{width:74px;height:74px;margin-left:-37px;top:-22px}`;document.head.appendChild(st)}
 {const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h&&RP_TWORDER.length>=8)h.classList.add('rp8')}catch(e){}return r}}
-try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=' The Thunder Mortar (O, 350 supply) lobs heavy shells at the biggest crowd from very far away; it cannot hit flyers or anything close to it.'}catch(e){}
-{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Thunder Mortar.</b> Long-range artillery (350 supply, key O). It aims each shell where it will catch the most ground monsters; a ring shows where it will land. It cannot hit flyers or anything inside its dead zone (red ring). Tier 3 leaves slowing craters, tier 4 adds cluster bomblets, tier 5 calls a Thunder Barrage every fifth volley.</p>`)}catch(e){}return r}}
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=' The Thunder Mortar (O, 550 supply) lobs heavy shells at the biggest crowd from very far away; it cannot hit flyers or anything close to it.'}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Thunder Mortar.</b> Long-range artillery (550 supply, key O). It aims each shell where it will catch the most ground monsters; a ring shows where it will land. It cannot hit flyers or anything inside its dead zone (red ring). Tier 3 leaves slowing craters, tier 4 adds cluster bomblets, tier 5 calls a Thunder Barrage every fifth volley.</p>`)}catch(e){}return r}}
 /* ===== RUNESTONE TOWER DEFENSE 9.9: the Alchemist's Still, art (95u, after 95t) =====
    A bubbling copper still on a stone pad: an iron fire ring with glowing coals and live flames, a round copper pot on a tripod
    (riveted seam, two rivet "eyes"), a copper neck, a glass dome full of bubbling brew, a copper pipe arching from the dome cap down to a
@@ -52276,30 +52276,53 @@ function pkSfx(k){try{switch(k){
 function mPK(el,tok){
  const alive=()=>CAS.tok===tok,rm=matchMedia('(prefers-reduced-motion: reduce)').matches,S0=pkStats();
  let opp=pkOpp(S0.opp),L=pkLadder(opp.id),ph='idle',bet=0,step=0,kick=1,tell=null,pick=null,needle=0,ndir=1,nsp=.9,anim=null,banner=null,conf=[],flash=0,shake=0,cheer=0,hov=null,last=performance.now(),t=0,dive=null,runT=0,firstRun=!S0.seen,rs=[],fx=[],lb=-1;
- el.innerHTML=`<div class="pkw">
-  <div class="pkst"><canvas id="pkc" width="${PKSW}" height="${PKSH}"></canvas><div class="pktell" id="pktell" hidden><i></i><span><small>TELL</small><b id="pktellb"></b></span></div><div class="pksb"><small>SHOOT-OUT</small><div class="pksbd" id="pksbd"></div><b id="pkkl">Choose a keeper, then kick off</b></div><div class="pkhint" id="pkhint"></div></div>
-  <div class="pkside"><h3>Golden Boot</h3><p class="pkcap">Max payout <b>20,000</b> per round</p><div class="pklad" id="pklad"></div><div class="pkbtns"><button class="pkco" id="pkco" disabled><small>CASH OUT</small><b id="pkcov">–</b></button><button class="bbig pkgob" id="pkgo">Kick off</button></div></div>
-  <div class="pkbot"><div class="pkleft"><h4>Choose your keeper</h4><div class="pkopps" id="pkopps"></div><div class="pkstat" id="pkstat"></div></div><div class="pkmid"><p class="cmsg" id="cm"> </p><div class="ctl">${betBar()}</div></div></div>
+ el.innerHTML=`<div class="pkw pk2">
+  <div class="pktop"><div class="pktell off" id="pktell"><i></i><span><b id="pktellb"></b><small id="pktella"></small></span><em title="A tell is right most of the time, not every time">i</em></div><div class="pkkick" id="pkkl"></div><div class="pksbd" id="pksbd"></div></div>
+  <div class="pkst"><canvas id="pkc" width="${PKSW}" height="${PKSH}"></canvas><div class="pkhint" id="pkhint"></div><div class="pksteps" id="pksteps"></div></div>
+  <div class="pkside">
+   <div class="pkkc"><canvas id="pkkp" width="150" height="150"></canvas><div class="pkkn"><b id="pkkname"></b><i class="pkdf" id="pkkst"></i><small id="pkksub"></small></div>
+    <div class="pkset" id="pkset"><div class="pkseti"><button id="pkprev" aria-label="Previous keeper">‹</button><span><b>Round setup</b><small class="u">Change keeper</small><small class="l">Locked during round</small></span><button id="pknext" aria-label="Next keeper">›</button></div><em id="pkktop"></em></div></div>
+   <div class="pkbetb"><div class="pkbb"><div><small>Your bet</small><b><i class="pkcn"></i><span id="pkyb">0</span></b></div><div><small>If successful</small><b><i class="pkcn"></i><span id="pkif">0</span><u id="pkifm">×1</u></b></div></div><p class="pkcap">Max return per round: <b>${cmn(PK_CAP)}</b></p></div>
+   <div class="pkstg"><div class="pkstgh"><b id="pkstgt">Next stages</b><button id="pkfull">View full ladder</button></div><div class="pklad" id="pklad"></div></div>
+   <div class="pkspot"><div><small id="pksptl">Selected spot</small><b id="pkspt">–</b></div><div class="pkmini" id="pkmini">${'<i></i>'.repeat(6)}</div></div>
+   <div class="pkbtns"><button class="pkco" id="pkco" disabled><b>Cashout</b><small id="pkcov">Available after a successful kick</small></button><button class="bbig pkgob" id="pkgo">Kick off</button></div>
+  </div>
+  <div class="pkbot"><div class="pkleft"><div class="pkstat" id="pkstat"></div><p class="cmsg" id="cm"> </p></div><div class="pkmid"><div class="ctl">${betBar()}</div></div></div>
  </div>`;
  const cv=$('pkc'),g=cv.getContext('2d');g.lineJoin=g.lineCap='round';
  const cap=()=>PK_CAP;CAS.cap=PK_BET[1];
  /* ---------- side panel ---------- */
  const gv=m=>Math.min(PK_CAP,Math.floor((ph==='idle'||ph==='over'?Math.min(PK_BET[1],CAS.bet||0):bet)*m));
- const ladder=()=>{const box=$('pklad');if(!box)return;box.innerHTML=L.map((m,i)=>{const k=i+1,kind=pkKind(k),cls=k<=step?'done':k===step+1&&ph!=='idle'&&ph!=='over'?'next':'';
-   return `<div class="pkr ${cls}${k===PK_KICKS?' boot':''}" data-k="${k}"><i class="pki ${kind}">${kind==='shoot'?PKIC.ball:PKIC.glove}</i><span>${k===PK_KICKS?'Golden Boot':kind==='shoot'?'Kick '+k+' · shoot':'Kick '+k+' · save'}</span><b>×${m}</b><u class="${gv(m)>=PK_CAP?'mx':''}">${gv(m)>=PK_CAP?'MAX '+cmn(PK_CAP):cmn(gv(m))}</u>${k<=step?'<em>✓</em>':''}</div>`}).reverse().join('');
-  const v=step?Math.min(cap(),Math.floor(bet*L[step-1])):0,co=$('pkco');$('pkcov').textContent=step?cmn(v)+' · ×'+L[step-1]:'–';co.disabled=!(ph==='between'&&step>0)};
+ const KEYS=[['Q','W','E'],['A','S','D']],SPOTN=[['Top left','Top middle','Top right'],['Low left','Low middle','Low right']];let full=false,sph='';
+ const ladder=()=>{const box=$('pklad');if(!box)return;const idle=ph==='idle'||ph==='over',b0=idle?Math.min(PK_BET[1],CAS.bet||0):bet,cur=idle?1:Math.min(PK_KICKS,step+1),capK=L.findIndex(m=>Math.floor(b0*m)>=PK_CAP)+1;
+  const row=k=>{const m=L[k-1],v=gv(m),now=k===cur&&!idle,cls=k<=step?'done':now?'next':'';return `<div class="pkr ${cls}${k===PK_KICKS?' boot':''}" data-k="${k}"><i class="pki ${pkKind(k)}">${pkKind(k)==='shoot'?PKIC.ball:PKIC.glove}</i><span>${k===PK_KICKS?'Kick 10 · Golden Boot':'Kick '+k}${now?' <em>(this kick)</em>':''}${k<=step?' <em class="ok">✓</em>':''}</span><u class="${v>=PK_CAP?'mx':''}"><i class="pkcn"></i>${cmn(v)}</u><b>×${m}</b></div>`};
+  let h='';if(full){for(let k=1;k<=PK_KICKS;k++)h+=row(k)}else{let k=cur,n=0;for(;k<=PK_KICKS&&n<5&&!(capK&&k>=capK);k++,n++)h+=row(k);
+   if(capK&&k>=capK)h+=`<div class="pkr cap"><span>Kick ${capK}${capK<PK_KICKS?'+':''}</span><u class="mx">Capped at ${cmn(PK_CAP)}</u><b>Final ×${L[PK_KICKS-1]}</b></div>`;
+   else if(k<=PK_KICKS)h+=`<div class="pkr cap"><span>Kick ${k}${k<PK_KICKS?'–10':''}</span><u>up to <i class="pkcn"></i>${cmn(gv(L[PK_KICKS-1]))}</u><b>Final ×${L[PK_KICKS-1]}</b></div>`}
+  box.innerHTML=h;$('pkstgt').innerHTML=`${full?'Full ladder':'Next stages'} <small>(${cmn(b0)} bet)</small>`;$('pkfull').textContent=full?'Next stages':'View full ladder';
+  const nm=L[cur-1];$('pkyb').textContent=cmn(b0);$('pkif').textContent=cmn(gv(nm));$('pkifm').textContent='×'+nm;
+  const v=step?Math.min(cap(),Math.floor(bet*L[step-1])):0,co=$('pkco');$('pkcov').textContent=step?'Take '+cmn(v)+' · ×'+L[step-1]:'Available after a successful kick';co.disabled=!(ph==='between'&&step>0)};
  const stats=()=>{const s=pkStats(),e=$('pkstat');if(e)e.innerHTML=`<span><b>${s.goals}</b> goals</span><span><b>${s.saves}</b> saves</span><span><b>${s.best}</b> best run</span><span><b>${s.boots}</b> Golden Boots</span>`};
- const opps=()=>{const box=$('pkopps');box.innerHTML=PK_OPP.map(o=>{const LL=pkLadder(o.id);const df=PK_OPP.indexOf(o)+1;return `<button class="pkop${o.id===opp.id?' on':''}" data-o="${o.id}" style="--c:${o.col};--k:${o.kit}"><canvas width="168" height="168"></canvas><span><b>${o.n}</b><i class="pkdf">${'★'.repeat(df)}${'☆'.repeat(3-df)}</i><small>${o.t}</small><em>Top ×${LL[PK_KICKS-1]}</em></span></button>`}).join('');
-  box.querySelectorAll('.pkop').forEach(b=>{const o=pkOpp(b.dataset.o),cv2=b.querySelector('canvas'),c=cv2.getContext('2d');c.lineJoin=c.lineCap='round';const gr=c.createRadialGradient(84,90,10,84,90,84);gr.addColorStop(0,pkMix(o.col,'#ffffff',.25));gr.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=gr;c.fillRect(0,0,168,168);
-   c.save();c.translate(84,160);c.scale(.9,.9);pkRigDraw(c,pkKeeperPose(0,0,{st:'ready'},.4),o,.4,false);c.restore();
-   b.onclick=()=>{if(ph!=='idle'&&ph!=='over')return;opp=o;L=pkLadder(o.id);pkStats().opp=o.id;save();opps();ladder();sb();pkSfx('tick')}})};
- const lockOpps=v=>$('pkopps').querySelectorAll('.pkop').forEach(b=>b.disabled=v);
+ const showTellIdle=()=>{if(!tell)showTell()};
+ const opps=()=>{const o=opp,df=PK_OPP.indexOf(o)+1,c=$('pkkp').getContext('2d');c.clearRect(0,0,150,150);c.lineJoin=c.lineCap='round';const gr=c.createRadialGradient(75,70,6,75,70,78);gr.addColorStop(0,pkMix(o.col,'#ffffff',.3));gr.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=gr;c.fillRect(0,0,150,150);
+  c.save();c.translate(75,262);c.scale(1.18,1.18);pkRigDraw(c,pkKeeperPose(0,0,{st:'ready'},.4),o,.4,false);c.restore();
+  $('pkkname').textContent=o.n;$('pkkst').textContent='★'.repeat(df)+'☆'.repeat(3-df);$('pkksub').textContent=o.t;$('pkktop').textContent='Golden Boot ×'+L[PK_KICKS-1]};
+ const pickOpp=d=>{if(ph!=='idle'&&ph!=='over')return;opp=PK_OPP[(PK_OPP.indexOf(opp)+d+PK_OPP.length)%PK_OPP.length];L=pkLadder(opp.id);pkStats().opp=opp.id;save();opps();ladder();sb();pkSfx('tick')};
+ const lockOpps=v=>{const s=$('pkset');if(s)s.classList.toggle('lock',v);$('pkprev').disabled=v;$('pknext').disabled=v};
  const btn=(txt,on)=>{const b=$('pkgo');b.textContent=txt;b.disabled=!on};
  const hint=s=>{const e=$('pkhint');if(e){e.textContent=s||'';e.classList.toggle('on',!!s)}};
- const showTell=()=>{const e=$('pktell');if(!tell){e.hidden=true;return}e.hidden=false;$('pktellb').textContent=tell.txt;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')};
- const sb=()=>{const d=$('pksbd');if(!d)return;d.innerHTML=Array.from({length:PK_KICKS},(_,i)=>{const k=i+1,r=rs[i],cur=k===kick&&ph!=='idle'&&ph!=='over'&&r==null;return `<i class="${pkKind(k)==='shoot'?'sh':'sv'}${r===true?' w':r===false?' l':''}${cur?' cur':''}${k===PK_KICKS?' bt':''}">${r===true?'✓':r===false?'✕':k===PK_KICKS?'★':''}</i>`}).join('')};
- const kickLabel=()=>{const e=$('pkkl');if(!e)return;sb();e.classList.remove('save','boot');if(ph==='idle'){e.textContent='Choose a keeper, then kick off';return}if(ph==='over'){e.textContent=step>=PK_KICKS?'GOLDEN BOOT!':'Full time';return}
-  e.textContent=kick===PK_KICKS?'Kick 10 · the Golden Boot':`Kick ${kick} · ${pkKind(kick)==='shoot'?'you shoot':'you save'}`;e.classList.toggle('save',pkKind(kick)==='save');e.classList.toggle('boot',kick===PK_KICKS);e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')};
+ const showTell=()=>{const e=$('pktell'),b=$('pktellb'),a=$('pktella');if(!e)return;if(!tell){e.classList.add('off');b.textContent=ph==='idle'||ph==='over'?'Every kick shows a tell':'A new tell comes with the next kick';a.innerHTML='It tells you which way to go';return}
+  e.classList.remove('off');b.textContent=tell.txt.charAt(0).toUpperCase()+tell.txt.slice(1);const S=['◀ LEFT','the MIDDLE','RIGHT ▶'];
+  a.innerHTML=pkKind(kick)==='shoot'?`He usually dives <b>${S[tell.T]}</b>: shoot <b class="go">${tell.T===0?'RIGHT ▶ (E or D)':'◀ LEFT (Q or A)'}</b>`:tell.T===1?`They usually shoot <b>down the middle</b>: <b class="go">stay (S)</b>`:`They usually shoot <b>${S[tell.T]}</b>: dive <b class="go">${tell.T===0?'◀ LEFT (A)':'RIGHT ▶ (D)'}</b>`;
+  e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')};
+ const sb=()=>{const d=$('pksbd');if(!d)return;d.innerHTML=Array.from({length:PK_KICKS},(_,i)=>{const k=i+1,r=rs[i],cur=k===kick&&ph!=='idle'&&ph!=='over'&&r==null;return `<i class="${pkKind(k)==='shoot'?'sh':'sv'}${r===true?' w':r===false?' l':''}${cur?' cur':''}${k===PK_KICKS?' bt':''}"><s>${r===true?'✓':r===false?'✕':pkKind(k)==='shoot'?PKIC.ball:PKIC.glove}</s><u>${k}</u></i>`}).join('')};
+ const kickLabel=()=>{const e=$('pkkl');if(!e)return;sb();if(ph==='idle'){e.innerHTML='Pick a keeper <b>and kick off</b>';return}if(ph==='over'){e.innerHTML=step>=PK_KICKS?'<b>GOLDEN BOOT!</b>':'<b>FULL TIME</b>';return}
+  const sv=pkKind(kick)==='save';e.innerHTML=`Kick ${kick}/${PK_KICKS} • <b class="${sv?'save':''}">${kick===PK_KICKS?'GOLDEN BOOT':sv?'YOUR SAVE':'YOUR SHOT'}</b>`;e.classList.remove('pop');void e.offsetWidth;e.classList.add('pop')};
+ const steps=()=>{const e=$('pksteps');if(!e)return;const idle=ph==='idle'||ph==='over'||ph==='prep',sv=!idle&&pkKind(kick)==='save';
+  const S=idle?[['Pick a keeper',0],['Set your bet',0],['Kick off',1]]:ph==='between'?[['Cash out',1],['or',2],['Next kick',1]]:sv?[['Tell',ph==='runup'?2:0],['Dive (A S D) before the strike',ph==='runup'?1:0],['Save',ph==='fly'?1:0]]:[['Tell',ph==='aim'?2:0],['Pick a spot (Q W E / A S D)',ph==='aim'?1:0],['Shoot',ph==='power'?1:0]];
+  e.innerHTML=S.map(([x,on],i)=>(i&&S[i][1]!==2&&S[i-1][1]!==2?'<i>➜</i>':'')+`<span class="${on===1?'on':on===2?'seen':''}">${x}</span>`).join('')};
+ const spot=()=>{const t=$('pkspt'),m=$('pkmini');if(!t)return;let c=-1,r=-1,x='–';if(pick){c=pick.c;r=pick.r;x=SPOTN[r][c]+' • '+KEYS[r][c]}else if(dive!=null){c=dive;x='Dive '+['left','middle','right'][dive]+' • '+'ASD'[dive]}else if(ph==='aim')x='Pick one of six spots';else if(ph==='runup')x='Dive left, middle or right';
+  t.textContent=x;$('pksptl').textContent=ph==='runup'||(dive!=null&&!pick)?'Your dive':'Selected spot';m.classList.toggle('dv',r<0&&c>=0);m.querySelectorAll('i').forEach((e,i)=>e.classList.toggle('on',c>=0&&(r<0?i%3===c:i===r*3+c)))};
  /* ---------- flow ---------- */
  const begin=()=>{if(ph!=='idle'&&ph!=='over')return;if(CAS.lock)return;if(CAS.bet<PK_BET[0]){msg(broke()||`Place a bet first (at least ${PK_BET[0]}).`);return}if(CAS.bet>P.gold){msg('Not enough gold.');return}
   bet=Math.min(CAS.bet,PK_BET[1]);if(!cTake(bet))return;betLock(true);lockOpps(true);const s=pkStats();s.plays++;save();step=0;kick=1;rs=[];ph='prep';pkSfx('whistle');ladder();btn('Kick off',false);
@@ -52307,7 +52330,7 @@ function mPK(el,tok){
  const startKick=()=>{if(!alive())return;banner=null;anim=null;pick=null;dive=null;hov=null;const kind=pkKind(kick);tell=pkTell(opp,kind);kickLabel();showTell();ladder();
   if(kind==='shoot'){ph='aim';nsp=.85+kick*.035;btn('Pick a spot',false);hint('Pick a spot in the goal: click it, or Q W E (top) and A S D (low)');msg(`Kick ${kick}: read the keeper's tell, then pick your spot.`)}
   else{ph='runup';runT=0;btn('Dive ← ↓ →',false);hint('Dive before the strike: click left, middle or right of the goal, or A S D / arrow keys');msg(`Kick ${kick}: ${opp.n} steps up. Watch the run-up and dive.`)}};
- const choose=(c,r)=>{if(ph!=='aim')return;pick={c,r};ph='power';needle=0;ndir=1;pkSfx('tick');btn('Shoot!',true);hint(r===0?'Top corners need a cleaner strike: stop the needle in the green (click or Space)':'Stop the needle in the green (click or Space)')};
+ const choose=(c,r)=>{if(ph!=='aim')return;pick={c,r};ph='power';needle=0;ndir=1;pkSfx('tick');btn('Shoot • '+KEYS[r][c],true);hint(r===0?'Top corners need a cleaner strike: stop the needle in the green (click or Space)':'Stop the needle in the green (click or Space)')};
  const strike=()=>{if(ph!=='power')return;const top=pick.r===0,gw=top?.075:.11,yw=.13,d=Math.abs(needle-.5),q=d<=gw?'clean':d<=gw+yw?'scuff':'wild';
   const res=pkShot(opp,tell.T,pick.c,pick.r,q);const s=pkStats();s.shots++;if(res.goal)s.goals++;
   ph='fly';btn('…',false);hint('');const kd=res.keeper===0?-1:res.keeper===2?1:0,near=res.goal&&res.keeper===pick.c;
@@ -52345,7 +52368,7 @@ function mPK(el,tok){
  cv.onpointerleave=()=>{hov=null};
  cv.onpointerdown=e=>{try{ensureAudio()}catch(x){}const p=xy(e);if(ph==='aim'){const z=zoneAt(p.x,p.y);if(z)choose(z.c,z.r)}else if(ph==='power')strike();else if(ph==='runup'){const c=Math.min(2,Math.max(0,Math.floor((p.x-PKG.x0)/((PKG.x1-PKG.x0)/3))));diveTo(c)}};
  $('pkgo').onclick=()=>{if(ph==='idle'||ph==='over')begin();else if(ph==='between')startKick();else if(ph==='power')strike()};
- $('pkco').onclick=()=>cashOut();
+ $('pkco').onclick=()=>cashOut();$('pkprev').onclick=()=>pickOpp(-1);$('pknext').onclick=()=>pickOpp(1);$('pkfull').onclick=()=>{full=!full;ladder()};
  wireBet(()=>ladder());
  CAS.key={' ':()=>{if(ph==='power')strike();else if(ph==='between')startKick();else if(ph==='idle'||ph==='over')begin()},enter:()=>{if(ph==='idle'||ph==='over')begin();else if(ph==='between')startKick()},c:()=>cashOut(),
   q:()=>ph==='aim'?choose(0,0):0,w:()=>ph==='aim'?choose(1,0):0,e:()=>ph==='aim'?choose(2,0):0,
@@ -52354,7 +52377,7 @@ function mPK(el,tok){
  /* the stake was taken; leaving with a run in progress pays out what has been won so far (the Lobby is locked during a run anyway) */
  CAS.flush=()=>{if(step>0&&(ph==='between'))cashOut()};
  /* ---------- the loop ---------- */
- const frame=now=>{if(!alive()||!cv.isConnected)return;const dt=Math.min(.05,(now-last)/1000);last=now;t+=dt;
+ const frame=now=>{if(!alive()||!cv.isConnected)return;const dt=Math.min(.05,(now-last)/1000);last=now;t+=dt;{const sig=ph+'|'+kick+'|'+(pick?pick.c+''+pick.r:'')+'|'+dive;if(sig!==sph){sph=sig;steps();spot();showTellIdle();const co=$('pkco');if(co)co.disabled=!(ph==='between'&&step>0)}}
   if(ph==='power'){needle+=ndir*dt*nsp;if(needle>1){needle=1;ndir=-1}if(needle<0){needle=0;ndir=1}}
   if(ph==='runup'){runT+=dt;if(runT>=1.7){shoot2()}}
   if(anim){anim.t+=dt;const A=anim,d=.62;if(A.t>=0&&!A.kicked){A.kicked=1;if(A.kind==='shoot')pkSfx('kick');pkFxAdd(fx,PKSPOT.x,PKSPOT.y+18,'turf',rm?0:9);pkFxAdd(fx,PKSPOT.x,PKSPOT.y+20,'dust',rm?0:5)}
@@ -52395,11 +52418,12 @@ function mPK(el,tok){
   g.save();g.translate(sh,sh*.5);g.translate(540,290);g.scale(z,z);g.translate(-540,-290);
   g.drawImage(pkStadium(cheer>0?((t*7)|0)%2:0),0,0);pkFlashes(g,t,cheer);
   pkNet(g,t,inNet?{x:A.tgt.x,y:A.tgt.y,k:Math.max(0,1-(A.t-.62)*1.4)}:null);
-  if(inNet)pkBall(g,b.x,b.y,b.r,A.t*6);
+  if(inNet)pkBall(g,b.x,b.y,b.r,.62*16);
   pkFrame(g,A&&A.tgt.end==='bar'&&u>=1?Math.max(0,1-(A.t-.62)*3)*3*Math.sin(A.t*60):0);
   /* aim zones */
-  if(ph==='aim'){for(let c=0;c<3;c++)for(const r of [0,1]){const on=hov&&hov.c===c&&hov.r===r;if(on)pkZoneDraw(g,c,r,1);else{const Z=pkZone(c,r);g.save();g.globalAlpha=.3+.14*Math.sin(t*3+c+r);g.strokeStyle='#fff';g.lineWidth=2;g.setLineDash([6,8]);g.beginPath();g.roundRect(Z.x+10,Z.y+10,Z.w-20,Z.h-20,12);g.stroke();g.restore()}}}
+  if(ph==='aim'){for(let c=0;c<3;c++)for(const r of [0,1]){const on=hov&&hov.c===c&&hov.r===r;if(on)pkZoneDraw(g,c,r,1);else{const Z=pkZone(c,r);g.save();g.globalAlpha=.3+.14*Math.sin(t*3+c+r);g.strokeStyle='#fff';g.lineWidth=2;g.setLineDash([6,8]);g.beginPath();g.roundRect(Z.x+10,Z.y+10,Z.w-20,Z.h-20,12);g.stroke();g.restore()}pkKeyChip(g,pkZone(c,r).cx,pkZone(c,r).y+30,KEYS[r][c],on)}}
   if(ph==='power'&&pick){pkZoneDraw(g,pick.c,pick.r,1);const Z=pkZone(pick.c,pick.r);g.save();g.strokeStyle='rgba(255,212,90,.9)';g.lineWidth=4;g.setLineDash([4,12]);g.lineDashOffset=-t*40;g.beginPath();g.moveTo(PKSPOT.x,PKSPOT.y-20);g.quadraticCurveTo((PKSPOT.x+Z.cx)/2,Math.min(PKSPOT.y,Z.cy)-90,Z.cx,Z.cy);g.stroke();g.restore()}
+  if(ph==='runup'){for(let c=0;c<3;c++){const Z=pkZone(c,1);pkKeyChip(g,Z.cx,PKG.y1-26,'ASD'[c],dive===c||(dive==null&&hov&&hov.c===c))}}
   if(ph==='runup'&&hov&&hov.r===-1){const Z=pkZone(hov.c,0);g.save();g.globalAlpha=.22;g.fillStyle='#9fe8ff';g.beginPath();g.roundRect(Z.x+6,PKG.y0+6,Z.w-12,PKG.y1-PKG.y0-12,14);g.fill();g.restore()}
   /* the keeper */
   const isSave=A?A.kind==='save':ph==='runup'||(ph==='between'&&pkKind(kick)==='save');const K=isSave?PKYOU:opp;
@@ -52407,7 +52431,7 @@ function mPK(el,tok){
   /* the ball: on the spot until the strike, then in flight with a streak and a shadow */
   if(b&&!inNet){const gy=PKSPOT.y+18-(PKSPOT.y+18-(PKG.y1-4))*u;g.fillStyle='rgba(0,0,0,.28)';g.beginPath();g.ellipse(b.x,u<1?gy:PKG.y1,b.r*.95,b.r*.32,0,0,TAU);g.fill();
    if(u<1&&!rm){const q0=ballAt(A,Math.max(0,u-.16));g.save();g.lineCap='round';const gr=g.createLinearGradient(q0.x,q0.y,b.x,b.y);gr.addColorStop(0,'rgba(255,255,255,0)');gr.addColorStop(1,'rgba(255,246,210,.55)');g.strokeStyle=gr;g.lineWidth=b.r*1.4;g.beginPath();g.moveTo(q0.x,q0.y);g.lineTo(b.x,b.y);g.stroke();g.restore()}
-   const sq=A.t<.06?1-.25*(1-A.t/.06):1;g.save();g.translate(b.x,b.y);g.scale(2-sq,sq);pkBall(g,0,0,b.r,A.t*16);g.restore()}
+   const sq=A.t<.06?1-.25*(1-A.t/.06):1;g.save();g.translate(b.x,b.y);g.scale(2-sq,sq);pkBall(g,0,0,b.r,Math.min(A.t,.62)*16);g.restore()}
   else if(!flying){g.fillStyle='rgba(0,0,0,.3)';g.beginPath();g.ellipse(PKSPOT.x,PKSPOT.y+18,21,7,0,0,TAU);g.fill();pkBall(g,PKSPOT.x,PKSPOT.y,22,0)}
   pkFxDraw(g,fx);
   /* the kicker, closest to the camera */
@@ -52416,9 +52440,9 @@ function mPK(el,tok){
   g.restore();
   /* overlays (not zoomed) */
   if(ph==='runup'){const left=Math.max(0,1.45-runT);g.save();g.font="400 36px 'Pirata One',Georgia,serif";g.lineWidth=7;g.lineJoin='round';g.strokeStyle=PKO;g.fillStyle=dive!=null?'#7dff9a':left<.6?'#ff8a98':'#fff6c8';
-   const s3=dive!=null?(dive===0?'◀ Diving left':dive===2?'Diving right ▶':'▼ Staying central'):'DIVE!';g.textAlign='left';g.strokeText(s3,PKSW-300,PKSH-70);g.fillText(s3,PKSW-300,PKSH-70);
-   g.fillStyle='rgba(10,6,30,.85)';g.beginPath();g.roundRect(PKSW-300,PKSH-54,250,14,7);g.fill();g.fillStyle=left<.6?'#ff6a7a':'#ffd45a';g.beginPath();g.roundRect(PKSW-300,PKSH-54,Math.max(0,250*left/1.45),14,7);g.fill();g.restore()}
-  if(ph==='power'&&pick){const top=pick.r===0;pkPower(g,PKSW-400,PKSH-56,360,needle,top?.075:.11,.13,Math.abs(needle-.5)<=(top?.075:.11))}
+   const s3=dive!=null?(dive===0?'◀ Diving left':dive===2?'Diving right ▶':'▼ Staying central'):'DIVE!';g.textAlign='left';g.strokeText(s3,PKSW-300,PKSH-118);g.fillText(s3,PKSW-300,PKSH-118);
+   g.fillStyle='rgba(10,6,30,.85)';g.beginPath();g.roundRect(PKSW-300,PKSH-102,250,14,7);g.fill();g.fillStyle=left<.6?'#ff6a7a':'#ffd45a';g.beginPath();g.roundRect(PKSW-300,PKSH-102,Math.max(0,250*left/1.45),14,7);g.fill();g.restore()}
+  if(ph==='power'&&pick){const top=pick.r===0;pkPower(g,PKSW-400,PKSH-104,360,needle,top?.075:.11,.13,Math.abs(needle-.5)<=(top?.075:.11))}
   if(banner)pkBanner(g,banner.txt,banner.t/banner.d,banner.col,banner.sub);
   pkConfetti(g,conf);
   if(flash>0){g.fillStyle=`rgba(255,246,200,${(flash*.35).toFixed(3)})`;g.fillRect(-20,-20,PKSW+40,PKSH+40)}
@@ -52428,7 +52452,7 @@ function mPK(el,tok){
  /* start */
  opps();ladder();stats();betRefresh();kickLabel();
  const sm=el.querySelector('.bv small');if(sm)sm.textContent='max '+cmn(PK_BET[1]);
- msg('Pick a keeper and a stake, then Kick off. Odd kicks you shoot, even kicks you save. Cash out between any two kicks.');
+ msg('Pick a keeper (‹ ›) and a stake, then Kick off. You shoot odd kicks and save even ones; cash out between kicks.');
  requestAnimationFrame(t0=>{last=t0;frame(t0)});}
 {const st=document.createElement('style');st.textContent=`
 .pkw{position:relative;width:1476px;height:798px;display:grid;grid-template-columns:1008px 1fr;grid-template-rows:560px 1fr;gap:12px 14px}
@@ -52589,6 +52613,179 @@ function pkFlashes(g,t,cheer){const n=cheer>0?14:5;for(let i=0;i<40;i++){const r
 .pkop canvas{width:84px;height:84px;flex:none}.pkop span{display:flex;flex-direction:column;gap:1px;min-width:0}
 .pkop b{font-size:22px}.pkop small{font-size:11px}.pkop em{font-size:11.5px}.pkdf{font-style:normal;color:#ffd45a;font-size:12px;letter-spacing:.1em}
 .pkop.on{box-shadow:0 0 0 2px #ffd45a55,0 8px 18px #0008}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 9.9b: small fixes (96zu, after 96zt) =====
+   - The selected tower tile in the bar: the tower icon now sits above the tile's gold outline (it used to be cut by it while it bobbed).
+   - The build ring: a button's name label no longer catches clicks meant for its neighbour, and the whole ring is kept inside a safe
+     area of the stage (clear of the edges, the top HUD and the tower bar) so no button is ever cut off.
+   - The Alchemist's Still badge over soaked monsters shows only the potion symbol (no "-N").
+   (The Thunder Mortar now costs 550 to build: the cost table is in 95t.) */
+{const st=document.createElement('style');st.textContent=`.rph.rp7 .rpcard::after{z-index:1}.rph.rp7 .rpcard img{z-index:3}.rph.rp7 .rpcard .rpglo{z-index:0}
+.rph.rp7 .rprb em,.rph.rp7 .rprb b,.rph.rp7 .rprb small,.rph.rp7 .rprb span{pointer-events:none}`;document.head.appendChild(st)}
+const RPSAFE={x0:96,x1:1504,y0:128,y1:724};
+{const g0=rpHudRing;rpHudRing=function(R,C){const was=C.rg;const r=g0.apply(this,arguments);try{if(C.rg!==was&&C.rg){const bs=[...$('rpring').querySelectorAll('.rprb')],p=R.selPad;if(p&&bs.length){
+  const V=(b,v)=>parseFloat(b.style.getPropertyValue(v))||0,xs=bs.map(b=>p.x+V(b,'--x')),ys=bs.map(b=>p.y+V(b,'--y')),h=40;
+  const lo=Math.min(...xs)-h,hi=Math.max(...xs)+h,top=Math.min(...ys)-h,bot=Math.max(...ys)+h;
+  const dx=lo<RPSAFE.x0?RPSAFE.x0-lo:hi>RPSAFE.x1?RPSAFE.x1-hi:0,dy=top<RPSAFE.y0?RPSAFE.y0-top:bot>RPSAFE.y1?RPSAFE.y1-bot:0;
+  if(dx||dy)bs.forEach(b=>{b.style.setProperty('--x',(V(b,'--x')+dx).toFixed(1)+'px');b.style.setProperty('--y',(V(b,'--y')+dy).toFixed(1)+'px')})}}}catch(e){console.error(e)}return r}}
+/* the soaked badge: a round chip with the brew's potion symbol */
+const rplBadge2=tier=>rpSpr('st|bd2|'+(tier>=5?5:tier===4?4:1),-12,-12,24,24,g=>{const B=rplBrew(tier);
+ g.beginPath();g.arc(0,0,10.5,0,TAU);g.fillStyle='rgba(18,8,31,.92)';g.fill();g.lineWidth=1.8;g.strokeStyle=B.c;g.stroke();
+ /* a little round flask: bulb, neck, cork, brew */
+ g.beginPath();g.arc(0,2.6,5.2,0,TAU);g.fillStyle='rgba(220,250,240,.55)';g.fill();g.save();g.beginPath();g.arc(0,2.6,4.6,0,TAU);g.clip();g.fillStyle=B.c;g.fillRect(-6,1.6,12,8);g.restore();
+ g.beginPath();g.arc(0,2.6,5.2,0,TAU);g.lineWidth=1.3;g.strokeStyle=RPTO;g.stroke();
+ g.beginPath();g.rect(-1.9,-5.2,3.8,3.4);g.fillStyle='rgba(220,250,240,.7)';g.fill();g.stroke();g.fillStyle='#c98a4a';g.fillRect(-1.9,-7,3.8,2);
+ g.fillStyle='rgba(255,255,255,.8)';g.beginPath();g.arc(-1.8,1.2,1.1,0,TAU);g.fill()});
+rpStillBadge=function(g,x,y,melt,tier,a){if(a<=.01)return;g.globalAlpha=Math.min(1,a);rpPut(g,rplBadge2(tier),x,y);g.globalAlpha=1};
+/* ===== PENALTY KINGS 9.9b: rig fixes (96zv, after 96zu) =====
+   - Arms belong to the body: the upper arm is drawn behind the shirt from a shoulder at the shirt's edge, a sleeve cap covers the joint,
+     and the forearm and hand are drawn on top. (The keeper's shoulders used to sit in front of his chest; the kicker's arms looked
+     like they came from behind his back.)
+   - The shorts' side stripes are clipped to the shorts (they used to stick out as loose boxes at the hips).
+   - A new run from behind: alternating heel flicks (an explicit knee, so the knees no longer splay sideways), pumping arms, a bob.
+   - A new kick: last stride, heel cocked back, the leg whips through the ball, a high follow-through with the boot pointing where the
+     ball went, then the foot comes down. Raised boots show their studded soles.
+   - Hands on the head after a miss sit on the head with the elbows out (they used to cross in an X in front of the face).
+   Poses may carry R.kn = [knee or null, knee or null] (explicit knee joints) and R.sole = [bool, bool]. */
+function pkHeelLeg(hj,side,s,lift){/* swing leg seen from behind: knee under the hip, shin flipping back toward the camera */
+ const kn={x:hj.x+side*2,y:hj.y+PKR.th*(1-.18*s)},ph=s*2.55*(lift==null?1:lift),ft={x:kn.x+side*5*s,y:kn.y+PKR.sh*Math.cos(ph)};return{kn,ft,sole:ph>1.7}}
+{const k0=pkKickerPose;pkKickerPose=function(X,Y,P,t){if(P.blend)return pkPoseLerp2(pkKickerPose(X,Y,P.blend[0],t),pkKickerPose(X,Y,P.blend[1],t),P.blend[2]);
+ const st=P.st||'idle',R={th:0,look:0,mood:0,kb:[1,-1],eb:[1,-1],ha:0,kn:[null,null],sole:[false,false]};
+ if(st==='idle'){const bo=Math.sin(t*3)*1.6;R.hip={x:X,y:Y-74+bo};R.feet=[{x:X-18,y:Y},{x:X+18,y:Y}];R.hands=[{x:X-40,y:R.hip.y-4},{x:X+40,y:R.hip.y-4}];return R}
+ if(st==='run'){const f=P.f;R.hip={x:X,y:Y-73-5*Math.abs(Math.sin(f))};R.th=Math.sin(f)*.05;R.feet=[];R.hands=[];
+  for(let i=0;i<2;i++){const side=i?1:-1,s=Math.sin(f+i*Math.PI),hj=pkL(R.hip,R.th,side*PKR.hw,0);
+   if(s>0){const L=pkHeelLeg(hj,side,s);R.kn[i]=L.kn;R.feet[i]=L.ft;R.sole[i]=L.sole}else R.feet[i]={x:X+side*13,y:Y}}
+  for(let i=0;i<2;i++){const side=i?1:-1,a=Math.sin(f+i*Math.PI);/* the arm opposite the swing leg comes forward (up and in); the other goes back (down and out) */
+   R.hands[i]={x:X+side*(34+8*Math.max(0,a)),y:R.hip.y-14+16*a}}
+  return R}
+ if(st==='kick'){const k=pkCl(P.k),side=1;
+  /* body: drops into the plant, leans away from the kicking leg, swings round after the strike */
+  const plant=pkSm(k/.28),hit=pkSm((k-.28)/.16),fol=pkSm((k-.44)/.24),rec=pkSm((k-.72)/.28);
+  R.hip={x:X+10*plant-4*rec,y:Y-74+6*Math.sin(Math.PI*pkCl(k/.8))};R.th=-.06*plant-.1*hit+.2*fol-.04*rec;
+  R.feet=[{x:X-16,y:Y},null];const hj=pkL(R.hip,R.th,PKR.hw,0);
+  if(k<.28){/* the last stride: the kicking heel cocks back */const L=pkHeelLeg(hj,side,.35+.65*pkSm(k/.28),1.05);R.kn[1]=L.kn;R.feet[1]=L.ft;R.sole[1]=L.sole}
+  else{/* the leg whips through the ball, follows through high, then comes down */
+   const K=[[.28,{x:16,y:-56}],[.42,{x:64,y:-46}],[.56,{x:52,y:-104}],[.7,{x:34,y:-132}],[.86,{x:30,y:-48}],[1,{x:20,y:0}]];let fo=K[0][1];
+   for(let i=1;i<K.length;i++){if(k<=K[i][0]){fo=pkLp(K[i-1][1],K[i][1],pkSm((k-K[i-1][0])/(K[i][0]-K[i-1][0])));break}fo=K[i][1]}
+   R.feet[1]={x:X+fo.x,y:Y+fo.y};R.kb=[1,k<.4?1:-1];R.sole[1]=k<.33}
+  /* arms: the left arm flies out for balance, the right swings back and across */
+  const bal=pkSm((k-.12)/.22)*(1-rec);R.hands=[{x:X-40-38*bal,y:R.hip.y-4-38*bal},{x:X+40+16*bal-30*fol*(1-rec),y:R.hip.y-4+10*bal-6*fol}];R.eb=[1,-1];return R}
+ if(st==='headhands'){const D=pkKickerPose(X,Y,{st:'idle'},t),hp=pkL(D.hip,0,0,-PKR.to-20);D.hip.y+=3;D.th=Math.sin(t*2)*.04;
+  /* hands on the back of the head, elbows out wide */D.hands=[{x:hp.x-17,y:hp.y-6},{x:hp.x+17,y:hp.y-6}];D.eb=[-1,1];D.mood=1;return D}
+ const r=k0.apply(this,arguments);if(!r.kn)r.kn=[null,null];if(!r.sole)r.sole=[false,false];return r}}
+{const k0=pkKeeperPose;pkKeeperPose=function(x0,gy,P,t){if(P.blend)return pkPoseLerp2(pkKeeperPose(x0,gy,P.blend[0],t),pkKeeperPose(x0,gy,P.blend[1],t),P.blend[2]);
+ if(P.st==='headhands'){const D=k0.call(this,x0,gy,{st:'ready',x:P.x},t),hp=pkL(D.hip,0,0,-PKR.to-20);D.hands=[{x:hp.x-20,y:hp.y-20},{x:hp.x+20,y:hp.y-20}];D.eb=[-1,1];D.mood=1;D.kn=[null,null];D.sole=[false,false];return D}
+ const r=k0.apply(this,arguments);if(!r.kn)r.kn=[null,null];if(!r.sole)r.sole=[false,false];return r}}
+/* blending also carries explicit knees (resolved to plain IK joints when only one side has one) */
+function pkPoseLerp2(A,B,k){const R=pkPoseLerp(A,B,k),kn=[null,null],so=[false,false];
+ for(let i=0;i<2;i++){const a=A.kn&&A.kn[i],b=B.kn&&B.kn[i];if(a&&b)kn[i]=pkLp(a,b,k);else if(a&&k<.5)kn[i]=a;else if(b&&k>=.5)kn[i]=b;so[i]=k<.5?!!(A.sole&&A.sole[i]):!!(B.sole&&B.sole[i])}
+ R.kn=kn;R.sole=so;return R}
+pkRigDraw=function(g,R,o,t,back,sc){g.save();if(sc&&sc!==1){const p=R.feet[0].y>R.feet[1].y?R.feet[0]:R.feet[1];g.translate(R.hip.x,p.y);g.scale(sc,sc);g.translate(-R.hip.x,-p.y)}
+ const th=R.th,hip=R.hip,hL=pkL(hip,th,-PKR.hw,0),hR=pkL(hip,th,PKR.hw,0),SW=25,sL=pkL(hip,th,-SW,-PKR.to+13),sR=pkL(hip,th,SW,-PKR.to+13);
+ const kn=R.kn||[null,null],so=R.sole||[false,false];
+ const lg=[0,1].map(i=>{const h=i?hR:hL,f=R.feet[i];return kn[i]?{j:kn[i],e:f}:pkIK(h,f,PKR.th,PKR.sh,R.kb[i])});
+ const ar=[pkIK(sL,R.hands[0],PKR.ua,PKR.fa,R.eb[0]),pkIK(sR,R.hands[1],PKR.ua,PKR.fa,R.eb[1])];
+ const kit=o.kit,kit2=o.kit2,skin=o.skin||o.col||'#c8ccdf';
+ /* ground shadow */g.fillStyle='rgba(0,0,0,.26)';g.beginPath();g.ellipse(hip.x,Math.max(R.feet[0].y,R.feet[1].y)+3,46+Math.abs(Math.sin(th))*40,9,0,0,TAU);g.fill();
+ /* legs (the lifted leg first, so the standing leg overlaps it) */
+ const order=R.feet[0].y<R.feet[1].y?[0,1]:[1,0];
+ for(const i of order){const h=i?hR:hL,l=lg[i];pkLimb(g,[h,l.j,l.e],17,'#221c4a');const m=pkLp(l.j,l.e,.3);pkLimb(g,[m,l.e],16,kit);
+  g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=3;g.beginPath();const m2=pkLp(l.j,l.e,.42),m3=pkLp(l.j,l.e,.47);g.moveTo(m2.x,m2.y);g.lineTo(m3.x,m3.y);g.stroke();
+  const a=Math.atan2(l.e.y-l.j.y,l.e.x-l.j.x);g.save();g.translate(l.e.x,l.e.y);g.rotate(a-Math.PI/2);
+  if(so[i]){/* the sole and studs face the camera */g.fillStyle='#14102a';g.beginPath();g.ellipse(0,4,10,13,0,0,TAU);g.fill();pkOut(g,2.4);g.fillStyle='#4a4470';g.beginPath();g.ellipse(0,4,6.5,9.5,0,0,TAU);g.fill();
+   g.fillStyle='#e8e4ff';for(const [x,y] of [[-3,-1],[3,-1],[-3,6],[3,6],[0,11]]){g.beginPath();g.arc(x,y,1.5,0,TAU);g.fill()}}
+  else{g.fillStyle='#14102a';g.beginPath();g.ellipse(0,5,11,12,0,0,TAU);g.fill();pkOut(g,2.4);g.fillStyle='#ffd45a';g.fillRect(-7,1,14,3)}
+  g.restore()}
+ /* shorts (stripes clipped to the shorts) */
+ g.save();g.translate(hip.x,hip.y);g.rotate(th);
+ g.fillStyle='#2a2460';g.beginPath();g.roundRect(-25,-12,50,26,9);g.fill();g.save();g.clip();g.fillStyle=kit2;g.fillRect(-25,-1,6,15);g.fillRect(19,-1,6,15);g.restore();g.beginPath();g.roundRect(-25,-12,50,26,9);pkOut(g,3);
+ g.restore();
+ /* upper arms, behind the shirt */
+ const arm=(s,a)=>pkLimb(g,[s,a.j],15,kit);arm(sL,ar[0]);arm(sR,ar[1]);
+ /* the shirt */
+ g.save();g.translate(hip.x,hip.y);g.rotate(th);
+ g.beginPath();g.moveTo(-23,-8);g.quadraticCurveTo(-30,-PKR.to*.55,-29,-PKR.to+4);g.quadraticCurveTo(0,-PKR.to-6,29,-PKR.to+4);g.quadraticCurveTo(30,-PKR.to*.55,23,-8);g.quadraticCurveTo(0,-3,-23,-8);g.closePath();
+ const q=g.createLinearGradient(-30,0,30,0);q.addColorStop(0,pkMix(kit,'#ffffff',.18));q.addColorStop(.6,kit);q.addColorStop(1,pkMix(kit,'#12081f',.25));g.fillStyle=q;g.fill();pkOut(g,3.2);
+ g.save();g.clip();g.fillStyle=kit2;g.fillRect(-32,-PKR.to,9,PKR.to);g.fillRect(23,-PKR.to,9,PKR.to);g.fillRect(-32,-PKR.to-2,64,7);g.restore();
+ g.textAlign='center';g.textBaseline='middle';g.lineJoin='round';
+ if(back){g.font=`800 ${o.n.length>6?8:10}px Poppins,sans-serif`;g.fillStyle='#fff8e0';g.fillText(o.n.toUpperCase(),0,-PKR.to+21);g.font="400 32px 'Pirata One',Georgia,serif";g.lineWidth=5;g.strokeStyle=PKO;g.strokeText(String(o.num),0,-PKR.to*.42);g.fillText(String(o.num),0,-PKR.to*.42)}
+ else{g.font="400 30px 'Pirata One',Georgia,serif";g.lineWidth=5;g.strokeStyle=PKO;g.strokeText(String(o.num),0,-PKR.to*.45);g.fillStyle='#fff8e0';g.fillText(String(o.num),0,-PKR.to*.45);
+  g.fillStyle='#ffd45a';g.beginPath();g.arc(-13,-PKR.to+18,4,0,TAU);g.fill();pkOut(g,1.6)}
+ g.restore();
+ /* sleeve caps: round shoulders joining the arms to the shirt (outlined on the outside only) */
+ for(const [s,sd,a] of [[sL,-1,ar[0]],[sR,1,ar[1]]]){const ua=Math.atan2(a.j.y-s.y,a.j.x-s.x);g.fillStyle=kit;g.beginPath();g.arc(s.x,s.y,10.5,0,TAU);g.fill();
+  const out=th+(sd<0?Math.PI:0);g.beginPath();g.arc(s.x,s.y,10.5,out-1.5,out+1.5);g.lineWidth=3.2;g.strokeStyle=PKO;g.stroke();
+  g.fillStyle=kit2;g.beginPath();g.arc(s.x+Math.cos(ua)*7,s.y+Math.sin(ua)*7,4,0,TAU);g.fill()}
+ /* head */
+ const hp=pkL(hip,th,0,-PKR.to-20);g.save();g.translate(hp.x,hp.y);g.rotate(R.ha||th*.5);g.scale(PKR.hd,PKR.hd);if(back)pkBackHead(g,o.id,t);else pkHead(g,o.id,R.look||0,R.mood||0,t);g.restore();
+ /* forearms and hands, on top */
+ [ar[0],ar[1]].forEach(a=>{pkLimb(g,[a.j,a.e],14,kit);const cf=pkLp(a.j,a.e,.74);pkLimb(g,[cf,a.e],14,kit2);const ang=Math.atan2(a.e.y-a.j.y,a.e.x-a.j.x);
+  if(back){g.fillStyle=skin;g.beginPath();g.arc(a.e.x,a.e.y,9,0,TAU);g.fill();pkOut(g,2.6)}else{g.save();g.translate(a.e.x,a.e.y);g.rotate(ang+Math.PI/2);pkGlove(g,0,-6,.78,'#ffd45a');g.restore()}});
+ g.restore()};
+/* ===== PENALTY KINGS 9.9b: the game screen rebuilt from the owner's concept (96zw, after 96zv; markup in 96zs) =====
+   Top bar: the tell chip (what the monster gives away, and a plain "do this" line with the keys), Kick n/10 and ten numbered kick icons.
+   The pitch: key chips on the six goal spots (Q W E / A S D) or the three dive columns, a step bar along the bottom.
+   Right panel: the keeper card (Round setup with ‹ › to change keeper, locked during a round), Your bet / If successful, the cap, the next
+   stages of the ladder (or the full ladder), the selected spot with a mini goal, Cashout and the big gold button (Shoot • Q). */
+function pkKeyChip(g,x,y,k,on){g.save();g.translate(x,y);const w=34,h=30;g.fillStyle=on?'#ffd45a':'rgba(18,8,31,.86)';g.beginPath();g.roundRect(-w/2,-h/2,w,h,8);g.fill();
+ g.lineWidth=2.4;g.strokeStyle=on?'#12081f':'#fff8e8';g.stroke();g.fillStyle=on?'#3a1a04':'#fff8e8';g.font='800 17px Poppins,system-ui,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(k,0,1);g.restore()}
+{const st=document.createElement('style');st.textContent=`
+.pkw.pk2{grid-template-columns:1008px 1fr;grid-template-rows:58px 560px 1fr;gap:10px 14px}
+.pk2 .pktop{grid-column:1;grid-row:1;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:18px;background:linear-gradient(180deg,#1e1650f4,#0e0a2cf6);border:2px solid #6a4ab0;box-shadow:0 0 0 2px #12081f}
+.pk2 .pktell{position:relative;left:auto;top:auto;flex:0 1 auto;min-width:0;max-width:420px;padding:4px 10px 4px 8px;border-radius:13px;gap:9px;border-width:2px}
+.pk2 .pktell span{display:flex;flex-direction:column;min-width:0}.pk2 .pktell b{font:700 14px var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk2 .pktell small{font:600 11.5px var(--ui);letter-spacing:0;color:#cfc6f0;white-space:nowrap}.pk2 .pktell small b{font-size:11.5px;color:#fff}.pk2 .pktell small b.go{color:#7dff9a}
+.pk2 .pktell em{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:#6a4ab0;color:#fff;font:800 11px var(--ui);font-style:normal;cursor:help}
+.pk2 .pktell.off{opacity:.6;border-color:#6a4ab0}
+.pk2 .pkkick{flex:none;padding-left:12px;border-left:2px solid #3a3070;font:700 14px var(--ui);color:#e8e0ff;white-space:nowrap}.pk2 .pkkick b{color:#ffd45a;letter-spacing:.06em}.pk2 .pkkick b.save{color:#9fe8ff}
+.pk2 .pkkick.pop{animation:pkpop .45s cubic-bezier(.34,1.56,.64,1)}
+.pk2 .pksbd{display:flex;gap:3px;margin-left:auto}.pk2 .pksbd i{width:30px;height:44px;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:1px;font-style:normal}
+.pk2 .pksbd i s{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;text-decoration:none;background:#2c2466;border:2px solid #12081f;font:900 13px var(--ui);color:#fff}
+.pk2 .pksbd i s svg{width:17px;height:17px}.pk2 .pksbd i.sv s{background:#24407a}.pk2 .pksbd i.bt s{background:#7a5a10}
+.pk2 .pksbd i u{text-decoration:none;font:700 11px var(--ui);color:#a99be0}
+.pk2 .pksbd i.w s{background:#2fb860}.pk2 .pksbd i.l s{background:#d0304a}.pk2 .pksbd i.cur s{background:#ffd45a;transform:scale(1.15);box-shadow:0 0 0 3px #ffd45a55}.pk2 .pksbd i.cur u{color:#ffd45a}
+.pk2 .pkst{grid-column:1;grid-row:2}.pk2 .pkhint{top:12px}
+.pk2 .pksteps{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;padding:5px 16px;border-radius:12px;background:#12081fdc;border:2px solid #3a3070;font:700 13px var(--ui);color:#a99be0;white-space:nowrap;pointer-events:none}
+.pk2 .pksteps span.on{color:#fff8e8}.pk2 .pksteps span.seen{color:#7dff9a}.pk2 .pksteps i{font-style:normal;color:#ffd45a}
+.pk2 .pkside{grid-column:2;grid-row:1/4;align-self:start;height:748px;box-sizing:border-box;gap:9px;padding:12px}
+.pk2 .pkkc{display:grid;grid-template-columns:76px 1fr auto;align-items:center;gap:8px;padding:6px 8px;border-radius:16px;background:#ffffff0a;border:2px solid #3a3070}
+.pk2 .pkkc canvas{width:76px;height:76px;border-radius:14px;background:#0c0824;border:2px solid #12081f}
+.pk2 .pkkn{display:flex;flex-direction:column;min-width:0}.pk2 .pkkn b{font:400 28px/1 'Pirata One',Georgia,serif;color:#ffd45a}.pk2 .pkkn small{font:600 12px var(--ui);color:#cfc6f0}
+.pk2 .pkset{display:flex;flex-direction:column;align-items:center;gap:3px}
+.pk2 .pkseti{display:flex;align-items:center;gap:4px;padding:5px 6px;border-radius:12px;background:#2c2466;border:2px solid #4a3a90}
+.pk2 .pkseti span{display:flex;flex-direction:column;align-items:center;min-width:92px}.pk2 .pkseti b{font:800 12.5px var(--ui);color:#fff8e8}.pk2 .pkseti small{font:600 10.5px var(--ui);color:#a99be0}
+.pk2 .pkseti button{all:unset;cursor:pointer;width:24px;height:28px;border-radius:8px;display:grid;place-items:center;background:#ffd45a;color:#3a1a04;font:900 18px/1 var(--ui);transition:transform .12s}
+.pk2 .pkseti button:hover{transform:scale(1.1)}.pk2 .pkseti small.l{display:none}
+.pk2 .pkset.lock .pkseti button{visibility:hidden;width:6px}.pk2 .pkset.lock .pkseti small.u{display:none}.pk2 .pkset.lock .pkseti small.l{display:block}.pk2 .pkset.lock .pkseti b::before{content:'🔒 '}
+.pk2 .pkset em{font:700 11px var(--ui);font-style:normal;color:#ffd45a}
+.pk2 .pkbetb{padding:8px 12px;border-radius:16px;background:#ffffff0a;border:2px solid #3a3070}
+.pk2 .pkbb{display:grid;grid-template-columns:1fr 1fr}.pk2 .pkbb>div{display:flex;flex-direction:column;gap:2px}.pk2 .pkbb>div+div{padding-left:12px;border-left:2px solid #3a3070}
+.pk2 .pkbb small{font:600 12px var(--ui);color:#a99be0}.pk2 .pkbb b{display:flex;align-items:center;gap:6px;font:800 24px var(--ui);color:#fff8e8}
+.pk2 .pkbb u{text-decoration:none;margin-left:4px;padding:1px 7px;border-radius:8px;border:2px solid #ffd45a;font:800 13px var(--ui);color:#ffd45a}
+.pk2 .pkcn{display:inline-block;flex:none;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#ffd45a 45%,#c98a1c);border:2px solid #12081f;vertical-align:-3px}
+.pk2 .pkbb .pkcn{width:22px;height:22px}
+.pk2 .pkcap{margin:6px 0 0;font-size:13px}
+.pk2 .pkstg{flex:1;display:flex;flex-direction:column;gap:5px;padding:8px 10px;border-radius:16px;background:#ffffff0a;border:2px solid #3a3070;min-height:0}
+.pk2 .pkstgh{display:flex;align-items:center;justify-content:space-between}.pk2 .pkstgh b{font:800 14px var(--ui);color:#fff8e8}.pk2 .pkstgh b small{font:600 12px var(--ui);color:#a99be0}
+.pk2 .pkstgh button{all:unset;cursor:pointer;padding:3px 10px;border-radius:9px;border:2px solid #6a4ab0;font:700 12px var(--ui);color:#e8e0ff}.pk2 .pkstgh button:hover{border-color:#ffd45a}
+.pk2 .pklad{gap:3px;overflow:hidden}
+.pk2 .pkr{height:31px;padding:0 10px 0 5px;border-radius:10px}.pk2 .pkr span{text-align:left;font:600 13px var(--ui);color:#e8e0ff}.pk2 .pkr span em{font-size:12px;color:#ffd45a;font-weight:700;margin:0}
+.pk2 .pkr u{display:flex;align-items:center;gap:5px;min-width:92px;justify-content:flex-start;font:800 14px var(--ui);color:#fff8e8}.pk2 .pkr b{min-width:54px;text-align:right;font:800 14px var(--ui);color:#cfc6f0}
+.pk2 .pkr.next{background:#ffd45a1c;border-color:#ffd45a}.pk2 .pkr.next u,.pk2 .pkr.next span{color:#fff8e8}.pk2 .pkr.next b{color:#ffd45a}
+.pk2 .pkr.cap{background:none;border-style:dashed}.pk2 .pkr.cap u{font-size:13px;color:#ffd45a}.pk2 .pkr.cap b{color:#ffd45a}
+.pk2 .pkspot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:16px;background:#ffffff0a;border:2px solid #3a3070}
+.pk2 .pkspot small{display:block;font:600 12px var(--ui);color:#a99be0}.pk2 .pkspot b{font:800 16px var(--ui);color:#fff8e8}
+.pk2 .pkmini{display:grid;grid-template-columns:repeat(3,26px);grid-template-rows:repeat(2,20px);gap:2px;padding:3px;border:2px solid #cfc6f0;border-bottom:0;border-radius:4px 4px 0 0}
+.pk2 .pkmini i{background:#ffffff10;border-radius:3px;transition:background .15s}.pk2 .pkmini i.on{background:#ffd45a;box-shadow:inset 0 0 0 2px #12081f}
+.pk2 .pkmini.dv i.on{background:#9fe8ff}
+.pk2 .pkbtns{grid-template-columns:1fr 1.35fr}
+.pk2 .pkco{height:70px;background:linear-gradient(180deg,#5a5290,#3a3270);color:#e8e0ff;box-shadow:0 5px 0 #241c50,0 8px 16px #0008}.pk2 .pkco b{font:800 18px var(--ui)}.pk2 .pkco small{font:600 11px var(--ui);opacity:.85}
+.pk2 .pkco:not(:disabled){background:linear-gradient(180deg,#8affa8,#22a85a);color:#06301a;box-shadow:0 5px 0 #0e5a2a,0 8px 16px #0008}
+.pk2 .pkgob{height:70px;font-size:26px}
+.pk2 .pkbot{grid-column:1;grid-row:3;grid-template-columns:1fr 640px;gap:12px;max-width:none}
+.pk2 .pkleft{justify-content:center;gap:4px;padding:6px 10px;border-radius:16px;background:#ffffff08;border:2px solid #2c2466}
+.pkw.pk2 .pkleft p.cmsg{margin:0;font:600 14px/1.3 var(--ui)!important;text-align:left;padding:6px 10px}
+.pk2 .pkmid{overflow:visible;align-items:center}.pk2 .pkmid .ctl{transform:scale(.8);transform-origin:top center;margin-top:-10px}
+.pk2 .pkstat{justify-content:flex-start;gap:12px;font-size:12px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

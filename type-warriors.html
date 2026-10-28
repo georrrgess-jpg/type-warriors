@@ -52927,7 +52927,7 @@ try{addEventListener('online',()=>{const s=tpSt();if(s.vote&&!s.sent&&tpOpen())t
 .tpinfo p{margin:0 0 8px;font:800 17px/1.25 Poppins,sans-serif}.tpinfo table{width:100%;border-collapse:separate;border-spacing:0 4px;font:700 14px Poppins,sans-serif}
 .tpinfo td{padding:5px 10px;background:#fffdf6;border:2px solid var(--c);}.tpinfo td:first-child{border-radius:9px 0 0 9px;border-right:0;color:#4a3a6a}.tpinfo td:last-child{border-radius:0 9px 9px 0;border-left:0}
 .tpscene{display:flex;flex-direction:column;align-items:center;gap:4px}.tpscene img{width:100%;border-radius:12px;border:2px solid var(--c)}.tpscene span{font:700 13.5px/1.3 Poppins,sans-serif;text-align:center}
-.tpfoot{position:relative;height:58px}
+.tpfoot{position:relative;height:58px;margin-top:auto}.tpscene span{min-height:36px}
 .tpv{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;width:100%;height:58px;border-radius:16px;background:linear-gradient(180deg,#ffe37a,#e8a018);border:3px solid #12081f;box-shadow:0 5px 0 #8a5a10;font:400 26px 'Pirata One',Georgia,serif;color:#3a1a04;transition:transform .12s}
 .tpv:hover{transform:translateY(-2px)}.tpv:active{transform:translateY(2px);box-shadow:0 2px 0 #8a5a10}
 .tpbar{display:none;position:relative;height:58px;border-radius:16px;background:#ffffffaa;border:3px solid #12081f;overflow:hidden}
@@ -52935,6 +52935,11 @@ try{addEventListener('online',()=>{const s=tpSt();if(s.vote&&!s.sent&&tpOpen())t
 .tpbar b{position:absolute;left:16px;top:50%;transform:translateY(-50%);font:900 28px Poppins,sans-serif}.tpbar em{display:none;position:absolute;right:14px;top:50%;transform:translateY(-50%);font:800 13px Poppins,sans-serif;font-style:normal;padding:3px 10px;border-radius:9px;background:#12081f;color:#ffd45a}
 .tpw.done .tpv{display:none}.tpw.done .tpbar{display:block}.tpc.mine .tpbar em{display:block}.tpc.mine{box-shadow:0 0 0 2px #12081f,0 0 0 7px #ffd45a66}
 .tpnote{margin:10px 0 0;text-align:center;font:600 13px Poppins,sans-serif;color:#a99be0;min-height:16px}`;document.head.appendChild(st)}
+/* ===== HOME SCREEN 9.9e: the menu panel clears the dock (97a, after 96zz) =====
+   The bottom dock (Play, Gear, Pets, Progress, Shop, More) used to overlap the lowest home cards (Halloween events, Lantern Caravan)
+   and the panel's bottom edge. The panel now hangs from the top of its row instead of centring, the lowest cards are a little shorter
+   and the panel's bottom padding tighter, so everything ends above the dock with a clear gap. */
+{const st=document.createElement("style");st.textContent=`.dkcp{align-self:start;padding-top:20px!important;padding-bottom:20px!important}.dkcp .dksc{margin-top:12px!important}.dkcp .dks4 .dkcard{min-height:120px;padding-top:11px!important;padding-bottom:11px!important}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

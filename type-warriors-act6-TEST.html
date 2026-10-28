@@ -6234,7 +6234,7 @@ function mPL(el,tok){
  const geo=()=>{const Wd=1100,Ht=440,gx=Math.min(58,(Wd-160)/(rows+1)),top=26,sh=32,slotY=Ht-sh-6,gy=(slotY-14-top)/rows;return{Wd,Ht,gx,top,sh,slotY,gy,cx:Wd/2,pr:rows>=16?3.2:rows>=12?3.8:4.6}};
  const drop=()=>{if(balls.length>=12)return false;if(CAS.bet<1){msg(broke()||'Place a bet first.');return false}if(CAS.bet>P.gold){msg('Not enough gold.');return false}const bet=CAS.bet;if(!cTake(bet))return false;
   const d=[];let k=0;for(let i=0;i<rows;i++){const r=Math.random()<.5?0:1;d.push(r);k+=r}balls.push({d,k:0,row:-1,t:-1,bet,slot:k,rows,tab,risk,j:(Math.random()-.5)*.6});lock();beep(420,.04,'triangle',.4);betRefresh();return true};
- const settle=(b,quiet)=>{const m=b.tab[b.slot],pay=Math.floor(b.bet*m);stat('plk',m,'max');
+ const settle=(b,quiet)=>{const m=b.tab[b.slot],pay=Math.min(typeof PLMAX==='number'?PLMAX:Infinity,Math.floor(b.bet*m));stat('plk',m,'max');
   if(quiet){P.gold+=pay;casTrack(b.bet,pay);const c=cst();c.plays++;c.net+=pay-b.bet;if(pay-b.bet>c.best)c.best=pay-b.bet;save();return}
   cPay(b.bet,pay);sf[b.slot]=1;hist.unshift(m);hist.length=Math.min(hist.length,14);H();
   msg(`${fmM(m)}×  ${pay>b.bet?'+'+cmn(pay-b.bet):pay<b.bet?'−'+cmn(b.bet-pay):'Break even'}${broke()?' '+broke():''}`,pay>b.bet?'w':pay<b.bet?'l':'');
@@ -51339,6 +51339,19 @@ const qzDay=()=>{const t=dlLocal(new Date());let d=P.qzd;if(!d||typeof d!=='obje
 try{const a=ACH.find(x=>x.id==='qz2x');if(a)a.d='Finish a Quiz Showdown with the top payout, 1.5x your stake.'}catch(e){}
 try{const g=GAMES.find(x=>x.id==='qz');if(g)g.d='Pick clues from a category board and answer for points. Daily Double, Final Clue. Your score sets the payout (up to 1.5x; cash out after 4 clues). The first 5 winning quizzes each day pay in full.'}catch(e){}
 try{const g=GAMES.find(x=>x.id==='rk');if(g)g.d+=' Max payout '+cmn(RKWIN)+' per round.'}catch(e){}
+/* ===== CASINO 9.7d: Plinko nerfed at the owner's request (96zn, after 96zm; one edit in 67_casino3.js) =====
+   - New boards: much flatter edges. Top multipliers were 5.6-1,000x (16 rows / high paid 969.92x); now 2.9-126x.
+   - Long-run return 96% -> 93% on every rows/risk setting (plkTab normalises each board to PLRTP).
+   - No ball ever pays more than PLMAX (20,000): settle() in 67_casino3.js caps every payout, including the balls that are
+     settled quietly when the player leaves with balls still falling. At big bets the cap also lowers the return on the
+     high-multiplier slots (e.g. 5,000 x 126x pays 20,000, not 630,000). */
+const PLMAX=20000,PLRTP=.93;
+{const S=h=>h.concat(h.slice(0,-1).reverse());
+ PLK[8]={l:S([3,1.6,1.1,1,.6]),m:S([6,2.4,1.3,.8,.5]),h:S([12,3.5,1.4,.4,.2])};
+ PLK[12]={l:S([5,2.2,1.5,1.2,1.05,.9,.6]),m:S([14,6,3,1.6,1.05,.6,.4]),h:S([40,12,5,1.8,.7,.3,.2])};
+ PLK[16]={l:S([8,4,2,1.4,1.3,1.15,1.05,.95,.6]),m:S([30,15,6,3.5,2.2,1.4,1,.6,.35]),h:S([100,40,14,6,3,1.6,.3,.2,.2])}}
+function plkTab(n,k){const b=PLK[n][k];let rtp=0;for(let i=0;i<=n;i++){let c=1;for(let j=0;j<i;j++)c=c*(n-j)/(j+1);rtp+=c/Math.pow(2,n)*b[i]}const f=PLRTP/rtp;return b.map(x=>Math.floor(x*f*100)/100)}
+try{const g=GAMES.find(x=>x.id==='pl');if(g)g.d='Drop balls through a field of pegs. Pick the rows and the risk. The edges pay the most. Max payout 20,000 per ball.'}catch(e){}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

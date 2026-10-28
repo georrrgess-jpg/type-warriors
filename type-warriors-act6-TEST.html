@@ -46907,6 +46907,345 @@ const rpqPos=s=>{const u=Math.max(0,Math.min(1,s.t/s.d));return{u,x:s.x0+(s.x1-s
 {const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h&&RP_TWORDER.length>=8)h.classList.add('rp8')}catch(e){}return r}}
 try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=' The Thunder Mortar (O, 350 supply) lobs heavy shells at the biggest crowd from very far away; it cannot hit flyers or anything close to it.'}catch(e){}
 {const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Thunder Mortar.</b> Long-range artillery (350 supply, key O). It aims each shell where it will catch the most ground monsters; a ring shows where it will land. It cannot hit flyers or anything inside its dead zone (red ring). Tier 3 leaves slowing craters, tier 4 adds cluster bomblets, tier 5 calls a Thunder Barrage every fifth volley.</p>`)}catch(e){}return r}}
+/* ===== RUNESTONE TOWER DEFENSE 9.9: the Alchemist's Still, art (95u, after 95t) =====
+   A bubbling copper still on a stone pad: an iron fire ring with glowing coals and live flames, a round copper pot on a tripod
+   (riveted seam, two rivet "eyes"), a copper neck, a glass dome full of bubbling brew, a copper pipe arching from the dome cap down to a
+   receiving flask that it drips into, and more flasks around the pad.
+   Tiers: 1 copper, one green flask; 2 bigger, a longer pipe and a pink flask; 3 Midas: gold bands, a gold flask and a pile of coins;
+   4 Mythic (violet stone, dark-iron pot with gold bands, violet brew, gems, orbiting runes); 5 Celestial (marble, white-gold pot, pale
+   starlit brew, wings and halo).
+   Plugs into the shared 95c pipeline (RPPAL/RPLAY/RPPULSE/RPWING/RPHALO + wrapped rpBodyArt, rpGlowList, rpTowerParts), so the build
+   and upgrade animations, the tier 4-5 ascension, icons and warming are the shared ones. Drawn in two baked layers (the pad, pips and
+   fire ring behind; the still in front) with live flames between them, then live bubbles, steam, the drip and the firing burp.
+   No shadowBlur, no ctx.filter; glows are the shared sprites.
+   API
+     rplMouth(tier)                     the dome cap relative to the pad centre {x,y} (flasks start there)
+     rplBrew(tier)                      brew colours {c, d, l} for a tier
+     rpStillFlask(g,x,y,tier,rot,sc)    a thrown flask
+     rpStillPuddle(g,x,y,r,k,t,tier,seed) an acid puddle on the road (ground layer), k = 0..1 strength
+     rpStillSplash(g,x,y,r,u,tier,seed) the shatter and splash (top layer), u = 0..1
+     rpStillBadge(g,x,y,melt,tier,a)    the melted-armor badge over a soaked monster
+     rpStillGold(g,x,y,u,seed)          a monster turned to a pile of gold (top layer), u = 0..1
+     rpStillCoin(g,x,y,rot,sc)          a spinning coin */
+RPTW.still={n:"Alchemist's Still",role:'Armor melt',col:'#7dff6a'};
+RPSKIN.still=['base'];
+RPPAL.still={base:{stone:RPSTONE.base,iron:'#3c3652',ironL:'#7a7498',ironD:'#1c182c',trim:'#ffd45a',trimL:'#fff0a8',trimD:'#b07a1a',
+ glass:'#bff6e0',rune:'#7dff6a',glow:'#7dff6a',glow2:'#ffb04a',coal:'#ff8a3a'}};
+/* per tier: pot radius R and centre cy, dome height dh and half-width dw, flasks [x,y,r,brew], coins (Midas pile), top, tier 4-5 gems */
+RPLAY.still=[0,
+ {R:21,cy:-37,dh:24,dw:11,fl:[[31,-6,7.5,'b']],coins:0,top:98,runes:[]},
+ {R:23,cy:-40,dh:26,dw:12,fl:[[32,-6,8,'b'],[-32,-4,7,'p']],coins:0,top:106,runes:[]},
+ {R:25,cy:-43,dh:28,dw:12.5,fl:[[33,-6,8.5,'b'],[-33,-4,7.5,'p'],[-19,10,6,'y']],coins:1,top:114,runes:[]},
+ {R:26,cy:-45,dh:29,dw:13,fl:[[34,-6,8.5,'b'],[-34,-4,7.5,'p'],[-19,10,6,'y']],coins:1,top:126,runes:[],inl:[[0,9,4.4],[-31,3,3.6],[31,3,3.6]]},
+ {R:27,cy:-46,dh:30,dw:13.5,fl:[[34,-6,8.5,'b'],[-34,-4,7.5,'p'],[-19,10,6,'y']],coins:1,top:136,runes:[],inl:[[0,9,4.6],[-31,3,3.8],[31,3,3.8]]}];
+RPPULSE.still=[2.2,.24];RPWING.still=[36,-52];RPHALO.still=[-126,24];
+const rplT=t=>Math.max(1,Math.min(5,t|0||1));
+/* pot metals per tier: [light, mid, dark, deep], band, rivet */
+const rplMet=tier=>tier>=5?{m:['#fffdf2','#ffe9a6','#d8aa48','#7a5a1a'],band:'#fff6c8',bandD:'#c99a2a',riv:'#b07a1a'}
+ :tier===4?{m:['#9a8ec8','#5a4c8a','#2e2450','#16102c'],band:'#ffd45a',bandD:'#a8741a',riv:'#ffd45a'}
+ :tier===3?{m:['#ffd6aa','#e8894a','#a8501f','#5a2810'],band:'#ffd45a',bandD:'#b07a1a',riv:'#ffd45a'}
+ :{m:['#ffd0a0','#e0844a','#a04c1e','#5a2810'],band:'#c8703a',bandD:'#6a3010',riv:'#5a2810'};
+/* the brew: c = bright, d = deep, l = highlight */
+function rplBrew(tier){return tier>=5?{c:'#fff2b0',d:'#e0b04a',l:'#ffffff'}:tier===4?{c:'#c08aff',d:'#6a2ab0',l:'#f0e0ff'}:{c:'#7dff6a',d:'#2a9a3a',l:'#e6ffd8'}}
+const rplFlaskC=(k,tier)=>k==='b'?rplBrew(tier):k==='p'?(tier>=5?{c:'#ffffff',d:'#bfd8ff',l:'#ffffff'}:{c:'#ff6aa8',d:'#b02a6a',l:'#ffe0ee'}):(tier>=5?{c:'#fff6c8',d:'#ffd45a',l:'#ffffff'}:{c:'#ffcf4a',d:'#c98a1c',l:'#fff6c8'});
+const rplFire=tier=>tier>=5?RPFLC:tier===4?RPFLM:['#c8301a','#ff7a2a','#ffd45a','#fff6c8'];
+const rplNeckY=L=>L.cy-L.R-4;/* top of the neck = bottom of the dome */
+function rplMouth(tier){const L=RPLAY.still[rplT(tier)];return{x:0,y:rplNeckY(L)-L.dh-3}}
+
+/* ---------- static parts ---------- */
+function rplFlaskArt(g,x,y,r,C,cork){/* a round-bottom flask standing at (x,y) = bottom of the bulb */
+ const cy=y-r;g.fillStyle='rgba(8,4,20,.3)';g.beginPath();g.ellipse(x+2,y+1,r*.95,r*.36,0,0,TAU);g.fill();
+ /* neck */
+ g.beginPath();g.rect(x-r*.32,cy-r*1.75,r*.64,r*1.1);g.fillStyle='rgba(210,250,240,.55)';g.fill();rpOut(g,1.6);
+ /* bulb: glass, brew in the lower part, highlight */
+ g.beginPath();g.arc(x,cy,r,0,TAU);g.fillStyle='rgba(210,250,240,.5)';g.fill();
+ g.save();g.beginPath();g.arc(x,cy,r-.6,0,TAU);g.clip();g.fillStyle=rpVG(g,cy-r*.2,cy+r,C.c,C.d);g.fillRect(x-r,cy-r*.15,r*2,r*1.2);
+ g.fillStyle=rpA(C.l,.7);g.beginPath();g.ellipse(x,cy-r*.15,r*.95,r*.18,0,0,TAU);g.fill();g.restore();
+ g.beginPath();g.arc(x,cy,r,0,TAU);rpOut(g,1.8);
+ g.fillStyle='rgba(255,255,255,.7)';g.beginPath();g.ellipse(x-r*.42,cy-r*.42,r*.22,r*.36,-.6,0,TAU);g.fill();
+ /* lip and cork */
+ g.beginPath();g.ellipse(x,cy-r*1.75,r*.46,r*.16,0,0,TAU);g.fillStyle='#e8fff6';g.fill();rpOut(g,1.3);
+ if(cork){g.beginPath();g.rect(x-r*.3,cy-r*2.15,r*.6,r*.4);g.fillStyle=rpVG(g,cy-r*2.15,cy-r*1.75,'#d8a46a','#8a5a2a');g.fill();rpOut(g,1.2)}}
+function rplCoinPile(g,x,y,P){const C=[[-8,0],[0,1],[8,0],[-4,-3.6],[4,-3.4],[0,-7]];
+ g.fillStyle='rgba(8,4,20,.3)';g.beginPath();g.ellipse(x+1,y+2,15,5,0,0,TAU);g.fill();
+ for(const [dx,dy] of C){for(let k=2;k>=0;k--){const yy=y+dy-k*2.2;g.beginPath();g.ellipse(x+dx,yy,5.6,2.4,0,0,TAU);g.fillStyle=k?'#c98a1c':rpHG(g,x+dx-5.6,x+dx+5.6,'#fff0a8','#ffd45a','#d89a2a');g.fill();rpOut(g,1.1)}}
+ g.fillStyle='#fffbe6';g.beginPath();g.ellipse(x-1,y-11.6,1.6,.8,0,0,TAU);g.fill()}
+function rplLeg(g,x0,y0,x1,y1,P){g.lineCap='round';g.strokeStyle=RPTO;g.lineWidth=5.4;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();g.strokeStyle=P.iron;g.lineWidth=2.8;g.stroke();
+ g.strokeStyle=P.ironL;g.lineWidth=1;g.beginPath();g.moveTo(x0-.8,y0-.5);g.lineTo(x1-.8,y1);g.stroke();
+ g.beginPath();g.ellipse(x0,y0+1,3.6,1.6,0,0,TAU);g.fillStyle=P.ironD;g.fill();rpOut(g,1)}
+/* back layer: the fire ring with coals and the back leg (the pad is drawn by rpPadArt) */
+function rplBackArt(g,tier,P){const L=RPLAY.still[tier];
+ rplLeg(g,0,-7,0,L.cy+L.R*.7,P);
+ g.beginPath();g.ellipse(0,-1,18,7.4,0,0,TAU);g.fillStyle=rpVG(g,-8,6,P.ironL,P.iron);g.fill();rpOut(g,2.2);
+ g.beginPath();g.ellipse(0,-2,14,5.2,0,0,TAU);g.fillStyle='#2a1018';g.fill();rpOut(g,1.4);
+ const cc=tier>=5?['#fff6c8','#ffd45a']:tier===4?['#d6b0ff','#8a4aff']:['#ffd45a','#ff7a2a'];
+ for(let i=0;i<7;i++){const a=i/7*TAU+.4,x=Math.cos(a)*8*rpR(i+3),y=-2+Math.sin(a)*3*rpR(i+5);g.fillStyle=i%2?cc[0]:cc[1];g.beginPath();g.ellipse(x,y,3.2,1.6,a,0,TAU);g.fill()}
+ for(let i=0;i<6;i++){const a=i/6*TAU;g.fillStyle=P.ironD;g.beginPath();g.arc(Math.cos(a)*16,-1+Math.sin(a)*6.6,1.2,0,TAU);g.fill()}}
+/* front layer: legs, pot, neck, dome, pipe, flasks, coins, gems */
+function rplFrontArt(g,tier,P){const L=RPLAY.still[tier],M=rplMet(tier),m=M.m,B=rplBrew(tier),R=L.R,cy=L.cy,ny=rplNeckY(L),dh=L.dh,dw=L.dw;
+ /* tripod legs (front two) */
+ rplLeg(g,-17,3,-R*.62,cy+R*.62,P);rplLeg(g,17,3,R*.62,cy+R*.62,P);
+ /* the pot */
+ g.beginPath();g.arc(0,cy,R,0,TAU);const q=g.createRadialGradient(-R*.38,cy-R*.4,R*.1,0,cy,R*1.05);q.addColorStop(0,m[0]);q.addColorStop(.45,m[1]);q.addColorStop(.85,m[2]);q.addColorStop(1,m[3]);g.fillStyle=q;g.fill();rpOut(g,2.8);
+ /* seam band with rivets */
+ g.save();g.beginPath();g.arc(0,cy,R-1,0,TAU);g.clip();
+ g.beginPath();g.ellipse(0,cy+R*.28,R*1.02,R*.3,0,0,Math.PI);g.ellipse(0,cy+R*.28+5,R*1.02,R*.3,0,Math.PI,0,true);g.closePath();g.fillStyle=rpHG(g,-R,R,M.band,M.band,M.bandD);g.fill();rpOut(g,1.5);
+ for(let i=-3;i<=3;i++){const a=Math.PI/2-i*.38;g.fillStyle=tier>=3?'#fff0a8':M.bandD;g.beginPath();g.arc(Math.cos(a)*R*.98,cy+R*.28+2.5+Math.sin(a)*R*.3,1.1,0,TAU);g.fill()}
+ g.fillStyle='rgba(8,4,20,.2)';g.beginPath();g.ellipse(R*.25,cy+R*.85,R*.95,R*.4,0,0,TAU);g.fill();g.restore();
+ /* rivet eyes and a shine */
+ for(const k of [-1,1]){g.beginPath();g.arc(k*R*.32,cy-R*.02,2.6,0,TAU);g.fillStyle=M.riv;g.fill();rpOut(g,1.2);g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.arc(k*R*.32-.8,cy-R*.02-.9,.9,0,TAU);g.fill()}
+ g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.ellipse(-R*.48,cy-R*.46,R*.16,R*.28,-.7,0,TAU);g.fill();
+ /* the neck */
+ rpSide(g,0,cy-R+3,8,7,ny-(cy-R+3)<0?(cy-R+3)-ny:6);g.fillStyle=rpHG(g,-8,8,m[0],m[1],m[2]);g.fill();rpOut(g,2);
+ g.beginPath();g.ellipse(0,ny,9,9*RPSQ,0,0,TAU);g.fillStyle=rpHG(g,-9,9,M.band,M.band,M.bandD);g.fill();rpOut(g,1.6);
+ /* the glass dome with brew in it */
+ const dc=ny-dh*.5;g.beginPath();g.ellipse(0,dc,dw,dh*.5,0,0,TAU);g.fillStyle='rgba(205,250,236,.42)';g.fill();
+ g.save();g.beginPath();g.ellipse(0,dc,dw-.8,dh*.5-.8,0,0,TAU);g.clip();g.fillStyle=rpVG(g,dc-dh*.05,ny,B.c,B.d);g.fillRect(-dw,dc-dh*.08,dw*2,dh*.6);
+ g.fillStyle=rpA(B.l,.65);g.beginPath();g.ellipse(0,dc-dh*.08,dw,2.2,0,0,TAU);g.fill();g.restore();
+ g.beginPath();g.ellipse(0,dc,dw,dh*.5,0,0,TAU);rpOut(g,2.2);
+ g.fillStyle='rgba(255,255,255,.72)';g.beginPath();g.ellipse(-dw*.45,dc-dh*.18,dw*.16,dh*.2,-.25,0,TAU);g.fill();
+ /* the dome cap and the pipe to the receiving flask */
+ const top=ny-dh,f0=L.fl[0],fx=f0[0],fy=f0[1]-f0[2]*2-f0[2]*1.7;
+ const pipe=()=>{g.beginPath();g.moveTo(0,top-1);g.bezierCurveTo(10+tier,top-16-tier*1.5,fx+2,top-14,fx,fy-3)};
+ pipe();g.lineWidth=6.4;g.strokeStyle=RPTO;g.stroke();pipe();g.lineWidth=3.6;g.strokeStyle=m[1];g.stroke();pipe();g.lineWidth=1.2;g.strokeStyle=rpA(m[0],.9);g.stroke();
+ g.beginPath();g.ellipse(0,top+1,4.6,2.4,0,0,TAU);g.fillStyle=rpHG(g,-5,5,m[0],m[1],m[2]);g.fill();rpOut(g,1.6);
+ g.beginPath();g.arc(0,top-2,3.2,0,TAU);g.fillStyle=rpHG(g,-3,3,M.band,M.band,M.bandD);g.fill();rpOut(g,1.4);
+ /* tier 3+: gold collar on the dome */
+ if(tier>=3){g.beginPath();g.ellipse(0,ny-1,dw*.9,2.6,0,0,TAU);g.lineWidth=2.2;g.strokeStyle=M.band;g.stroke()}
+ /* flasks and the Midas pile (back ones first) */
+ const fs=L.fl.slice().sort((a,b)=>a[1]-b[1]);
+ for(const [x,y,r,k] of fs){if(L.coins&&y>5)rplCoinPile(g,19,11,P);rplFlaskArt(g,x,y,r,rplFlaskC(k,tier),k!=='b')}
+ if(L.coins&&!fs.some(f=>f[1]>5))rplCoinPile(g,19,11,P);
+ if(tier>=4)rpAscArt(g,'still',tier,P,L)}
+function rplBodyArt(g,tier,P){rpPadArt(g);rplBackArt(g,tier,P);
+ /* a still flame for the build animation and icons */
+ const fl=rplFire(tier);g.save();g.translate(0,-2);g.scale(.32,.32);rpFlameArt(g,fl,0);g.restore();
+ rplFrontArt(g,tier,P)}
+{const b0=rpBodyArt;rpBodyArt=function(g,type,tier,P){if(type==='still')return rplBodyArt(g,tier,P);return b0.apply(this,arguments)}}
+{const l0=rpGlowList;rpGlowList=function(type,tier,P,L){if(type!=='still')return l0.apply(this,arguments);const G=[],A=(x,y,rx,ry,c,a)=>G.push([x,y,rx,ry,c,a]),B=rplBrew(tier);
+ A(0,-3,26,12,P.coal,.5);A(0,rplNeckY(L)-L.dh*.4,L.dw*1.9,L.dh*.85,B.c,.5);
+ for(const [x,y,r,k] of L.fl)A(x,y-r,r*2,r*2,rplFlaskC(k,tier).c,.38);if(L.coins)A(19,4,18,10,'#ffd45a',.45);
+ if(tier>=4){const A4=RPASC[tier];for(const [x,y,z] of L.inl)A(x,y,z*3.4,z*3.4,A4.glow,.85);A(0,-L.top*.5,46,L.top*.5,A4.glow,.16)}return G}}
+const rplBackS=tier=>rpSpr('stb|'+tier,-66,-30,132,76,g=>{RPPADT=tier;try{rpPadArt(g)}finally{RPPADT=0}rplBackArt(g,tier,RPPAL.still.base);g.save();g.translate(0,RPPIPY);rpPipArt(g,tier);g.restore()});
+const rplFrontS=tier=>{const L=RPLAY.still[tier];return rpSpr('stf|'+tier,-66,-(L.top+18),132,L.top+50,g=>rplFrontArt(g,tier,rpPalT('still','base',tier)))};
+
+/* ---------- live parts ---------- */
+function rplLive(g,tier,P,t,o,L,ph,nopad){const B=rplBrew(tier),f=Math.max(0,Math.min(1,o.fire||0)),ch=Math.max(0,Math.min(1,o.charge||0)),lt=RPFX.lite,ny=rplNeckY(L),dc=ny-L.dh*.5,top=ny-L.dh;
+ /* the fire under the pot, livelier while a flask is brewing */
+ const fl=rplFire(tier),fs=.2+.06*ch+.05*f;for(const [x,k] of [[-7,.85],[7,.9],[0,1]])rpFlame(g,x,-1,fs*k,t,ph+x*.13,fl,'st'+Math.min(tier,4)+(tier>=5?'c':''));
+ g.globalCompositeOperation='lighter';rpGlow(g,0,-8,26,14,tier===4?'#a66cff':tier>=5?'#ffe27a':'#ff8a3a',.45+.25*Math.sin(t*9+ph*4)+.3*ch);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+ /* the still itself, with a squash-and-stretch burp when it throws */
+ const w=f>0?Math.sin((1-f)*Math.PI*2.5)*f:0,sy=1-.1*w+.03*ch*Math.sin(t*30),sx=1+.07*w;
+ g.save();g.translate(0,L.cy+L.R);g.scale(sx,sy);g.translate(0,-(L.cy+L.R));g.globalAlpha=RPGA;rpPut(g,rplFrontS(tier));
+ /* brew glow and bubbles in the dome */
+ g.globalCompositeOperation='lighter';rpGlow(g,0,dc+L.dh*.12,L.dw*1.5,L.dh*.55,B.c,.32+.18*Math.sin(t*3+ph*5)+.45*ch+.4*f);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+ const n=lt?3:5,spd=.7+1.6*ch;for(let i=0;i<n;i++){const u=((t*spd+i/n+ph)%1),x=Math.sin(i*2.3+ph*9+u*5)*L.dw*.55*(1-u*.4),y=ny-3-u*L.dh*.62,r=1.1+1.6*rpR(i+7)*(1-u*.3);
+  g.fillStyle=rpA(B.l,.85*(1-u*.6));g.beginPath();g.arc(x,y,r,0,TAU);g.fill();g.lineWidth=.8;g.strokeStyle=rpA(B.d,.6);g.stroke()}
+ g.restore();g.globalAlpha=RPGA;
+ /* the drip from the pipe into the receiving flask */
+ const f0=L.fl[0],fx=f0[0],fy=f0[1]-f0[2]*2-f0[2]*1.7,du=((t*.8+ph)%1);
+ if(du<.55){const y=fy-1+du/.55*(f0[2]*1.4);g.fillStyle=B.c;g.beginPath();g.ellipse(fx,y,1.6,2.2,0,0,TAU);g.fill();g.lineWidth=.8;g.strokeStyle=B.d;g.stroke()}
+ /* steam from the cap; a coloured puff when it throws */
+ if(!lt)for(let i=0;i<2;i++){const u=((t*.5+i*.5+ph)%1);g.fillStyle=`rgba(230,255,240,${(.3*(1-u)).toFixed(3)})`;g.beginPath();g.arc(Math.sin(u*5+i*3+ph)*4,top-4-u*26,2.5+u*6,0,TAU);g.fill()}
+ /* the next flask rises out of the cap while it brews */
+ if(ch>.35&&f<.05){const k=(ch-.35)/.65,e=1-(1-k)*(1-k);g.globalCompositeOperation='lighter';rpGlow(g,0,top-8-e*10,10+6*k,10+6*k,B.c,.35+.4*k);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+  rpStillFlask(g,0,top-2-e*12,tier,Math.sin(t*9+ph)*.12*k,.55+.25*e)}
+ if(f>.04){g.globalCompositeOperation='lighter';rpGlow(g,0,top-6,18+18*f,16+14*f,B.c,f*1.1);rpGlow(g,0,top-4,8,8,'#ffffff',f);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+  const k=lt?3:6;for(let i=0;i<k;i++){const a=-Math.PI/2+(i-(k-1)/2)*.5,d=6+(1-f)*22;g.fillStyle=rpA(B.c,(.7*f).toFixed(3));g.beginPath();g.arc(Math.cos(a)*d,top-4+Math.sin(a)*d,2+(1-f)*4,0,TAU);g.fill()}}
+ /* Midas glint on the coin pile */
+ if(L.coins&&!lt){const u=((t*.4+ph)%1);if(u<.2){const s=Math.sin(u/.2*Math.PI);g.globalCompositeOperation='lighter';g.globalAlpha=RPGA;g.drawImage(rpStarS().c,19-6+2*s,-2-6,12*s+.1,12*s+.1);g.globalCompositeOperation='source-over'}}
+ g.globalAlpha=RPGA}
+{const p0=rpTowerParts;rpTowerParts=function(g,type,tier,skin,t,o,nopad){if(type!=='still')return p0.apply(this,arguments);
+ const P=rpPalT(type,'base',tier),L=RPLAY.still[tier],ph=o.ph||0;
+ if(tier>=4){if(!nopad)rpAscGround(g,tier,t,ph,1);rpAscLive(g,type,tier,t,ph,L,0)}
+ g.globalAlpha=RPGA;
+ if(nopad){rpPut(g,rpBody(type,tier,skin))}
+ else{rpPut(g,rplBackS(tier));
+  {const q=RPPULSE[type];g.globalCompositeOperation='lighter';g.globalAlpha=RPGA*(1-q[1]+q[1]*Math.sin(t*q[0]+ph*7));rpPut(g,rpGlowLayer(type,tier,'base'));g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}
+  {const u=((t+ph*2.3)*.28)%1;if(u<.12){const v=u/.12*tier,i=Math.min(tier-1,v|0);g.globalCompositeOperation='lighter';rpGlow(g,(i-(tier-1)/2)*10,RPPIPY-1,8,8,'#fff6c8',Math.sin(Math.PI*(v-i))*.95);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+  rplLive(g,tier,P,t,o,L,ph)}
+ if(tier>=4)rpAscLive(g,type,tier,t,ph,L,1);
+ g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+{const w0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){const r=w0.apply(this,arguments);if(type==='still'){tier=rplT(tier);try{rplBackS(tier);rplFrontS(tier);rplFlaskS(tier);rplPuddleS(tier)}catch(e){}}return r}}
+
+/* ---------- flasks, puddles, splashes, badges, gold ---------- */
+const rplFlaskS=tier=>rpSpr('st|fk|'+rplT(tier),-10,-22,20,26,g=>{const B=rplBrew(tier);rplFlaskArt(g,0,2,7,B,true);
+ if(tier>=4){g.strokeStyle=tier>=5?'#ffe27a':'#ffd45a';g.lineWidth=1.4;g.beginPath();g.ellipse(0,-5,7.4,2,0,0,TAU);g.stroke()}});
+function rpStillFlask(g,x,y,tier,rot,sc){g.save();g.translate(x,y);g.rotate(rot||0);const k=sc||1.5;g.scale(k,k);rpPut(g,rplFlaskS(tier));g.restore()}
+function rplPuddleArt(g,tier){/* unit puddle, radius 50: overlapping lobes, a dark rim, a lighter middle and a shine */
+ const B=rplBrew(tier),lobes=[[0,0,44],[-22,-8,26],[24,6,26],[10,-16,22],[-14,14,22],[30,-12,16],[-32,8,16]];
+ g.fillStyle=rpA(B.d,.85);for(const [x,y,r] of lobes){g.beginPath();g.arc(x,y,r+3,0,TAU);g.fill()}
+ g.fillStyle=rpA(B.c,.75);for(const [x,y,r] of lobes){g.beginPath();g.arc(x,y,r-2,0,TAU);g.fill()}
+ const q=g.createRadialGradient(-6,-6,2,0,0,40);q.addColorStop(0,rpA(B.l,.75));q.addColorStop(1,rpA(B.l,0));g.fillStyle=q;g.beginPath();g.arc(0,0,40,0,TAU);g.fill();
+ g.fillStyle='rgba(255,255,255,.6)';g.beginPath();g.ellipse(-14,-14,10,4,-.3,0,TAU);g.fill();g.beginPath();g.ellipse(14,-4,4,2,-.3,0,TAU);g.fill();
+ /* a few drops around the edge */
+ g.fillStyle=rpA(B.c,.8);for(let i=0;i<7;i++){const a=rpR(i+11)*TAU,d=52+rpR(i+3)*8;g.beginPath();g.arc(Math.cos(a)*d,Math.sin(a)*d,2+rpR(i+5)*2.4,0,TAU);g.fill()}}
+const rplPuddleS=tier=>rpSpr('st|pd|'+rplT(tier),-64,-64,128,128,g=>rplPuddleArt(g,rplT(tier)),1);
+function rpStillPuddle(g,x,y,r,k,t,tier,seed){if(k<=.01)return;const s=r/50,B=rplBrew(tier),sq=RPFX.sq;
+ g.save();g.translate(x,y);g.scale(s,s*sq);g.globalAlpha=Math.min(1,k*1.3)*.82;rpPut(g,rplPuddleS(tier));g.restore();
+ g.globalCompositeOperation='lighter';rpGlow(g,x,y,r*.9,r*.9*sq,B.c,.28*k);g.globalCompositeOperation='source-over';g.globalAlpha=1;
+ /* bubbles that swell and pop */
+ if(!RPFX.lite)for(let i=0;i<3;i++){const u=((t*.9+i/3+(seed||0))%1),a=rpR(i+((seed*7)|0))*TAU,d=r*.55*rpR(i+((seed*3)|0)+1),bx=x+Math.cos(a)*d,by=y+Math.sin(a)*d*sq,br=1.5+u*4.5;
+  g.globalAlpha=k*(u<.85?.9:(1-u)/.15*.9);g.strokeStyle=rpA(B.l,.95);g.lineWidth=1.2;g.fillStyle=rpA(B.c,.45);g.beginPath();g.arc(bx,by-br*.5,br,0,TAU);g.fill();g.stroke()}
+ g.globalAlpha=1}
+function rpStillSplash(g,x,y,r,u,tier,seed){if(u<=0||u>=1)return;const B=rplBrew(tier),sq=RPFX.sq,e=1-Math.pow(1-u,3),s=seed||0;g.save();
+ g.globalCompositeOperation='lighter';rpGlow(g,x,y-8,r*(.6+.5*e),r*(.45+.35*e),B.c,(1-u)*1.05);rpGlow(g,x,y-6,r*.35,r*.3,'#ffffff',Math.max(0,1-u*3.2));g.globalCompositeOperation='source-over';
+ /* a ring wave on the ground */
+ g.globalAlpha=(1-u)*.9;g.lineWidth=4*(1-u)+1;g.strokeStyle=B.l;g.beginPath();g.ellipse(x,y,r*(.25+.95*e),r*(.25+.95*e)*sq,0,0,TAU);g.stroke();
+ /* brew droplets thrown up and out in arcs */
+ const n=RPFX.lite?6:11;for(let i=0;i<n;i++){const a=i/n*TAU+rpR(i+s)*.5,d=r*(.35+.75*rpR(i+s+9))*e,h=(26+30*rpR(i+s+4))*4*u*(1-u),dr=(2.2+2.2*rpR(i+s+2))*(1-u*.5);
+  g.globalAlpha=Math.min(1,(1-u)*1.6);g.fillStyle=i%3?B.c:B.l;g.beginPath();g.ellipse(x+Math.cos(a)*d,y+Math.sin(a)*d*sq-h,dr,dr*1.25,0,0,TAU);g.fill();g.lineWidth=1;g.strokeStyle=rpA(B.d,.8);g.stroke()}
+ /* glass shards */
+ if(u<.6){const k=RPFX.lite?3:6;g.globalAlpha=1-u/.6;g.fillStyle='rgba(235,255,250,.95)';g.strokeStyle=RPTO;g.lineWidth=1;for(let i=0;i<k;i++){const a=-Math.PI*(.1+.8*rpR(i+s+20)),d=6+r*.7*e,px=x+Math.cos(a)*d,py=y-8+Math.sin(a)*d*.8+60*u*u,rot=u*12+i;
+  g.save();g.translate(px,py);g.rotate(rot);g.beginPath();g.moveTo(-3,-1.5);g.lineTo(3,0);g.lineTo(-1,2.4);g.closePath();g.fill();g.stroke();g.restore()}}
+ /* a puff of coloured vapour */
+ g.globalAlpha=(1-u)*.55;g.fillStyle=rpA(B.c,.6);for(let i=0;i<4;i++){const a=i/4*TAU+s,d=r*.3*e;g.beginPath();g.arc(x+Math.cos(a)*d,y-10-u*24+Math.sin(a)*d*.4,r*(.16+.18*e),0,TAU);g.fill()}
+ g.globalAlpha=1;g.restore()}
+const rplBadgeS=(melt,tier)=>rpSpr('st|bd|'+melt+'|'+(tier>=5?5:tier===4?4:1),-17,-13,34,26,g=>{const B=rplBrew(tier);
+ g.beginPath();g.roundRect(-16,-9,32,18,9);g.fillStyle='rgba(18,8,31,.9)';g.fill();g.lineWidth=1.6;g.strokeStyle=B.c;g.stroke();
+ /* a cracked shield */
+ g.beginPath();g.moveTo(-11,-6);g.lineTo(-3,-6);g.lineTo(-3,0);g.quadraticCurveTo(-3,5,-7,7);g.quadraticCurveTo(-11,5,-11,0);g.closePath();g.fillStyle='#8a86a8';g.fill();g.lineWidth=1.2;g.strokeStyle=RPTO;g.stroke();
+ g.strokeStyle=B.c;g.lineWidth=1.3;g.beginPath();g.moveTo(-7,-6);g.lineTo(-8,-2);g.lineTo(-6,1);g.lineTo(-7.5,4);g.stroke();
+ g.fillStyle=B.c;g.beginPath();g.ellipse(-4,6,1.4,2,0,0,TAU);g.fill();
+ g.font="800 11px Poppins,system-ui,sans-serif";g.textAlign='center';g.textBaseline='middle';g.fillStyle=B.c;g.fillText('-'+melt,6,.5)});
+function rpStillBadge(g,x,y,melt,tier,a){if(a<=.01)return;g.globalAlpha=Math.min(1,a);rpPut(g,rplBadgeS(melt|0,tier),x,y);g.globalAlpha=1}
+const rplCoinS=()=>rpSpr('st|coin',-9,-9,18,18,g=>{g.beginPath();g.arc(0,0,7.5,0,TAU);g.fillStyle=rpHG(g,-7.5,7.5,'#fff0a8','#ffd45a','#c98a1c');g.fill();rpOut(g,1.6);
+ g.beginPath();g.arc(0,0,4.6,0,TAU);g.lineWidth=1.2;g.strokeStyle='#b07a1a';g.stroke();g.fillStyle='#fffbe6';g.beginPath();g.ellipse(-2.4,-2.6,1.6,1,-.6,0,TAU);g.fill()});
+function rpStillCoin(g,x,y,rot,sc){const k=sc||1,w=Math.abs(Math.cos(rot||0));g.save();g.translate(x,y);g.scale(k*(.25+.75*w),k);rpPut(g,rplCoinS());g.restore()}
+const rplGoldS=()=>rpSpr('st|gold',-34,-46,68,56,g=>{/* a heap of gold coins with a crown of glints */
+ g.fillStyle='rgba(8,4,20,.35)';g.beginPath();g.ellipse(2,4,30,9,0,0,TAU);g.fill();
+ g.beginPath();g.moveTo(-28,2);g.quadraticCurveTo(-22,-20,-6,-30);g.quadraticCurveTo(4,-36,12,-28);g.quadraticCurveTo(26,-16,28,2);g.closePath();g.fillStyle=rpHG(g,-28,28,'#fff0a8','#ffd45a','#c98a1c');g.fill();rpOut(g,2.4);
+ for(let i=0;i<14;i++){const x=-22+rpR(i+1)*44,y=-2-rpR(i+5)*26*(1-Math.abs(x)/34);g.beginPath();g.ellipse(x,y,5.6,2.4,rpR(i+9)*.6-.3,0,TAU);g.fillStyle=i%3?'#ffd45a':'#fff0a8';g.fill();g.lineWidth=1.1;g.strokeStyle='#a8741a';g.stroke()}
+ g.fillStyle='rgba(255,255,255,.7)';g.beginPath();g.ellipse(-10,-20,4,7,-.5,0,TAU);g.fill();
+ /* a little gem on top */
+ g.beginPath();g.moveTo(2,-40);g.lineTo(7,-33);g.lineTo(2,-28);g.lineTo(-3,-33);g.closePath();g.fillStyle='#9ae8ff';g.fill();rpOut(g,1.4)});
+function rpStillGold(g,x,y,u,seed){if(u<=0||u>=1)return;const pop=u<.18?rpEB(u/.18):1,fade=u>.75?(1-u)/.25:1;
+ g.save();g.globalCompositeOperation='lighter';rpGlow(g,x,y-16,70*pop,46*pop,'#ffd45a',.9*fade*(1-u*.5));if(u<.25)rpGlow(g,x,y-20,40,40,'#ffffff',1-u/.25);g.restore();
+ g.save();g.globalAlpha=fade;g.translate(x,y);g.scale(pop,pop);rpPut(g,rplGoldS());g.restore();
+ /* glints */
+ const st=rpStarS().c;g.save();g.globalCompositeOperation='lighter';for(let i=0;i<4;i++){const v=((u*2.2+i/4)%1),z=(5+6*rpR(i+(seed|0)))*Math.sin(Math.PI*v)*fade;if(z<.5)continue;g.globalAlpha=1;g.drawImage(st,x+(rpR(i*3+(seed|0))-.5)*56-z,y-6-rpR(i*5+(seed|0))*40-z,z*2,z*2)}g.restore();g.globalAlpha=1}
+/* ===== RUNESTONE TOWER DEFENSE 9.9: the Alchemist's Still in battle (95v, after 95u) =====
+   The ninth tower (key P, 220 supply, ground only). A support tower: it brews a flask, throws it where it will soak the most ground
+   monsters (preferring armored ones and ones not soaked yet; it leads them with rpqLand from 95t, so slides, stuns and slows are read),
+   and the flask shatters into an acid splash and a puddle on the road. Soaked monsters lose armor (RP_TW.still.melt) for a few seconds,
+   so every tower hits them harder; melt beyond a monster's armor makes it take RPSTL.over more damage per point instead (an unarmored
+   scamp soaked at tier 1 takes +20%). Monsters walking through the puddle are soaked again and burned (RP_TW.still.acid per second).
+   Tier 3 Midas Gold: monsters that die soaked drop RP_TW.still.midas more coins. Tier 4 Mythic: violet brew that also slows like glue.
+   Tier 5 Celestial: every RP_TW.still.gold[4]th flask turns the weakest monster in the splash (not a boss, and only one already below RPSTL.goldHp of its health) into a pile of gold, which
+   pays half its coins again on top. Overcharge speeds it up and adds 15% damage like every other tower.
+   Monster state: e.acid (s left), e.melt (points), e.arm0 (armor before melting), e.atier, e.midas, e.glue. e.armor itself is lowered
+   while soaked and restored when it dries, so every armor reader (rpHurt, the Prism's beam) sees the melted value.
+   State on RPX: alFlasks [{x0,y0,x1,y1,t,d,h,tw,tier,dmg,r,gold,seed}], alSplash [{x,y,r,t,d,tier,seed}],
+   alPools [{x,y,r,t,d,tier,soak,seed,tw}], alGold [{x,y,t,d,seed}], alCoins [{x,y,vx,vy,t,d,r}]. Tower: tw.cd, tw.charge, tw.fire, tw.aim, tw.nv. */
+RP_TW.still={cost:[220,180,320,700,1150],range:[200,215,230,245,260],dmg:[18,30,48,75,115],cd:[1.8,1.65,1.5,1.4,1.3],splash:[66,74,84,94,104],
+ melt:[4,5,6,8,10],soak:[4,4.5,5,5.5,6],pool:[2,2.5,3,3.5,4],acid:[6,10,16,26,40],midas:[0,0,.3,.3,.35],glue:[0,0,0,.15,.18],gold:[0,0,0,0,4],air:0,ground:1,
+ desc:'Lobs acid flasks that splash a stretch of road. Soaked monsters lose armor for a few seconds, so every other tower hits them harder. Cannot hit flyers.',
+ up:['Stronger brew: more armor melts, longer puddles.','Midas Gold: monsters that die soaked drop 30% more coins.','Mythic brew: violet potions that also slow like glue.','Celestial flasks: every fourth flask turns the weakest wounded monster in the splash into a pile of gold.']};
+RP_TWORDER.push('still');RP_KEYS.push('P');
+const RPSTL={brew:.6,edge:.7,over:.05,poolK:.5,goldK:.5,goldHp:.35};
+const rplFlight=d=>.5+d/900;
+/* soak a monster: the strongest brew wins; armor drops at once */
+function rplSoak(e,tw,dur){if(e.dead||e.air)return;const T=RP_TW.still,i=Math.max(0,Math.min(4,tw.tier-1));if(e.arm0==null)e.arm0=e.armor;
+ const fresh=!(e.acid>0);e.acid=Math.max(e.acid||0,dur);
+ if(fresh||T.melt[i]>=(e.melt||0)){e.melt=T.melt[i];e.atier=tw.tier;e.midas=Math.max(fresh?0:e.midas||0,T.midas[i]);e.glue=Math.max(fresh?0:e.glue||0,T.glue[i]);e.asrc=tw}
+ e.armor=Math.max(0,e.arm0-e.melt);if(e.glue){e.slowK=Math.max(e.slowK||0,e.glue);e.slowT=Math.max(e.slowT||0,.25)}}
+function rplDry(e){if(e.arm0!=null)e.armor=e.arm0;e.acid=0;e.melt=0;e.midas=0;e.glue=0}
+/* melt beyond the armor: more damage taken (any source) */
+{const h0=rpHurt;rpHurt=function(e,dmg,ap,src){if(e&&e.acid>0&&e.melt>(e.arm0||0))dmg*=1+(e.melt-(e.arm0||0))*RPSTL.over;return h0.call(this,e,dmg,ap,src)}}
+/* Midas: soaked monsters pay more coins when they die */
+{const k0=rpKillFoe;rpKillFoe=function(e,src){const R=RPX,was=e&&!e.dead;let extra=0;
+ if(was&&R&&e.acid>0&&e.midas>0){extra=e.coin*(e.midas+(e.gold?RPSTL.goldK:0))}else if(was&&R&&e.gold)extra=e.coin*RPSTL.goldK;
+ const r=k0.apply(this,arguments);
+ if(was&&extra>0&&R){R.coins+=extra;R.cKill+=extra;R.alMidas=(R.alMidas||0)+extra;const p=rpPos(R,e);
+  rpText(p.x+18,p.y-(e.boss?110:62),`+${Math.max(1,Math.round(extra))} coin${Math.round(extra)>1?"s":""}`,'#ffe27a',e.boss?26:16);
+  const n=R.lite?2:Math.min(7,3+Math.round(extra));for(let k=0;k<n;k++)R.alCoins.push({x:p.x,y:p.y-24,vx:(Math.random()-.5)*150,vy:-160-Math.random()*130,t:0,d:.9+Math.random()*.3,r:Math.random()*6});
+  if(R.alCoins.length>60)R.alCoins.splice(0,R.alCoins.length-60);try{beep(1320+Math.random()*200,.05,'triangle',.07)}catch(x){}}
+ return r}}
+/* where to throw: the predicted spot that soaks the most monsters, armored and dry ones first */
+function rplAim(R,tw,T,i){const rg=T.range[i],r2=rg*rg,cand=[];
+ for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,tw.x,tw.y)>r2)continue;cand.push(e)}
+ if(!cand.length)return null;
+ const pr=new Map(),P=e=>{let v=pr.get(e);if(!v){const q=rpPos(R,e);v=rpqLand(R,e,rplFlight(Math.sqrt(rpD2(q.x,q.y,tw.x,tw.y))));pr.set(e,v)}return v};
+ const sp=T.splash[i]*.85,s2=sp*sp,mt=T.melt[i];let best=null,bv=-1e18;
+ for(const e of cand){const L=P(e);let v=0;for(const f of R.foes){if(f.dead||f.air||f.s<0)continue;const M=P(f);if(rpD2(M.x,M.y,L.x,L.y)>s2)continue;
+   const a0=f.arm0!=null?f.arm0:f.armor,dry=!(f.acid>.8)||(f.melt||0)<mt;v+=10+(dry?9:0)+Math.min(a0,mt)*(dry?2.5:.5)+(f.boss?12:0)}
+  v+=tw.prio==='strong'?e.hp/1e6:tw.prio==='close'?-rpD2(L.x,L.y,tw.x,tw.y)/1e6:e.s/rpLen(R,e);if(v>bv){bv=v;best={e,x:L.x,y:L.y,s:L.s}}}
+ return best}
+function rpStillFire(R,tw,dt){const T=RP_TW.still,i=tw.tier-1,sp=tw.over>0?RPT.AB.over.k:1;tw.over=Math.max(0,tw.over-dt);
+ tw.fire=Math.max(0,(tw.fire||0)-dt*1.8);tw.cd-=dt*sp;tw.charge=tw.cd<RPSTL.brew?Math.min(1,1-tw.cd/RPSTL.brew):Math.max(0,(tw.charge||0)-dt*3);
+ if(tw.cd>0)return;const a=rplAim(R,tw,T,i);if(!a){tw.cd=.15;tw.charge=Math.max(0,tw.charge-.4);return}
+ const dmgK=tw.over>0?1.15:1;tw.cd=T.cd[i];tw.fire=1;tw.charge=0;tw.aim=Math.atan2(a.y-tw.y,a.x-tw.x);tw.nv=(tw.nv||0)+1;
+ const m=rplMouth(tw.tier),x0=tw.x+m.x,y0=tw.y+m.y,d=Math.hypot(a.x-x0,a.y-y0),gn=T.gold[i],gold=!!(gn&&tw.nv%gn===0);
+ R.alFlasks.push({x0,y0,x1:a.x,y1:a.y,t:0,d:rplFlight(d),h:70+d*.28,tw,tier:tw.tier,dmg:T.dmg[i]*dmgK,r:T.splash[i],gold,seed:Math.random()*99});
+ try{ptBurst(R.fx,x0,y0,R.lite?3:6,[rplBrew(tw.tier).c,rplBrew(tw.tier).l,'#ffffff'],{v:110,s:2.8,up:1,g:240})}catch(e){}
+ rplSfx('throw')}
+function rplSfx(k){try{if(k==='throw'){beep(380,.05,'sine',.12);setTimeout(()=>beep(620,.06,'sine',.1),40)}
+ else if(k==='smash'){beep(1500+Math.random()*300,.04,'square',.06);setTimeout(()=>beep(220,.12,'sawtooth',.08),20);setTimeout(()=>beep(900,.05,'triangle',.06),70)}
+ else if(k==='gold'){[880,1175,1568,2093].forEach((f,j)=>setTimeout(()=>beep(f,.09,'triangle',.12),j*55))}}catch(e){}}
+/* turn a monster into a pile of gold */
+function rplGoldify(R,e,tw){const p=rpPos(R,e);e.gold=1;rplSoak(e,tw,1);rpKillFoe(e,tw);e.dk=1;
+ R.alGold.push({x:p.x,y:p.y,t:0,d:1.7,seed:Math.random()*99});if(R.alGold.length>12)R.alGold.shift();R.alGolds=(R.alGolds||0)+1;
+ rpText(p.x,p.y-80,'GOLD!','#ffe27a',24);rpRing(p.x,p.y-10,'#ffd45a',90,5);rplSfx('gold');
+ try{ptBurst(R.fx,p.x,p.y-20,R.lite?6:16,['#fff0a8','#ffd45a','#ffffff'],{v:240,s:3.4,up:1,g:380})}catch(x){}}
+/* a flask lands: soak, hurt, puddle, gold */
+function rplLand(R,f){const T=RP_TW.still,i=Math.max(0,Math.min(4,f.tw.tier-1)),x=f.x1,y=f.y1,r2=f.r*f.r;let weak=null;
+ for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e),d2=rpD2(q.x,q.y,x,y);if(d2>r2)continue;
+  rplSoak(e,f.tw,T.soak[i]);const k=1-(1-RPSTL.edge)*Math.sqrt(d2)/f.r;rpHurt(e,f.dmg*k,0,f.tw);
+  if(f.gold&&!e.dead&&!e.boss&&e.hp<=e.mx*RPSTL.goldHp&&(!weak||e.hp<weak.hp))weak=e}
+ if(weak)rplGoldify(R,weak,f.tw);
+ R.alSplash.push({x,y,r:f.r,t:0,d:.6,tier:f.tier,seed:f.seed});if(R.alSplash.length>30)R.alSplash.shift();
+ R.alPools.push({x,y,r:f.r*.82,t:0,d:T.pool[i],tier:f.tier,soak:T.soak[i]*RPSTL.poolK,dps:T.acid[i]*(f.dmg/T.dmg[i]),seed:f.seed,tw:f.tw});if(R.alPools.length>24)R.alPools.shift();
+ try{ptBurst(R.fx,x,y-6,R.lite?4:10,[rplBrew(f.tier).c,rplBrew(f.tier).l,'#e8fff6'],{v:170,s:3,up:1,g:420})}catch(e){}
+ rplSfx('smash')}
+function rplStep(R,dt){if(!R.alFlasks)return;
+ for(const f of R.alFlasks){f.t+=dt;if(f.t>=f.d&&!f.done){f.done=1;rplLand(R,f)}}R.alFlasks=R.alFlasks.filter(f=>!f.done);
+ for(const s of R.alSplash)s.t+=dt;R.alSplash=R.alSplash.filter(s=>s.t<s.d);
+ for(const p of R.alPools){p.t+=dt;for(const e of R.foes){if(e.dead||e.air||e.s<0)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,p.x,p.y)<p.r*p.r){rplSoak(e,p.tw,p.soak);if(p.dps){const fl=e.fl;rpHurt(e,p.dps*dt,99,p.tw);e.fl=fl}}}}
+ R.alPools=R.alPools.filter(p=>p.t<p.d);
+ for(const g of R.alGold)g.t+=dt;R.alGold=R.alGold.filter(g=>g.t<g.d);
+ for(const c of R.alCoins){c.t+=dt;c.vy+=520*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.r+=dt*12}R.alCoins=R.alCoins.filter(c=>c.t<c.d);
+ for(const e of R.foes){if(!(e.acid>0))continue;e.acid-=dt;if(e.acid<=0||e.dead)rplDry(e);else if(e.glue){e.slowK=Math.max(e.slowK||0,e.glue);e.slowT=Math.max(e.slowT||0,.2)}}}
+/* hooks: fire routine, battle state, step, upgrade */
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type==='still')return rpStillFire(R,tw,dt);return f0.apply(this,arguments)}}
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);if(RPX)Object.assign(RPX,{alFlasks:[],alSplash:[],alPools:[],alGold:[],alCoins:[],alMidas:0,alGolds:0});return r}}
+{const s0=rpStep;rpStep=function(R,dt){const r=s0.apply(this,arguments);try{rplStep(R,dt)}catch(e){console.error(e)}return r}}
+{const u0=rpUpgrade;rpUpgrade=function(tw){const r=u0.apply(this,arguments);if(r&&tw&&tw.type==='still'){tw.charge=0;tw.fire=0}return r}}
+/* drawing: puddles and flask shadows on the ground; flasks, splashes, gold and coins on top; badges and drips on soaked monsters */
+const rplPos=f=>{const u=Math.max(0,Math.min(1,f.t/f.d));return{u,x:f.x0+(f.x1-f.x0)*u,y:f.y0+(f.y1-f.y0)*u-f.h*4*u*(1-u),gx:f.x0+(f.x1-f.x0)*u,gy:f.y0+(f.y1-f.y0)*u}};
+{const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.alPools){
+ for(const p of R.alPools){const k=Math.min(1,p.t*7,(p.d-p.t)/.7);rpStillPuddle(c,p.x,p.y,p.r,k,R.t,p.tier,p.seed%1)}
+ for(const f of R.alFlasks){const p=rplPos(f),k=.35+.65*p.u;c.fillStyle=`rgba(8,4,20,${(.3*k).toFixed(3)})`;c.beginPath();c.ellipse(p.gx,p.gy+2,7*k,3*k,0,0,TAU);c.fill()}}}catch(e){console.error(e)}return r}}
+{const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);if(!R.alFlasks)return;
+ for(const s of R.alSplash)rpStillSplash(c,s.x,s.y,s.r,s.t/s.d,s.tier,s.seed|0);
+ for(const f of R.alFlasks){const p=rplPos(f),B=rplBrew(f.gold?5:f.tier);
+  c.save();c.globalCompositeOperation='lighter';const n=R.lite?2:4;for(let k=1;k<=n;k++){const q=rplPos({x0:f.x0,y0:f.y0,x1:f.x1,y1:f.y1,h:f.h,t:Math.max(0,f.t-k*.03),d:f.d});rpGlow(c,q.x,q.y,10-k*1.5,10-k*1.5,B.c,.7-k*.13)}
+  if(f.gold)rpGlow(c,p.x,p.y-6,26,26,'#ffd45a',.8+.2*Math.sin(R.t*30));c.restore();c.globalAlpha=1;
+  rpStillFlask(c,p.x,p.y,f.gold?5:f.tier,f.t*11,1.35)}
+ for(const g of R.alGold)rpStillGold(c,g.x,g.y,g.t/g.d,g.seed);
+ for(const k of R.alCoins){c.globalAlpha=Math.min(1,(k.d-k.t)*4);rpStillCoin(c,k.x,k.y,k.r,1.05)}c.globalAlpha=1}}
+{const f0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){const r=f0.apply(this,arguments);if(e.acid>0&&!e.dead&&e.melt>0){try{
+  if(!R.rm&&Math.random()<(R.lite?.04:.1)){const B=rplBrew(e.atier||1);ptBurst(R.fx,q.x+(Math.random()-.5)*16,q.y-22,1,[B.c,B.d],{v:24,s:2.4,g:260})}
+  const h=(RPMOB[e.id]?RPMOB[e.id].h:50)+(e.air?44:8);rpStillBadge(c,q.x,q.y-h-(e.hp<e.mx?14:6),e.melt,e.atier||1,Math.min(1,e.acid*2))}catch(x){}}return r}}
+/* the info panel: range, melt, splash, fire rate */
+{const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='still')return r;try{const T=RP_TW.still,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
+  const seg=(v,max)=>Math.max(0,Math.min(6,Math.round(v/max*6))),bar=(lab,v,max,nv)=>`<div class="rpst"><span>${lab}</span><i>${[0,1,2,3,4,5].map(k=>`<s class="${k<seg(v,max)?'on':nv!=null&&k<seg(nv,max)?'up':''}"></s>`).join('')}</i></div>`;
+  const st=el.querySelector('.rpsts');if(st)st.innerHTML=bar('Range',T.range[i],300,nx!=null?T.range[nx]:null)+bar('Armor melt',T.melt[i],10,nx!=null?T.melt[nx]:null)+bar('Splash',T.splash[i],100,nx!=null?T.splash[nx]:null)+bar('Fire rate',1/T.cd[i],.72,nx!=null?1/T.cd[nx]:null);
+  const ex=[`Armor <b>-${T.melt[i]}</b> for ${T.soak[i]} s`];if(T.midas[i])ex.push(`<b>+${Math.round(T.midas[i]*100)}%</b> coins`);if(T.glue[i])ex.push(`<b>${Math.round(T.glue[i]*100)}%</b> glue slow`);if(T.gold[i])ex.push(`gold every <b>${T.gold[i]}</b>`);
+  if(st)st.insertAdjacentHTML('afterend',`<div class="rplx">${ex.join(' · ')}</div>`);
+  const hgt=el.offsetHeight||420;el.style.top=rpClamp(tw.y-hgt*.62,76,770-hgt)+'px'}catch(e){console.error(e)}return r}}
+/* key P picks it */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1&&e.key.toLowerCase()==='p'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('still');return}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+/* nine buttons in the build ring: a wider arc so they keep their spacing */
+{const g0=rpHudRing;rpHudRing=function(R,C){const was=C.rg;const r=g0.apply(this,arguments);try{if(C.rg!==was&&C.rg){const bs=[...$('rpring').querySelectorAll('.rprb')],p=R.selPad;if(bs.length>=9)bs.forEach(b=>{for(const v of ['--x','--y']){const n=parseFloat(b.style.getPropertyValue(v));if(isFinite(n))b.style.setProperty(v,(n*1.12).toFixed(1)+'px')}});
+  /* keep the whole ring on the stage: slide it sideways off the left and right edges */
+  if(p&&bs.length){const xs=bs.map(b=>p.x+(parseFloat(b.style.getPropertyValue('--x'))||0)),lo=Math.min(...xs)-46,hi=Math.max(...xs)+46,dx=lo<0?-lo:hi>1600?1600-hi:0;
+   if(dx)bs.forEach(b=>b.style.setProperty('--x',((parseFloat(b.style.getPropertyValue('--x'))||0)+dx).toFixed(1)+'px'))}}}catch(e){console.error(e)}return r}}
+/* nine tiles in the bar: narrower still */
+{const st=document.createElement('style');st.textContent=`.rph.rp7.rp8.rp9 .rpbar{gap:4px}.rph.rp7.rp8.rp9 .rpcard{width:90px}.rph.rp7.rp8.rp9 .rpct>b{max-width:86px;font-size:12.5px}.rph.rp7.rp8.rp9 .rpcard img{width:70px;height:70px;margin-left:-35px;top:-20px}
+.rplx{margin:6px 0 2px;font:600 12px Poppins,system-ui,sans-serif;color:#cfe9c8;line-height:1.35}.rplx b{color:#7dff6a}`;document.head.appendChild(st)}
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h&&RP_TWORDER.length>=9)h.classList.add('rp9')}catch(e){}return r}}
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" The Alchemist's Still (P, 220 supply) throws acid flasks that melt monsters' armor for a few seconds, so every other tower hits them harder; at tier 3 soaked monsters drop more coins."}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Alchemist's Still.</b> A support tower (220 supply, key P). Its acid flasks soak a stretch of road: soaked monsters lose armor for a few seconds, so every other tower hits them harder, and the puddle burns and soaks whoever walks through it. Tier 3 Midas Gold: soaked monsters drop 30% more coins. Tier 4 glue slows them. Tier 5 turns the weakest wounded monster in a splash into a pile of gold every fourth flask. Cannot hit flyers.</p>`)}catch(e){}return r}}
 /* ===== 9.4 THE CROOKED CUE (pool mode): data, save normaliser (96a) =====
    Code prefix `pz`, save P.pz, casino id 'pz'. See POOL_PLAN.md. Everything here is data; art is 96e-96h, rules 96b-96d. */
 const PZ_O='#12081f';

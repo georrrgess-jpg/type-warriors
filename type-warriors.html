@@ -51240,7 +51240,7 @@ function pzwTab(k){
    <p class="pzw-gp">It shows where things head, never the whole shot: <b>judging the pocket is up to you</b>.</p>
    <div class="pzw-gtbl">${pzwCv('guideT',596,226)}${pzwOv('guide',596,226)}</div>
    <div class="pzw-gms">${[['full','gFull','Full','Ghost ball, gold to the first cushion, the blue cue-ball path'],['short','gShort','Short','Ghost ball and the first stretch of each line'],['pro','gPro','Pro','Just the aim line (a trophy against Mortimer)']].map(([v,a,t,p])=>`<div class="pzw-gm ${v===gd?'on':''}" data-g="${v}">${pzwCv(a,176,62)}<b>${t}${v===gd?'<s>yours</s>':''}</b><span>${p}</span></div>`).join('')}</div></div>
-   <div class="pzw-xs">${[['taunt','Taunts',`When a monster misses you may get a taunt: <b>type it in time</b> and its next shot wobbles. ${pzwK('Esc')} skips it; Settings can switch them off.`],['fast','Fast-forward',`Hold ${pzwK('Space')} or the mouse while balls roll or a monster thinks: it all runs 3× faster.`],['clock','Shot clock','Matches run a clock on your turn (45 s; Mortimer: 25 s). Run out and it is a foul. None in practice, against Gloop or in your first match.'],['house','House rules','Every regular has one house rule, like Barnacle\'s <b>bank the 8</b>. It is shown when you pick them at the bar, and in the pause menu.']].map(([a,t,p],i)=>`<div class="pzhcard pzw-x pzw-c" style="--i:${i+1}"><div class="pzw-xf">${pzwCv(a,146,88)}</div><div><b>${t}</b><p>${p}</p></div></div>`).join('')}</div></div>`}
+   <div class="pzw-xs">${[['taunt','Taunts',`When a monster misses you may get a taunt: <b>type it in time</b> and its next shot wobbles. ${pzwK('Esc')} skips it; Settings can switch them off.`],['fast','Fast-forward',`Hold ${pzwK('Space')} or the mouse while balls roll or a monster thinks: it all runs 3× faster.`],['clock','Shot clock','Matches run a clock on your turn (45 s; Mortimer: 25 s). Run out and it is a foul. None in practice, against Gloop or in your first match.'],['house','House rules','Most regulars have a house rule, like Mortimer\'s <b>25-second shot clock</b>. It is shown when you pick them at the bar, and in the pause menu.']].map(([a,t,p],i)=>`<div class="pzhcard pzw-x pzw-c" style="--i:${i+1}"><div class="pzw-xf">${pzwCv(a,146,88)}</div><div><b>${t}</b><p>${p}</p></div></div>`).join('')}</div></div>`}
  if(k==='keys'){const row=([a,b,pr])=>`<div data-probe="${pr}"><kbd>${a}</kbd><span>${b}</span></div>`;
   return `<div class="pzw-keys"><div class="pzw-kl"><div class="pzw-kt">
    <div class="pzhcard pzw-kc pzw-c" style="--i:0"><b>Aim</b>${pzwCv('mouseLR',128,96,'pzw-msw2')}<p><b>Aim with the mouse.</b> Press, pull back and let go to shoot.</p></div>
@@ -52946,6 +52946,57 @@ try{addEventListener('online',()=>{const s=tpSt();if(s.vote&&!s.sent&&tpOpen())t
    and the panel's bottom edge. The panel now hangs from the top of its row instead of centring, the lowest cards are a little shorter
    and the panel's bottom padding tighter, so everything ends above the dock with a clear gap. */
 {const st=document.createElement("style");st.textContent=`.dkcp{align-self:start;padding-top:20px!important;padding-bottom:20px!important}.dkcp .dksc{margin-top:12px!important}.dkcp .dks4 .dkcard{min-height:120px;padding-top:11px!important;padding-bottom:11px!important}`;document.head.appendChild(st)}
+/* ===== THE CROOKED CUE 9.9g: the 8-ball "glitch", the guide on the wrong ball, clearer groups (97b, after 97a) =====
+   - Players reported potting the 8 after clearing their group and getting a foul screen ("8 without a bank"), the 8 spotted and a
+     re-shot. That was Barnacle's house rule (the 8 had to kiss a cushion before it dropped), shown only on his card, so it read as a
+     bug. It is retired: a legally potted 8 in the called pocket wins the rack against everyone. Barnacle plays plain 8-ball; resumed
+     matches drop the rule too (the judge strips house.bank8). The rule code in 96c stays, unused.
+   - The aim guide is not drawn when the first ball on the aim line is one you may not hit first (the opponent's group, or the 8 too
+     early); that ball gets a small red "not yours" ring instead.
+   - While you aim, your own group's balls wear a soft gold ring (and the 8 too once it is your target), so solids and stripes are
+     easy to tell apart with any ball set. */
+try{if(PZ_REG.barnacle){PZ_REG.barnacle.house={};PZ_REG.barnacle.houseTxt='No house rule: plain 8-ball. He just loves bank shots.'}}catch(e){}
+try{PZ97_HOUSE.barnacle='None. Plain 8-ball (he loves banks).'}catch(e){}
+try{PZ_TIPS.barnacle='Loves banks and kicks. Leave him straight shots and he gets fancy.'}catch(e){}
+{const j0=pzrJudge;pzrJudge=function(st,ev){if(st&&st.house&&st.house.bank8)st.house=Object.assign({},st.house,{bank8:0});return j0.apply(this,arguments)}}
+{const d0=pzDrawGuide;pzDrawGuide=function(g,B,ang,mode,t,spinB){const st=PZ.st;let tg=null;try{if(st&&!st.brk)tg=pzrTargets(st)}catch(e){}
+ const cue=B[0],R=PZ_PHY.R,G=PZ_G;
+ /* gold rings on your own balls (the 8 once it is yours) */
+ if(tg&&cue&&cue.on){g.save();g.translate(G.x,G.y);const pu=.55+.2*Math.sin(t*4);g.lineWidth=2.4;g.strokeStyle=`rgba(255,212,90,${pu.toFixed(3)})`;
+  for(const b of B)if(b.on&&b.id&&tg.includes(b.id)&&!(st.open&&!st.grp[st.turn])){g.beginPath();g.arc(b.x,b.y,R+3.5,0,TAU);g.stroke()}g.restore()}
+ if(tg&&cue&&cue.on){const h=pzRay(B,cue.x,cue.y,Math.cos(ang),Math.sin(ang),0);
+  if(h&&h.type==='ball'&&!tg.includes(h.id)){/* not a legal first ball: no guide, a red ring on it */
+   g.save();g.translate(G.x,G.y);g.lineWidth=3;g.strokeStyle='rgba(255,90,110,.95)';g.beginPath();g.arc(h.b.x,h.b.y,R+4,0,TAU);g.stroke();
+   g.beginPath();g.moveTo(h.b.x-R*.55,h.b.y-R*.55);g.lineTo(h.b.x+R*.55,h.b.y+R*.55);g.stroke();g.restore();return {hit:h,pocket:-1,blocked:true}}}
+ return d0.apply(this,arguments)}}
+/* ===== RUNESTONE TOWER DEFENSE 9.9h: healers that can be out-damaged, and an endless Wonderland that stays beatable past wave 60 (97c, after 97b) =====
+   Hex Shamans (95e) pulsed 8% of max health into every hurt monster in reach every 2.4 s. Three faults made late waves unwinnable:
+   - pulses stacked: a monster between three shamans got 24% back per pulse;
+   - shamans healed each other, so a pack of them could out-heal a full board;
+   - the heal is a share of max health, so it kept pace with the endless health curve while towers stop growing at tier 5.
+   Now (RPHL): a monster takes at most one heal per pulse window, however many shamans reach it; shamans do not heal shamans; bosses
+   take half; and in the endless Wonderland the pulse fades from 8% (wave RPHL.w1) to RPHL.k2 (wave RPHL.w2 and later).
+   The pulse itself is moved out of rpStep: spawned healers keep their timer in e.hlT (e.heal = 0 switches the old pulse off). */
+const RPHL={once:2.3,boss:.5,w1:30,w2:60,k2:.045};
+function rpHealK(R){const k=RP_FOE.shaman.heal;if(!R.map.endless||R.wave<=RPHL.w1)return k;const v=Math.min(1,(R.wave-RPHL.w1)/(RPHL.w2-RPHL.w1));return k+(RPHL.k2-k)*v}
+{const s0=rpSpawn;rpSpawn=function(id){const e=s0.apply(this,arguments);if(e&&e.heal>0){e.hlT=e.heal;e.heal=0}return e}}
+{const t0=rpStep;rpStep=function(R,dt){t0.apply(this,arguments);if(!R.foes)return;let K=-1;
+  for(const e of R.foes){if(e.dead||!(e.hlT>0))continue;e.hlT-=dt;if(e.hlT>0)continue;const F=RP_FOE[e.id];e.hlT=F.healT;if(K<0)K=rpHealK(R);
+   const p=rpPos(R,e);let n=0;for(const f of R.foes){if(f.dead||f===e||f.hp>=f.mx||f.s<0||RP_FOE[f.id].heal||(f.hlAt!=null&&R.time-f.hlAt<RPHL.once))continue;
+    const q=rpPos(R,f);if((q.x-p.x)**2+(q.y-p.y)**2<F.healR*F.healR){f.hp=Math.min(f.mx,f.hp+f.mx*K*(f.boss?RPHL.boss:1));f.hlAt=R.time;n++}}
+   if(n)R.rings.push({x:p.x,y:p.y,t:0,d:.6,max:F.healR,c:'#b47aff',w:3,heal:1})}}}
+/* The endless curve past wave 50. A full board of tier-5 towers held every ordinary wave up to 105 once the healers were fixed, but
+   boss waves were a wall: 3 Behemoths at wave 60, 4 at wave 90, each with hit points still compounding. Now, in the Wonderland only:
+   - after wave RPE.w2 (50) the extra climb on ordinary hit points drops from 1.4% to 1% a wave (RPE.soft 1.014 -> 1.01);
+   - boss hit points after wave 50 compound at 0.6% a wave instead of 1.2% (RPHL.bsoft);
+   - at most RPHL.bossN Behemoths per boss wave, a little further apart (gap 6 -> RPHL.bossGap s). */
+RPE.soft=1.01;Object.assign(RPHL,{bossN:2,bossGap:8,bsoft:1.006});
+{const h0=rpHpK;rpHpK=function(map,w,boss){const k=h0.apply(this,arguments);return map&&map.endless&&boss&&w>RPE.w2?k*Math.pow(RPHL.bsoft/RPE.boss,w-RPE.w2):k}}
+{const w0=rpWave;rpWave=function(map,w){const W=w0.apply(this,arguments);if(!map||!map.endless)return W;
+  return W.map(g=>g.id==='behemoth'&&g.n>RPHL.bossN?Object.assign({},g,{n:RPHL.bossN,gap:RPHL.bossGap}):g)}}
+/* Bot results (t_ramparts bot, each tower to tier 5 in turn, waves reached): Dragon+Dragon+Frost 71 -> 100, Dragon+Dragon+Tide 70 -> 82,
+   Dragon+Still+Frost 50 -> 94, Prism+Dragon+Frost 94. Healer fix alone: 90 / 76 / 80. No extra climb at all after 50 let the bots sit at
+   full health past wave 115, so some climb stays. A board of 14 tier-5 towers holds every ordinary wave to 105 and the wave-80 bosses. */
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

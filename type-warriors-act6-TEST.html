@@ -53929,6 +53929,102 @@ try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on 
 .twab .twalink{all:unset!important;cursor:pointer!important;font:700 13px Poppins,sans-serif!important;color:#a99be0!important;text-decoration:underline!important;text-underline-offset:3px}.twab .twalink:hover{color:#fff8e8!important}
 #twachip+.dkst0{margin-left:0}
 .twaout{margin-top:14px}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 9.9p: the tower redesign from the owner's concept sheets, and smoother tower animation (97k) =====
+   The concept sheets keep every tower's design and add: towers about 15% larger on their pads, soft glow around every light source
+   (flames, crystals, orbs, bells, furnaces, flasks, star tips), more embers / sparkles / bubbles, and a livelier feel. All of it is
+   layered on top of rpTowerDraw, so the ten towers' own art, skins and tier looks stay as they are.
+   - RPG.k: the model scale (about the ground point). rpTowerTop is scaled with it, so prism beams and the overcharge sit right, and
+     every projectile a tower fires (bolts, embers, lightning, shells, flasks, star shots, jets) leaves from the scaled art (rpFire).
+   - Glow: one baked radial sprite per colour (RPG_GL), drawn behind the tower at the light sources listed in RPG_SRC (per tower,
+     per tier, in the tower's own units). It breathes gently and flares when the tower fires. Skins recolour it (RPG_SKC).
+   - Particles: stateless (a function of time and the tower's phase), drawn with baked dot / star / flake sprites (RPG_PT):
+     embers (Ember Blazer, Dragon Roost), ice glints (Frost Spire), sparks (Storm Bell), rainbow motes (Celestial Prism), bubbles
+     (Tidecaller, Alchemist's Still), smoke after a shot (Thunder Mortar), twinkles (Starfall Observatory), rune motes (Rune Ballista 4-5).
+   - Motion: a slow idle breath, a squash-and-stretch on every shot, and a ground ring when a tower is built or upgraded.
+   Cost and slow computers: everything is drawImage of small baked sprites (no shadowBlur, no ctx.filter, no blend modes). Performance
+   mode (Settings) or the tower defense lite flag drops the particles and the breath; Balanced uses about 60% of the particles;
+   reduced motion turns particles and breath off. Icons (rpTowerIcon) get the glow but no particles. */
+const RPG={k:1.15};
+let RPG_D=0,RPG_ICON=0;
+const RPG_SKC={brazier:{azure:'#6ab8ff'},frost:{aurora:'#ff9ae8'},bell:{thunderking:'#c08aff'},dragon:{azure:'#7ac8ff'},ballista:{gilded:'#ffd45a'}};
+/* light sources: [x, y, r, colour, kind] per tier (index 1..5); kind 'f' = only while firing */
+const RPG_SRC=(()=>{const S={},T=(f)=>[0,1,2,3,4,5].map(t=>t?f(t):null);
+ S.ballista=T(t=>t>=4?[[0,-48,34,t===4?'#b48aff':'#bfe8ff']]:[]);
+ S.brazier=T(t=>{const y=[0,-67,-80,-100,-100,-100][t],r=[0,40,46,54,56,60][t],c=t===5?'#ffc85a':'#ff9a3a',a=[[0,y,r,c]];
+  if(t===2)a.push([-30,-77,16,c],[30,-77,16,c]);if(t>=3)a.push([-38,-103,18,c],[38,-103,18,c]);if(t===4)a.push([0,-92,26,'#b070ff']);return a});
+ S.frost=T(t=>[[0,[0,-47,-63,-87,-87,-87][t],[0,30,40,52,54,58][t],'#8ae6ff']].concat(t===4?[[0,-40,30,'#b48aff']]:[]));
+ S.bell=T(t=>{const a=[[0,[0,-48,-63,-73,-73,-73][t],[0,22,24,26,26,28][t],'#ffd45a'],[0,[0,-78,-112,-125,-125,-125][t],16,'#7ad8ff']];if(t>=3)a.push([-55,-83,17,'#ffd45a'],[55,-83,17,'#ffd45a']);return a});
+ S.prism=T(t=>[[0,[0,-70,-90,-102,-98,-107][t],[0,34,40,46,48,58][t],t===4?'#d8b0ff':'#fff2d0'],[0,[0,-25,-33,-42,-40,-45][t],18,'#ffe9a0']]);
+ S.dragon=T(t=>[[[0,8,5,3,5,5][t],[0,-37,-42,-48,-50,-53][t],[0,24,26,28,30,32][t],t===4?'#ff70e0':t===5?'#ffd060':'#ffa040']]);
+ S.tide=T(t=>[[0,[0,-70,-80,-95,-100,-107][t],[0,26,28,30,32,36][t],t===4?'#b48aff':'#7ad8ff']]);
+ S.mortar=T(t=>{const m=[[0,0],[15,-60],[17,-67],[18,-75],[20,-80],[20,-83]][t],a=[[m[0],m[1],34,'#ffd27a','f']];if(t===5)a.push([32,-106,18,'#bfefff']);return a});
+ S.still=T(t=>{const fc=t===4?'#b070ff':t===5?'#ffd45a':'#ff9a3a',kc=t===4?'#c890ff':t===5?'#fff0a0':'#7dff8a';return [[0,-5,[0,20,22,24,26,28][t],fc],[0,[0,-75,-82,-87,-90,-93][t],[0,22,24,26,28,30][t],kc]]});
+ S.star=T(t=>{const a=[[0,t>=4?-60:-52,t>=4?24:18,t===4?'#b48aff':t===5?'#fff0c0':'#9fc8ff']];if(t>=3)a.push([0,-95,13,'#ffe9a0']);return a});
+ return S})();
+/* particles: [kind, count by tier, colour, sprite, source (x,y per tier), size] */
+const RPG_PAR={
+ ballista:{k:'orbit',n:[0,0,0,0,3,4],c:'#9fe0ff',s:'dot',y:[0,0,0,0,-48,-50],r:30,z:3},
+ brazier:{k:'rise',n:[0,4,5,6,7,8],c:'#ffb347',s:'dot',y:[0,-80,-95,-118,-118,-118],w:16,h:70,z:3.2},
+ frost:{k:'orbit',n:[0,3,4,5,6,6],c:'#e8fbff',s:'flake',y:[0,-47,-63,-87,-87,-87],r:[0,22,30,40,42,44],z:4},
+ bell:{k:'spark',n:[0,2,3,4,5,6],c:'#bfefff',s:'star',y:[0,-70,-95,-108,-108,-110],w:40,h:30,z:4},
+ prism:{k:'rise',n:[0,3,4,5,6,7],c:['#ff9ad8','#9ad8ff','#b8ffa0','#ffe08a'],s:'dot',y:[0,-28,-36,-45,-43,-48],w:14,h:46,z:3},
+ dragon:{k:'rise',n:[0,3,4,5,6,7],c:'#ffb347',s:'dot',y:[0,-40,-45,-50,-52,-55],x:6,w:12,h:50,z:2.8},
+ tide:{k:'rise',n:[0,3,4,5,6,7],c:'#bfefff',s:'ring',y:[0,-22,-22,-22,-22,-24],w:30,h:40,z:3},
+ mortar:{k:'smoke',n:[0,3,3,4,4,5],c:'#d8d0f0',s:'dot',x:[0,15,17,18,20,20],y:[0,-62,-69,-77,-82,-85],w:6,h:34,z:6},
+ still:{k:'rise',n:[0,3,3,4,5,6],c:['#7dff8a'],s:'ring',y:[0,-92,-100,-106,-110,-114],w:6,h:34,z:2.6},
+ star:{k:'twinkle',n:[0,3,4,5,6,7],c:'#fff8d0',s:'star',y:[0,-70,-78,-86,-88,-92],w:52,h:34,z:5}};
+const RPG_STC={4:'#c890ff',5:'#fff0a0'};
+/* ---------- baked sprites ---------- */
+const RPG_GL=new Map(),RPG_PT=new Map();
+function rpgGlow(col){let c=RPG_GL.get(col);if(c)return c;c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d'),gr=g.createRadialGradient(32,32,0,32,32,32);
+ gr.addColorStop(0,col+'cc');gr.addColorStop(.45,col+'5c');gr.addColorStop(1,col+'00');g.fillStyle=gr;g.fillRect(0,0,64,64);RPG_GL.set(col,c);return c}
+function rpgDot(shape,col){const key=shape+col;let c=RPG_PT.get(key);if(c)return c;c=document.createElement('canvas');c.width=c.height=24;const g=c.getContext('2d');g.translate(12,12);
+ const gr=g.createRadialGradient(0,0,0,0,0,12);gr.addColorStop(0,col+'aa');gr.addColorStop(1,col+'00');g.fillStyle=gr;g.fillRect(-12,-12,24,24);
+ if(shape==='star'){g.fillStyle='#ffffff';g.beginPath();for(let i=0;i<8;i++){const a=i*Math.PI/4,r=i%2?2:8;g.lineTo(Math.cos(a)*r,Math.sin(a)*r)}g.closePath();g.fill()}
+ else if(shape==='flake'){g.fillStyle='#ffffff';g.beginPath();g.moveTo(0,-7);g.lineTo(3,0);g.lineTo(0,7);g.lineTo(-3,0);g.closePath();g.fill()}
+ else if(shape==='ring'){g.strokeStyle='#ffffff';g.lineWidth=1.6;g.beginPath();g.arc(0,0,4.5,0,Math.PI*2);g.stroke();g.fillStyle='#ffffffaa';g.fillRect(-2.5,-3,1.6,1.6)}
+ else{g.fillStyle=col;g.beginPath();g.arc(0,0,3.4,0,Math.PI*2);g.fill();g.fillStyle='#fffbe8';g.beginPath();g.arc(-.8,-.8,1.5,0,Math.PI*2);g.fill()}
+ RPG_PT.set(key,c);return c}
+/* how much to draw on this computer */
+function rpgQ(){let q=1;try{const p=PFSET();if(p==='low')q=0;else if(p==='bal')q=.6}catch(e){}try{if(RPX&&RPX.lite)q=0}catch(e){}try{if(rpRM())q=0}catch(e){}return q}
+let RPG_QV=1,RPG_QT=0;
+const rpgQc=()=>{const n=performance.now();if(n-RPG_QT>1000){RPG_QT=n;RPG_QV=rpgQ()}return RPG_QV};
+const rpgH=(i)=>{const s=Math.sin(i*127.1+311.7)*43758.5453;return s-Math.floor(s)};
+function rpgCol(type,skin,c){const s=RPG_SKC[type];return s&&s[skin]&&c!=='#ffd45a'&&c!=='#ffe9a0'?s[skin]:c}
+/* ---------- drawing ---------- */
+function rpgGlows(g,type,tier,skin,t,o){const L=RPG_SRC[type]&&RPG_SRC[type][tier];if(!L||!L.length)return;const nL=RPG_ICON||rpgQc()?L.length:1;const f=Math.max(0,Math.min(1,o.fire||0)),ph=(o.ph||0)*6.283,a0=g.globalAlpha;
+ for(let i=0;i<nL;i++){const [x,y,r,c,kd]=L[i];let a;if(kd==='f'){if(f<=.02)continue;a=.9*f}else a=.42+.1*Math.sin(t*2.1+ph+i*1.7)+.35*f;
+  const R=r*(.82+.08*f);g.globalAlpha=a0*Math.min(1,a);g.drawImage(rpgGlow(rpgCol(type,skin,c)),x-R,y-R,R*2,R*2)}g.globalAlpha=a0}
+function rpgParts(g,type,tier,skin,t,o,q){const P=RPG_PAR[type];if(!P)return;let n=P.n[tier]||0;if(!n)return;n=Math.max(1,Math.round(n*q));const ph=o.ph||0,a0=g.globalAlpha,z=P.z;
+ const y0=P.y[tier],x0=Array.isArray(P.x)?P.x[tier]:(P.x||0),f=Math.max(0,Math.min(1,o.fire||0));
+ for(let i=0;i<n;i++){let col=Array.isArray(P.c)?P.c[i%P.c.length]:P.c;if(type==='still'&&RPG_STC[tier])col=RPG_STC[tier];if(type==='brazier'&&tier===4&&i%3===2)col='#d68cff';col=rpgCol(type,skin,col);
+  const sp=rpgDot(P.s,col),h=rpgH(i+ph*37);let x,y,a,s=z;
+  if(P.k==='rise'){const u=(t*(.32+.18*h)+i/n+ph)%1;x=x0+(h-.5)*P.w*2+Math.sin(t*2+i*2.3)*4;y=y0-u*P.h;a=Math.sin(Math.PI*u);s=z*(1-.45*u)}
+  else if(P.k==='smoke'){const u=(t*.5+i/n+ph)%1;a=Math.sin(Math.PI*u)*(.25+.75*f);if(a<.04)continue;x=x0+(h-.5)*P.w*2+u*10;y=y0-u*P.h;s=z*(.6+u)}
+  else if(P.k==='orbit'){const r=Array.isArray(P.r)?P.r[tier]:P.r,an=t*(.7+.2*h)+i*6.283/n+ph*6.283;x=Math.cos(an)*r;y=y0+Math.sin(an)*r*.35+Math.sin(t*1.7+i)*3;a=.45+.4*Math.sin(t*3+i*2.1);s=z*(.8+.3*Math.sin(an))}
+  else if(P.k==='spark'){const k=Math.floor(t*3.2+i*.37+ph*5),u=(t*3.2+i*.37+ph*5)-k;x=(rpgH(k*7+i)-.5)*P.w*2;y=y0+(rpgH(k*13+i)-.5)*P.h*2;a=(1-u)*(1-u)*(.6+.4*f);s=z*(1.2-u*.6)}
+  else{const u=(t*.45+i/n+ph)%1;x=(rpgH(i*3+1+ph*9)-.5)*P.w*2;y=y0+(rpgH(i*5+2+ph*9)-.5)*P.h*2;a=Math.pow(Math.max(0,Math.sin(Math.PI*u)),2);s=z*(.6+.6*a)}
+  if(a<=.02)continue;g.globalAlpha=a0*Math.min(1,a);g.drawImage(sp,x-s*2,y-s*2,s*4,s*4)}g.globalAlpha=a0}
+/* the model: bigger, breathing, squashing on a shot; glow behind, particles in front */
+{const f0=rpTowerDraw;rpTowerDraw=function(g,type,tier,skin,t,o){if(RPG_D||RPG.off)return f0.apply(this,arguments);o=o||{};t=t||0;tier=Math.max(1,Math.min(5,tier|0||1));
+  const q=RPG_ICON||o.ghost?0:rpgQc(),fr=Math.max(0,Math.min(1,o.fire||0)),fs=fr*fr*(3-2*fr),br=q?.008*Math.sin(t*1.6+(o.ph||0)*6.283):0;
+  RPG_D++;g.save();try{g.scale(RPG.k*(1+.035*fs),RPG.k*(1-.05*fs+br));rpgGlows(g,type,tier,skin,t,o);f0.call(this,g,type,tier,skin,t,o);if(q)rpgParts(g,type,tier,skin,t,o,q)}
+  finally{g.restore();RPG_D--}}}
+{const b0=rpTowerBuild;rpTowerBuild=function(g,type,tier,skin,k,t,o){if(RPG_D||!(k<1))return b0.apply(this,arguments);RPG_D++;g.save();try{g.scale(RPG.k,RPG.k);b0.apply(this,arguments)}finally{g.restore();RPG_D--}}}
+{const i0=rpTowerIcon;rpTowerIcon=function(){RPG_ICON++;try{return i0.apply(this,arguments)}finally{RPG_ICON--}}}
+{const p0=rpTowerTop;rpTowerTop=function(){return p0.apply(this,arguments)*RPG.k}}
+/* a ring on the ground when a tower is finished or upgraded */
+{const a0=rpTowerAt;rpTowerAt=function(c,R,tw){const r=a0.apply(this,arguments);try{const done=tw.build>=1&&!(tw.upK<1);
+  if(done&&(tw._gT!==tw.tier)){if(tw._gT!=null||tw._gB)tw._gR=R.t;tw._gT=tw.tier}if(tw.build<1)tw._gB=1;
+  const u=tw._gR!=null?(R.t-tw._gR)/.6:2;if(u>=0&&u<1){const e=1-(1-u)*(1-u),rr=24+56*e;c.save();c.globalAlpha=(1-u)*.85;c.strokeStyle=tw.tier>=4?'#ffe9a0':'#fff2b0';c.lineWidth=4*(1-u)+1;
+   c.beginPath();c.ellipse(tw.x,tw.y+4,rr,rr*.36,0,0,Math.PI*2);c.stroke();c.globalAlpha=(1-u)*.6;c.drawImage(rpgGlow(tw.tier>=4?'#ffe9a0':'#fff2b0'),tw.x-rr,tw.y-rr*.7,rr*2,rr*1.2);c.restore()}}catch(e){}return r}}
+/* shots leave from the scaled art: move the start of anything rpFire just launched near the tower */
+const RPG_ARR=['shots','lines','arcs','mtShells','alFlasks','sfStars','tdJets'];
+function rpgNear(tw,x,y){return Math.abs(x-tw.x)<110&&y<=tw.y+6&&y>tw.y-240}
+function rpgMove(tw,o,kx,ky){const k=RPG.k;if(!(kx in o)||!(ky in o))return false;const x=o[kx],y=o[ky];if(typeof x!=='number'||typeof y!=='number'||!rpgNear(tw,x,y))return false;o[kx]=tw.x+(x-tw.x)*k;o[ky]=tw.y+(y-tw.y)*k;return true}
+{const f0=rpFire;rpFire=function(R,tw,dt){const n0=RPG_ARR.map(k=>Array.isArray(R[k])?R[k].length:0);const r=f0.apply(this,arguments);
+  try{RPG_ARR.forEach((k,i)=>{const A=R[k];if(!Array.isArray(A))return;for(let j=n0[i];j<A.length;j++){const o=A[j];if(!o||o._rpg)continue;o._rpg=1;
+   if(!rpgMove(tw,o,'x0','y0'))rpgMove(tw,o,'x','y');if(Array.isArray(o.pts)&&o.pts[0])rpgMove(tw,o.pts[0],'x','y')}})}catch(e){}return r}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

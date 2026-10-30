@@ -53348,15 +53348,15 @@ TPOLL.off=window.TPOLL_ON?0:1;
      current streak (up to RPTY.streakMax), so steady, accurate typing brings abilities back far sooner.
    Each finished word is replaced by a new one. The three words always start with different letters, so the first letter picks the
    word; a wrong letter breaks the streak and clears what was typed (Backspace takes one letter back). Words come from the game's word
-   bank (GEN, 10_data) and get a little longer as the waves go on; Settings sets the length (Short, Normal, Long).
+   bank (GEN, 10_data) and get a little longer as the waves go on; the length is Normal (4-7 letters; 9.9o removed the Short and Long choice).
    While it is on, letter keys type (tower hotkeys are off: pick towers with the mouse or the build ring); Space, Enter, Tab, 1-3 and
    Esc work as before. The streak, best streak and words typed show on a badge over the abilities.
    The first time a player opens tower defense after this update, a "New: Rune Typing" card introduces it (once, P.rp.new99j; not
    under browser automation unless window.RPTY_NEWS is set, so other tests are not blocked). No Updates-tab notice.
-   Save: P.rp.opt = {ty: 0|1, tyl: 'short'|'normal'|'long'}. Battle state: RPX.ty = {on, buf, k, w:{over,slow,repair}, streak, best,
+   Save: P.rp.opt = {ty: 0|1, tyl: 'normal'} (9.9o: the word length is fixed at Normal; Short and Long were removed). Battle state: RPX.ty = {on, buf, k, w:{over,slow,repair}, streak, best,
    n, recent}. */
 const RPTY={charge:.15,streakK:.01,streakMax:.1,len:{short:[3,5],normal:[4,7],long:[6,9]},keys:['over','slow','repair']};
-function rptyOpt(){const r=RPP();let o=r.opt;if(!o||typeof o!=='object'||Array.isArray(o))o=r.opt={};if(o.ty!==1)o.ty=0;if(!RPTY.len[o.tyl])o.tyl='normal';return o}
+function rptyOpt(){const r=RPP();let o=r.opt;if(!o||typeof o!=='object'||Array.isArray(o))o=r.opt={};if(o.ty!==1)o.ty=0;o.tyl='normal';return o}
 const rptyOn=()=>!!(RPX&&RPX.ty&&RPX.ty.on);
 /* a word for ability k: right length for the setting and the wave, a first letter the other two words do not use, not used lately */
 function rptyWord(R,k){const T=R.ty,o=rptyOpt(),L=RPTY.len[o.tyl],grow=Math.min(2,Math.floor((R.wave||0)/12)),lo=L[0]+Math.min(1,grow),hi=L[1]+grow;
@@ -53386,7 +53386,7 @@ function rptyPaint(full){const R=RPX,h=$('rphud');if(!R||!h)return;const T=R.ty,
   /* the chip sits in the ability row, centred over its button (not inside it, so the button's cooldown dimming does not fade it) */
   if(!el){el=document.createElement('span');el.className='rptyw';el.dataset.k=k;el.innerHTML='<span class="rptyl"></span>';box.appendChild(el);full=true}
   if(full)el.style.left=(b.offsetLeft+b.offsetWidth/2)+'px';
-  const w=T.w[k]||'',n=T.k===k?T.buf.length:0,key=w+'|'+n;if(full||el.dataset.v!==key){el.dataset.v=key;const l=el.querySelector('.rptyl');l.innerHTML=`<b>${esc(w.slice(0,n))}</b>${esc(w.slice(n))}`;l.style.fontSize=(w.length<=7?17:w.length===8?15.5:14.5)+'px';el.classList.toggle('typing',n>0)}
+  const w=T.w[k]||'',n=T.k===k?T.buf.length:0,key=w+'|'+n;if(full||el.dataset.v!==key){el.dataset.v=key;const l=el.querySelector('.rptyl');l.innerHTML=`<b>${esc(w.slice(0,n))}</b>${esc(w.slice(n))}`;if(el.dataset.w!==w){el.dataset.w=w;let fs=17;l.style.fontSize=fs+'px';while(fs>11&&el.offsetWidth>90){fs-=.5;l.style.fontSize=fs+'px'}}el.classList.toggle('typing',n>0)}
   el.classList.toggle('dim',!!T.k&&T.k!==k)}
  let bd=h.querySelector('.rptyb');if(!on){if(bd)bd.remove();return}
  if(!bd){bd=document.createElement('div');bd.className='rptyb';const ab=h.querySelector('.rpabs');(ab||h).appendChild(bd)}
@@ -53407,14 +53407,13 @@ function rptyTick(){const R=RPX,h=$('rphud');if(!R||!h||!rptyOn())return;
   return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
 /* switch it on or off (also in the middle of a battle) */
 function rptySet(on){const o=rptyOpt();o.ty=on?1:0;save();const R=RPX;if(R&&R.ty){R.ty.on=!!on;R.ty.buf='';R.ty.k=null;if(on)for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);rptyPaint(true)}}
-function rptyLen(l){const o=rptyOpt();if(!RPTY.len[l])return;o.tyl=l;save();const R=RPX;if(R&&R.ty&&R.ty.on){R.ty.w={};for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);R.ty.buf='';R.ty.k=null;rptyPaint(true)}}
+function rptyLen(l){const o=rptyOpt();if(l!=='normal')return;o.tyl=l;save();const R=RPX;if(R&&R.ty&&R.ty.on){R.ty.w={};for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);R.ty.buf='';R.ty.k=null;rptyPaint(true)}}
 /* ---------- the Settings panel (hub and pause menu) ---------- */
 const RPTY_PREVIEW=()=>`<div class="rptyprev" aria-hidden="true">${[['over','spark','sp'],['slow','frost',''],['repair','mend','']].map(([k,w,t])=>`<div class="rptypa"><span class="rptyw${k==='over'?' typing':''}${k==='repair'?' ready':''}"><span class="rptyl"><b>${t}</b>${w.slice(t.length)}</span></span><span class="rptypb">${RPI[k]}</span><em>${RPT.AB[k].n}</em></div>`).join('')}</div>`;
 function rptySettingsHTML(){const o=rptyOpt();return `<div class="rpset2">
  <div class="rpsetrow"><div><b>Rune Typing</b><p>Type the words over your abilities: a ready ability is cast at once, a recharging one charges faster with every word. Letter keys type instead of picking towers.</p></div>
   <button class="rpsw${o.ty?' on':''}" id="rptysw" role="switch" aria-checked="${o.ty?'true':'false'}"><i></i><span>${o.ty?'On':'Off'}</span></button></div>
- <div class="rpsetrow${o.ty?'':' off'}" id="rptylr"><div><b>Word length</b><p>Words grow a little longer in later waves.</p></div>
-  <div class="rpseg">${['short','normal','long'].map(l=>`<button data-l="${l}" class="${o.tyl===l?'on':''}">${l[0].toUpperCase()+l.slice(1)}</button>`).join('')}</div></div></div>`}
+</div>`}
 function rptyWire(root,after){const sw=root.querySelector('#rptysw');if(sw)sw.onclick=()=>{rptySet(!rptyOpt().ty);try{rpSfx('key',2)}catch(e){}after()};
  root.querySelectorAll('.rpseg button').forEach(b=>b.onclick=()=>{rptyLen(b.dataset.l);try{rpSfx('key',1)}catch(e){}after()})}
 function rpSettings(){const el=$('rpmod');if(!el)return;const draw=()=>{el.innerHTML=`<div class="rpmc2 rpsetm"><button class="rpix" id="rpmx" aria-label="Close">×</button><h2>Settings</h2>${rptySettingsHTML()}${RPTY_PREVIEW()}</div>`;
@@ -53422,13 +53421,13 @@ function rpSettings(){const el=$('rpmod');if(!el)return;const draw=()=>{el.inner
 /* the "New: Rune Typing" card, once */
 function rptyNews(){const el=$('rpmod');if(!el)return;el.innerHTML=`<div class="rpmc2 rpnews"><button class="rpix" id="rpmx" aria-label="Close">×</button><p class="rpnk">NEW IN TOWER DEFENSE</p><h2>Rune Typing</h2>
  <p class="rpnl">Type to earn your abilities. Switch it on and a rune word floats over Overcharge, Slow Field and Repair.</p>${RPTY_PREVIEW()}
- <ul class="rpnul"><li><b>Gold word:</b> the ability is ready. Type it to cast it on the spot.</li><li><b>Purple word:</b> the ability is recharging. Typing it charges it, and a streak of clean words charges it faster.</li><li><b>Your choice:</b> turn it on or off any time in Settings (or in the pause menu), and pick the word length.</li></ul>
+ <ul class="rpnul"><li><b>Gold word:</b> the ability is ready. Type it to cast it on the spot.</li><li><b>Purple word:</b> the ability is recharging. Typing it charges it, and a streak of clean words charges it faster.</li><li><b>Your choice:</b> turn it on or off any time in Settings (or in the pause menu).</li></ul>
  <div class="rpnb"><button class="rpngo" id="rptyon">Turn on Rune Typing</button><button class="rpnno" id="rptyno">Not now</button></div></div>`;
  el.hidden=false;const done=()=>{el.hidden=true};$('rpmx').onclick=done;$('rptyno').onclick=done;$('rptyon').onclick=()=>{rptySet(true);try{rpSfx('ability')}catch(e){}done()};el.onclick=e=>{if(e.target===el)done()}}
 {const m0=rampartsMenu;rampartsMenu=function(){const r=m0.apply(this,arguments);try{const top=ov.querySelector('.rphtop');if(top&&!$('rphset')){top.insertAdjacentHTML('beforeend',`<button class="rpbk" id="rphset"><i class="rpbki">${RPTY_GEAR}</i>Settings</button>`);$('rphset').onclick=()=>{try{rpSfx('key',2)}catch(e){}rpSettings()}}
   const rp=RPP(),bot=navigator.webdriver&&!window.RPTY_NEWS;if(!rp.new99j&&!bot){rp.new99j=1;save();setTimeout(()=>{if(S.view==='ramparts'&&$('rpmod')&&$('rpmod').hidden)rptyNews()},500)}}catch(e){console.error(e)}return r}}
 const RPTY_GEAR='<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>';
-/* the pause menu: the same switch and word length, applied at once */
+/* the pause menu: the same switch, applied at once */
 {const p0=rpPauseMenu;rpPauseMenu=function(){const r=p0.apply(this,arguments);try{const box=ov.querySelector('.rppause');if(box){const w=document.createElement('div');w.className='rptypz';const draw=()=>{w.innerHTML=rptySettingsHTML();rptyWire(w,draw)};draw();
    const row=box.querySelector('.row');box.insertBefore(w,row);
    if(rptyOpt().ty){const ph=box.querySelector('.rpph');if(ph)ph.insertAdjacentHTML('afterbegin','<span class="rptyph"><kbd>A</kbd>–<kbd>Z</kbd> Rune Typing: type the words over your abilities · <kbd>⌫</kbd> back one letter</span>');if(ph)for(const sp of ph.querySelectorAll('span')){const t=sp.textContent;if(/pick a tower/.test(t))sp.innerHTML='<kbd>Click</kbd> a tower in the bar, then a pad';else if(/upgrade/.test(t)&&/sell the selected/.test(t))sp.innerHTML='upgrade or sell from the tower\'s panel';else if(/game speed/.test(t))sp.innerHTML='<kbd>Tab</kbd> game speed'}}}}catch(e){console.error(e)}return r}}
@@ -53443,7 +53442,7 @@ try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Ru
 {const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Rune Typing.</b> Turn it on in Settings (or the pause menu). A word floats over each ability: type it to cast a ready ability, or to charge one that is recharging (a streak of clean words charges faster). Letter keys type while it is on, so pick towers with the mouse.</p>`)}catch(e){}return r}}
 /* styles: indigo glass chips with gold letters; only transform and opacity animate */
 {const st=document.createElement('style');st.textContent=`
-.rptyw{position:absolute;left:50%;bottom:calc(100% + 8px);translate:-50% 0;z-index:6;height:30px;min-width:64px;box-sizing:border-box;padding:0 12px;border-radius:999px;background:linear-gradient(180deg,#2a1f6a,#160e40);border:2px solid #5a4aa8;box-shadow:0 0 0 2.5px #12081f,0 5px 10px #0008;display:flex;align-items:center;justify-content:center;pointer-events:none;white-space:nowrap;transition:opacity .15s}
+.rptyw{position:absolute;left:50%;bottom:calc(100% + 8px);translate:-50% 0;z-index:6;height:30px;min-width:64px;box-sizing:border-box;padding:0 10px;border-radius:999px;background:linear-gradient(180deg,#2a1f6a,#160e40);border:2px solid #5a4aa8;box-shadow:0 0 0 2.5px #12081f,0 5px 10px #0008;display:flex;align-items:center;justify-content:center;pointer-events:none;white-space:nowrap;transition:opacity .15s}
 .rptyl{font:800 17px/1 Poppins,system-ui,sans-serif;letter-spacing:.05em;color:#d8d0ff}.rptyl b{color:#ffd45a}
 .rptyw.ready{background:linear-gradient(180deg,#fff0a8,#f2c04a 55%,#d89a2a);border-color:#fff2b0}.rptyw.ready .rptyl{color:#3a1a04}.rptyw.ready .rptyl b{color:#fff8e8;text-shadow:0 1px 0 #8a4a0a}
 .rptyw.typing{border-color:#fff8e8;transform:scale(1.1)}.rptyw.dim{opacity:.38}

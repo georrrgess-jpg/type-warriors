@@ -53384,19 +53384,20 @@ function rptyPaint(full){const R=RPX,h=$('rphud');if(!R||!h)return;const T=R.ty,
  for(const k of RPTY.keys){const b=h.querySelector(`.rpab[data-ab="${k}"]`);if(!b||!box)continue;let el=box.querySelector(`.rptyw[data-k="${k}"]`);
   if(!on){if(el)el.remove();continue}
   /* the chip sits in the ability row, centred over its button (not inside it, so the button's cooldown dimming does not fade it) */
-  if(!el){el=document.createElement('span');el.className='rptyw';el.dataset.k=k;el.innerHTML='<span class="rptyl"></span><i class="rptyp"></i><small></small>';box.appendChild(el);full=true}
+  if(!el){el=document.createElement('span');el.className='rptyw';el.dataset.k=k;el.innerHTML='<span class="rptyl"></span>';box.appendChild(el);full=true}
   if(full)el.style.left=(b.offsetLeft+b.offsetWidth/2)+'px';
-  const w=T.w[k]||'',n=T.k===k?T.buf.length:0,key=w+'|'+n;if(full||el.dataset.v!==key){el.dataset.v=key;const l=el.querySelector('.rptyl');l.innerHTML=`<b>${esc(w.slice(0,n))}</b>${esc(w.slice(n))}`;l.style.fontSize=(w.length<=6?17:w.length===7?15:w.length===8?13.5:12.5)+'px';el.classList.toggle('typing',n>0)}}
+  const w=T.w[k]||'',n=T.k===k?T.buf.length:0,key=w+'|'+n;if(full||el.dataset.v!==key){el.dataset.v=key;const l=el.querySelector('.rptyl');l.innerHTML=`<b>${esc(w.slice(0,n))}</b>${esc(w.slice(n))}`;l.style.fontSize=(w.length<=7?17:w.length===8?15.5:14.5)+'px';el.classList.toggle('typing',n>0)}
+  el.classList.toggle('dim',!!T.k&&T.k!==k)}
  let bd=h.querySelector('.rptyb');if(!on){if(bd)bd.remove();return}
  if(!bd){bd=document.createElement('div');bd.className='rptyb';const ab=h.querySelector('.rpabs');(ab||h).appendChild(bd)}
- const s=`<i>✦</i><b>RUNE TYPING</b><span>streak <u>${T.streak}</u></span><span>best ${T.best}</span>`;if(bd.dataset.v!==s){bd.dataset.v=s;bd.innerHTML=s}}
+ const s=`<i>✦</i><u>${T.streak}</u><span>streak</span>`;if(bd.dataset.v!==s){const up=T.streak>(+bd.dataset.n||0);bd.dataset.v=s;bd.dataset.n=T.streak;bd.innerHTML=s;if(up&&T.streak>=2){bd.classList.remove('pop');void bd.offsetWidth;bd.classList.add('pop')}}
+ bd.classList.toggle('on',T.streak>=2)}
 /* per HUD tick: ready / recharging state and the charge bar under each word */
 function rptyTick(){const R=RPX,h=$('rphud');if(!R||!h||!rptyOn())return;
- for(const k of RPTY.keys){const el=h.querySelector(`.rptyw[data-k="${k}"]`);if(!el)continue;const cd=R.abCd[k],A=RPT.AB[k],rd=!(cd>0),f=rd?1:1-cd/A.cd,q=Math.round(f*50);
-  if(el._q!==q){el._q=q;el.querySelector('.rptyp').style.transform=`scaleX(${(q/50).toFixed(2)})`}
-  if(el._rd!==rd){el._rd=rd;el.classList.toggle('ready',rd);el.querySelector('small').textContent=rd?'cast':'charge'}}}
+ for(const k of RPTY.keys){const el=h.querySelector(`.rptyw[data-k="${k}"]`);if(!el)continue;const rd=!(R.abCd[k]>0);
+  if(el._rd!==rd){el._rd=rd;el.classList.toggle('ready',rd)}}}
 /* hooks */
-{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);try{if(RPX){rptyInit(RPX);if(RPX.ty.on)setTimeout(()=>{try{if(RPX&&RPX.ty&&RPX.ty.on)rpToast('Rune Typing is on: type the words over your abilities',3,'#ffd45a')}catch(e){}},900)}}catch(e){console.error(e)}return r}}
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);try{if(RPX){rptyInit(RPX);if(RPX.ty.on&&RPP().tut.rune)setTimeout(()=>{try{if(RPX&&RPX.ty&&RPX.ty.on)rpToast('Rune Typing is on: type the words over your abilities',3,'#ffd45a')}catch(e){}},900)}}catch(e){console.error(e)}return r}}
 {const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{rptyPaint(true)}catch(e){}return r}}
 {const t0=rpHudTick;rpHudTick=function(){const r=t0.apply(this,arguments);try{rptyTick()}catch(e){}return r}}
 {const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;
@@ -53408,7 +53409,7 @@ function rptyTick(){const R=RPX,h=$('rphud');if(!R||!h||!rptyOn())return;
 function rptySet(on){const o=rptyOpt();o.ty=on?1:0;save();const R=RPX;if(R&&R.ty){R.ty.on=!!on;R.ty.buf='';R.ty.k=null;if(on)for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);rptyPaint(true)}}
 function rptyLen(l){const o=rptyOpt();if(!RPTY.len[l])return;o.tyl=l;save();const R=RPX;if(R&&R.ty&&R.ty.on){R.ty.w={};for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);R.ty.buf='';R.ty.k=null;rptyPaint(true)}}
 /* ---------- the Settings panel (hub and pause menu) ---------- */
-const RPTY_PREVIEW=()=>`<div class="rptyprev" aria-hidden="true">${[['over','spark','sp'],['slow','frost',''],['repair','mend','']].map(([k,w,t])=>`<div class="rptypa"><span class="rptyw${k==='over'?' typing':''}${k==='repair'?' ready':''}"><span class="rptyl"><b>${t}</b>${w.slice(t.length)}</span><i class="rptyp" style="transform:scaleX(${k==='slow'?.45:1})"></i><small>${k==='repair'?'cast':'charge'}</small></span><span class="rptypb">${RPI[k]}</span><em>${RPT.AB[k].n}</em></div>`).join('')}</div>`;
+const RPTY_PREVIEW=()=>`<div class="rptyprev" aria-hidden="true">${[['over','spark','sp'],['slow','frost',''],['repair','mend','']].map(([k,w,t])=>`<div class="rptypa"><span class="rptyw${k==='over'?' typing':''}${k==='repair'?' ready':''}"><span class="rptyl"><b>${t}</b>${w.slice(t.length)}</span></span><span class="rptypb">${RPI[k]}</span><em>${RPT.AB[k].n}</em></div>`).join('')}</div>`;
 function rptySettingsHTML(){const o=rptyOpt();return `<div class="rpset2">
  <div class="rpsetrow"><div><b>Rune Typing</b><p>Type the words over your abilities: a ready ability is cast at once, a recharging one charges faster with every word. Letter keys type instead of picking towers.</p></div>
   <button class="rpsw${o.ty?' on':''}" id="rptysw" role="switch" aria-checked="${o.ty?'true':'false'}"><i></i><span>${o.ty?'On':'Off'}</span></button></div>
@@ -53421,7 +53422,7 @@ function rpSettings(){const el=$('rpmod');if(!el)return;const draw=()=>{el.inner
 /* the "New: Rune Typing" card, once */
 function rptyNews(){const el=$('rpmod');if(!el)return;el.innerHTML=`<div class="rpmc2 rpnews"><button class="rpix" id="rpmx" aria-label="Close">×</button><p class="rpnk">NEW IN TOWER DEFENSE</p><h2>Rune Typing</h2>
  <p class="rpnl">Type to earn your abilities. Switch it on and a rune word floats over Overcharge, Slow Field and Repair.</p>${RPTY_PREVIEW()}
- <ul class="rpnul"><li><b>Ready?</b> Type its word to cast it on the spot.</li><li><b>Recharging?</b> Every word you type charges it, and a streak of clean words charges it faster.</li><li><b>Your choice:</b> turn it on or off any time in Settings (or in the pause menu), and pick the word length.</li></ul>
+ <ul class="rpnul"><li><b>Gold word:</b> the ability is ready. Type it to cast it on the spot.</li><li><b>Purple word:</b> the ability is recharging. Typing it charges it, and a streak of clean words charges it faster.</li><li><b>Your choice:</b> turn it on or off any time in Settings (or in the pause menu), and pick the word length.</li></ul>
  <div class="rpnb"><button class="rpngo" id="rptyon">Turn on Rune Typing</button><button class="rpnno" id="rptyno">Not now</button></div></div>`;
  el.hidden=false;const done=()=>{el.hidden=true};$('rpmx').onclick=done;$('rptyno').onclick=done;$('rptyon').onclick=()=>{rptySet(true);try{rpSfx('ability')}catch(e){}done()};el.onclick=e=>{if(e.target===el)done()}}
 {const m0=rampartsMenu;rampartsMenu=function(){const r=m0.apply(this,arguments);try{const top=ov.querySelector('.rphtop');if(top&&!$('rphset')){top.insertAdjacentHTML('beforeend',`<button class="rpbk" id="rphset"><i class="rpbki">${RPTY_GEAR}</i>Settings</button>`);$('rphset').onclick=()=>{try{rpSfx('key',2)}catch(e){}rpSettings()}}
@@ -53431,28 +53432,30 @@ const RPTY_GEAR='<svg viewBox="0 0 24 24" width="18" height="18"><path fill="cur
 {const p0=rpPauseMenu;rpPauseMenu=function(){const r=p0.apply(this,arguments);try{const box=ov.querySelector('.rppause');if(box){const w=document.createElement('div');w.className='rptypz';const draw=()=>{w.innerHTML=rptySettingsHTML();rptyWire(w,draw)};draw();
    const row=box.querySelector('.row');box.insertBefore(w,row);
    if(rptyOpt().ty){const ph=box.querySelector('.rpph');if(ph)ph.insertAdjacentHTML('afterbegin','<span class="rptyph"><kbd>A</kbd>–<kbd>Z</kbd> Rune Typing: type the words over your abilities · <kbd>⌫</kbd> back one letter</span>');if(ph)for(const sp of ph.querySelectorAll('span')){const t=sp.textContent;if(/pick a tower/.test(t))sp.innerHTML='<kbd>Click</kbd> a tower in the bar, then a pad';else if(/upgrade/.test(t)&&/sell the selected/.test(t))sp.innerHTML='upgrade or sell from the tower\'s panel';else if(/game speed/.test(t))sp.innerHTML='<kbd>Tab</kbd> game speed'}}}}catch(e){console.error(e)}return r}}
+/* tutorials: the Abilities tip and the first-time Rune Typing tip sit above the words (never on top of them) */
+RP_TUT.rune={t:'Rune Typing',p:'Type a word above an ability. A gold word means the ability is ready: typing it casts it. A purple word means it is recharging: typing it charges it, faster with a streak. A wrong letter clears the word; Backspace takes one back.',at:'abil'};
+{const s0=rpTutShow;rpTutShow=function(id){const r=s0.apply(this,arguments);try{const el=$('rptut');if(el&&id==='abil'&&rptyOn()){const p=el.querySelector('p');if(p)p.textContent='Overcharge (1) makes one tower fire much faster, Slow Field (2) freezes a stretch of road, Repair (3) restores castle health. Each one recharges on its own. With Rune Typing on, type the word above an ability to cast or charge it.'}}catch(e){}return r}}
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);try{if(RPX&&RPX.ty&&RPX.ty.on&&!RPP().tut.rune)setTimeout(()=>{try{if(RPX&&RPX.ty&&RPX.ty.on)rpTut('rune')}catch(e){}},1500)}catch(e){}return r}}
+{const s0=rptySet;rptySet=function(on){const r=s0.apply(this,arguments);try{if(on&&RPX&&S.mode==='ramparts'&&!RPP().tut.rune)setTimeout(()=>{try{if(rptyOn())rpTut('rune')}catch(e){}},400)}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`.rph.rptyon .rptut.at-abil{bottom:186px;z-index:20}`;document.head.appendChild(st)}
 /* help texts */
 try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Rune Typing (Settings): type the words over your abilities to cast them, or to charge them while they recharge."}catch(e){}
 {const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Rune Typing.</b> Turn it on in Settings (or the pause menu). A word floats over each ability: type it to cast a ready ability, or to charge one that is recharging (a streak of clean words charges faster). Letter keys type while it is on, so pick towers with the mouse.</p>`)}catch(e){}return r}}
 /* styles: indigo glass chips with gold letters; only transform and opacity animate */
 {const st=document.createElement('style');st.textContent=`
-.rptyw{position:absolute;left:50%;bottom:calc(100% + 14px);transform:translateX(-50%);z-index:6;width:90px;box-sizing:border-box;padding:5px 4px 9px;border-radius:12px;background:linear-gradient(180deg,#2a1f6af2,#140c38f5);border:2px solid #6a58c8;box-shadow:0 0 0 2.5px #12081f,0 6px 14px #0009;display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;white-space:nowrap}
-.rptyw::after{content:'';position:absolute;left:50%;bottom:-8px;width:12px;height:12px;margin-left:-6px;transform:rotate(45deg);background:#140c38;border-right:2px solid #6a58c8;border-bottom:2px solid #6a58c8}
-.rptyl{font:800 17px/1.15 Poppins,system-ui,sans-serif;letter-spacing:.06em;color:#fff8e8}.rptyl b{color:#ffd45a}
-.rptyw small{font:700 9.5px Poppins,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#a99be0}
-.rptyp{position:absolute;left:6px;right:6px;bottom:3px;height:3px;border-radius:2px;background:#7ad8ff;transform-origin:left center;transform:scaleX(0)}
-.rptyw.ready{border-color:#ffd45a}.rptyw.ready::after{border-color:#ffd45a}.rptyw.ready small{color:#ffd45a}.rptyw.ready .rptyp{background:#ffd45a}
-.rptyw.ready::before{content:'';position:absolute;inset:-6px;border-radius:15px;border:2px solid #ffd45a;opacity:0;animation:rptyGl 1.6s ease-in-out infinite}
-.rptyw.typing{border-color:#fff2b0}
+.rptyw{position:absolute;left:50%;bottom:calc(100% + 8px);translate:-50% 0;z-index:6;height:30px;min-width:64px;box-sizing:border-box;padding:0 12px;border-radius:999px;background:linear-gradient(180deg,#2a1f6a,#160e40);border:2px solid #5a4aa8;box-shadow:0 0 0 2.5px #12081f,0 5px 10px #0008;display:flex;align-items:center;justify-content:center;pointer-events:none;white-space:nowrap;transition:opacity .15s}
+.rptyl{font:800 17px/1 Poppins,system-ui,sans-serif;letter-spacing:.05em;color:#d8d0ff}.rptyl b{color:#ffd45a}
+.rptyw.ready{background:linear-gradient(180deg,#fff0a8,#f2c04a 55%,#d89a2a);border-color:#fff2b0}.rptyw.ready .rptyl{color:#3a1a04}.rptyw.ready .rptyl b{color:#fff8e8;text-shadow:0 1px 0 #8a4a0a}
+.rptyw.typing{border-color:#fff8e8;transform:scale(1.1)}.rptyw.dim{opacity:.38}
 .rptyw.pop{animation:rptyPop .42s cubic-bezier(.34,1.56,.64,1)}.rptyw.bad{animation:rptyBad .32s ease}
 .rptyf{position:absolute;left:50%;bottom:100%;font:800 15px Poppins,system-ui,sans-serif;color:#9fe8ff;white-space:nowrap;animation:rptyUp .9s ease-out forwards;text-shadow:0 2px 0 #12081f}
 .rptyf.go{color:#ffd45a;font-size:17px}
-@keyframes rptyGl{0%,100%{opacity:0;transform:scale(.96)}50%{opacity:.85;transform:scale(1.03)}}
-@keyframes rptyPop{0%{transform:translateX(-50%) scale(1)}40%{transform:translateX(-50%) scale(1.22)}100%{transform:translateX(-50%) scale(1)}}
-@keyframes rptyBad{0%,100%{transform:translateX(-50%)}20%{transform:translateX(calc(-50% - 7px))}40%{transform:translateX(calc(-50% + 6px))}60%{transform:translateX(calc(-50% - 4px))}80%{transform:translateX(calc(-50% + 2px))}}
+@keyframes rptyPop{0%{transform:scale(1)}40%{transform:scale(1.25)}100%{transform:scale(1)}}
+@keyframes rptyBad{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
 @keyframes rptyUp{0%{opacity:0;transform:translate(-50%,6px) scale(.8)}20%{opacity:1;transform:translate(-50%,-4px) scale(1.08)}100%{opacity:0;transform:translate(-50%,-30px) scale(1)}}
-.rptyb{position:absolute;left:0;bottom:calc(100% + 76px);display:flex;align-items:center;gap:8px;padding:4px 12px 4px 8px;border-radius:999px;background:#12081fe0;border:2px solid #c99a3a;font:600 12px Poppins,system-ui,sans-serif;color:#cfc6f0;white-space:nowrap;pointer-events:none}
-.rptyb i{font-style:normal;color:#ffd45a}.rptyb b{font:800 11px Poppins,system-ui,sans-serif;letter-spacing:.14em;color:#ffd45a}.rptyb u{text-decoration:none;font-weight:800;color:#fff8e8}
+.rptyb{position:absolute;left:0;bottom:calc(100% + 46px);display:flex;align-items:baseline;gap:5px;padding:3px 11px 4px 9px;border-radius:999px;background:#12081fe6;border:2px solid #c99a3a;font:700 11px Poppins,system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#cfc6f0;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s}
+.rptyb.on{opacity:1;transform:none}.rptyb.pop{animation:rptyPop .4s cubic-bezier(.34,1.56,.64,1)}
+.rptyb i{font-style:normal;color:#ffd45a}.rptyb u{text-decoration:none;font:800 15px Poppins,system-ui,sans-serif;letter-spacing:0;color:#ffd45a}
 .rptyon .rpbar .rpcard kbd{visibility:hidden}
 .rpset2{display:flex;flex-direction:column;gap:12px;margin:6px 0 4px}
 .rpsetrow{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 16px;border-radius:16px;background:#ffffff0a;border:2px solid #3a3070;text-align:left}
@@ -53464,11 +53467,11 @@ try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Ru
 .rpseg{flex:none;display:flex;gap:4px;padding:4px;border-radius:12px;background:#12081f;border:2px solid #3a3070}
 .rpseg button{all:unset;cursor:pointer;padding:6px 12px;border-radius:9px;font:700 13px Poppins,system-ui,sans-serif;color:#cfc6f0}.rpseg button.on{background:#ffd45a;color:#3a1a04}
 .rpmc2.rpsetm{width:700px}
-.rptyprev{display:flex;justify-content:center;gap:36px;margin:16px 0 4px;padding:58px 0 16px;border-radius:16px;background:radial-gradient(ellipse at 50% 100%,#3a2c86,#140c38 70%);border:2px solid #3a3070}
+.rptyprev{display:flex;justify-content:center;gap:36px;margin:16px 0 4px;padding:56px 0 16px;border-radius:16px;background:radial-gradient(ellipse at 50% 100%,#3a2c86,#140c38 70%);border:2px solid #3a3070}
 .rptypa{position:relative;display:flex;flex-direction:column;align-items:center}
 .rptypb{width:70px;height:70px;border-radius:50%;border:3px solid #ffd45a;background:radial-gradient(circle at 50% 35%,#3a2c86,#140c38);box-shadow:0 0 0 3px #12081f;display:grid;place-items:center}.rptypb svg{width:34px;height:34px}
 .rptypa em{margin-top:4px;font:700 11.5px Poppins,system-ui,sans-serif;font-style:normal;color:#fff8e8}
-.rptypa .rptyw{bottom:calc(100% - 6px)}
+.rptypa .rptyw{bottom:calc(100% + 18px)}
 .rpmc2.rpnews{width:720px;text-align:left}.rpnk{margin:0 0 2px;font:800 12px Poppins,system-ui,sans-serif;letter-spacing:.22em;color:#7ad8ff}
 .rpnl{margin:0;font:500 15px/1.45 Poppins,system-ui,sans-serif;color:#e8e0ff}
 .rpnul{margin:12px 0 0;padding-left:20px;font:500 14px/1.5 Poppins,system-ui,sans-serif;color:#cfc6f0}.rpnul b{color:#ffd45a}
@@ -53895,7 +53898,7 @@ setTimeout(()=>{try{if(twaLoadSes()&&!window.TWA_NOSTART)twaPull('',true).then((
 /* the Save Center mentions accounts */
 try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on the home screen) and your progress follows you to any device, any copy of the game and any web address. Your save is encrypted with your password and kept on several public relays. Keep your recovery code: there is no email reset. If the account servers are blocked, the account panel can download a backup file and an offline copy of the game.'])}catch(e){}
 {const st=document.createElement('style');st.textContent=`
-#twachip{all:unset;cursor:pointer;position:absolute;right:452px;top:22px;height:80px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:0 16px 0 12px;border-radius:20px;background:linear-gradient(180deg,#241a5cf2,#140c38f5);border:2px solid #4a3a90;box-shadow:0 0 0 2.5px #12081f;font-family:Poppins,system-ui,sans-serif;transition:transform .15s}
+#twachip{all:unset;cursor:pointer;position:relative;flex:none;margin:0 14px 0 auto;align-self:center;height:80px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:0 16px 0 12px;border-radius:20px;background:linear-gradient(180deg,#241a5cf2,#140c38f5);border:2px solid #4a3a90;box-shadow:0 0 0 2.5px #12081f;font-family:Poppins,system-ui,sans-serif;transition:transform .15s}
 #twachip:hover{transform:translateY(-2px)}#twachip span{display:flex;flex-direction:column;min-width:0}#twachip b{font:700 15px Poppins,system-ui,sans-serif;color:#fff8e8;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #twachip small{font:600 11.5px Poppins,system-ui,sans-serif;color:#a99be0;white-space:nowrap}#twachip.out{border-color:#c99a3a}#twachip.out b{color:#ffd45a}
 .twaci{font-style:normal;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:#12081f;border:2px solid #6a58c8;color:#7ad8ff}.twaci.out{color:#ffd45a;border-color:#c99a3a}.twaci.off{color:#ff9aa8}.twaci.warn{color:#ffb04a}
@@ -53925,6 +53928,7 @@ try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on 
 .twaben li{font:600 13.5px/1.35 Poppins,sans-serif;color:#e8e0ff;padding-left:26px;position:relative}.twaben li:before{content:'✓';position:absolute;left:2px;top:-1px;width:18px;height:18px;border-radius:50%;background:#2a8a5a;border:2px solid #12081f;color:#fff;font:800 11px/18px Poppins,sans-serif;text-align:center}
 .twanb{display:flex;justify-content:center;gap:18px;margin-top:12px;flex-wrap:wrap}
 .twab .twalink{all:unset!important;cursor:pointer!important;font:700 13px Poppins,sans-serif!important;color:#a99be0!important;text-decoration:underline!important;text-underline-offset:3px}.twab .twalink:hover{color:#fff8e8!important}
+#twachip+.dkst0{margin-left:0}
 .twaout{margin-top:14px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,

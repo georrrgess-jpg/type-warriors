@@ -54025,6 +54025,178 @@ function rpgMove(tw,o,kx,ky){const k=RPG.k;if(!(kx in o)||!(ky in o))return fals
 {const f0=rpFire;rpFire=function(R,tw,dt){const n0=RPG_ARR.map(k=>Array.isArray(R[k])?R[k].length:0);const r=f0.apply(this,arguments);
   try{RPG_ARR.forEach((k,i)=>{const A=R[k];if(!Array.isArray(A))return;for(let j=n0[i];j<A.length;j++){const o=A[j];if(!o||o._rpg)continue;o._rpg=1;
    if(!rpgMove(tw,o,'x0','y0'))rpgMove(tw,o,'x','y');if(Array.isArray(o.pts)&&o.pts[0])rpgMove(tw,o.pts[0],'x','y')}})}catch(e){}return r}}
+/* ===== RUNESTONE TOWER DEFENSE 9.9q: the owner's second concept set - maps, monsters, the hub and Tower Skins (97l) =====
+   - Maps: the concept maps are the same layouts, brighter and richer. Each bake gets a one-time colour grade (rpcGrade: saturation,
+     brightness, contrast, a tint per map) plus detail: Mossgate flowers and clover, Ember Crown glowing ground cracks and swirls in the
+     lava lake, Frostfang blue grass tufts and snow sparkle. Done once per map when it is baked, so battles cost nothing extra.
+   - Monsters: every baked sprite sheet (95b moss, 95b2 map variants) gets the same kind of grade (more saturated, a touch brighter)
+     and monsters are drawn 8% larger (RPC.mob), as in the concept sheets.
+   - Hub: the title moves into the top bar next to a crystal; the side panel shows waves and the map's features on two icon lines, a
+     "Best" box with stars, a new description, "Up to N coins" with the first-win chip, "Defend <Name>", a diamond rule and a
+     clickable Next region card; the armory bar ends with "All rewards earned / View rewards" and a Season championship card with a
+     View leaderboard button.
+   - Tower Skins: three columns - the ten towers on the left, the chosen tower's skins as large cards with the Armory milestones
+     under them in the middle, and the live preview with the details, the requirement and the action on the right. */
+const RPC={mob:1.08};
+/* ---------- colour grade (once, on a baked canvas) ---------- */
+function rpcGrade(cv,o){try{const g=cv.getContext('2d'),W=cv.width,H=cv.height,im=g.getImageData(0,0,W,H),d=im.data,sat=o.sat||1,br=o.br||1,con=o.con||1,tr=o.tr||0,tg=o.tg||0,tb=o.tb||0;
+ for(let i=0;i<d.length;i+=4){if(d[i+3]===0)continue;let r=d[i],gg=d[i+1],b=d[i+2];const l=.299*r+.587*gg+.114*b;r=l+(r-l)*sat;gg=l+(gg-l)*sat;b=l+(b-l)*sat;
+  r=(r*br-128)*con+128+tr;gg=(gg*br-128)*con+128+tg;b=(b*br-128)*con+128+tb;d[i]=r<0?0:r>255?255:r;d[i+1]=gg<0?0:gg>255?255:gg;d[i+2]=b<0?0:b>255?255:b}
+ g.putImageData(im,0,0)}catch(e){}}
+const RPC_GRADE={moss:{sat:1.28,br:1.24,con:1.02,tr:6,tg:14,tb:-6},frost:{sat:1.1,br:1.13,con:1.04,tr:0,tg:3,tb:7},ember:{sat:1.16,br:1.13,con:1.04,tr:8,tg:2,tb:-4},wonder:{sat:1.08,br:1.03,con:1.02}};
+const rpcR=i=>{const s=Math.sin(i*91.7+17.3)*43758.5453;return s-Math.floor(s)};
+/* ---------- map detail and grade ---------- */
+function rpcMapDetail(B,map){const g=B.c.getContext('2d'),G=B.G,K=map.pal,H=900;if(!G)return;
+ const free=(x,y,r)=>G.dRoad(x,y)>r&&!(G.dRiver&&G.dRiver(x,y)<r+20)&&!(G.inLake&&G.inLake(x,y,30))&&!G.pads.some(p=>Math.hypot(p.x-x,(p.y-y)*1.3)<70)&&!(B.cast&&x>B.cast.x-20&&y>B.cast.y)&&!G.ent.some(e=>Math.hypot(e.x-x,e.y-y)<110);
+ g.save();g.lineJoin='round';g.lineCap='round';
+ if(K==='moss'){/* flower clusters: white daisies, yellow buttercups, a few pink */
+  for(let i=0;i<220;i++){const x=rpcR(i*3+1)*1600,y=rpcR(i*3+2)*H;if(!free(x,y,52))continue;const c=['#ffffff','#ffe46a','#ffffff','#ff9ad8'][i%4],s=2+rpcR(i)*1.4;
+   for(let k=0;k<5;k++){const a=k/5*Math.PI*2+i;g.fillStyle=c;g.beginPath();g.arc(x+Math.cos(a)*s*1.2,y+Math.sin(a)*s*.9,s*.75,0,Math.PI*2);g.fill()}g.fillStyle='#ffb02a';g.beginPath();g.arc(x,y,s*.6,0,Math.PI*2);g.fill()}
+  for(let i=0;i<70;i++){const x=rpcR(i*5+700)*1600,y=rpcR(i*5+701)*H;if(!free(x,y,60))continue;g.fillStyle='#5ac04a';g.strokeStyle='#1e4a1e';g.lineWidth=1.4;
+   for(const [dx,dy] of [[-4,0],[4,0],[0,-4]]){g.beginPath();g.arc(x+dx,y+dy,4.2,0,Math.PI*2);g.fill();g.stroke()}}}
+ if(K==='ember'){/* glowing cracks in the ground */
+  g.globalCompositeOperation='lighter';for(let i=0;i<40;i++){const x=rpcR(i*7+300)*1600,y=rpcR(i*7+301)*H;if(!free(x,y,64))continue;const pts=[[x,y]];let px=x,py=y;
+   for(let k=0;k<4+(i%3);k++){px+=(rpcR(i*11+k)-.5)*56;py+=(rpcR(i*13+k)-.5)*26;if(!free(px,py,50))break;pts.push([px,py])}if(pts.length<3)continue;
+   for(const [w,c] of [[6,'rgba(220,60,10,.2)'],[2.8,'rgba(255,100,20,.7)'],[1,'rgba(255,190,90,.75)']]){g.strokeStyle=c;g.lineWidth=w;g.beginPath();pts.forEach((p,k)=>k?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke()}
+   for(const p of pts.slice(1,-1))if(rpcR(p[0])<.5){g.strokeStyle='rgba(255,140,40,.6)';g.lineWidth=1.6;g.beginPath();g.moveTo(p[0],p[1]);g.lineTo(p[0]+(rpcR(p[1])-.5)*24,p[1]+(rpcR(p[0]+1)-.5)*14);g.stroke()}}
+  /* swirls in the lava lake */
+  if(map.lake){const [lx,ly,rx,ry]=map.lake;g.save();g.beginPath();g.ellipse(lx,ly,rx-4,ry-4,0,0,Math.PI*2);g.clip();
+   for(let i=0;i<7;i++){const y0=ly+(i/6-.5)*ry*1.6,ph=rpcR(i+40)*6;g.strokeStyle=i%2?'rgba(255,240,170,.3)':'rgba(255,200,90,.28)';g.lineWidth=2.2;g.beginPath();
+    for(let k=0;k<=24;k++){const X=lx-rx+k/24*rx*2,Y=y0+Math.sin(k*.5+ph)*7+Math.sin(k*.21+ph*2)*5;k?g.lineTo(X,Y):g.moveTo(X,Y)}g.stroke()}g.restore()}
+  g.globalCompositeOperation='source-over'}
+ if(K==='frost'){/* blue grass tufts and snow sparkle */
+  for(let i=0;i<150;i++){const x=rpcR(i*3+500)*1600,y=rpcR(i*3+501)*H;if(!free(x,y,50))continue;g.strokeStyle=i%3?'#7ab8e0':'#5a98c8';g.lineWidth=1.6;
+   for(let k=-1;k<=1;k++){g.beginPath();g.moveTo(x+k*3,y);g.lineTo(x+k*5,y-6-rpcR(i+k)*4);g.stroke()}}
+  for(let i=0;i<120;i++){const x=rpcR(i*3+900)*1600,y=rpcR(i*3+901)*H;if(!free(x,y,40))continue;g.fillStyle='#ffffff';g.globalAlpha=.85;const s=1.4+rpcR(i)*1.6;g.beginPath();g.moveTo(x,y-s*2.4);g.lineTo(x+s*.5,y);g.lineTo(x,y+s*2.4);g.lineTo(x-s*.5,y);g.closePath();g.moveTo(x-s*2.4,y);g.lineTo(x,y-s*.5);g.lineTo(x+s*2.4,y);g.lineTo(x,y+s*.5);g.closePath();g.fill()}g.globalAlpha=1}
+ g.restore()}
+{const b0=rpBake;rpBake=function(map){const had=!!RPBAKE[map.id],B=b0.apply(this,arguments);if(!had&&B&&B.c&&!B._c2){B._c2=1;try{rpcMapDetail(B,map)}catch(e){console.error(e)}const o=RPC_GRADE[map.pal];if(o)rpcGrade(B.c,o)}return B}}
+/* ---------- monsters: richer colours, a little larger ---------- */
+const RPC_MG={sat:1.28,br:1.07,con:1.05};
+{const m0=rpmBake;rpmBake=function(id){const had=!!RPMC[id],C=m0.apply(this,arguments);if(!had&&C&&C.cv&&!C._c2){C._c2=1;rpcGrade(C.cv,RPC_MG)}return C}}
+{const v0=rpvBake;rpvBake=function(id,v){const had=!!RPVC[v+'|'+id],C=v0.apply(this,arguments);if(!had&&C&&C.cv&&!C._c2){C._c2=1;rpcGrade(C.cv,RPC_MG)}return C}}
+{const b0=rpMobBlit;rpMobBlit=function(c,id,x,y,ph,o){const k=RPC.mob;if(k===1)return b0.apply(this,arguments);c.save();c.translate(x,y);c.scale(k,k);c.translate(-x,-y);try{return b0.apply(this,arguments)}finally{c.restore()}}}
+/* ---------- the hub ---------- */
+const RPC_ICO={
+ crys:'<svg viewBox="0 0 40 40" width="38" height="38"><path d="M20 3l7 10-7 24-7-24z" fill="#7ad8ff" stroke="#12081f" stroke-width="2.2" stroke-linejoin="round"/><path d="M20 3l3 10-3 24" fill="#c4f0ff"/><path d="M9 12l5 6-3 13-6-12z" fill="#4a9ae8" stroke="#12081f" stroke-width="2" stroke-linejoin="round"/><path d="M31 12l-5 6 3 13 6-12z" fill="#4a9ae8" stroke="#12081f" stroke-width="2" stroke-linejoin="round"/><circle cx="31" cy="6" r="1.8" fill="#fff"/></svg>',
+ sw:'<svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 4l9 9M20 4l-9 9" stroke="#c4badf" stroke-width="2.4" stroke-linecap="round"/><path d="M6.5 15.5l-3 3 2 2 3-3M17.5 15.5l3 3-2 2-3-3" stroke="#9fe8ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 14l2 2M16 14l-2 2" stroke="#ffd45a" stroke-width="2.6" stroke-linecap="round"/></svg>',
+ pin:'<svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 22s7-7.2 7-12.2A7 7 0 0 0 5 9.8C5 14.8 12 22 12 22z" fill="#7ad8ff" stroke="#12081f" stroke-width="1.6"/><circle cx="12" cy="9.6" r="2.6" fill="#12081f"/></svg>',
+ tik:'<svg viewBox="0 0 28 28" width="30" height="30"><path d="M4 9l14-6 6 14-14 6z" fill="#b48aff" stroke="#12081f" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 9l7-3 3 7-7 3z" fill="#e8d8ff"/><circle cx="20" cy="20" r="4" fill="#ffd45a" stroke="#12081f" stroke-width="1.4"/></svg>'};
+const RPC_MAPTXT={moss:{f:['One winding road','River crossing'],d:'A quiet forest road crosses the river on an old stone bridge. Forest creatures gather here, testing your defenses.'},
+ frost:{f:['Two caves','Icy road'],d:'Monsters pour from two snowy caves at once, and the icy patches on the road speed them up. Guard the frozen stretches well.'},
+ ember:{f:['A forked road','Lava vents'],d:'The road forks around a lava lake and joins again. Vents beside it erupt and scorch any monster nearby, so build where both forks meet.'}};
+{const m0=rampartsMenu;rampartsMenu=function(back){const out=m0.apply(this,arguments);try{rpcHub(back)}catch(e){console.error(e)}return out}}
+function rpcHub(back){const hub=ov.querySelector('.rphub');if(!hub)return;const r=RPP(),m=RP_MAP(RPSEL);hub.classList.add('rpc2');
+ /* title in the top bar */
+ const top=hub.querySelector('.rphtop'),bk=$('rphback');if(top&&bk&&!top.querySelector('.rphttl'))bk.insertAdjacentHTML('afterend',`<span class="rphttl"><i>${RPC_ICO.crys}</i><b class="rptitle">Runestone Tower Defense</b></span>`);
+ const hl=hub.querySelector('.rphl');if(hl){hl.querySelectorAll('.rpkick,h1').forEach(e=>e.remove());if(!hl.children.length)hl.remove()}
+ /* the side panel */
+ const side=hub.querySelector('.rpside');if(side&&!m.endless){const T=RPC_MAPTXT[m.id]||{f:[m.sub],d:m.twist},st=r.stars[m.id]||0,day=rpDay(),first=r.day!==day||!r.dayDone[m.id];
+  const ss=side.querySelector('.rpss');if(ss)ss.outerHTML=`<p class="rpcm">${RPC_ICO.sw}<span>${m.waves} waves</span></p><p class="rpcm">${RPC_ICO.pin}<span>${T.f.map(esc).join(' <i>•</i> ')}</span></p>`;
+  const sst=side.querySelector('.rpsst');if(sst)sst.outerHTML=`<div class="rpcbest"><b>${st?`Best: ${st} / 3 stars`:'Not yet defended'}</b><span>${[0,1,2].map(i=>RPI.star(i<st,26)).join('')}</span></div>`;
+  const tw=side.querySelector('.rpstw');if(tw)tw.textContent=T.d;
+  const cn=side.querySelector('.rpscn');if(cn)cn.outerHTML=`<div class="rpccn"><span class="rpccoin">${RPI.coin}<span>Up to <u>${Math.round(rpWinCoins(m,3)*(first?RPT.FIRSTDAY:1)).toLocaleString()} coins</u></span></span>${first?`<span class="rpcfw">${RPC_ICO.tik}<span>First win<br>today ×${RPT.FIRSTDAY}</span></span>`:''}</div>`;
+  const df=$('rpdef');if(df){const s=df.querySelector('span');if(s)s.textContent='Defend '+m.n.split(' ')[0]}
+  const nr=side.querySelector('.rpnr');if(nr){nr.insertAdjacentHTML('beforebegin','<div class="rpcrule"><i></i></div>');const nxt=RP_MAPS[RP_MAPS.indexOf(m)+1],row=nr.querySelector('div');
+   if(row&&nxt){row.classList.add('rpcnr');row.insertAdjacentHTML('beforeend','<i class="rpcnrgo">›</i>');const em=row.querySelector('em');if(em&&!nxt.endless&&RP_MAPOPEN(nxt))em.textContent=`${nxt.waves} waves`;
+    row.onclick=()=>{if(!RP_MAPOPEN(nxt)){try{rpSfx('no')}catch(e){}return}RPSEL=nxt.id;try{rpSfx('key',2)}catch(e){}rampartsMenu(back)}}}}
+ /* the armory bar */
+ const nu=hub.querySelector('.rpnu'),vr=$('rpvr');if(nu&&vr){nu.appendChild(vr);if(/Earned/.test(nu.textContent)){const b=nu.querySelector('b'),s=nu.querySelector('small');if(s)s.textContent='All rewards';if(b)b.textContent='earned'}
+  if(!nu.querySelector('.rpcnui'))nu.insertAdjacentHTML('afterbegin',`<i class="rpcnui">${RPI.keep}</i>`)}
+ const ch=$('rpchb');if(ch){const L=rpLbSt(),sm=ch.querySelector('.rpcht small'),b=ch.querySelector('.rpcht b'),em=ch.querySelector('.rpcht em');if(sm)sm.textContent='Season championship';if(b)b.textContent=rpSeaLeft();if(em)em.textContent='Win the Azure Dragon';
+  const go=ch.querySelector('.rpchgo');if(go)go.outerHTML=`<span class="rpcvl">${RPTRO}<span>View leaderboard</span><i>›</i></span>`}}
+/* ---------- Tower Skins: three columns ---------- */
+let RPSKTW=null;
+const RPC_CUP=c=>`<svg viewBox="0 0 48 56" width="44" height="52"><path d="M14 4h20v6c0 9-4 15-10 15S14 19 14 10z" fill="${c[0]}" stroke="#12081f" stroke-width="2.4" stroke-linejoin="round"/><path d="M14 8H7c0 7 4 10 8 10M34 8h7c0 7-4 10-8 10" fill="none" stroke="#12081f" stroke-width="2.4"/><path d="M24 7l4 7-4 8-4-8z" fill="${c[1]}" stroke="#12081f" stroke-width="1.6" stroke-linejoin="round"/><path d="M21 25h6v8h-6z" fill="${c[0]}" stroke="#12081f" stroke-width="2"/><path d="M13 34h22l3 8H10z" fill="#4a3a90" stroke="#12081f" stroke-width="2.4" stroke-linejoin="round"/><path d="M8 42h32v8H8z" fill="#2a1f6a" stroke="#12081f" stroke-width="2.4"/></svg>`;
+const RPC_CUPS=[[2,['#c88a5a','#ff9a6a']],[4,['#c8dcf0','#7ad8ff']],[6,['#ffd45a','#fff2b0']],[8,['#b48aff','#e8d8ff']]];
+rpSkins=function(back){back=back||(()=>rampartsMenu(title));const r=RPP(),list=RP_SKINLIST(),sn=rpStarN();
+ if(!RPSKSEL||!list.some(s=>s.tw===RPSKSEL.tw&&s.k===RPSKSEL.k))RPSKSEL=list.find(s=>s.tw==='dragon'&&s.k==='azure');
+ const sel=RPSKSEL;RPSKTW=sel.tw;const own=rpSkinOwn(sel),on=rpSkinOf(sel.tw)===sel.k,twLock=sel.tw==='dragon'&&!rpDragonOpen();
+ const mine=list.filter(s=>s.tw===sel.tw);
+ const nav=RP_TWORDER.map(t=>`<button class="rpcsn${t===sel.tw?' on':''}" data-tw="${t}"><img alt="" src="${rpIconCanvas(t,3,rpSkinOf(t),88)}"><b>${esc(RPTW[t].n)}</b><i>›</i></button>`).join('');
+ const card=s=>{const o=rpSkinOwn(s),eq=rpSkinOf(s.tw)===s.k;return `<button class="rpskt rpcsk${o?'':' lock'}${eq?' eq':''}${s===sel?' sel':''}${s.champ?' champ':''}" data-tw="${s.tw}" data-k="${s.k}"><span class="rpcskv"><img alt="" src="${rpIconCanvas(s.tw,3,s.k,240)}">${o?'':`<i class="rpsklk">${RPI.lock}</i>`}</span><b>${esc(s.n)}</b>
+  <small class="rpcpill${eq?' eq':o?' own':''}">${eq?'✓ Equipped':o?'Equip':`${RPI.lock}<span>${s.champ?'Champion only':esc(s.how)}</span>`}</small></button>`};
+ const ms=RPC_CUPS.map(([n,c])=>`<span class="rpcms${sn>=n?' got':''}">${RPC_CUP(c)}<em>${n} stars</em></span>`).join('<i class="rpcmsl"></i>');
+ const status=own?(on?'Equipped':'Owned'):'Locked';
+ const desc=sel.champ?`Blue steel, gold trim and blue fire. Only the season's champion wins it: hold the most waves in the Wonderland this season.`:sel.k==='base'?`The classic ${esc(RPTW[sel.tw].n)}, as it was first built.`:own?'Yours to equip on every map.':`A new look for the ${esc(RPTW[sel.tw].n)}. ${esc(sel.how)} across the maps to unlock it.`;
+ const req=sel.champ?`<div class="rpcreq">${RPTRO}<span><b>Finish #1 in Wonderland this season</b><em>Champion also earns ${cmn(RPLB_PRIZE)} coins.</em></span><span class="rpcend"><small>CHAMPIONSHIP ENDS IN</small><b>${esc(rpSeaLeft())}</b></span></div>`
+  :sel.star?`<div class="rpcreq">${RPI.star(1,30)}<span><b>Earn ${sel.star} stars across the maps</b><em>You have ${sn} / 9 stars.</em></span><span class="rpcbar"><i style="transform:scaleX(${Math.min(1,sn/sel.star)})"></i></span></div>`
+  :`<div class="rpcreq">${RPI.keep}<span><b>Always yours</b><em>Every tower starts with its classic look.</em></span></div>`;
+ const btn=own?(on&&sel.k!=='base'?`<button class="rpcact" id="rpskeq">Unequip</button>`:on?`<button class="rpcact" disabled>Equipped</button>`:`<button class="rpcact gold" id="rpskeq">Equip ${esc(sel.n)}</button>`)
+  :sel.champ?`<button class="rpcact blue rpskch" id="rpskeq">View championship ›</button>`:`<button class="rpcact" disabled>${RPI.lock} ${esc(sel.how)}</button>`;
+ show(`<div class="rpx rpskx rpc2sk" id="rpsk"><canvas class="rplbbg" id="rpskbg" width="1600" height="900"></canvas>
+  <div class="rphtop"><button class="rpbk" id="rpskback" aria-label="Back (Esc)">‹ Back</button></div>
+  <div class="rpcskh"><h1>Tower Skins</h1><p>Cosmetic collection</p></div>
+  <nav class="rpcsl">${nav}</nav>
+  <section class="rpcsm"><h3>${esc(RPTW[sel.tw].n)} Skins${twLock?' <em>locked tower</em>':''}</h3><div class="rpcsks n${mine.length}">${mine.map(card).join('')}</div>
+   <div class="rpcmsb"><b>Armory milestones</b><div>${ms}</div></div></section>
+  <section class="rpcsr"><div class="rpskpv${sel.champ?' champ':''}"><canvas id="rpskcv" width="520" height="430"></canvas></div>
+   <div class="rpcst"><span><h3>${esc(sel.n)}</h3><p class="rpsksub">${esc(RPTW[sel.tw].n)} cosmetic</p></span><span class="rpcstat ${status.toLowerCase()}">${status==='Locked'?RPI.lock:''}${status}</span></div>
+   <p class="rpskd">${desc}${twLock?' Win Ember Crown to unlock the Dragon Roost itself.':''}</p>${req}<div class="rpskbt">${btn}</div></section></div>`,'rpx rpskxx');
+ S.view='ramparts';S.back=back;$('rpskback').onclick=()=>back();
+ {const bg=$('rpskbg'),g=bg.getContext('2d');try{g.drawImage(rpWorldArt(rpWonderOpen()),0,0,1600,900)}catch(e){try{g.drawImage(rpBake(RP_MAP('moss')).c,0,0,1600,900)}catch(x){}}g.fillStyle='rgba(8,5,28,.78)';g.fillRect(0,0,1600,900)}
+ {const cv=$('rpskcv');if(sel.tw==='dragon'&&sel.k==='azure')rpPrizeLive(cv,{tier:3,sc:2,x:.4,y:.92,clear:1});else{const g=cv.getContext('2d');const fn=t=>{g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,520,430);g.translate(260,380);g.scale(2.2,2.2);rpTowerDraw(g,sel.tw,3,sel.k,t,{aim:Math.sin(t*.7)*.8-.4,ph:.4,fire:(t%2.4)<.3?1-(t%2.4)/.3:0,charge:.6+.4*Math.sin(t*2)})};fn(1);if(!rpRM())LIVE.push({cv,fn,slow:2,vis:true})}}
+ ov.querySelectorAll('.rpcsn').forEach(b=>b.onclick=()=>{const t=b.dataset.tw,L=list.filter(s=>s.tw===t);RPSKSEL=L.find(s=>rpSkinOf(t)===s.k)||L[0];try{rpSfx('key',2)}catch(e){}rpSkins(back)});
+ ov.querySelectorAll('.rpskt').forEach(b=>b.onclick=()=>{const s=list.find(x=>x.tw===b.dataset.tw&&x.k===b.dataset.k);if(!s)return;RPSKSEL=s;try{rpSfx('key',2)}catch(e){}
+  if(rpSkinOwn(s)&&rpSkinOf(s.tw)!==s.k){RPP().skin[s.tw]=s.k;save();try{rpSfx('up')}catch(e){}}rpSkins(back)});
+ const eq=$('rpskeq');if(eq)eq.onclick=()=>{if(sel.champ&&!own){rpBoard(()=>rpSkins(back));return}const r2=RPP();r2.skin[sel.tw]=on?'base':sel.k;save();try{rpSfx('up')}catch(e){}rpSkins(back)};
+ const cur=ov.querySelector('.rpcsn.on');if(cur)try{cur.scrollIntoView({block:'nearest'})}catch(e){}};
+/* ---------- styles ---------- */
+{const st=document.createElement('style');st.textContent=`
+.rpc2 .rphtop{width:auto;right:auto;gap:8px;flex-wrap:nowrap}.rpc2 .rphtop .rpbk{white-space:nowrap;padding-left:12px!important;padding-right:14px!important;font-size:15px!important}
+.rphttl{display:flex;align-items:center;gap:8px;margin:0 8px 0 4px;white-space:nowrap}.rphttl i{display:grid;place-items:center;width:38px;height:38px}
+.rphttl .rptitle{margin:0;font:400 34px/1 'Pirata One',Georgia,serif!important;color:#ffd45a;text-shadow:0 3px 0 #12081f,0 0 18px #ffb02a55;letter-spacing:.01em}
+.rpc2 .rphl{top:84px}
+.rpc2 .rpside{top:80px;width:384px;padding:12px 16px 12px;border-color:#6a58c8}.rpc2 .rpside.rpsidew{top:62px;border-color:#c89aff}
+.rpc2 .rpprev{width:100%;height:170px;object-fit:cover;border-radius:14px;border:2px solid #12081f;box-shadow:0 0 0 2px #5a4ca0}
+.rpc2 .rpsn{margin-top:8px;font-size:36px}.rpc2 .rpgo2{height:56px!important;margin-top:10px!important}.rpc2 .rpnri,.rpc2 .rpnric{width:56px!important;height:56px!important}.rpc2 .rpnr b{font-size:22px}
+.rpcm{display:flex;align-items:center;gap:8px;margin:4px 0 0;font:700 15px var(--ui);color:#9fe8ff}.rpcm svg{flex:none}.rpcm i{font-style:normal;color:#6a58c8;margin:0 2px}.rpcm:first-of-type{color:#fff8e8}
+.rpcbest{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding:6px 14px;border-radius:14px;background:#12081fb0;border:2px solid #4a3a90}.rpcbest b{font:800 16px var(--ui);color:#ffd45a}.rpcbest span{display:flex;gap:3px}
+.rpc2 .rpstw{margin-top:8px;font-size:13.5px;line-height:1.38;color:#e8e0ff}
+.rpccn{display:flex;align-items:center;gap:12px;margin-top:8px}.rpccoin{display:flex;align-items:center;gap:8px;font:700 15px var(--ui);color:#fff8e8}.rpccoin svg{width:28px;height:28px;flex:none}.rpccoin u{color:#ffd45a;text-underline-offset:3px}
+.rpcfw{display:flex;align-items:center;gap:6px;margin-left:auto;padding-left:12px;border-left:2px solid #3a3070;font:700 12.5px/1.2 var(--ui);color:#e8e0ff}.rpcfw svg{flex:none}
+.rpcrule{position:relative;height:16px;margin:8px 0 0}.rpcrule:before{content:'';position:absolute;left:0;right:0;top:7px;height:2px;background:linear-gradient(90deg,#3a307000,#c99a3a,#3a307000)}.rpcrule i{position:absolute;left:50%;top:2px;width:11px;height:11px;margin-left:-6px;background:#ffd45a;border:2px solid #12081f;transform:rotate(45deg)}
+.rpc2 .rpnr{margin-top:0;padding-top:0;border-top:0}
+.rpcnr{position:relative;padding:6px 40px 6px 6px;border-radius:14px;background:#12081f80;border:2px solid #3a3070;cursor:pointer;transition:transform .15s}.rpcnr:hover{transform:translateY(-2px)}
+.rpcnrgo{position:absolute;right:14px;top:50%;transform:translateY(-50%);font:700 28px/1 var(--ui);font-style:normal;color:#c4badf}
+.rpc2 .rpnode.on .rpnglow{background:radial-gradient(closest-side,#ffd45a99,#ffd45a33 60%,#ffd45a00)}
+.rpc2 .rpnu{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}.rpc2 .rpnu small{display:block}.rpc2 .rpnu b{font-size:17px}
+.rpcnui{display:none}.rpc2 .rpnu .rpvr{margin-top:4px;padding:6px 16px!important;border-radius:12px!important;border:2px solid #6a58c8!important;background:#1e1650!important;font:700 13px var(--ui)!important;color:#fff8e8!important}
+.rpc2 .rpchb canvas{width:96px;height:92px}.rpc2 .rpcht{gap:0}.rpc2 .rpcht small{letter-spacing:.06em!important;font-size:13px!important;color:#9fe8ff!important;text-transform:none}.rpc2 .rpcht b{font-size:22px!important;color:#ffd45a!important}.rpc2 .rpcht em{font-style:normal;color:#e8e0ff!important}.rpc2 #rpchme{display:none}
+.rpcvl{display:flex;align-items:center;gap:5px;flex:none;margin-left:auto;padding:8px 10px;border-radius:14px;background:#1e1650;border:2px solid #c99a3a;box-shadow:0 0 0 2px #12081f;font:800 12.5px var(--ui);color:#fff8e8;white-space:nowrap}.rpcvl svg{width:20px;height:20px}.rpcvl i{font-style:normal;font-size:18px}
+/* Tower Skins */
+.rpc2sk{text-align:left}.rpc2sk .rpcskh{position:absolute;left:38px;top:70px}#ov .rpc2sk .rpcskh h1{margin:0;font:400 60px/1 'Pirata One',Georgia,serif;color:#ffd45a;-webkit-text-fill-color:#ffd45a;-webkit-text-stroke:0;background:none;text-shadow:0 4px 0 #12081f;letter-spacing:.01em}.rpc2sk .rpcskh p{margin:2px 0 0;font:700 20px var(--ui);color:#7ad8ff}
+.rpcsl,.rpcsm,.rpcsr{position:absolute;top:180px;bottom:26px;box-sizing:border-box;border-radius:22px;background:linear-gradient(180deg,#1e1650f4,#0e0a2cf8);border:2px solid #4a3a90;box-shadow:0 0 0 2px #12081f,0 18px 40px #000a}
+.rpcsl{left:32px;width:300px;padding:8px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+#ov .rpcsn{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px;min-height:62px;padding:4px 14px 4px 6px;border-radius:14px;border:2px solid transparent;transition:transform .15s}
+#ov .rpcsn:hover{transform:translateX(3px);background:#ffffff0a}.rpcsn img{width:54px;height:54px;flex:none}.rpcsn b{flex:1;text-align:left;font:700 16px var(--ui);color:#fff8e8}.rpcsn i{font-style:normal;font:700 22px var(--ui);color:#8a7ec0}
+#ov .rpcsn.on{background:linear-gradient(180deg,#3a5ad8,#243a9a);border-color:#ffd45a;box-shadow:0 0 0 2px #12081f}.rpcsn.on i{color:#fff8e8}
+.rpcsm{left:346px;width:636px;padding:18px 20px;display:flex;flex-direction:column}.rpcsm h3{margin:0 0 14px;font:800 26px var(--ui);color:#fff8e8}.rpcsm h3 em{font:700 13px var(--ui);font-style:normal;color:#ff9aa8;margin-left:8px}
+.rpcsks{display:flex;gap:20px;flex:1;min-height:0}
+#ov .rpcsk{all:unset;box-sizing:border-box;cursor:pointer;flex:0 0 280px;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 12px 16px;border-radius:20px;background:linear-gradient(180deg,#1a1240,#0c0824);border:3px solid #3a3070;box-shadow:0 0 0 2px #12081f;transition:transform .15s}
+#ov .rpcsk:hover{transform:translateY(-4px)}#ov .rpcsk.eq{border-color:#ffd45a}#ov .rpcsk.sel{box-shadow:0 0 0 2px #12081f,0 0 0 5px #7ad8ff}#ov .rpcsk.champ{background:linear-gradient(180deg,#14306a,#0c1640);border-color:#4a9ae8}
+.rpcskv{position:relative;flex:1;width:100%;min-height:0;display:grid;place-items:center}.rpcskv img{width:250px;height:250px;max-height:100%;object-fit:contain}.rpcsk.lock .rpcskv img{opacity:.55}
+.rpcskv .rpsklk{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:#12081fe0;border:2px solid #6a58c8}.rpcskv .rpsklk svg{width:24px;height:24px}
+.rpcsk>b{font:800 21px var(--ui);color:#fff8e8}
+.rpcpill{display:flex;align-items:center;justify-content:center;gap:6px;min-width:200px;padding:9px 16px;border-radius:14px;border:2px solid #6a58c8;font:800 15px var(--ui);color:#cfc6f0}.rpcpill svg{width:18px;height:18px}
+#ov .rpcsk .rpcpill{font:800 15px var(--ui);text-align:center}#ov .rpcsk .rpcpill:not(.eq):not(.own){color:#cfc6f0}#ov .rpcpill.eq{background:linear-gradient(180deg,#ffe27a,#f2b92a);border-color:#12081f;color:#3a1a04!important}.rpcpill.own{background:#2a1f6a;color:#fff8e8}
+.rpcmsb{margin-top:16px;padding:12px 16px 14px;border-radius:16px;background:#12081f90;border:2px solid #3a3070}.rpcmsb>b{display:block;padding-left:10px;border-left:3px solid #7ad8ff;font:800 16px var(--ui);color:#fff8e8}
+.rpcmsb>div{display:flex;align-items:flex-start;justify-content:space-between;margin-top:10px}.rpcms{display:flex;flex-direction:column;align-items:center;gap:2px;opacity:.5}.rpcms svg{width:58px!important;height:68px!important}.rpcms.got{opacity:1}.rpcms em{font:700 13px var(--ui);font-style:normal;color:#e8e0ff}
+.rpcmsl{flex:1;height:3px;margin:34px 6px 0;background:#3a3070;border-radius:2px}
+.rpcsr{left:996px;right:32px;padding:16px 20px 18px;display:flex;flex-direction:column}
+.rpc2sk .rpskpv{position:relative;height:300px;border-radius:16px;overflow:hidden;background:radial-gradient(ellipse at 50% 70%,#2a3a8a,#0c0824 72%);border:2px solid #12081f;box-shadow:0 0 0 2px #3a3070}
+.rpc2sk .rpskpv.champ{background:radial-gradient(ellipse at 50% 70%,#1e4ab0,#081030 72%)}.rpc2sk #rpskcv{position:absolute;left:50%;top:50%;width:400px;height:331px;transform:translate(-50%,-52%)}
+.rpcst{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-top:12px}.rpcst h3{margin:0;font:400 38px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 3px 0 #12081f}.rpcst .rpsksub{margin:4px 0 0;font:700 15px var(--ui);color:#7ad8ff}
+.rpcstat{display:flex;align-items:center;gap:6px;flex:none;padding:6px 14px;border-radius:12px;border:2px solid #6a58c8;font:700 14px var(--ui);color:#e8e0ff}.rpcstat svg{width:16px;height:16px}.rpcstat.equipped{border-color:#ffd45a;color:#ffd45a}.rpcstat.owned{border-color:#7dffb0;color:#7dffb0}
+.rpc2sk .rpskd{margin:10px 0 0;font:500 14.5px/1.45 var(--ui);color:#e8e0ff}
+.rpcreq{display:flex;align-items:center;gap:12px;margin-top:12px;padding:10px 12px;border-radius:14px;background:#12081f90;border:2px solid #3a3070}.rpcreq>svg{width:30px;height:30px;flex:none}
+.rpcreq>span:nth-child(2){flex:1;min-width:0}.rpcreq b{display:block;font:800 15px var(--ui);color:#fff8e8}.rpcreq em{display:block;margin-top:2px;font:600 13px var(--ui);font-style:normal;color:#c4badf}
+.rpcend{flex:none;padding:5px 10px;border-radius:10px;background:linear-gradient(180deg,#ffe27a,#f2b92a);border:2px solid #12081f;text-align:center}.rpcend small{display:block;font:800 9.5px var(--ui);letter-spacing:.08em;color:#3a1a04}.rpcend b{font:400 22px/1 'Pirata One',Georgia,serif;color:#3a1a04}
+.rpcbar{flex:0 0 90px;height:10px;border-radius:6px;background:#2a1f6a;border:2px solid #12081f;overflow:hidden}.rpcbar i{display:block;height:100%;background:#ffd45a;transform-origin:left center}
+.rpc2sk .rpskbt{margin-top:auto;padding-top:12px}
+#ov .rpcact{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:64px;border-radius:16px;background:#2a1f6a;border:2px solid #6a58c8;box-shadow:0 0 0 2px #12081f,0 5px 0 #0c0824;font:800 20px var(--ui);color:#fff8e8;transition:transform .15s}
+#ov .rpcact:hover{transform:translateY(-2px)}#ov .rpcact:disabled{cursor:default;opacity:.7;transform:none}.rpcact svg{width:20px;height:20px}
+#ov .rpcact.gold{background:linear-gradient(180deg,#ffe27a,#f2b92a);border-color:#12081f;color:#3a1a04;box-shadow:0 0 0 2px #12081f,0 5px 0 #8a4a0a}
+#ov .rpcact.blue{background:linear-gradient(180deg,#8ad0ff,#3a8ae8);border-color:#12081f;font:400 30px 'Pirata One',Georgia,serif;color:#0c1640;box-shadow:0 0 0 2px #12081f,0 5px 0 #c99a3a}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

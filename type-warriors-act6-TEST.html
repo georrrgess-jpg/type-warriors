@@ -53554,6 +53554,341 @@ addEventListener('keydown',e=>{try{const p=$('devpanel');if(!p||p.hidden||!DEV.o
 .dvpnav{position:sticky;top:-10px;z-index:3;display:flex;flex-wrap:wrap;gap:5px;margin:-10px -12px 6px;padding:8px 12px;background:#120f1ff5;border-bottom:1px solid #3a3270}
 .dvpnav button{all:unset;cursor:pointer;padding:3px 9px;border-radius:999px;border:1px solid #5a4fa0;background:#1a1530;font:600 11.5px 'Poppins',sans-serif;color:#d8d2ff}
 .dvpnav button:hover{border-color:#ffd45a;color:#ffd45a}.dvx .dvb.dg{border-color:#c04a5a;color:#ffb0b8}`;document.head.appendChild(st)}
+/* ===== ACCOUNTS 9.9l: Type Warriors accounts without a server (97j, after 97i) =====
+   A player can create an account (username + password) and their whole save follows them to any device, any copy of the game and
+   any web address: the save is kept, encrypted, on several public Nostr relays (the same kind of servers the leaderboards use), not
+   on the website. If the site moves or is blocked, the player opens the game anywhere (a new address, a downloaded copy) and signs in.
+   If the relays themselves are blocked, an account backup file (encrypted, made from the account panel) restores everything.
+   Guests keep playing exactly as before; accounts are optional.
+
+   Keys. Each account has a random 32-byte master key M. The account's Nostr key (secp256k1) and its save keys come from M:
+     sign = sha256(M|"tw-sign") mod n, enc = sha256(M|"tw-enc"), mac = sha256(M|"tw-mac").
+   The password never leaves the device: PBKDF2-HMAC-SHA256(password, "type-warriors-account-v1|"+username, TWA.iter) gives two keys
+   that open a "key box" holding M. Changing the password only re-seals the key box, so the account (and its leaderboard identity)
+   stays the same. The recovery code shown at sign-up is M itself (base32, with a checksum): it opens the account without the password.
+   Cipher: ChaCha20 (RFC 8439) + HMAC-SHA256 (encrypt-then-MAC), all in plain JavaScript, so it works on https, http and file://
+   alike (crypto.subtle is used for PBKDF2 only when it exists; the result is identical). The same pure SHA-256 backs wcSha when
+   crypto.subtle is missing, so the leaderboards also work on a plain-http address.
+
+   Events (kind 30078, replaceable per author + d tag):
+     d = "twa-key:<username>"  public, signed by the account: {v,u: display name, b: key box}. Signing up checks this first, so a
+                               username is taken once anyone holds it (first come, first served).
+     d = "twa-save"            the manifest, encrypted: {v, rev, at, dev, n chunks, h: sha256 of the blob, z: gzip, sum: summary}.
+     d = "twa-save:<i>"        chunk i of the encrypted save blob: {r: rev, i, s: text}. Chunks go up first, the manifest last.
+   Sync. While signed in, the save is uploaded when it changes (at most every TWA.every ms), when the tab is hidden and from the
+   account panel. Each upload checks the manifest first: if another device uploaded a newer revision, nothing is overwritten and the
+   player chooses which progress to keep (with the usual side-by-side comparison). On start-up a newer cloud save loads by itself
+   when this device has nothing unsynced, otherwise the same choice is offered. Loading uses the Save Center's install (a safety
+   copy of the current save is kept first, so it can be undone).
+   Session (this device only, not in the save): localStorage typeWarriorsAccount {u, d, M, pk, rev, sum, at, dev, rem};
+   "Keep me signed in" off keeps it in sessionStorage. Extra relays: localStorage typeWarriorsRelays (account panel).
+   Tests: window.TWA_RELAYS replaces the relay list; window.TWA_ITER lowers the PBKDF2 rounds. */
+const TWA={v:1,iter:250000,kind:30078,chunk:24000,every:90000,tick:20000,ms:6500,
+ extra:['wss://relay.snort.social','wss://nostr-pub.wellorder.net','wss://nostr.oxtr.dev','wss://offchain.pub','wss://nostr.bitcoiner.social','wss://relay.nostr.net','wss://relay.nostr.bg'],
+ st:{busy:0,last:0,err:'',ok:0,relays:0,conflict:null,pushing:null},sesK:'typeWarriorsAccount',devK:'typeWarriorsDevice',relK:'typeWarriorsRelays'};
+const twaIter=()=>Math.max(1000,+window.TWA_ITER||TWA.iter);
+/* ---------- bytes ---------- */
+const twaTE=new TextEncoder(),twaTD=new TextDecoder();
+const twaCat=(...a)=>{let n=0;for(const x of a)n+=x.length;const o=new Uint8Array(n);let p=0;for(const x of a){o.set(x,p);p+=x.length}return o};
+const twaHex=b=>Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+const twaUnhex=h=>{const o=new Uint8Array(h.length>>1);for(let i=0;i<o.length;i++)o[i]=parseInt(h.substr(i*2,2),16);return o};
+function twaB64(b){let s='';for(let i=0;i<b.length;i+=8192)s+=String.fromCharCode.apply(null,b.subarray(i,i+8192));return btoa(s)}
+function twaUnb64(t){const s=atob(t),o=new Uint8Array(s.length);for(let i=0;i<s.length;i++)o[i]=s.charCodeAt(i);return o}
+const twaRand=n=>crypto.getRandomValues(new Uint8Array(n));
+/* ---------- SHA-256, HMAC, PBKDF2 (pure JS) ---------- */
+const TWAK=(()=>{const k=new Uint32Array(64);let c=0;for(let n=2;c<64;n++){let p=1;for(let d=2;d*d<=n;d++)if(n%d===0){p=0;break}if(p)k[c++]=(Math.pow(n,1/3)%1*4294967296)>>>0}return k})();
+function twaSha(m){const l=m.length,nb=((l+9+63)>>6)<<6,b=new Uint8Array(nb);b.set(m);b[l]=0x80;const bits=l*8;const dv=new DataView(b.buffer);dv.setUint32(nb-4,bits>>>0);dv.setUint32(nb-8,Math.floor(bits/4294967296));
+ const H=new Uint32Array([0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19]),W=new Uint32Array(64);
+ for(let o=0;o<nb;o+=64){for(let i=0;i<16;i++)W[i]=dv.getUint32(o+i*4);for(let i=16;i<64;i++){const a=W[i-15],c=W[i-2],s0=((a>>>7)|(a<<25))^((a>>>18)|(a<<14))^(a>>>3),s1=((c>>>17)|(c<<15))^((c>>>19)|(c<<13))^(c>>>10);W[i]=(W[i-16]+s0+W[i-7]+s1)>>>0}
+  let a=H[0],bb=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+  for(let i=0;i<64;i++){const S1=((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7)),ch=(e&f)^(~e&g),t1=(h+S1+ch+TWAK[i]+W[i])>>>0,S0=((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10)),mj=(a&bb)^(a&c)^(bb&c),t2=(S0+mj)>>>0;
+   h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=bb;bb=a;a=(t1+t2)>>>0}
+  H[0]+=a;H[1]+=bb;H[2]+=c;H[3]+=d;H[4]+=e;H[5]+=f;H[6]+=g;H[7]+=h}
+ const out=new Uint8Array(32),ov=new DataView(out.buffer);for(let i=0;i<8;i++)ov.setUint32(i*4,H[i]);return out}
+function twaHmac(k,m){if(k.length>64)k=twaSha(k);const kk=new Uint8Array(64);kk.set(k);const ip=kk.map(x=>x^0x36),op=kk.map(x=>x^0x5c);return twaSha(twaCat(op,twaSha(twaCat(ip,m))))}
+/* PBKDF2 in JS: the HMAC pads are hashed once, each round is two SHA-256 compressions on fixed buffers (no allocations), and the
+   work is sliced so the page keeps drawing (async) */
+function twaComp(H,W,blk){for(let i=0;i<16;i++)W[i]=blk[i];for(let i=16;i<64;i++){const a=W[i-15],c=W[i-2];W[i]=(W[i-16]+(((a>>>7)|(a<<25))^((a>>>18)|(a<<14))^(a>>>3))+W[i-7]+(((c>>>17)|(c<<15))^((c>>>19)|(c<<13))^(c>>>10)))>>>0}
+ let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+ for(let i=0;i<64;i++){const t1=(h+(((e>>>6)|(e<<26))^((e>>>11)|(e<<21))^((e>>>25)|(e<<7)))+((e&f)^(~e&g))+TWAK[i]+W[i])>>>0,t2=((((a>>>2)|(a<<30))^((a>>>13)|(a<<19))^((a>>>22)|(a<<10)))+((a&b)^(a&c)^(b&c)))>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0}
+ H[0]=H[0]+a>>>0;H[1]=H[1]+b>>>0;H[2]=H[2]+c>>>0;H[3]=H[3]+d>>>0;H[4]=H[4]+e>>>0;H[5]=H[5]+f>>>0;H[6]=H[6]+g>>>0;H[7]=H[7]+h>>>0}
+const TWAIV=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+async function twaPbkdf2JSa(pw,salt,iter,len,sync){if(pw.length>64)pw=twaSha(pw);const kk=new Uint8Array(64);kk.set(pw);const W=new Uint32Array(64),pad=x=>{const b=new Uint32Array(16);for(let i=0;i<16;i++)b[i]=((kk[i*4]^x)<<24|(kk[i*4+1]^x)<<16|(kk[i*4+2]^x)<<8|(kk[i*4+3]^x))>>>0;return b};
+ const IS=new Uint32Array(TWAIV),OS=new Uint32Array(TWAIV);twaComp(IS,W,pad(0x36));twaComp(OS,W,pad(0x5c));
+ /* a 32-byte message after a 64-byte pad: one block with the padding for 96 bytes */
+ const blk=new Uint32Array(16);blk[8]=0x80000000;blk[15]=96*8;const st=new Uint32Array(8),ut=new Uint32Array(8),tt=new Uint32Array(8);
+ const round=()=>{st.set(IS);for(let i=0;i<8;i++)blk[i]=ut[i];twaComp(st,W,blk);for(let i=0;i<8;i++)blk[i]=st[i];st.set(OS);twaComp(st,W,blk);ut.set(st)};
+ const out=new Uint8Array(len);let pos=0;for(let bn=1;pos<len;bn++){const u0=twaHmac(pw,twaCat(salt,new Uint8Array([bn>>>24,bn>>>16&255,bn>>>8&255,bn&255])));for(let i=0;i<8;i++){ut[i]=(u0[i*4]<<24|u0[i*4+1]<<16|u0[i*4+2]<<8|u0[i*4+3])>>>0;tt[i]=ut[i]}
+  for(let i=1;i<iter;i++){round();for(let j=0;j<8;j++)tt[j]^=ut[j];if(!sync&&i%20000===0)await new Promise(r=>setTimeout(r,0))}
+  for(let j=0;j<8&&pos<len;j++)for(let k=0;k<4&&pos<len;k++)out[pos++]=tt[j]>>>(24-8*k)&255}return out}
+function twaPbkdf2JS(pw,salt,iter,len){/* the slow reference version (tests compare against it) */const mac=m=>twaHmac(pw,m);
+ const out=new Uint8Array(len);for(let blk=1,pos=0;pos<len;blk++){let u=mac(twaCat(salt,new Uint8Array([blk>>>24,blk>>>16&255,blk>>>8&255,blk&255]))),t=u.slice();
+  for(let i=1;i<iter;i++){u=mac(u);for(let j=0;j<32;j++)t[j]^=u[j]}out.set(t.subarray(0,Math.min(32,len-pos)),pos);pos+=32}return out}
+async function twaPbkdf2(pw,salt,iter,len){try{if(window.crypto&&crypto.subtle&&!window.TWA_NOSUBTLE){const k=await crypto.subtle.importKey('raw',pw,'PBKDF2',false,['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt,iterations:iter},k,len*8))}}catch(e){}
+ return twaPbkdf2JSa(pw,salt,iter,len)}
+/* the leaderboard code hashes with crypto.subtle; give it the pure version where that is missing (plain http) */
+try{if(typeof wcSha==='function'){const s0=wcSha;wcSha=async function(b){if(window.crypto&&crypto.subtle&&!window.TWA_NOSUBTLE){try{return await s0.apply(this,arguments)}catch(e){}}return twaSha(b instanceof Uint8Array?b:new Uint8Array(b))}}}catch(e){}
+/* ---------- ChaCha20 (RFC 8439) + HMAC-SHA256 ---------- */
+function twaChacha(key,nonce,data,ctr){const k=new DataView(key.buffer,key.byteOffset,32),n=new DataView(nonce.buffer,nonce.byteOffset,12),s=new Uint32Array(16),x=new Uint32Array(16),ks=new Uint8Array(64),kv=new DataView(ks.buffer),out=new Uint8Array(data.length);
+ s[0]=0x61707865;s[1]=0x3320646e;s[2]=0x79622d32;s[3]=0x6b206574;for(let i=0;i<8;i++)s[4+i]=k.getUint32(i*4,true);s[13]=n.getUint32(0,true);s[14]=n.getUint32(4,true);s[15]=n.getUint32(8,true);
+ const R=(a,b)=>(a<<b)|(a>>>(32-b)),Q=(a,b,c,d)=>{x[a]=x[a]+x[b]>>>0;x[d]=R(x[d]^x[a],16);x[c]=x[c]+x[d]>>>0;x[b]=R(x[b]^x[c],12);x[a]=x[a]+x[b]>>>0;x[d]=R(x[d]^x[a],8);x[c]=x[c]+x[d]>>>0;x[b]=R(x[b]^x[c],7)};
+ let c=ctr==null?1:ctr;for(let o=0;o<data.length;o+=64){s[12]=c++>>>0;x.set(s);for(let i=0;i<10;i++){Q(0,4,8,12);Q(1,5,9,13);Q(2,6,10,14);Q(3,7,11,15);Q(0,5,10,15);Q(1,6,11,12);Q(2,7,8,13);Q(3,4,9,14)}
+  for(let i=0;i<16;i++)kv.setUint32(i*4,(x[i]+s[i])>>>0,true);const m=Math.min(64,data.length-o);for(let i=0;i<m;i++)out[o+i]=data[o+i]^ks[i]}return out}
+const TWA_AD=twaTE.encode('twacct1');
+function twaSeal(ek,mk,pt){const nonce=twaRand(12),ct=twaChacha(ek,nonce,pt),tag=twaHmac(mk,twaCat(TWA_AD,nonce,ct));return twaCat(nonce,ct,tag)}
+function twaOpen(ek,mk,box){if(!box||box.length<44)return null;const nonce=box.subarray(0,12),ct=box.subarray(12,box.length-32),tag=box.subarray(box.length-32),want=twaHmac(mk,twaCat(TWA_AD,nonce,ct));
+ let d=0;for(let i=0;i<32;i++)d|=want[i]^tag[i];if(d)return null;return twaChacha(ek,nonce,ct)}
+/* ---------- gzip when the browser has it ---------- */
+async function twaZip(b){try{if(typeof CompressionStream==='function'){const s=new Blob([b]).stream().pipeThrough(new CompressionStream('gzip'));return{z:1,b:new Uint8Array(await new Response(s).arrayBuffer())}}}catch(e){}return{z:0,b}}
+async function twaUnzip(b,z){if(!z)return b;const s=new Blob([b]).stream().pipeThrough(new DecompressionStream('gzip'));return new Uint8Array(await new Response(s).arrayBuffer())}
+/* ---------- names, keys, recovery codes ---------- */
+const twaNorm=u=>String(u||'').trim().toLowerCase();
+function twaNameErr(u){const s=String(u||'').trim();if(s.length<3)return'Usernames need at least 3 characters.';if(s.length>20)return'Usernames can be at most 20 characters.';if(!/^[A-Za-z0-9_.-]+$/.test(s))return'Use letters, numbers, dots, dashes and underscores only.';return''}
+function twaPwErr(p){if(String(p||'').length<8)return'Passwords need at least 8 characters.';if(String(p).length>200)return'That password is too long.';return''}
+async function twaPwKeys(u,pw){const k=await twaPbkdf2(twaTE.encode(String(pw)),twaTE.encode('type-warriors-account-v1|'+twaNorm(u)),twaIter(),64);return{e:k.subarray(0,32),m:k.subarray(32,64)}}
+function twaAcctKeys(M){const h=s=>twaSha(twaCat(M,twaTE.encode(s)));let d=BigInt('0x'+twaHex(h('tw-sign')))%WCEC.n;if(d===0n)d=1n;const pk=wcHx(wcN2b(wcMul(d)[0]));return{d,pk,e:h('tw-enc'),m:h('tw-mac')}}
+const TWA_B32='0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function twaCode(M){const b=twaCat(M,twaSha(M).subarray(0,2));let bits=0,v=0,o='';for(const x of b){v=(v<<8)|x;bits+=8;while(bits>=5){o+=TWA_B32[(v>>>(bits-5))&31];bits-=5}}if(bits)o+=TWA_B32[(v<<(5-bits))&31];return o.match(/.{1,5}/g).join('-')}
+function twaUncode(c){const s=String(c||'').toUpperCase().replace(/[\s-]/g,'').replace(/O/g,'0').replace(/[IL]/g,'1');let bits=0,v=0;const o=[];for(const ch of s){const i=TWA_B32.indexOf(ch);if(i<0)return null;v=((v<<5)|i)&0xffff;bits+=5;if(bits>=8){o.push((v>>>(bits-8))&255);bits-=8}}
+ if(o.length<34)return null;const b=new Uint8Array(o.slice(0,34)),M=b.subarray(0,32),ck=twaSha(M);return ck[0]===b[32]&&ck[1]===b[33]?M.slice():null}
+/* ---------- relays ---------- */
+function twaRelays(){if(Array.isArray(window.TWA_RELAYS))return window.TWA_RELAYS.slice();let ex=[];try{ex=JSON.parse(sgGet(TWA.relK)||'[]')}catch(e){}
+ const L=[...(typeof rkLbRelays==='function'?rkLbRelays():[]),...TWA.extra,...(Array.isArray(ex)?ex:[])].filter(u=>/^wss?:\/\//.test(u));return[...new Set(L)]}
+const twaShape=ev=>!!ev&&typeof ev==='object'&&/^[0-9a-f]{64}$/.test(ev.pubkey)&&/^[0-9a-f]{64}$/.test(ev.id)&&typeof ev.sig==='string'&&Number.isInteger(ev.created_at)&&ev.kind===TWA.kind&&Array.isArray(ev.tags)&&typeof ev.content==='string';
+const twaD=ev=>{const t=ev.tags.find(x=>Array.isArray(x)&&x[0]==='d');return t?String(t[1]):''};
+async function twaQuery(f){const R=twaRelays();const res=await Promise.all(R.map(u=>rkRelayQuery(u,f,TWA.ms).catch(()=>({ok:false,evs:[]}))));const ok=res.filter(r=>r.ok).length;
+ const evs=[],seen=new Set();for(const r of res)for(const ev of r.evs||[])if(twaShape(ev)&&!seen.has(ev.id)){seen.add(ev.id);evs.push(ev)}TWA.st.relays=ok;return{ok,n:R.length,evs}}
+async function twaSend(evs){const R=twaRelays();let best=0;for(const ev of evs){const r=await Promise.all(R.map(u=>rkRelaySend(u,ev,TWA.ms).catch(()=>false)));const n=r.filter(Boolean).length;if(!n)return 0;best=best?Math.min(best,n):n}return best}
+/* newest valid event per d tag, from one author */
+async function twaNewest(evs,pk){const by={};for(const ev of evs){if(ev.pubkey!==pk)continue;const d=twaD(ev),o=by[d];if(o&&(o.created_at>ev.created_at||o.created_at===ev.created_at&&o.id<=ev.id))continue;if(await rkEvOk(ev))by[d]=ev}return by}
+/* ---------- the session on this device ---------- */
+let TWAS=null;
+function twaDev(){let d=sgGet(TWA.devK);if(!/^[0-9a-f]{16}$/.test(d||'')){d=twaHex(twaRand(8));sgPut(TWA.devK,d)}return d}
+function twaLoadSes(){if(TWAS)return TWAS;let raw=null;try{raw=sessionStorage.getItem(TWA.sesK)}catch(e){}if(!raw)raw=sgGet(TWA.sesK);if(!raw)return null;
+ try{const s=JSON.parse(raw);if(s&&/^[0-9a-f]{64}$/.test(s.M)&&/^[0-9a-f]{64}$/.test(s.pk)&&s.u){TWAS=s;return s}}catch(e){}return null}
+function twaSaveSes(){const s=TWAS;if(!s)return;const raw=JSON.stringify(s);if(s.rem){sgPut(TWA.sesK,raw);try{sessionStorage.removeItem(TWA.sesK)}catch(e){}}else{try{sessionStorage.setItem(TWA.sesK,raw)}catch(e){}sgDel(TWA.sesK)}}
+function twaEndSes(){TWAS=null;sgDel(TWA.sesK);try{sessionStorage.removeItem(TWA.sesK)}catch(e){}twaChip()}
+const twaKeysOf=s=>twaAcctKeys(twaUnhex(s.M));
+/* ---------- the key box ---------- */
+async function twaFindBoxes(u){const r=await twaQuery({kinds:[TWA.kind],'#d':['twa-key:'+twaNorm(u)],limit:50});const out=[];for(const ev of r.evs){if(twaD(ev)!=='twa-key:'+twaNorm(u))continue;if(await rkEvOk(ev))out.push(ev)}return{ok:r.ok,n:r.n,evs:out}}
+function twaBoxOpen(ev,pk){try{const o=JSON.parse(ev.content);const M=twaOpen(pk.e,pk.m,twaUnb64(o.b));if(!M||M.length!==32)return null;const K=twaAcctKeys(M);return K.pk===ev.pubkey?{M,K,disp:String(o.u||''),ev}:null}catch(e){return null}}
+async function twaBoxEvent(K,M,pwK,u,disp,at){return rkEvSign(K,TWA.kind,[['d','twa-key:'+twaNorm(u)],['t','twa']],JSON.stringify({v:1,u:disp,b:twaB64(twaSeal(pwK.e,pwK.m,M))}),at)}
+/* ---------- the save in the cloud ---------- */
+const twaAt=()=>{const s=TWAS,n=Math.floor(Date.now()/1000);return Math.max(n,(s&&s.lastAt||0)+1)};
+async function twaManifest(K){const r=await twaQuery({kinds:[TWA.kind],authors:[K.pk],'#d':['twa-save'],limit:20});const by=await twaNewest(r.evs,K.pk),ev=by['twa-save'];
+ if(!ev)return{ok:r.ok,m:null};try{const pt=twaOpen(K.e,K.m,twaUnb64(ev.content));if(!pt)return{ok:r.ok,m:null,bad:1};const m=JSON.parse(twaTD.decode(pt));return{ok:r.ok,m,ev}}catch(e){return{ok:r.ok,m:null,bad:1}}}
+async function twaFetchSave(K,m){const ds=[];for(let i=0;i<m.n;i++)ds.push('twa-save:'+i);const r=await twaQuery({kinds:[TWA.kind],authors:[K.pk],'#d':ds,limit:500});
+ const parts=[];for(const ev of r.evs){if(ev.pubkey!==K.pk)continue;let o;try{o=JSON.parse(ev.content)}catch(e){continue}if(!o||o.r!==m.rev||!(o.i>=0&&o.i<m.n)||typeof o.s!=='string'||parts[o.i]!=null)continue;if(await rkEvOk(ev))parts[o.i]=o.s}
+ for(let i=0;i<m.n;i++)if(parts[i]==null)return{err:'missing'};const blob=parts.join('');if(twaHex(twaSha(twaTE.encode(blob)))!==m.h)return{err:'damaged'};
+ const pt=twaOpen(K.e,K.m,twaUnb64(blob));if(!pt)return{err:'damaged'};const txt=twaTD.decode(await twaUnzip(pt,m.z));return{txt}}
+async function twaBuildBlob(K){const pack=sgPack(),txt=JSON.stringify(pack),z=await twaZip(twaTE.encode(txt)),blob=twaB64(twaSeal(K.e,K.m,z.b));return{pack,txt,z:z.z,blob}}
+async function twaUpload(K,rev,b){const parts=b.blob.match(new RegExp('.{1,'+TWA.chunk+'}','g'))||[''],at=twaAt(),evs=[];
+ for(let i=0;i<parts.length;i++)evs.push(await rkEvSign(K,TWA.kind,[['d','twa-save:'+i]],JSON.stringify({r:rev,i,s:parts[i]}),at));
+ const m={v:1,rev,at:Date.now(),dev:twaDev(),n:parts.length,h:twaHex(twaSha(twaTE.encode(b.blob))),z:b.z,sum:b.pack.summary,mk:twaMark(P)};
+ evs.push(await rkEvSign(K,TWA.kind,[['d','twa-save']],twaB64(twaSeal(K.e,K.m,twaTE.encode(JSON.stringify(m)))),at));
+ const n=await twaSend(evs);if(n&&TWAS)TWAS.lastAt=at;return{n,m}}
+/* ---------- sync ---------- */
+const twaLocalSum=()=>{try{return sgHash(JSON.stringify(P))}catch(e){return''}};
+function twaDirty(){const s=twaLoadSes();return!!s&&s.sum!==twaLocalSum()}
+/* real progress (not timestamps or screen state): what a conflict is decided on */
+const twaMark=p=>{try{const o=x=>Object.keys(x||{}).length,n=x=>Math.round(+x||0),st=x=>{let t=0;for(const k in x||{})t+=+x[k]||0;return t},rp=p.rp||{},wr=p.wr||{},pz=p.pz||{},fs=p.fish||{};
+ let fc=0;for(const k in fs.b||{})fc+=n((fs.b[k]||{}).n);
+ return[n(p.xp),n(p.gold),n(p.runs),n(p.kills),n(p.pres),n(p.camp),st(p.stars),o(p.ach),n(rp.runs),n(rp.kills),st(rp.stars),n(rp.ebest),n(wr.runs),st(wr.med),n(pz.racks),n(pz.wins),fc].join('|')}catch(e){return''}};
+function twaProgDirty(){const s=twaLoadSes();return!!s&&s.mark!==twaMark(P)}
+/* the save as stored before this visit (rewards the game hands out on opening, like the daily gift, are not "unsynced play") */
+try{const raw=sgGet(KEY);TWA.boot=raw?twaMark(JSON.parse(raw)):twaMark(P)}catch(e){try{TWA.boot=twaMark(P)}catch(x){TWA.boot=''}}
+/* upload the current save; force skips the change check; returns 'ok' | 'same' | 'conflict' | 'offline' | 'busy' */
+/* uploads run one after another (a queue), and each one looks at the save as it is when its turn comes */
+function twaPush(force){if(!twaLoadSes())return Promise.resolve('none');const prev=TWA.st.q||Promise.resolve(),run=prev.catch(()=>0).then(()=>twaPush1(force));TWA.st.q=run;TWA.st.pushing=run;
+ run.then(()=>{if(TWA.st.q===run){TWA.st.q=null;TWA.st.pushing=null;twaChip()}},()=>{if(TWA.st.q===run){TWA.st.q=null;TWA.st.pushing=null}});return run}
+async function twaPush1(force){const s=twaLoadSes();if(!s)return'none';
+ {try{const sum=twaLocalSum();if(!force&&s.sum===sum)return'same';const K=twaKeysOf(s);TWA.st.busy=1;twaChip();
+  const cur=await twaManifest(K);if(!cur.ok){TWA.st.err='offline';return'offline'}
+  /* another device uploaded since our last sync: stop only if that brought progress we do not have */
+  if(cur.m&&cur.m.rev>(s.rev||0)&&cur.m.dev!==twaDev()&&cur.m.mk!==s.mark&&cur.m.mk!==twaMark(P)){TWA.st.conflict=cur.m;twaChip();return'conflict'}
+  const rev=Math.max(cur.m?cur.m.rev:0,s.rev||0)+1,b=await twaBuildBlob(K),up=await twaUpload(K,rev,b);if(!up.n){TWA.st.err='offline';return'offline'}
+  s.rev=rev;s.sum=sum;s.mark=twaMark(P);s.at=Date.now();s.sumInfo=b.pack.summary;twaSaveSes();TWA.st.err='';TWA.st.ok=up.n;TWA.st.last=Date.now();TWA.st.conflict=null;return'ok'}
+ catch(e){TWA.st.err=String(e&&e.message||e);return'offline'}finally{TWA.st.busy=0;twaChip()}}}
+/* install a cloud save (a safety copy of the current one is kept by sgInstall), then restart */
+async function twaInstallTxt(txt,m,quiet){const r=sgRead(txt);if(!r.ok){await sgModal({title:'Your account save could not be read',html:`<p>${esc(SGMSG[r.code]||'It is damaged.')}</p>`,buttons:[{t:'OK',v:1}],esc:1});return false}
+ const s=TWAS;s.rev=m.rev;s.sum=sgHash(JSON.stringify(r.P));s.mark=twaMark(r.P);s.at=Date.now();s.sumInfo=m.sum;twaSaveSes();
+ const ins=sgInstall(r.P,'loading your account save',false);if(!ins.ok){await sgModal({title:'Nothing was changed',html:`<p>${esc(ins.msg)}</p>`,buttons:[{t:'OK',v:1}],esc:1});return false}
+ const inplace=()=>{SGS.lock=false;load(ins.P);SGS.last=JSON.stringify(P);try{sgChipUpd()}catch(e){}title();s.sum=twaLocalSum();s.mark=twaMark(P);twaSaveSes();twaChip()};
+ if(SGS.mem||window.TWA_NORELOAD){inplace();return true}sgNote(quiet?'Loaded your account save.':'Account save loaded. Restarting the game…');setTimeout(()=>{try{location.reload()}catch(e){inplace()}},quiet?300:700);return true}
+/* local and cloud both changed (or a device signs in with progress): let the player choose */
+async function twaChoose(m,txt,why){const r=sgRead(txt);if(!r.ok)return false;const inc=sgInfo(r.P),cur=sgInfo(P);
+ const html=`<p class="svl">${why}</p>${sgCompare(inc,cur,`<p class="svl">Whichever you pick, the other one is kept as a safety copy in the Save Center.</p>`)}`;
+ const v=await sgModal({title:'Which progress do you want to keep?',html,buttons:[{t:'Keep this device',v:2},{t:'Use my account save',v:1,cls:'hgd'}],focus:1,esc:0});
+ if(v===1)return twaInstallTxt(txt,m);try{sgSnap('Account save before keeping this device','safe')}catch(e){}const s=TWAS;s.rev=m.rev;twaSaveSes();TWA.st.conflict=null;const res=await twaPush(true);
+ if(res==='ok')sgNote('This device\'s progress is now your account save.');return true}
+/* on start-up and when a conflict is found: compare with the cloud */
+async function twaPull(reason,startup){const s=twaLoadSes();if(!s)return'none';const K=twaKeysOf(s);const cur=await twaManifest(K);if(!cur.ok){TWA.st.err='offline';twaChip();return'offline'}
+ if(!cur.m)return twaPush(true);if(cur.m.rev<=(s.rev||0))return twaPush(false);
+ const sv=await twaFetchSave(K,cur.m);if(sv.err){TWA.st.err=sv.err;twaChip();return sv.err}
+ if((startup?s.mark===TWA.boot:!twaProgDirty())||sgTrivial()){await twaInstallTxt(sv.txt,cur.m,true);return'loaded'}
+ await twaChoose(cur.m,sv.txt,reason||'Your account has newer progress from another device, and this device has progress that was not uploaded yet.');return'chose'}
+/* ---------- sign up, sign in, recovery, password, sign out ---------- */
+async function twaSignUp(u,pw,rem){const ne=twaNameErr(u)||twaPwErr(pw);if(ne)return{err:ne};const disp=String(u).trim();
+ const pwK=await twaPwKeys(u,pw),boxes=await twaFindBoxes(u);if(!boxes.ok)return{err:'The account servers could not be reached. Check your internet connection and try again.',off:1};
+ for(const ev of boxes.evs){const o=twaBoxOpen(ev,pwK);if(o)return twaSignedIn(o,u,pwK,rem,'exists')}
+ if(boxes.evs.length)return{err:'That username is taken. Pick another one.'};
+ const M=twaRand(32),K=twaAcctKeys(M);TWAS={u:twaNorm(u),d:disp,M:twaHex(M),pk:K.pk,rev:0,sum:'',at:0,rem:!!rem,lastAt:0};
+ const box=await twaBoxEvent(K,M,pwK,u,disp,twaAt());const n=await twaSend([box]);if(!n){TWAS=null;return{err:'The account servers did not accept the new account. Try again in a moment.',off:1}}
+ TWAS.lastAt=box.created_at;TWAS.boxEv=box;if(!P.name||P.name==='Hero'){P.name=disp.slice(0,24);save()}twaSaveSes();const r=await twaPush(true);twaChip();
+ return{ok:1,code:twaCode(M),saved:r==='ok'}}
+async function twaSignedIn(o,u,pwK,rem,how){TWAS={u:twaNorm(u),d:o.disp||String(u).trim(),M:twaHex(o.M),pk:o.K.pk,rev:0,sum:'',at:0,rem:!!rem,lastAt:0,boxEv:o.ev||null};twaSaveSes();twaChip();
+ const cur=await twaManifest(o.K);if(cur.m){const sv=await twaFetchSave(o.K,cur.m);if(sv.err)return{ok:1,how,warn:'Signed in, but your cloud save could not be downloaded yet ('+sv.err+'). Try "Sync now" in a moment.'};
+  if(sgTrivial()){await twaInstallTxt(sv.txt,cur.m);return{ok:1,how,loaded:1}}
+  const cp=sgRead(sv.txt).P;if(cp&&twaMark(cp)===twaMark(P)){TWAS.rev=cur.m.rev;TWAS.mark=twaMark(P);TWAS.sum=twaLocalSum();TWAS.at=Date.now();TWAS.sumInfo=cur.m.sum;twaSaveSes();return{ok:1,how}}
+  return{ok:1,how,choose:{m:cur.m,txt:sv.txt}}}
+ const r=await twaPush(true);return{ok:1,how,uploaded:r==='ok'}}
+async function twaSignIn(u,pw,rem){const ne=twaNameErr(u);if(ne)return{err:ne};if(!pw)return{err:'Enter your password.'};const pwK=await twaPwKeys(u,pw),boxes=await twaFindBoxes(u);
+ if(!boxes.ok)return{err:'The account servers could not be reached. Check your internet connection, or use an account backup file.',off:1};
+ if(!boxes.evs.length)return{err:'No account with that username was found. Check the spelling, or create an account.'};
+ for(const ev of boxes.evs){const o=twaBoxOpen(ev,pwK);if(o)return twaSignedIn(o,u,pwK,rem,'signin')}
+ return{err:'Wrong password for that username.'}}
+async function twaRecover(u,code,pw,rem){const ne=twaNameErr(u)||twaPwErr(pw);if(ne)return{err:ne};const M=twaUncode(code);if(!M)return{err:'That recovery code is not right. Check every group of letters.'};
+ const K=twaAcctKeys(M),boxes=await twaFindBoxes(u);if(!boxes.ok)return{err:'The account servers could not be reached. Check your internet connection.',off:1};
+ if(!boxes.evs.some(ev=>ev.pubkey===K.pk))return{err:'That recovery code does not belong to this username.'};
+ const pwK=await twaPwKeys(u,pw),disp=(()=>{try{return JSON.parse(boxes.evs.find(e=>e.pubkey===K.pk).content).u}catch(e){return''}})()||String(u).trim();
+ const nb=await twaBoxEvent(K,M,pwK,u,disp,twaAt()),n=await twaSend([nb]);if(!n)return{err:'The new password could not be saved to the account servers. Try again.',off:1};
+ return twaSignedIn({M,K,disp,ev:nb},u,pwK,rem,'recover')}
+async function twaChangePw(oldPw,newPw){const s=twaLoadSes();if(!s)return{err:'You are not signed in.'};const pe=twaPwErr(newPw);if(pe)return{err:pe};
+ const oldK=await twaPwKeys(s.u,oldPw),boxes=await twaFindBoxes(s.u);if(!boxes.ok)return{err:'The account servers could not be reached.',off:1};
+ const mine=boxes.evs.filter(e=>e.pubkey===s.pk);if(!mine.some(ev=>twaBoxOpen(ev,oldK)))return{err:'Your current password is not right.'};
+ const K=twaKeysOf(s),nb=await twaBoxEvent(K,twaUnhex(s.M),await twaPwKeys(s.u,newPw),s.u,s.d,twaAt()),n=await twaSend([nb]);if(n){s.boxEv=nb;s.lastAt=nb.created_at;twaSaveSes()}return n?{ok:1}:{err:'The new password could not be saved. Try again.',off:1}}
+async function twaCheckPw(pw){const s=twaLoadSes();if(!s)return false;const k=await twaPwKeys(s.u,pw),boxes=await twaFindBoxes(s.u);if(!boxes.ok)return'offline';return boxes.evs.some(ev=>ev.pubkey===s.pk&&twaBoxOpen(ev,k))}
+async function twaSignOut(clear){if(!clear&&twaDirty()){await twaPush(true)}if(clear){try{sgSnap('Before signing out and clearing this device','safe')}catch(e){}const f=fresh();const ins=sgInstall(f,'signing out',false);twaEndSes();if(ins.ok){if(window.TWA_NORELOAD){load(ins.P);title()}else setTimeout(()=>location.reload(),400)}return}twaEndSes()}
+/* ---------- the backup file (works with no relays at all) ---------- */
+async function twaBackupFile(){const s=twaLoadSes();if(!s)return null;const K=twaKeysOf(s);const boxes=await twaFindBoxes(s.u).catch(()=>({evs:[]}));const box=(boxes.evs||[]).filter(e=>e.pubkey===s.pk).sort((a,b)=>b.created_at-a.created_at)[0]||s.boxEv||null;
+ const b=await twaBuildBlob(K);const m={v:1,rev:s.rev||0,at:Date.now(),dev:twaDev(),n:1,h:twaHex(twaSha(twaTE.encode(b.blob))),z:b.z,sum:b.pack.summary};
+ return JSON.stringify({game:'Type Warriors',kind:'account-backup',v:1,u:s.u,d:s.d,pk:s.pk,box:box?box.content:null,boxEv:box||null,man:twaB64(twaSeal(K.e,K.m,twaTE.encode(JSON.stringify(m)))),blob:b.blob,
+  note:'Type Warriors account backup. It is encrypted: open it from the game (Account > Restore from a backup file) with your username and password or recovery code.'})}
+async function twaFromFile(text,u,secret,rem){let o;try{o=JSON.parse(text)}catch(e){return{err:'That is not a Type Warriors account backup.'}}if(!o||o.kind!=='account-backup'||typeof o.blob!=='string')return{err:'That is not a Type Warriors account backup.'};
+ if(twaNorm(u)!==o.u)return{err:`This backup belongs to the account "${o.d||o.u}". Enter that username.`};let M=twaUncode(secret);
+ if(!M){if(!o.box)return{err:'This backup has no password lock; use your recovery code.'};const pwK=await twaPwKeys(u,secret);try{M=twaOpen(pwK.e,pwK.m,twaUnb64(JSON.parse(o.box).b))}catch(e){M=null}if(!M)return{err:'Wrong password (or recovery code) for this backup.'}}
+ const K=twaAcctKeys(M);if(K.pk!==o.pk)return{err:'This backup does not match that password.'};const mt=twaOpen(K.e,K.m,twaUnb64(o.man)),pt=twaOpen(K.e,K.m,twaUnb64(o.blob));if(!mt||!pt)return{err:'This backup file is damaged.'};
+ const m=JSON.parse(twaTD.decode(mt)),txt=twaTD.decode(await twaUnzip(pt,m.z));TWAS={u:o.u,d:o.d||o.u,M:twaHex(M),pk:K.pk,rev:m.rev||0,sum:'',at:0,rem:!!rem,lastAt:0};twaSaveSes();
+ /* put the account back on the relays when they can be reached (key box, then the save) */
+ if(o.boxEv)twaSend([o.boxEv]).catch(()=>0);await twaInstallTxt(txt,m);setTimeout(()=>{twaPush(true)},5000);return{ok:1}}
+function twaDownload(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'application/json'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
+/* an offline copy of the game itself, for when the website is blocked or moves */
+async function twaGameCopy(){try{if(!/^https?:/.test(location.protocol))return{err:'You are already playing from a file on this device. Copy that file (for example to a USB stick) to keep the game.'};
+ const r=await fetch(location.href,{cache:'force-cache'});if(!r.ok)throw 0;const t=await r.text();if(t.length<100000||!/Type Warriors/.test(t))throw 0;twaDownload('type-warriors.html',t,'text/html');return{ok:1}}
+ catch(e){return{err:'The game file could not be downloaded from this page. Use your browser\'s "Save page as" to keep a copy.'}}}
+/* ---------- the account window ---------- */
+const TWAU={tab:'in',msg:'',bad:0,busy:0};
+function twaClose(){const w=$('twa');if(w)w.remove()}
+function twaShell(inner){twaClose();const w=document.createElement('div');w.id='twa';w.innerHTML=`<div class="twab" role="dialog" aria-modal="true" aria-label="Account"><button class="twax" aria-label="Close">×</button>${inner}</div>`;
+ for(const ev of['keydown','keyup','keypress'])w.addEventListener(ev,e=>{e.stopPropagation();if(e.type==='keydown'&&e.key==='Escape'&&!TWAU.busy)twaClose()});
+ w.addEventListener('pointerdown',e=>{if(e.target===w&&!TWAU.busy)twaClose()});(document.getElementById('wrap')||document.body).appendChild(w);w.querySelector('.twax').onclick=()=>{if(!TWAU.busy)twaClose()};return w}
+const TWA_LOGO='<svg viewBox="0 0 48 48" width="44" height="44"><circle cx="24" cy="18" r="9" fill="#ffd45a" stroke="#12081f" stroke-width="3"/><path d="M8 42c2-9 9-14 16-14s14 5 16 14z" fill="#7a6ad8" stroke="#12081f" stroke-width="3"/><path d="M33 9a10 10 0 0 1 9 11" fill="none" stroke="#7ad8ff" stroke-width="3" stroke-linecap="round"/></svg>';
+function twaField(id,label,type,val,ac){return `<label class="twaf"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val||'')}" autocomplete="${ac||'off'}" spellcheck="false" maxlength="${type==='password'?200:id==='twac'?120:40}"></label>`}
+function twaOpenUI(tab){if(twaLoadSes())return twaPanel();TWAU.tab=tab||TWAU.tab||'in';TWAU.msg='';twaForm()}
+function twaForm(){const t=TWAU.tab,v=id=>{const e=$(id);return e?e.value:''};const keep={u:v('twau')||(TWAU.u||''),r:$('twarem')?$('twarem').checked:true};
+ const tabs=`<div class="twatabs">${[['in','Sign in'],['up','Create account'],['rec','Forgot password'],['file','Backup file']].map(([k,l])=>`<button data-t="${k}" class="${k===t?'on':''}">${l}</button>`).join('')}</div>`;
+ const body=t==='up'?`${twaField('twau','Username','text',keep.u,'username')}${twaField('twap','Password (8+ characters)','password','','new-password')}${twaField('twap2','Password again','password','','new-password')}
+   <p class="twanote">Pick something you will remember: there is no email reset. You get a recovery code next, so keep it safe.</p>`
+  :t==='rec'?`${twaField('twau','Username','text',keep.u,'username')}${twaField('twac','Recovery code','text','')}${twaField('twap','New password','password','','new-password')}${twaField('twap2','New password again','password','','new-password')}`
+  :t==='file'?`<p class="twanote">Use this when the account servers are blocked or out of reach: it restores your account and progress from a backup file made in the account panel.</p><label class="twaf"><span>Backup file</span><input id="twafile" type="file" accept=".json,.twa,application/json"></label>${twaField('twau','Username','text',keep.u,'username')}${twaField('twap','Password or recovery code','password','')}`
+  :`${twaField('twau','Username','text',keep.u,'username')}${twaField('twap','Password','password','','current-password')}`;
+ const btn={in:'Sign in',up:'Create account',rec:'Set new password and sign in',file:'Restore'}[t];
+ const w=twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">TYPE WARRIORS</p><h2>Your account</h2><p class="twas">Play on any device or web address. Your progress follows you.</p></div></div>${tabs}
+  <div class="twaform">${body}<label class="twarm"><input type="checkbox" id="twarem"${keep.r?' checked':''}> Keep me signed in on this device</label>
+  <div class="twamsg${TWAU.bad?' bad':''}" id="twamsg" role="status">${esc(TWAU.msg||'')}</div><button class="twago" id="twago">${btn}</button></div>
+  <p class="twafoot">Accounts are optional. Your progress is encrypted with your password before it leaves this device.</p>`);
+ w.querySelectorAll('.twatabs button').forEach(b=>b.onclick=()=>{TWAU.u=v('twau');TWAU.tab=b.dataset.t;TWAU.msg='';TWAU.bad=0;twaForm()});
+ const go=()=>twaSubmit();$('twago').onclick=go;w.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')go()}));setTimeout(()=>{const f=$('twau');if(f&&!f.value)f.focus();else{const p=$('twap');if(p)p.focus()}},30)}
+function twaSay(msg,bad){TWAU.msg=msg;TWAU.bad=bad?1:0;const m=$('twamsg');if(m){m.textContent=msg;m.classList.toggle('bad',!!bad)}}
+async function twaSubmit(){if(TWAU.busy)return;const v=id=>{const e=$(id);return e?e.value:''},t=TWAU.tab,u=v('twau').trim(),pw=v('twap'),rem=$('twarem')?$('twarem').checked:true;
+ const ne=twaNameErr(u);if(ne)return twaSay(ne,1);
+ if(t==='up'||t==='rec'){const pe=twaPwErr(pw);if(pe)return twaSay(pe,1);if(pw!==v('twap2'))return twaSay('The two passwords are not the same.',1)}
+ if(t==='file'&&!($('twafile')&&$('twafile').files&&$('twafile').files[0]))return twaSay('Choose your backup file first.',1);
+ TWAU.busy=1;const b=$('twago');if(b){b.disabled=true;b.textContent='Working…'}twaSay(t==='up'?'Creating your account…':'Unlocking your account…');let r;
+ try{if(t==='up')r=await twaSignUp(u,pw,rem);else if(t==='rec')r=await twaRecover(u,v('twac'),pw,rem);else if(t==='file'){const txt=await $('twafile').files[0].text();r=await twaFromFile(txt,u,pw,rem)}else r=await twaSignIn(u,pw,rem)}
+ catch(e){r={err:'Something went wrong: '+(e&&e.message||e)}}finally{TWAU.busy=0}
+ if(!r||r.err){if(b){b.disabled=false;b.textContent={in:'Sign in',up:'Create account',rec:'Set new password and sign in',file:'Restore'}[t]}return twaSay(r?r.err:'Something went wrong.',1)}
+ if(r.code)return twaCodeScreen(r.code,true,r.saved);
+ if(r.choose){twaClose();await twaChoose(r.choose.m,r.choose.txt,'You signed in on a device that already has progress. Pick the progress you want on your account.');return}
+ if(r.loaded)return;twaPanel(r.warn||(r.how==='recover'?'Your new password is set.':r.how==='exists'?'That account is yours, so you are signed in.':'Signed in.'))}
+function twaCodeScreen(code,first,saved){const w=twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">${first?'ACCOUNT CREATED':'RECOVERY CODE'}</p><h2>Your recovery code</h2><p class="twas">${first?(saved?'Your progress is saved to your account. ':'')+'Keep this code somewhere safe.':'Keep this code somewhere safe.'} It is the only way back in if you forget your password, and anyone who has it can open your account.</p></div></div>
+ <div class="twacode" id="twacode">${esc(code)}</div><div class="twarow"><button id="twacp">Copy</button><button id="twadl">Download as a file</button></div>
+ ${first?`<label class="twarm"><input type="checkbox" id="twaok"> I have saved my recovery code</label>`:''}<button class="twago" id="twagood"${first?' disabled':''}>${first?'Continue':'Done'}</button>`);
+ $('twacp').onclick=async()=>{try{await navigator.clipboard.writeText(code);sgNote('Recovery code copied.')}catch(e){const r=document.createRange();r.selectNodeContents($('twacode'));const s=getSelection();s.removeAllRanges();s.addRange(r);sgNote('Select and copy the code.')}};
+ $('twadl').onclick=()=>{const s=twaLoadSes();twaDownload(`type-warriors-recovery-${s?s.u:'account'}.txt`,`Type Warriors account: ${s?s.d:''}\nRecovery code: ${code}\n\nUse it in the game: Account > Forgot password.\n`,'text/plain')};
+ const ok=$('twaok');if(ok)ok.onchange=()=>{$('twagood').disabled=!ok.checked};$('twagood').onclick=()=>twaPanel(first?'Welcome! You are signed in.':'')}
+function twaAgo(t){if(!t)return'never';const s=Math.max(0,(Date.now()-t)/1000);return s<45?'just now':s<3300?Math.round(s/60)+' min ago':s<82800?Math.round(s/3600)+' h ago':Math.round(s/86400)+' d ago'}
+function twaStatus(){const s=twaLoadSes();if(!s)return'';if(TWA.st.busy)return'Syncing…';if(TWA.st.conflict)return'Needs your choice';if(TWA.st.err==='offline')return'Offline · will retry';if(TWA.st.err)return'Sync problem';return twaDirty()?'Changes not synced yet':'Synced '+twaAgo(s.at)}
+function twaPanel(msg){const s=twaLoadSes();if(!s)return twaOpenUI('in');let ex=[];try{ex=JSON.parse(sgGet(TWA.relK)||'[]')}catch(e){}
+ const w=twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">SIGNED IN</p><h2>${esc(s.d)}</h2><p class="twas" id="twast">${esc(twaStatus())}${s.sumInfo?` · cloud save: level ${s.sumInfo.lvl}, ${Number(s.sumInfo.gold||0).toLocaleString()} gold`:''}</p></div></div>
+ ${msg?`<div class="twamsg ok">${esc(msg)}</div>`:''}${TWA.st.conflict?`<div class="twamsg bad">Another device uploaded newer progress. Press Sync now to choose which to keep.</div>`:''}
+ <div class="twagrid"><button id="twasync" class="twago">Sync now</button><button id="twabk">Download account backup</button><button id="twapw">Change password</button><button id="twarc">Show recovery code</button></div>
+ <div class="twasec"><b>If the website moves or gets blocked</b><p>Open Type Warriors anywhere (a new address, or a downloaded copy of the game) and sign in: your progress comes with you. If the account servers are blocked too, restore from your account backup file.</p>
+  <div class="twarow"><button id="twagame">Download an offline copy of the game</button></div></div>
+ <details class="twasec"><summary>Account servers (${twaRelays().length})</summary><p>Your encrypted save is kept on all of these public relays. You can add another one (an address starting with wss://).</p>
+  <div class="twarel">${twaRelays().map(u=>`<span>${esc(u.replace(/^wss?:\/\//,''))}${ex.includes(u)?` <button data-rm="${esc(u)}" aria-label="Remove">×</button>`:''}</span>`).join('')}</div>
+  <div class="twarow"><input id="twarelin" placeholder="wss://…" spellcheck="false"><button id="twaradd">Add</button></div></details>
+ <div class="twarow twaout"><button id="twaso">Sign out</button><button id="twasoc" class="dg">Sign out and clear this device</button></div>`);
+ const busy=async(id,label,fn)=>{const b=$(id);if(!b||TWAU.busy)return;const t0=b.textContent;TWAU.busy=1;b.disabled=true;b.textContent=label;try{await fn()}finally{TWAU.busy=0;if(b.isConnected){b.disabled=false;b.textContent=t0}}};
+ $('twasync').onclick=()=>busy('twasync','Syncing…',async()=>{let r=await twaPush(true);if(r==='conflict'){twaClose();await twaPull('Another device uploaded newer progress to your account. Pick the progress you want to keep.');return}
+  if(r==='ok')twaPanel('Your progress is saved to your account.');else twaPanel(r==='offline'?'The account servers could not be reached. Your progress stays on this device and syncs when they are back.':'Nothing to sync.')});
+ $('twabk').onclick=()=>busy('twabk','Preparing…',async()=>{const t=await twaBackupFile();if(t){twaDownload(`type-warriors-account-${s.u}.json`,t);sgNote('Account backup downloaded. Keep it with your recovery code.')}});
+ $('twapw').onclick=()=>twaPwScreen();$('twarc').onclick=()=>twaRcScreen();
+ $('twagame').onclick=()=>busy('twagame','Downloading…',async()=>{const r=await twaGameCopy();if(r.err)twaPanel(r.err);else sgNote('Game copy downloaded. Open it in any browser and sign in.')});
+ $('twaradd').onclick=()=>{const u=($('twarelin').value||'').trim();if(!/^wss:\/\/[a-z0-9.-]+(:\d+)?(\/\S*)?$/i.test(u)){$('twarelin').value='';$('twarelin').placeholder='Use a wss:// address';return}if(!ex.includes(u))ex.push(u);sgPut(TWA.relK,JSON.stringify(ex.slice(-6)));twaPanel('Server added. Press Sync now to put your save there too.')};
+ w.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{sgPut(TWA.relK,JSON.stringify(ex.filter(u=>u!==b.dataset.rm)));twaPanel()});
+ $('twaso').onclick=()=>busy('twaso','Signing out…',async()=>{await twaSignOut(false);twaClose();sgNote('Signed out. Your progress stays on this device.')});
+ $('twasoc').onclick=async()=>{const v=await sgModal({title:'Sign out and clear this device?',html:'<p>Your progress is uploaded to your account first, then removed from this device (a safety copy stays in the Save Center). Use this on a shared computer.</p>',buttons:[{t:'Cancel',v:0},{t:'Sign out and clear',v:1,cls:'dg'}],focus:0,esc:1});
+  if(!v)return;const r=await twaPush(true);if(r==='offline'){const k=await sgModal({title:'Your latest progress is not uploaded',html:'<p>The account servers cannot be reached, so clearing now would lose what you played since the last sync. Download an account backup first, or try again later.</p>',buttons:[{t:'Cancel',v:0},{t:'Clear anyway',v:1,cls:'dg'}],focus:0,esc:1});if(!k)return}
+  twaClose();await twaSignOut(true)}}
+function twaPwScreen(){twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">ACCOUNT</p><h2>Change password</h2></div></div><div class="twaform">${twaField('twao','Current password','password','','current-password')}${twaField('twap','New password (8+ characters)','password','','new-password')}${twaField('twap2','New password again','password','','new-password')}
+ <div class="twamsg" id="twamsg"></div><button class="twago" id="twago">Change password</button><button class="twaback" id="twabk2">Back</button></div>`);
+ $('twabk2').onclick=()=>twaPanel();$('twago').onclick=async()=>{if(TWAU.busy)return;const o=$('twao').value,n=$('twap').value;const pe=twaPwErr(n);if(pe)return twaSay(pe,1);if(n!==$('twap2').value)return twaSay('The two new passwords are not the same.',1);
+  TWAU.busy=1;twaSay('Changing your password…');let r;try{r=await twaChangePw(o,n)}finally{TWAU.busy=0}if(r.err)return twaSay(r.err,1);twaPanel('Your password is changed. Use the new one on every device.')}}
+function twaRcScreen(){twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">ACCOUNT</p><h2>Show recovery code</h2><p class="twas">Enter your password to see your recovery code.</p></div></div><div class="twaform">${twaField('twao','Password','password','','current-password')}<div class="twamsg" id="twamsg"></div><button class="twago" id="twago">Show code</button><button class="twaback" id="twabk2">Back</button></div>`);
+ $('twabk2').onclick=()=>twaPanel();$('twago').onclick=async()=>{if(TWAU.busy)return;TWAU.busy=1;twaSay('Checking…');let ok;try{ok=await twaCheckPw($('twao').value)}finally{TWAU.busy=0}
+  if(ok==='offline')return twaSay('The account servers could not be reached, so the password cannot be checked right now.',1);if(!ok)return twaSay('That password is not right.',1);const s=twaLoadSes();twaCodeScreen(twaCode(twaUnhex(s.M)),false)}}
+/* ---------- the account chip on the home screen ---------- */
+function twaChip(){const host=ov&&ov.querySelector('.dkst0');let b=$('twachip');if(!host){if(b)b.remove();return}
+ if(!b){b=document.createElement('button');b.id='twachip';b.onclick=e=>{e.stopPropagation();twaOpenUI()};host.parentElement.insertBefore(b,host)}
+ const s=twaLoadSes(),st=s?twaStatus():'';const k=s?(TWA.st.conflict?'warn':TWA.st.busy?'busy':TWA.st.err?'off':'on'):'out';
+ const html=s?`<i class="twaci ${k}">☁</i><span><b>${esc(s.d)}</b><small>${esc(st)}</small></span>`:`<i class="twaci out">☁</i><span><b>Sign in</b><small>Save your progress</small></span>`;if(b.dataset.v!==html){b.dataset.v=html;b.innerHTML=html;b.className=k}}
+{const t0=title;title=function(){const r=t0.apply(this,arguments);try{twaChip()}catch(e){}return r}}
+/* ---------- background sync ---------- */
+let TWA_T=0;
+function twaTick(){const s=twaLoadSes();if(!s||TWA.st.conflict||TWA.st.pushing)return;try{twaChip()}catch(e){}if(!twaDirty())return;if(Date.now()-(TWA.st.tried||0)<TWA.every)return;TWA.st.tried=Date.now();twaPush(false).then(r=>{if(r==='conflict')sgNote('Another device changed your account. Open Account to choose which progress to keep.')})}
+setInterval(()=>{try{twaTick()}catch(e){}},TWA.tick);
+document.addEventListener('visibilitychange',()=>{try{if(document.visibilityState==='hidden'&&twaLoadSes()&&twaDirty()&&!TWA.st.conflict){TWA.st.tried=Date.now();twaPush(false)}}catch(e){}});
+/* start-up: newer progress from another device loads by itself, or the player chooses */
+setTimeout(()=>{try{if(twaLoadSes()&&!window.TWA_NOSTART)twaPull('',true).then(()=>twaChip())}catch(e){}},2500);
+/* the Save Center mentions accounts */
+try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on the home screen) and your progress follows you to any device, any copy of the game and any web address. Your save is encrypted with your password and kept on several public relays. Keep your recovery code: there is no email reset. If the account servers are blocked, the account panel can download a backup file and an offline copy of the game.'])}catch(e){}
+{const st=document.createElement('style');st.textContent=`
+#twachip{all:unset;cursor:pointer;position:absolute;right:452px;top:22px;height:80px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:0 16px 0 12px;border-radius:20px;background:linear-gradient(180deg,#241a5cf2,#140c38f5);border:2px solid #4a3a90;box-shadow:0 0 0 2.5px #12081f;font-family:Poppins,system-ui,sans-serif;transition:transform .15s}
+#twachip:hover{transform:translateY(-2px)}#twachip span{display:flex;flex-direction:column;min-width:0}#twachip b{font:700 15px Poppins,system-ui,sans-serif;color:#fff8e8;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#twachip small{font:600 11.5px Poppins,system-ui,sans-serif;color:#a99be0;white-space:nowrap}#twachip.out{border-color:#c99a3a}#twachip.out b{color:#ffd45a}
+.twaci{font-style:normal;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:#12081f;border:2px solid #6a58c8;color:#7ad8ff}.twaci.out{color:#ffd45a;border-color:#c99a3a}.twaci.off{color:#ff9aa8}.twaci.warn{color:#ffb04a}
+#twa{position:absolute;inset:0;z-index:9000;display:grid;place-items:center;background:#08051cd0}
+.twab{position:relative;width:620px;max-height:840px;overflow:auto;box-sizing:border-box;padding:26px 30px 22px;border-radius:24px;background:linear-gradient(180deg,#241a5cfa,#100a30fc);border:2px solid #c99a3a;box-shadow:0 0 0 3px #12081f,0 30px 80px #000c;color:#e8e0ff;font-family:Poppins,system-ui,sans-serif;animation:rpTut .3s cubic-bezier(.34,1.56,.64,1)}
+.twax{all:unset;cursor:pointer;position:absolute;right:14px;top:10px;font:700 28px/1 Poppins,sans-serif;color:#c4badf}
+.twah{display:flex;gap:14px;align-items:center;margin-bottom:12px}.twah h2{margin:0;font:400 40px/1 'Pirata One',Georgia,serif;color:#ffd45a}.twak{margin:0 0 2px;font:800 11.5px Poppins,sans-serif;letter-spacing:.22em;color:#7ad8ff}.twas{margin:4px 0 0;font:500 13px/1.4 Poppins,sans-serif;color:#cfc6f0}
+.twatabs{display:flex;gap:4px;padding:4px;border-radius:14px;background:#12081f;border:2px solid #3a3070;margin-bottom:12px}.twatabs button{all:unset;cursor:pointer;flex:1;text-align:center;padding:8px 6px;border-radius:10px;font:700 13px Poppins,sans-serif;color:#cfc6f0}.twatabs button.on{background:#ffd45a;color:#3a1a04}
+.twaform{display:flex;flex-direction:column;gap:9px}.twaf{display:flex;flex-direction:column;gap:3px}.twaf span{font:700 12px Poppins,sans-serif;color:#a99be0;letter-spacing:.04em}
+.twaf input,.twarow input{box-sizing:border-box;width:100%;padding:11px 13px;border-radius:12px;border:2px solid #4a3a90;background:#0e0a28;color:#fff8e8;font:600 16px Poppins,sans-serif;outline:none}.twaf input:focus,.twarow input:focus{border-color:#ffd45a}
+.twaf input[type=file]{font-size:13px;padding:8px}.twarm{display:flex;align-items:center;gap:8px;font:600 13px Poppins,sans-serif;color:#cfc6f0;cursor:pointer}.twarm input{width:18px;height:18px;accent-color:#ffd45a}
+.twanote{margin:0;font:500 12.5px/1.45 Poppins,sans-serif;color:#cfc6f0;padding:8px 12px;border-radius:12px;background:#ffffff0a;border:1px solid #3a3070}
+.twamsg{min-height:18px;font:600 13px/1.4 Poppins,sans-serif;color:#9fe8ff}.twamsg.bad{color:#ff9aa8}.twamsg.ok{color:#7dffb0;margin-bottom:8px}
+.twab button:not(.twax):not(.twatabs button):not(.twarel button){all:unset;cursor:pointer;box-sizing:border-box;text-align:center;padding:11px 16px;border-radius:14px;background:linear-gradient(180deg,#3a2c86,#241a5c);border:2px solid #6a58c8;box-shadow:0 0 0 2px #12081f;font:700 14px Poppins,sans-serif;color:#fff8e8;transition:transform .12s}
+.twab button:not(.twax):hover{transform:translateY(-1px)}.twab button:disabled{opacity:.45!important;cursor:default!important;transform:none!important}
+.twab .twago{background:linear-gradient(180deg,#ffe27a,#d89a2a)!important;border-color:#ffd45a!important;color:#3a1a04!important;font-size:16px!important;padding:13px 18px!important}
+.twab .dg{border-color:#c04a5a!important;color:#ffb0b8!important}.twab .twaback{background:none!important;border-color:#3a3070!important}
+.twafoot{margin:12px 0 0;font:500 11.5px/1.4 Poppins,sans-serif;color:#8a7ec0;text-align:center}
+.twacode{margin:6px 0 12px;padding:16px;border-radius:14px;background:#0e0a28;border:2px dashed #ffd45a;font:800 21px/1.5 'Courier New',monospace;letter-spacing:.06em;color:#fff2b0;text-align:center;user-select:all;word-break:break-word}
+.twarow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.twarow>*{flex:1}.twagrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.twasec{margin-top:12px;padding:12px 14px;border-radius:14px;background:#ffffff08;border:1px solid #3a3070}.twasec b,.twasec summary{font:700 14px Poppins,sans-serif;color:#ffd45a;cursor:pointer}.twasec p{margin:6px 0;font:500 12.5px/1.45 Poppins,sans-serif;color:#cfc6f0}
+.twarel{display:flex;flex-wrap:wrap;gap:5px}.twarel span{padding:3px 9px;border-radius:999px;background:#12081f;border:1px solid #3a3070;font:600 11px Poppins,sans-serif;color:#cfc6f0}.twarel button{all:unset;cursor:pointer;color:#ff9aa8;margin-left:4px}
+.twaout{margin-top:14px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

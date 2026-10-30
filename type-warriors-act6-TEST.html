@@ -53306,8 +53306,8 @@ const rpsfBez=(s,u)=>{const a=1-u;return{x:a*a*s.x0+2*a*u*s.cx+u*u*s.x1,y:a*a*s.
   if(st)st.insertAdjacentHTML('afterend',`<div class="rpsfx">${ex.join(' · ')}</div>`);
   {const b=el.querySelector('.rpih b');if(b){b.style.fontSize='23px';b.style.whiteSpace='nowrap'}}
   const hgt=el.offsetHeight||420;el.style.top=rpClamp(tw.y-hgt*.62,76,770-hgt)+'px'}catch(e){console.error(e)}return r}}
-/* key U picks it */
-{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1&&e.key.toLowerCase()==='u'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('star');return}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+/* key U picks it (with a tower selected, U still upgrades it) */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1&&e.key.toLowerCase()==='u'&&!R.sel){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('star');return}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
 /* ten buttons in the build ring: wider still (the 95v pass already spreads nine by 1.12) */
 {const g0=rpHudRing;rpHudRing=function(R,C){const was=C.rg;const r=g0.apply(this,arguments);try{if(C.rg!==was&&C.rg){const bs=[...$('rpring').querySelectorAll('.rprb')],p=R.selPad;if(bs.length>=10){bs.forEach(b=>{for(const v of ['--x','--y']){const n=parseFloat(b.style.getPropertyValue(v));if(isFinite(n))b.style.setProperty(v,(n*1.08).toFixed(1)+'px')}});
    if(p){const xs=bs.map(b=>p.x+(parseFloat(b.style.getPropertyValue('--x'))||0)),lo=Math.min(...xs)-46,hi=Math.max(...xs)+46,dx=lo<0?-lo:hi>1600?1600-hi:0;
@@ -53331,6 +53331,151 @@ try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Th
 TPOLL.off=window.TPOLL_ON?0:1;
 {const b0=tpBtn;tpBtn=function(){if(TPOLL.off){const b=$('tpbtn');if(b)b.remove();return}return b0.apply(this,arguments)}}
 {const s0=tpShow;tpShow=function(){if(TPOLL.off)return;return s0.apply(this,arguments)}}
+/* ===== RUNESTONE TOWER DEFENSE 9.9j: the Ascended Towers row fits its panel (97g, after 97f) =====
+   The Wonderland side panel showed the Ascended Towers as one row of 52 px tiles; with ten towers it ran past the panel and off the
+   stage. Now the tiles sit in a grid of five per row that always fills the panel's width (two rows for ten towers, a third would
+   wrap the same way), and the tiles are a little smaller so the panel still clears the Armory bar. */
+{const st=document.createElement('style');st.textContent=`.rpasc>div{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.rpasc .rpai{width:auto!important;height:36px!important;min-width:0}.rpasc .rpai img{width:34px!important;height:34px!important}
+.rpasc{margin-top:8px!important;padding-top:7px!important}.rpasc>div{margin-top:4px!important}
+.rpasc .rpai em{font-size:12px;right:2px;bottom:0}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 9.9j: Rune Typing, typing to earn abilities (97h, after 97g) =====
+   An option in the new tower defense Settings (hub: Settings button; in battle: the pause menu). When it is on, a rune word floats
+   over each ability button (Overcharge, Slow Field, Repair). Type a word:
+   - if that ability is ready, it is cast at once (Overcharge on the selected tower or the busiest one, Slow Field ahead of the leading
+     monster, Repair on the castle);
+   - if it is recharging, the word charges it: the cooldown drops by RPTY.charge of its full length, plus RPTY.streakK per word in the
+     current streak (up to RPTY.streakMax), so steady, accurate typing brings abilities back far sooner.
+   Each finished word is replaced by a new one. The three words always start with different letters, so the first letter picks the
+   word; a wrong letter breaks the streak and clears what was typed (Backspace takes one letter back). Words come from the game's word
+   bank (GEN, 10_data) and get a little longer as the waves go on; Settings sets the length (Short, Normal, Long).
+   While it is on, letter keys type (tower hotkeys are off: pick towers with the mouse or the build ring); Space, Enter, Tab, 1-3 and
+   Esc work as before. The streak, best streak and words typed show on a badge over the abilities.
+   The first time a player opens tower defense after this update, a "New: Rune Typing" card introduces it (once, P.rp.new99j; not
+   under browser automation unless window.RPTY_NEWS is set, so other tests are not blocked). No Updates-tab notice.
+   Save: P.rp.opt = {ty: 0|1, tyl: 'short'|'normal'|'long'}. Battle state: RPX.ty = {on, buf, k, w:{over,slow,repair}, streak, best,
+   n, recent}. */
+const RPTY={charge:.15,streakK:.01,streakMax:.1,len:{short:[3,5],normal:[4,7],long:[6,9]},keys:['over','slow','repair']};
+function rptyOpt(){const r=RPP();let o=r.opt;if(!o||typeof o!=='object'||Array.isArray(o))o=r.opt={};if(o.ty!==1)o.ty=0;if(!RPTY.len[o.tyl])o.tyl='normal';return o}
+const rptyOn=()=>!!(RPX&&RPX.ty&&RPX.ty.on);
+/* a word for ability k: right length for the setting and the wave, a first letter the other two words do not use, not used lately */
+function rptyWord(R,k){const T=R.ty,o=rptyOpt(),L=RPTY.len[o.tyl],grow=Math.min(2,Math.floor((R.wave||0)/12)),lo=L[0]+Math.min(1,grow),hi=L[1]+grow;
+ const used=new Set(RPTY.keys.filter(j=>j!==k&&T.w[j]).map(j=>T.w[j][0]));let pool=GEN.filter(w=>w.length>=lo&&w.length<=hi&&!used.has(w[0])&&!T.recent.includes(w));
+ if(!pool.length)pool=GEN.filter(w=>w.length>=3&&!used.has(w[0]));const w=pool[Math.floor(Math.random()*pool.length)];T.recent.push(w);if(T.recent.length>24)T.recent.shift();return w}
+function rptyInit(R){if(!R)return;const on=!!rptyOpt().ty;R.ty={on,buf:'',k:null,w:{},streak:0,best:0,n:0,recent:[]};if(on)for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);rptyPaint(true)}
+function rptySfx(k){try{if(k==='key')beep(1100+Math.random()*120,.02,'triangle',.05);else if(k==='bad'){beep(140,.09,'square',.09)}
+ else if(k==='charge'){[660,880].forEach((f,j)=>setTimeout(()=>beep(f,.06,'triangle',.09),j*45))}else if(k==='cast'){[784,1047,1319,1568].forEach((f,j)=>setTimeout(()=>beep(f,.07,'triangle',.1),j*45))}}catch(e){}}
+/* one letter typed */
+function rptyKey(c){const R=RPX,T=R&&R.ty;if(!T||!T.on)return;
+ if(!T.buf){const k=RPTY.keys.find(j=>T.w[j]&&T.w[j][0]===c);if(!k)return rptyMiss();T.k=k;T.buf=c}
+ else{const w=T.w[T.k];if(w[T.buf.length]!==c)return rptyMiss();T.buf+=c}
+ if(T.buf===T.w[T.k])return rptyDone(T.k);rptySfx('key');rptyPaint()}
+function rptyMiss(){const R=RPX,T=R.ty,k=T.k;T.buf='';T.k=null;if(T.streak>=5)rpToast(`Streak broken at ${T.streak}`,1.2,'#ff9aa8');T.streak=0;rptySfx('bad');rptyPaint();
+ const h=$('rphud');if(h){const el=k?h.querySelector(`.rptyw[data-k="${k}"]`):h.querySelector('.rptyb');for(const x of k?[el]:h.querySelectorAll('.rptyw'))if(x){x.classList.remove('bad');void x.offsetWidth;x.classList.add('bad')}}}
+function rptyDone(k){const R=RPX,T=R.ty,A=RPT.AB[k];T.buf='';T.k=null;T.n++;T.streak++;T.best=Math.max(T.best,T.streak);let msg='';
+ if(R.abCd[k]>0){const cut=A.cd*(RPTY.charge+Math.min(RPTY.streakMax,RPTY.streakK*(T.streak-1))),was=R.abCd[k];R.abCd[k]=Math.max(0,was-cut);msg=R.abCd[k]<=0?'READY!':`-${Math.round(was-R.abCd[k])} s`;rptySfx('charge')}
+ else{const arg=k==='over'?(R.sel&&R.sel.build>=1?R.sel:true):true;const ok=rpAbility(k,arg);msg=ok?'CAST!':'';if(ok)rptySfx('cast')}
+ T.w[k]=rptyWord(R,k);rptyPaint(true);
+ const h=$('rphud'),el=h&&h.querySelector(`.rptyw[data-k="${k}"]`);if(el){el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');
+  if(msg){const f=document.createElement('span');f.className='rptyf'+(msg==='CAST!'||msg==='READY!'?' go':'');f.textContent=msg;el.appendChild(f);setTimeout(()=>f.remove(),900)}}}
+/* the chips over the ability buttons and the badge */
+function rptyPaint(full){const R=RPX,h=$('rphud');if(!R||!h)return;const T=R.ty,on=!!(T&&T.on);h.classList.toggle('rptyon',on);
+ const box=h.querySelector('.rpabs');
+ for(const k of RPTY.keys){const b=h.querySelector(`.rpab[data-ab="${k}"]`);if(!b||!box)continue;let el=box.querySelector(`.rptyw[data-k="${k}"]`);
+  if(!on){if(el)el.remove();continue}
+  /* the chip sits in the ability row, centred over its button (not inside it, so the button's cooldown dimming does not fade it) */
+  if(!el){el=document.createElement('span');el.className='rptyw';el.dataset.k=k;el.innerHTML='<span class="rptyl"></span><i class="rptyp"></i><small></small>';box.appendChild(el);full=true}
+  if(full)el.style.left=(b.offsetLeft+b.offsetWidth/2)+'px';
+  const w=T.w[k]||'',n=T.k===k?T.buf.length:0,key=w+'|'+n;if(full||el.dataset.v!==key){el.dataset.v=key;const l=el.querySelector('.rptyl');l.innerHTML=`<b>${esc(w.slice(0,n))}</b>${esc(w.slice(n))}`;l.style.fontSize=(w.length<=6?17:w.length===7?15:w.length===8?13.5:12.5)+'px';el.classList.toggle('typing',n>0)}}
+ let bd=h.querySelector('.rptyb');if(!on){if(bd)bd.remove();return}
+ if(!bd){bd=document.createElement('div');bd.className='rptyb';const ab=h.querySelector('.rpabs');(ab||h).appendChild(bd)}
+ const s=`<i>✦</i><b>RUNE TYPING</b><span>streak <u>${T.streak}</u></span><span>best ${T.best}</span>`;if(bd.dataset.v!==s){bd.dataset.v=s;bd.innerHTML=s}}
+/* per HUD tick: ready / recharging state and the charge bar under each word */
+function rptyTick(){const R=RPX,h=$('rphud');if(!R||!h||!rptyOn())return;
+ for(const k of RPTY.keys){const el=h.querySelector(`.rptyw[data-k="${k}"]`);if(!el)continue;const cd=R.abCd[k],A=RPT.AB[k],rd=!(cd>0),f=rd?1:1-cd/A.cd,q=Math.round(f*50);
+  if(el._q!==q){el._q=q;el.querySelector('.rptyp').style.transform=`scaleX(${(q/50).toFixed(2)})`}
+  if(el._rd!==rd){el._rd=rd;el.classList.toggle('ready',rd);el.querySelector('small').textContent=rd?'cast':'charge'}}}
+/* hooks */
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);try{if(RPX){rptyInit(RPX);if(RPX.ty.on)setTimeout(()=>{try{if(RPX&&RPX.ty&&RPX.ty.on)rpToast('Rune Typing is on: type the words over your abilities',3,'#ffd45a')}catch(e){}},900)}}catch(e){console.error(e)}return r}}
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{rptyPaint(true)}catch(e){}return r}}
+{const t0=rpHudTick;rpHudTick=function(){const r=t0.apply(this,arguments);try{rptyTick()}catch(e){}return r}}
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;
+  if(R&&R.ty&&R.ty.on&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey){
+   if(e.key.length===1&&/[a-z]/i.test(e.key)){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rptyKey(e.key.toLowerCase());return}
+   if(e.key==='Backspace'){e.preventDefault();e.stopImmediatePropagation();const T=R.ty;if(T.buf){T.buf=T.buf.slice(0,-1);if(!T.buf)T.k=null;rptyPaint()}return}}
+  return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+/* switch it on or off (also in the middle of a battle) */
+function rptySet(on){const o=rptyOpt();o.ty=on?1:0;save();const R=RPX;if(R&&R.ty){R.ty.on=!!on;R.ty.buf='';R.ty.k=null;if(on)for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);rptyPaint(true)}}
+function rptyLen(l){const o=rptyOpt();if(!RPTY.len[l])return;o.tyl=l;save();const R=RPX;if(R&&R.ty&&R.ty.on){R.ty.w={};for(const k of RPTY.keys)R.ty.w[k]=rptyWord(R,k);R.ty.buf='';R.ty.k=null;rptyPaint(true)}}
+/* ---------- the Settings panel (hub and pause menu) ---------- */
+const RPTY_PREVIEW=()=>`<div class="rptyprev" aria-hidden="true">${[['over','spark','sp'],['slow','frost',''],['repair','mend','']].map(([k,w,t])=>`<div class="rptypa"><span class="rptyw${k==='over'?' typing':''}${k==='repair'?' ready':''}"><span class="rptyl"><b>${t}</b>${w.slice(t.length)}</span><i class="rptyp" style="transform:scaleX(${k==='slow'?.45:1})"></i><small>${k==='repair'?'cast':'charge'}</small></span><span class="rptypb">${RPI[k]}</span><em>${RPT.AB[k].n}</em></div>`).join('')}</div>`;
+function rptySettingsHTML(){const o=rptyOpt();return `<div class="rpset2">
+ <div class="rpsetrow"><div><b>Rune Typing</b><p>Type the words over your abilities: a ready ability is cast at once, a recharging one charges faster with every word. Letter keys type instead of picking towers.</p></div>
+  <button class="rpsw${o.ty?' on':''}" id="rptysw" role="switch" aria-checked="${o.ty?'true':'false'}"><i></i><span>${o.ty?'On':'Off'}</span></button></div>
+ <div class="rpsetrow${o.ty?'':' off'}" id="rptylr"><div><b>Word length</b><p>Words grow a little longer in later waves.</p></div>
+  <div class="rpseg">${['short','normal','long'].map(l=>`<button data-l="${l}" class="${o.tyl===l?'on':''}">${l[0].toUpperCase()+l.slice(1)}</button>`).join('')}</div></div></div>`}
+function rptyWire(root,after){const sw=root.querySelector('#rptysw');if(sw)sw.onclick=()=>{rptySet(!rptyOpt().ty);try{rpSfx('key',2)}catch(e){}after()};
+ root.querySelectorAll('.rpseg button').forEach(b=>b.onclick=()=>{rptyLen(b.dataset.l);try{rpSfx('key',1)}catch(e){}after()})}
+function rpSettings(){const el=$('rpmod');if(!el)return;const draw=()=>{el.innerHTML=`<div class="rpmc2 rpsetm"><button class="rpix" id="rpmx" aria-label="Close">×</button><h2>Settings</h2>${rptySettingsHTML()}${RPTY_PREVIEW()}</div>`;
+  $('rpmx').onclick=()=>{el.hidden=true};rptyWire(el,draw)};draw();el.hidden=false;el.onclick=e=>{if(e.target===el)el.hidden=true}}
+/* the "New: Rune Typing" card, once */
+function rptyNews(){const el=$('rpmod');if(!el)return;el.innerHTML=`<div class="rpmc2 rpnews"><button class="rpix" id="rpmx" aria-label="Close">×</button><p class="rpnk">NEW IN TOWER DEFENSE</p><h2>Rune Typing</h2>
+ <p class="rpnl">Type to earn your abilities. Switch it on and a rune word floats over Overcharge, Slow Field and Repair.</p>${RPTY_PREVIEW()}
+ <ul class="rpnul"><li><b>Ready?</b> Type its word to cast it on the spot.</li><li><b>Recharging?</b> Every word you type charges it, and a streak of clean words charges it faster.</li><li><b>Your choice:</b> turn it on or off any time in Settings (or in the pause menu), and pick the word length.</li></ul>
+ <div class="rpnb"><button class="rpngo" id="rptyon">Turn on Rune Typing</button><button class="rpnno" id="rptyno">Not now</button></div></div>`;
+ el.hidden=false;const done=()=>{el.hidden=true};$('rpmx').onclick=done;$('rptyno').onclick=done;$('rptyon').onclick=()=>{rptySet(true);try{rpSfx('ability')}catch(e){}done()};el.onclick=e=>{if(e.target===el)done()}}
+{const m0=rampartsMenu;rampartsMenu=function(){const r=m0.apply(this,arguments);try{const top=ov.querySelector('.rphtop');if(top&&!$('rphset')){top.insertAdjacentHTML('beforeend',`<button class="rpbk" id="rphset"><i class="rpbki">${RPTY_GEAR}</i>Settings</button>`);$('rphset').onclick=()=>{try{rpSfx('key',2)}catch(e){}rpSettings()}}
+  const rp=RPP(),bot=navigator.webdriver&&!window.RPTY_NEWS;if(!rp.new99j&&!bot){rp.new99j=1;save();setTimeout(()=>{if(S.view==='ramparts'&&$('rpmod')&&$('rpmod').hidden)rptyNews()},500)}}catch(e){console.error(e)}return r}}
+const RPTY_GEAR='<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>';
+/* the pause menu: the same switch and word length, applied at once */
+{const p0=rpPauseMenu;rpPauseMenu=function(){const r=p0.apply(this,arguments);try{const box=ov.querySelector('.rppause');if(box){const w=document.createElement('div');w.className='rptypz';const draw=()=>{w.innerHTML=rptySettingsHTML();rptyWire(w,draw)};draw();
+   const row=box.querySelector('.row');box.insertBefore(w,row);
+   if(rptyOpt().ty){const ph=box.querySelector('.rpph');if(ph)ph.insertAdjacentHTML('afterbegin','<span class="rptyph"><kbd>A</kbd>–<kbd>Z</kbd> Rune Typing: type the words over your abilities · <kbd>⌫</kbd> back one letter</span>');if(ph)for(const sp of ph.querySelectorAll('span')){const t=sp.textContent;if(/pick a tower/.test(t))sp.innerHTML='<kbd>Click</kbd> a tower in the bar, then a pad';else if(/upgrade/.test(t)&&/sell the selected/.test(t))sp.innerHTML='upgrade or sell from the tower\'s panel';else if(/game speed/.test(t))sp.innerHTML='<kbd>Tab</kbd> game speed'}}}}catch(e){console.error(e)}return r}}
+/* help texts */
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Rune Typing (Settings): type the words over your abilities to cast them, or to charge them while they recharge."}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Rune Typing.</b> Turn it on in Settings (or the pause menu). A word floats over each ability: type it to cast a ready ability, or to charge one that is recharging (a streak of clean words charges faster). Letter keys type while it is on, so pick towers with the mouse.</p>`)}catch(e){}return r}}
+/* styles: indigo glass chips with gold letters; only transform and opacity animate */
+{const st=document.createElement('style');st.textContent=`
+.rptyw{position:absolute;left:50%;bottom:calc(100% + 14px);transform:translateX(-50%);z-index:6;width:90px;box-sizing:border-box;padding:5px 4px 9px;border-radius:12px;background:linear-gradient(180deg,#2a1f6af2,#140c38f5);border:2px solid #6a58c8;box-shadow:0 0 0 2.5px #12081f,0 6px 14px #0009;display:flex;flex-direction:column;align-items:center;gap:1px;pointer-events:none;white-space:nowrap}
+.rptyw::after{content:'';position:absolute;left:50%;bottom:-8px;width:12px;height:12px;margin-left:-6px;transform:rotate(45deg);background:#140c38;border-right:2px solid #6a58c8;border-bottom:2px solid #6a58c8}
+.rptyl{font:800 17px/1.15 Poppins,system-ui,sans-serif;letter-spacing:.06em;color:#fff8e8}.rptyl b{color:#ffd45a}
+.rptyw small{font:700 9.5px Poppins,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#a99be0}
+.rptyp{position:absolute;left:6px;right:6px;bottom:3px;height:3px;border-radius:2px;background:#7ad8ff;transform-origin:left center;transform:scaleX(0)}
+.rptyw.ready{border-color:#ffd45a}.rptyw.ready::after{border-color:#ffd45a}.rptyw.ready small{color:#ffd45a}.rptyw.ready .rptyp{background:#ffd45a}
+.rptyw.ready::before{content:'';position:absolute;inset:-6px;border-radius:15px;border:2px solid #ffd45a;opacity:0;animation:rptyGl 1.6s ease-in-out infinite}
+.rptyw.typing{border-color:#fff2b0}
+.rptyw.pop{animation:rptyPop .42s cubic-bezier(.34,1.56,.64,1)}.rptyw.bad{animation:rptyBad .32s ease}
+.rptyf{position:absolute;left:50%;bottom:100%;font:800 15px Poppins,system-ui,sans-serif;color:#9fe8ff;white-space:nowrap;animation:rptyUp .9s ease-out forwards;text-shadow:0 2px 0 #12081f}
+.rptyf.go{color:#ffd45a;font-size:17px}
+@keyframes rptyGl{0%,100%{opacity:0;transform:scale(.96)}50%{opacity:.85;transform:scale(1.03)}}
+@keyframes rptyPop{0%{transform:translateX(-50%) scale(1)}40%{transform:translateX(-50%) scale(1.22)}100%{transform:translateX(-50%) scale(1)}}
+@keyframes rptyBad{0%,100%{transform:translateX(-50%)}20%{transform:translateX(calc(-50% - 7px))}40%{transform:translateX(calc(-50% + 6px))}60%{transform:translateX(calc(-50% - 4px))}80%{transform:translateX(calc(-50% + 2px))}}
+@keyframes rptyUp{0%{opacity:0;transform:translate(-50%,6px) scale(.8)}20%{opacity:1;transform:translate(-50%,-4px) scale(1.08)}100%{opacity:0;transform:translate(-50%,-30px) scale(1)}}
+.rptyb{position:absolute;left:0;bottom:calc(100% + 76px);display:flex;align-items:center;gap:8px;padding:4px 12px 4px 8px;border-radius:999px;background:#12081fe0;border:2px solid #c99a3a;font:600 12px Poppins,system-ui,sans-serif;color:#cfc6f0;white-space:nowrap;pointer-events:none}
+.rptyb i{font-style:normal;color:#ffd45a}.rptyb b{font:800 11px Poppins,system-ui,sans-serif;letter-spacing:.14em;color:#ffd45a}.rptyb u{text-decoration:none;font-weight:800;color:#fff8e8}
+.rptyon .rpbar .rpcard kbd{visibility:hidden}
+.rpset2{display:flex;flex-direction:column;gap:12px;margin:6px 0 4px}
+.rpsetrow{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 16px;border-radius:16px;background:#ffffff0a;border:2px solid #3a3070;text-align:left}
+.rpsetrow b{font:800 17px Poppins,system-ui,sans-serif;color:#fff8e8}.rpsetrow p{margin:3px 0 0;font:500 13px/1.4 Poppins,system-ui,sans-serif;color:#cfc6f0}
+.rpsetrow.off{opacity:.45}.rpsetrow.off .rpseg{pointer-events:none}
+.rpsw{all:unset;flex:none;cursor:pointer;position:relative;width:96px;height:40px;border-radius:999px;background:#2c2466;border:2px solid #6a58c8;box-shadow:0 0 0 2.5px #12081f;display:flex;align-items:center;justify-content:flex-end;padding:0 14px;box-sizing:border-box;font:800 14px Poppins,system-ui,sans-serif;color:#a99be0}
+.rpsw i{position:absolute;left:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#cfc6f0;box-shadow:0 0 0 2px #12081f;transition:transform .22s cubic-bezier(.34,1.56,.64,1)}
+.rpsw.on{background:linear-gradient(180deg,#ffe27a,#d89a2a);border-color:#ffd45a;justify-content:flex-start;color:#3a1a04}.rpsw.on i{transform:translateX(56px);background:#fff8e8}
+.rpseg{flex:none;display:flex;gap:4px;padding:4px;border-radius:12px;background:#12081f;border:2px solid #3a3070}
+.rpseg button{all:unset;cursor:pointer;padding:6px 12px;border-radius:9px;font:700 13px Poppins,system-ui,sans-serif;color:#cfc6f0}.rpseg button.on{background:#ffd45a;color:#3a1a04}
+.rpmc2.rpsetm{width:700px}
+.rptyprev{display:flex;justify-content:center;gap:36px;margin:16px 0 4px;padding:58px 0 16px;border-radius:16px;background:radial-gradient(ellipse at 50% 100%,#3a2c86,#140c38 70%);border:2px solid #3a3070}
+.rptypa{position:relative;display:flex;flex-direction:column;align-items:center}
+.rptypb{width:70px;height:70px;border-radius:50%;border:3px solid #ffd45a;background:radial-gradient(circle at 50% 35%,#3a2c86,#140c38);box-shadow:0 0 0 3px #12081f;display:grid;place-items:center}.rptypb svg{width:34px;height:34px}
+.rptypa em{margin-top:4px;font:700 11.5px Poppins,system-ui,sans-serif;font-style:normal;color:#fff8e8}
+.rptypa .rptyw{bottom:calc(100% - 6px)}
+.rpmc2.rpnews{width:720px;text-align:left}.rpnk{margin:0 0 2px;font:800 12px Poppins,system-ui,sans-serif;letter-spacing:.22em;color:#7ad8ff}
+.rpnl{margin:0;font:500 15px/1.45 Poppins,system-ui,sans-serif;color:#e8e0ff}
+.rpnul{margin:12px 0 0;padding-left:20px;font:500 14px/1.5 Poppins,system-ui,sans-serif;color:#cfc6f0}.rpnul b{color:#ffd45a}
+.rpnb{display:flex;gap:12px;margin-top:18px}.rpnb button{margin:0}
+.rpngo{background:linear-gradient(180deg,#ffe27a,#d89a2a)!important;color:#3a1a04!important}
+.rptypz{margin:4px auto 10px;max-width:640px}.rptypz .rpsetrow{background:#12081f99}
+.rptyph{color:#ffd45a}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

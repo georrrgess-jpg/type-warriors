@@ -53476,6 +53476,84 @@ try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Ru
 .rpngo{background:linear-gradient(180deg,#ffe27a,#d89a2a)!important;color:#3a1a04!important}
 .rptypz{margin:4px auto 10px;max-width:640px}.rptypz .rpsetrow{background:#12081f99}
 .rptyph{color:#ffd45a}`;document.head.appendChild(st)}
+/* ===== DEV › Cheats 9.9k: a cheat menu that scrolls, and progress cheats for the newer modes (97i, after 97h) =====
+   Scrolling: the panel was as tall as the window minus 90 px wherever it sat, so once it had been dragged down (or the window was
+   short) its lower part, and the end of the cheat list, hung off the screen with nothing to scroll; and every cheat re-rendered the
+   tab and jumped back to the top. Now the panel is kept on screen and its height clamped to the space below its top edge (on every
+   render, on resize and after a drag), the scroll position survives re-renders, the list scrolls by wheel, touch, trackpad and
+   PageUp/PageDown/Home/End even inside an embedding frame, and a sticky row of section chips jumps to any section.
+   New sections (they edit the real save, like the other cheats):
+   - Tower Defense: stars per map, 3 stars everywhere, unlock the Wonderland and the Dragon Roost, Wonderland best wave, ascend every
+     tower, own every tower skin, replay the tutorials and the "New: Rune Typing" card, reset tower defense.
+   - Lantern Caravan: routes: a medal per route, open every route (next to the 8.5 Lantern Caravan section's all-gold, looks, reset).
+   - Moonlit Fishing: unlock every fishing spot (adds to the existing fishing cheats).
+   - The Crooked Cue: beat every regular and the Shade, own every cue, felt and ball set, 3 stars on every Trick Shot, max mastery. */
+const DVP={};
+const dvpSel=(id,opts,cur)=>`<select id="${id}">${opts.map(([v,l])=>dvxOpt(v,l,String(v)===String(cur))).join('')}</select>`;
+{const h0=dvxHTML;dvxHTML=function(){let h=h0.apply(this,arguments);const sec=(t,b)=>`<div class="dvx"><h5>${t}</h5>${b}</div>`;
+ try{if(typeof RPP==='function'){const r=RPP(),msel=DVP.m&&RP_MAP(DVP.m)?DVP.m:RP_MAPS[0].id,sn=RP_MAPS.filter(m=>!m.endless).reduce((a,m)=>a+(r.stars[m.id]||0),0),
+   asc=RP_TWORDER.filter(t=>(r.asc[t]||0)>=5).length,sk=RP_SKINLIST().filter(s=>s.k!=='base'),sko=sk.filter(s=>r.own[s.tw+':'+s.k]).length;
+  h+=sec('Tower Defense',`<div class="dvrow"><span>${sn} / 9 stars · Wonderland ${RP_MAPOPEN(RP_MAP('wonder'))?'open':'locked'} · best ${r.ebest||0} waves · Dragon Roost ${rpDragonOpen()?'open':'locked'}</span></div>
+   <div class="dvrow">${dvpSel('dvptdm',RP_MAPS.filter(m=>!m.endless).map(m=>[m.id,`${m.n} · ${r.stars[m.id]||0}★`]),msel)}${dvpSel('dvptds',[[0,'0 stars'],[1,'1 star'],[2,'2 stars'],[3,'3 stars']],r.stars[msel]||0)}${dvBtn('x:tdstar','Set stars')}${dvBtn('x:td3','3 stars on every map')}</div>
+   <div class="dvrow">${dvBtn('x:tdwon','Unlock the Wonderland')}${dvBtn('x:tddrag','Unlock the Dragon Roost')}<span>Wonderland best wave</span>${dvxNum('dvptdb',r.ebest||0,0,999)}${dvBtn('x:tdbest','Set')}</div>
+   <div class="dvrow"><span>Ascended ${asc} / ${RP_TWORDER.length} · skins ${sko} / ${sk.length}</span>${dvBtn('x:tdasc','Ascend every tower')}${dvBtn('x:tdascclr','Clear ascensions')}${dvBtn('x:tdskins','Own every tower skin')}</div>
+   <div class="dvrow">${dvBtn('x:tdtut','Replay the tutorials')}${dvBtn('x:tdnews','Show the Rune Typing card again')}${dvBtn('x:tdreset','Reset tower defense','dg')}</div>`)}}catch(e){devLog('error','cheats TD: '+e.message)}
+ try{if(typeof WRP==='function'){const w=WRP(),rsel=DVP.r&&WR_ROUTES.some(x=>x.id===DVP.r)?DVP.r:WR_ROUTES[0].id,mn=WR_ROUTES.reduce((a,x)=>a+(w.med[x.id]||0),0),mx=WR_ROUTES.length*3;
+  h+=sec('Lantern Caravan: routes',`<div class="dvrow"><span>${mn} / ${mx} medals · ${w.runs} runs (all-gold, looks and reset are in the Lantern Caravan section)</span></div>
+   <div class="dvrow">${dvpSel('dvpwr',WR_ROUTES.map(x=>[x.id,`${x.n} · ${WR_MED[w.med[x.id]||0].n}`]),rsel)}${dvpSel('dvpwm',WR_MED.map((m,i)=>[i,m.n]),w.med[rsel]||0)}${dvBtn('x:wrset','Set medal')}${dvBtn('x:wropen','Open every route')}</div>`)}}catch(e){devLog('error','cheats caravan: '+e.message)}
+ try{if(typeof fsLocOpen==='function'){const n=FSLOCK.filter(k=>fsLocOpen(k)).length,all=FSLOCK.filter(k=>!FSLOCS[k].soon).length;
+  h+=sec('Moonlit Fishing: spots',`<div class="dvrow"><span>${n} / ${all} fishing spots open (${FSLOCK.filter(k=>!FSLOCS[k].soon).map(k=>FSLOCS[k].n+(fsLocOpen(k)?' ✓':'')).join(', ')})</span>${dvBtn('x:fsspots','Unlock every fishing spot')}</div>`)}}catch(e){devLog('error','cheats fishing: '+e.message)}
+ try{if(typeof PZS==='function'){const Z=PZS(),bt=PZ_ORDER.filter(k=>(Z.beat[k]||0)>0).length,tr=PZ_TRICK.filter((t,i)=>(Z.trick[i]|0)>=3).length;
+  h+=sec('The Crooked Cue',`<div class="dvrow"><span>${bt} / ${PZ_ORDER.length} regulars beaten · Shade ${Z.shade&&Z.shade.beat?'beaten':'not beaten'} · ${tr} / ${PZ_TRICK.length} trick shots at 3★</span></div>
+   <div class="dvrow">${dvBtn('x:pzbeat','Beat every regular and the Shade')}${dvBtn('x:pzown','Own every cue, felt and ball set')}${dvBtn('x:pztrick','3 stars on every trick shot')}${dvBtn('x:pzmast','Max mastery on every cue')}</div>`)}}catch(e){devLog('error','cheats pool: '+e.message)}
+ return h}}
+{const a0=dvxAct;dvxAct=function(a){const sel=id=>{const e=$(id);return e?e.value:''};
+ if(a==='tdstar'){const m=sel('dvptdm'),v=+sel('dvptds')||0,r=RPP();if(!RP_MAP(m))return;DVP.m=m;if(v)r.stars[m]=v;else delete r.stars[m];dvxMsg(`${RP_MAP(m).n}: ${v} star${v===1?'':'s'}.`)}
+ else if(a==='td3'){const r=RPP();for(const m of RP_MAPS)if(!m.endless)r.stars[m.id]=3;dvxMsg('3 stars on every tower defense map.')}
+ else if(a==='tdwon'){const r=RPP();for(const m of RP_MAPS)if(!m.endless&&!(r.stars[m.id]>0))r.stars[m.id]=1;dvxMsg('The Wonderland is open.')}
+ else if(a==='tddrag'){RPP().dragon=1;dvxMsg('The Dragon Roost is open.')}
+ else if(a==='tdbest'){RPP().ebest=dvxVal('dvptdb',0,999);dvxMsg('Wonderland best set to '+RPP().ebest+' waves.')}
+ else if(a==='tdasc'){const r=RPP();for(const t of RP_TWORDER)r.asc[t]=5;dvxMsg('Every tower is ascended (tier 5).')}
+ else if(a==='tdascclr'){RPP().asc={};dvxMsg('Ascensions cleared.')}
+ else if(a==='tdskins'){const r=RPP();for(const s of RP_SKINLIST())if(s.k!=='base')r.own[s.tw+':'+s.k]=1;dvxMsg('You own every tower skin.')}
+ else if(a==='tdtut'){const r=RPP();r.tut={};r.hint={};r.intro=0;dvxMsg('Tower defense tutorials will play again.')}
+ else if(a==='tdnews'){delete RPP().new99j;window.RPTY_NEWS=1;dvxMsg('The Rune Typing card shows next time you open tower defense.')}
+ else if(a==='tdreset'){if(DVP.rst!=='td'){DVP.rst='td';dvxMsg('Click "Reset tower defense" again to confirm.');return}DVP.rst='';const o=RPP().opt;P.rp={};const r=RPP();if(o)r.opt=o;dvxMsg('Tower defense progress reset.')}
+ else if(a==='wrset'){const id=sel('dvpwr'),v=+sel('dvpwm')||0,w=WRP();if(!WR_ROUTES.some(x=>x.id===id))return;DVP.r=id;w.med[id]=Math.max(0,Math.min(3,v));wrUnlockSweep();dvxMsg(`${WR_RT(id).n}: ${WR_MED[v].n}.`)}
+ else if(a==='wropen'){const w=WRP();for(const x of WR_ROUTES)if(!(w.med[x.id]>0))w.med[x.id]=1;wrUnlockSweep();dvxMsg('Every caravan route is open (bronze where there was no medal).')}
+ else if(a==='fsspots'){dvxAct('fishall');try{fsOddP().pg=FSPGN}catch(e){}dvxMsg('Every fishing spot is open.')}
+ else if(a==='pzbeat'){const Z=PZS();for(const k of PZ_ORDER)Z.beat[k]=Math.max(Z.beat[k]||0,3);Z.shade=Z.shade||{};Z.shade.beat=Math.max(Z.shade.beat||0,1);try{pzUnlockSweep()}catch(e){}dvxMsg('Every regular and the Shade are beaten.')}
+ else if(a==='pzown'){const Z=PZS();for(const c of PZ_CUES)Z.cues[c.id]=1;for(const f of PZ_FELT)Z.felts[f.id]=1;for(const b of PZ_BALLS)Z.ballsets[b.id]=1;dvxMsg('You own every cue, felt and ball set.')}
+ else if(a==='pztrick'){const Z=PZS();PZ_TRICK.forEach((t,i)=>{Z.trick[i]=3;Z.trick['t'+i]=1});dvxMsg('3 stars on every trick shot.')}
+ else if(a==='pzmast'){const Z=typeof pzMastSave==='function'?pzMastSave():PZS();Z.mast=Z.mast||{};const top=PZ_MAST.lv[PZ_MAST.lv.length-1];for(const id in Z.cues)Z.mast[id]=Math.max(Z.mast[id]||0,top);dvxMsg('Every cue you own is at the top mastery level.')}
+ else return a0.apply(this,arguments)}}
+/* remember the picked map and route between re-renders */
+{const r0=devRender;devRender=function(){const B=devBody,keep=B&&DEV.open&&DEV.tab==='Cheats'&&B.dataset.tab==='Cheats'?B.scrollTop:null;const r=r0.apply(this,arguments);
+ try{const B2=devBody;if(B2){B2.dataset.tab=DEV.open?DEV.tab:'';
+  if(DEV.open&&DEV.tab==='Cheats'){const k=(id,f)=>{const e=$(id);if(e)e.addEventListener('change',()=>{DVP[f]=e.value;if(id!=='dvptds'&&id!=='dvpwm')devRender()})};k('dvptdm','m');k('dvpwr','r');dvpNav(B2);if(keep!=null)B2.scrollTop=keep}}
+  dvpFit()}catch(e){devLog('error','cheats render: '+e.message)}return r}}
+/* sticky chips that jump to each section */
+function dvpNav(B){if(B.querySelector('.dvpnav'))return;const hs=[...B.querySelectorAll('.dvx h5')];if(hs.length<2)return;const n=document.createElement('div');n.className='dvpnav';
+ n.innerHTML=`<button data-i="-1">↑ Top</button>`+hs.map((h,i)=>`<button data-i="${i}">${dvEsc(h.textContent.replace(/&amp;/g,'&'))}</button>`).join('');B.insertBefore(n,B.firstChild);
+ n.querySelectorAll('button').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(i<0){B.scrollTop=0;return}const h=hs[i].parentElement;B.scrollTop=Math.max(0,h.offsetTop-n.offsetHeight-12)})}
+/* keep the panel on screen and only as tall as the room below its top edge */
+function dvpFit(){const p=$('devpanel');if(!p||p.hidden)return;const vh=innerHeight;let r=p.getBoundingClientRect();
+ if(r.top>vh-160){p.style.top=Math.max(8,vh-160)+'px';r=p.getBoundingClientRect()}if(r.top<0){p.style.top='8px';r=p.getBoundingClientRect()}
+ p.style.maxHeight=Math.max(150,vh-r.top-12)+'px'}
+addEventListener('resize',()=>{try{dvpFit()}catch(e){}});
+addEventListener('pointerup',()=>{try{if(DEV.open)setTimeout(dvpFit,0)}catch(e){}},true);
+/* scroll the list ourselves, so no page-level wheel handler (the embedded-frame guard, a mode's canvas) can swallow it */
+addEventListener('wheel',e=>{try{const p=$('devpanel');if(!p||p.hidden||!p.contains(e.target))return;const B=p.querySelector('.dvbody');if(!B)return;
+ const sel=e.target.closest&&e.target.closest('select');if(sel)return;const dy=e.deltaMode===1?e.deltaY*32:e.deltaMode===2?e.deltaY*B.clientHeight:e.deltaY;
+ B.scrollTop+=dy;e.preventDefault();e.stopImmediatePropagation()}catch(x){}},{passive:false,capture:true});
+addEventListener('keydown',e=>{try{const p=$('devpanel');if(!p||p.hidden||!DEV.open)return;const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA'))return;if(!p.matches(':hover'))return;
+ const B=p.querySelector('.dvbody');if(!B)return;const m={PageDown:B.clientHeight*.85,PageUp:-B.clientHeight*.85,ArrowDown:60,ArrowUp:-60};
+ if(e.key==='Home')B.scrollTop=0;else if(e.key==='End')B.scrollTop=B.scrollHeight;else if(m[e.key]!=null)B.scrollTop+=m[e.key];else return;e.preventDefault();e.stopImmediatePropagation()}catch(x){}},true);
+{const st=document.createElement('style');st.textContent=`#devpanel .dvbody{min-height:0;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#6d5fb0 #120f1f}
+#devpanel .dvbody::-webkit-scrollbar{width:10px}#devpanel .dvbody::-webkit-scrollbar-thumb{background:#6d5fb0;border-radius:6px;border:2px solid #120f1f}
+.dvpnav{position:sticky;top:-10px;z-index:3;display:flex;flex-wrap:wrap;gap:5px;margin:-10px -12px 6px;padding:8px 12px;background:#120f1ff5;border-bottom:1px solid #3a3270}
+.dvpnav button{all:unset;cursor:pointer;padding:3px 9px;border-radius:999px;border:1px solid #5a4fa0;background:#1a1530;font:600 11.5px 'Poppins',sans-serif;color:#d8d2ff}
+.dvpnav button:hover{border-color:#ffd45a;color:#ffd45a}.dvx .dvb.dg{border-color:#c04a5a;color:#ffb0b8}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

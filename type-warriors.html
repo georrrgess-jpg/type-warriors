@@ -52997,6 +52997,340 @@ RPE.soft=1.01;Object.assign(RPHL,{bossN:2,bossGap:8,bsoft:1.006});
 /* Bot results (t_ramparts bot, each tower to tier 5 in turn, waves reached): Dragon+Dragon+Frost 71 -> 100, Dragon+Dragon+Tide 70 -> 82,
    Dragon+Still+Frost 50 -> 94, Prism+Dragon+Frost 94. Healer fix alone: 90 / 76 / 80. No extra climb at all after 50 let the bots sit at
    full health past wave 115, so some climb stays. A board of 14 tier-5 towers holds every ordinary wave to 105 and the wave-80 bosses. */
+/* ===== RUNESTONE TOWER DEFENSE 9.9i: the Starfall Observatory, art (97d, after 97c) =====
+   From the owner's concept (the Tower Vote card): a round stone observatory on a low plinth, an arched door under a star roundel, a
+   ribbed blue dome on a gold rim, a brass telescope poking out of the dome slit and a gold armillary sphere on the left.
+   Live: the dome slit and the telescope swing side to side toward the target (the battle module drives o.aim = lean in radians on a
+   damped spring, so the swing eases in and settles with a small overshoot); the armillary rings turn; the lens glows while a star is
+   being charged (star motes spiral into it), flashes and kicks back on firing and sends a shaft of light up into the sky.
+   Tiers: 1 grey stone, blue dome, brass scope, two-ring armillary; 2 taller, gold-ribbed dome, gold bands, lit windows, a gold balcony
+   rail, a longer scope, three rings; 3 Star Chart: a midnight dome painted with gold constellations, a gold scope with a crystal lens,
+   a star finial and brass lanterns on the plinth; 4 Mythic (violet stone, violet dome with gold ribs, dark-iron scope, gems, orbiting
+   runes); 5 Celestial (marble, white-gold dome, a winged white-gold scope with a star lens, wings and halo).
+   Plugs into the shared pipeline of 95c (RPPAL/RPLAY/RPPULSE/RPWING/RPHALO + wrapped rpBodyArt, rpGlowList, rpTowerParts), so the
+   build and upgrade animations, the tier 4-5 ascension, icons and warming are the shared ones. No shadowBlur, no ctx.filter.
+   API
+     rpsfLens(tier,lean,fire)            the lens (scope tip) relative to the pad centre {x,y}
+     rpStarBolt(g,x,y,tier,rot,sc)       a falling star
+     rpStarReticle(g,x,y,r,u,a)          the red target ring (ground layer), u = 0..1 flight progress, a = alpha
+     rpStarImpact(g,x,y,u,tier,big)      the impact burst (top layer), u = 0..1
+     rpStarMark(g,x,y,t,a)               the gold mark badge over a marked monster
+     rpStarMarkRing(g,x,y,r,t,a)         the small red reticle under a marked monster's feet */
+RPTW.star={n:'Starfall Observatory',role:'Global support',col:'#ffc83a'};
+RPSKIN.star=['base'];
+RPPAL.star={base:{stone:RPSTONE.base,trim:'#ffd45a',trimL:'#fff0a8',trimD:'#b07a1a',door:'#2a2470',doorD:'#140f3a',win:'#ffd27a',
+ glow:'#ffd45a',glow2:'#7ad8ff',lamp:'#ffd27a'}};
+/* per tier: plinth radius/height pr ph, tower radius/height tr th, dome radius/height dr dh, scope length/width sl sw, armillary
+   [x offset from the dome edge, rings, radius], windows, balcony, lanterns, top, tier 4-5 gems */
+RPLAY.star=[0,
+ {pr:34,ph:8,tr:20,th:34,dr:24,dh:22,sl:30,sw:6.2,arm:[3,2,11],win:0,bal:0,lan:0,top:94,runes:[]},
+ {pr:36,ph:9,tr:22,th:42,dr:26,dh:24,sl:34,sw:6.8,arm:[3,3,13],win:1,bal:1,lan:0,top:108,runes:[]},
+ {pr:38,ph:10,tr:23,th:48,dr:28,dh:26,sl:38,sw:7.4,arm:[3,3,14],win:1,bal:1,lan:1,top:122,runes:[]},
+ {pr:39,ph:10,tr:24,th:52,dr:29,dh:27,sl:40,sw:7.8,arm:[3,3,15],win:1,bal:1,lan:1,top:130,runes:[],inl:[[0,10,4.4],[-30,4,3.6],[30,4,3.6]]},
+ {pr:40,ph:11,tr:25,th:55,dr:30,dh:28,sl:42,sw:8.2,arm:[3,3,16],win:1,bal:1,lan:1,top:138,runes:[],inl:[[0,10,4.6],[-30,4,3.8],[30,4,3.8]]}];
+RPPULSE.star=[1.8,.22];RPWING.star=[36,-58];RPHALO.star=[-132,26];
+const rpsfT=t=>Math.max(1,Math.min(5,t|0||1));
+/* vertical anchors of a tier: plinth top, tower top, dome base, dome top */
+function rpsfY(L){const y0=2-L.ph,yt=y0-L.th,db=yt-3;return{y0,yt,db,dt:db-L.dh}}
+/* colours per tier: dome [light, mid, dark], rib, scope metal [light, mid, dark, deep], band, lens */
+const rpsfDome=tier=>tier>=5?{d:['#ffffff','#f6ead0','#d4b06a'],rib:'#e0b44a',ribL:'#fff6c8',slit:'#2a2060'}
+ :tier===4?{d:['#b48af0','#7a48c8','#40207e'],rib:'#ffd45a',ribL:'#fff0a8',slit:'#140a30'}
+ :tier===3?{d:['#4a4aae','#26247a','#121044'],rib:'#ffd45a',ribL:'#fff0a8',slit:'#07051a'}
+ :tier===2?{d:['#6e9cff','#3366e0','#1c3696'],rib:'#ffd45a',ribL:'#fff0a8',slit:'#0e0a2e'}
+ :{d:['#6e9cff','#3366e0','#1c3696'],rib:'#9ec0ff',ribL:'#d8e6ff',slit:'#0e0a2e'};
+const rpsfMet=tier=>tier>=5?{m:['#fffdf2','#f4e2a8','#d0a24a','#7a5a1a'],band:'#ffffff',bandD:'#c99a2a',lens:'#fff2b0',lensL:'#ffffff',cap:'#f4e2a8'}
+ :tier===4?{m:['#8e86b8','#4e4672','#2a2244','#14102a'],band:'#ffd45a',bandD:'#a8741a',lens:'#c08aff',lensL:'#f0e0ff',cap:'#6a3ab8'}
+ :tier===3?{m:['#fff6c8','#ffd45a','#c98a1c','#6a4410'],band:'#fff6c8',bandD:'#b07a1a',lens:'#7ae8ff',lensL:'#ffffff',cap:'#3a8ae0'}
+ :{m:['#fff0a8','#e2b84a','#a8741a','#5a3a10'],band:'#8a5a14',bandD:'#4a2c08',lens:'#7ad8ff',lensL:'#e8fbff',cap:'#3a6ad8'};
+/* a five-point star path */
+function rpsfStarPath(g,x,y,r,ri,rot){g.beginPath();for(let i=0;i<10;i++){const a=rot-Math.PI/2+i*Math.PI/5,q=i%2?ri:r;i?g.lineTo(x+Math.cos(a)*q,y+Math.sin(a)*q):g.moveTo(x+Math.cos(a)*q,y+Math.sin(a)*q)}g.closePath()}
+function rpsfStarArt(g,x,y,r,cA,cB,cC,lw){rpsfStarPath(g,x,y,r,r*.48,0);g.fillStyle=rpVG(g,y-r,y+r,cA,cB);g.fill();rpOut(g,lw||2.2);
+ rpsfStarPath(g,x-r*.06,y-r*.08,r*.55,r*.26,0);g.fillStyle=cC;g.globalAlpha=.75;g.fill();g.globalAlpha=1}
+
+/* ---------- static body ---------- */
+function rpsfDomeShape(g,L,db){g.beginPath();g.ellipse(0,db,L.dr,L.dh,0,Math.PI,0);g.ellipse(0,db,L.dr,L.dr*RPSQ,0,0,Math.PI);g.closePath()}
+/* a point on the dome: latitude th (0 base .. PI/2 top), longitude ph (0 = facing the viewer) */
+const rpsfDP=(L,db,th,ph)=>({x:L.dr*Math.cos(th)*Math.sin(ph),y:db+L.dr*RPSQ*Math.cos(th)*Math.cos(ph)-L.dh*Math.sin(th)});
+function rpsfBodyArt(g,tier,P){const L=RPLAY.star[tier],S=P.stone,Y=rpsfY(L),D=rpsfDome(tier),M=rpsfMet(tier);
+ rpPadArt(g);
+ /* plinth: a low masonry drum with a flagstone top */
+ rpMason(g,0,2,L.pr,L.pr-1,L.ph,S,1,8,7);rpTopStone(g,0,Y.y0,L.pr-1,S,11,tier>=3?P.trim:null);
+ /* lanterns on the plinth (tier 3+) */
+ if(L.lan)for(const k of [-1,1]){const x=k*(L.pr-9),y=Y.y0+5;g.strokeStyle=RPTO;g.lineWidth=3.6;g.beginPath();g.moveTo(x,y);g.lineTo(x,y-14);g.stroke();g.strokeStyle=P.trimD;g.lineWidth=1.8;g.stroke();
+  g.beginPath();g.roundRect(x-4,y-24,8,10,2);g.fillStyle=rpVG(g,y-24,y-14,'#fff6c8',P.lamp);g.fill();rpOut(g,1.6);g.beginPath();g.moveTo(x-5,y-24);g.lineTo(x,y-29);g.lineTo(x+5,y-24);g.closePath();g.fillStyle=P.trim;g.fill();rpOut(g,1.4)}
+ /* the tower: a masonry cylinder */
+ rpMason(g,0,Y.y0,L.tr,L.tr-1.5,L.th,S,tier>=2?4:3,6,tier+2);
+ if(tier>=2)for(const z of [L.th*.36,L.th*.74]){g.beginPath();g.ellipse(0,Y.y0-z,L.tr-.6,(L.tr-.6)*RPSQ,0,.05,Math.PI-.05);g.lineWidth=4;g.strokeStyle=RPTO;g.stroke();g.lineWidth=2;g.strokeStyle=P.trim;g.stroke()}
+ /* arched door and the star roundel above it */
+ const fy=Y.y0+L.tr*RPSQ,dw=6+tier*.4,dhh=13+tier*1.2;g.beginPath();g.moveTo(-dw,fy-1);g.lineTo(-dw,fy-dhh+dw);g.arc(0,fy-dhh+dw,dw,Math.PI,0);g.lineTo(dw,fy-1);g.closePath();
+ g.fillStyle=rpVG(g,fy-dhh,fy,P.door,P.doorD);g.fill();rpOut(g,2.2);if(tier>=2){g.lineWidth=1.3;g.strokeStyle=P.trim;g.beginPath();g.moveTo(-dw+2,fy-1);g.lineTo(-dw+2,fy-dhh+dw);g.arc(0,fy-dhh+dw,dw-2,Math.PI,0);g.lineTo(dw-2,fy-1);g.stroke()}
+ const ey=fy-dhh-8.5,er=6.4+tier*.3;g.beginPath();g.arc(0,ey,er,0,TAU);g.fillStyle=rpVG(g,ey-er,ey+er,'#3a3290',P.doorD);g.fill();rpOut(g,2);
+ g.beginPath();g.arc(0,ey,er-1.6,0,TAU);g.lineWidth=1;g.strokeStyle=P.trim;g.stroke();rpsfStarArt(g,0,ey+.4,er*.7,P.trimL,P.trim,'#ffffff',1.2);
+ /* lit windows (tier 2+) */
+ if(L.win)for(const k of [-1,1]){const x=k*L.tr*.58,y=Y.yt+L.th*.6,w=3.2;g.beginPath();g.moveTo(x-w,y+5);g.lineTo(x-w,y-2);g.arc(x,y-2,w,Math.PI,0);g.lineTo(x+w,y+5);g.closePath();g.fillStyle=rpVG(g,y-5,y+5,'#fff6c8',P.win);g.fill();rpOut(g,1.6)}
+ /* gold rim the dome sits on, and the balcony rail (tier 2+) */
+ g.beginPath();g.ellipse(0,Y.yt,L.tr+2.5,(L.tr+2.5)*RPSQ,0,0,TAU);g.fillStyle=rpVG(g,Y.yt-6,Y.yt+6,P.trimL,P.trimD);g.fill();rpOut(g,2.2);
+ /* the dome */
+ rpsfDomeShape(g,L,Y.db);g.fillStyle=rpHG(g,-L.dr,L.dr,D.d[0],D.d[1],D.d[2]);g.fill();
+ g.save();rpsfDomeShape(g,L,Y.db);g.clip();
+ /* ribs (meridians) */
+ for(let i=-3;i<=3;i++){const ph=i*.42;g.beginPath();for(let k=0;k<=12;k++){const p=rpsfDP(L,Y.db,k/12*Math.PI/2,ph);k?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)}g.lineWidth=tier>=2?3.2:2.2;g.strokeStyle=tier>=2?'rgba(18,8,31,.55)':'rgba(18,8,31,.25)';g.stroke();g.lineWidth=tier>=2?1.6:1.3;g.strokeStyle=i<0?D.ribL:D.rib;g.stroke()}
+ /* painted constellations (tier 3 star chart) and dots of starlight (tier 4-5) */
+ if(tier>=3){const pts=[[-.9,.5],[-.6,.85],[-.25,.6],[.1,.95],[.45,.55],[.8,.8],[.65,.3],[-.5,.25]];g.strokeStyle=tier>=5?'rgba(200,150,60,.75)':'rgba(255,224,140,.7)';g.lineWidth=1;g.beginPath();
+  pts.forEach(([u,v],j)=>{const p=rpsfDP(L,Y.db,v*1.2,u*1.2);j?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)});g.stroke();
+  for(const [u,v] of pts){const p=rpsfDP(L,Y.db,v*1.2,u*1.2);g.fillStyle=tier>=5?'#c99a2a':'#fff0a8';g.beginPath();g.arc(p.x,p.y,1.5,0,TAU);g.fill()}}
+ /* shading: a highlight on the upper left, a shadow on the right */
+ g.fillStyle='rgba(255,255,255,.22)';g.beginPath();g.ellipse(-L.dr*.42,Y.dt+L.dh*.42,L.dr*.22,L.dh*.32,-.5,0,TAU);g.fill();
+ const q=g.createLinearGradient(-L.dr,0,L.dr,0);q.addColorStop(0,'rgba(18,8,31,0)');q.addColorStop(.62,'rgba(18,8,31,0)');q.addColorStop(1,'rgba(18,8,31,.35)');g.fillStyle=q;g.fillRect(-L.dr,Y.dt-2,L.dr*2,L.dh+L.dr);
+ g.restore();rpsfDomeShape(g,L,Y.db);rpOut(g,2.6);
+ g.beginPath();g.ellipse(0,Y.db,L.dr,L.dr*RPSQ,0,.04,Math.PI-.04);g.lineWidth=2.6;g.strokeStyle=P.trimD;g.stroke();g.lineWidth=1.2;g.strokeStyle=P.trimL;g.stroke();
+ /* the balcony rail in front of the dome foot (tier 2+): a gold rail on short posts */
+ if(L.bal){const r=L.tr+6,y=Y.yt+8,ph=5;for(let i=1;i<8;i++){const a=i/8*Math.PI,x=Math.cos(a)*r,yy=y+Math.sin(a)*r*RPSQ;g.strokeStyle=RPTO;g.lineWidth=3;g.beginPath();g.moveTo(x,yy);g.lineTo(x,yy-ph);g.stroke();g.strokeStyle=P.trim;g.lineWidth=1.3;g.stroke()}
+  for(const [lw,c] of [[4.2,RPTO],[2.2,P.trim],[.9,P.trimL]]){g.beginPath();g.ellipse(0,y-ph,r,r*RPSQ,0,.08,Math.PI-.08);g.lineWidth=lw;g.strokeStyle=c;g.stroke()}}
+ /* finial on the dome top */
+ const fy2=Y.dt+1;if(tier===1){g.beginPath();g.arc(0,fy2-2,2.6,0,TAU);g.fillStyle=P.trim;g.fill();rpOut(g,1.4)}
+ else if(tier===2){g.beginPath();g.moveTo(-2.4,fy2);g.lineTo(0,fy2-9);g.lineTo(2.4,fy2);g.closePath();g.fillStyle=rpHG(g,-2.4,2.4,P.trimL,P.trim,P.trimD);g.fill();rpOut(g,1.4)}
+ else{g.strokeStyle=RPTO;g.lineWidth=3.2;g.beginPath();g.moveTo(0,fy2);g.lineTo(0,fy2-6);g.stroke();g.strokeStyle=P.trim;g.lineWidth=1.4;g.stroke();
+  rpsfStarArt(g,0,fy2-11,tier>=5?7:6,tier>=5?'#ffffff':'#fff6c8',tier===4?'#c08aff':P.trim,'#ffffff',1.6)}
+ /* the armillary's brass post (the rings turn live) */
+ {const A=rpsfArm(L,Y);g.strokeStyle=RPTO;g.lineWidth=4;g.beginPath();g.moveTo(A.x+2,Y.yt+1);g.quadraticCurveTo(A.x-2,A.y+A.r+6,A.x,A.y+A.r);g.stroke();g.strokeStyle=M.m[1];g.lineWidth=2;g.stroke();
+  g.beginPath();g.ellipse(A.x,A.y+A.r+1,4,1.8,0,0,TAU);g.fillStyle=P.trim;g.fill();rpOut(g,1.2)}
+ if(tier>=4)rpAscArt(g,'star',tier,P,L)}
+const rpsfArm=(L,Y)=>({x:-(L.dr+L.arm[0]+L.arm[2]*.6),y:Y.db-L.dh*.42,r:L.arm[2]});
+{const b0=rpBodyArt;rpBodyArt=function(g,type,tier,P){if(type==='star')return rpsfBodyArt(g,tier,P);return b0.apply(this,arguments)}}
+{const l0=rpGlowList;rpGlowList=function(type,tier,P,L){if(type!=='star')return l0.apply(this,arguments);const G=[],A=(x,y,rx,ry,c,a)=>G.push([x,y,rx,ry,c,a]),Y=rpsfY(L),fy=Y.y0+L.tr*RPSQ;
+ A(0,fy-13-tier*1.2-8.5,13,13,P.glow,.55);if(L.win)for(const k of [-1,1])A(k*L.tr*.58,Y.yt+L.th*.6,10,12,P.win,.6);
+ if(L.lan)for(const k of [-1,1])A(k*(L.pr-9),Y.y0-14,12,12,P.lamp,.75);if(tier>=3)A(0,Y.dt-10,16,16,tier===4?'#c08aff':P.glow,.7);
+ A(0,Y.db-L.dh*.5,L.dr*1.1,L.dh*.9,tier===4?'#9a5cff':tier>=3?'#7a8aff':'#5a8cff',.18);
+ if(tier>=4){const A4=RPASC[tier];for(const [x,y,z] of L.inl)A(x,y,z*3.4,z*3.4,A4.glow,.85);A(0,-L.top*.5,46,L.top*.5,A4.glow,.16)}return G}}
+
+/* ---------- the telescope (pointing up; pivot at 0,0; the eyepiece end hangs below it, inside the dome) ---------- */
+function rpsfScopeArt(g,tier){const L=RPLAY.star[tier],M=rpsfMet(tier),m=M.m,l=L.sl,w=L.sw,wt=w*1.22;
+ /* eyepiece */
+ g.beginPath();g.rect(-w*.42,4,w*.84,7);g.fillStyle=rpHG(g,-w*.42,w*.42,m[0],m[1],m[2]);g.fill();rpOut(g,1.6);
+ /* tube, tapering out to the objective */
+ g.beginPath();g.moveTo(-w*.82,6);g.lineTo(-wt,-l+6);g.lineTo(wt,-l+6);g.lineTo(w*.82,6);g.closePath();g.fillStyle=rpHG(g,-wt,wt,m[0],m[1],m[2]);g.fill();rpOut(g,2.2);
+ g.fillStyle='rgba(255,255,255,.4)';g.beginPath();g.moveTo(-w*.5,4);g.lineTo(-wt*.62,-l+8);g.lineTo(-wt*.32,-l+8);g.lineTo(-w*.24,4);g.closePath();g.fill();
+ /* bands */
+ const bands=tier>=2?[-l*.18,-l*.55]:[-l*.3];for(const y of bands){const k=(y-6)/(-l),hw=w*.82+(wt-w*.82)*k+1.2;g.beginPath();g.rect(-hw,y-2.2,hw*2,4.4);g.fillStyle=rpHG(g,-hw,hw,M.band,M.band,M.bandD);g.fill();rpOut(g,1.4)}
+ /* wing fins (tier 5) */
+ if(tier>=5)for(const k of [-1,1]){g.beginPath();g.moveTo(k*wt*.9,-l*.62);g.quadraticCurveTo(k*(wt+12),-l*.75,k*(wt+9),-l*.98);g.quadraticCurveTo(k*(wt+4),-l*.86,k*wt,-l*.82);g.closePath();g.fillStyle=rpHG(g,k*wt,k*(wt+12),'#ffffff','#ffe9b0','#d8b060');g.fill();rpOut(g,1.4)}
+ /* objective: a coloured cap ring and the glass */
+ const cy=-l+4;g.beginPath();g.rect(-wt-1.6,cy-6,wt*2+3.2,7);g.fillStyle=rpHG(g,-wt,wt,rpMix(M.cap,'#ffffff',.35),M.cap,rpMix(M.cap,'#12081f',.4));g.fill();rpOut(g,1.8);
+ g.beginPath();g.ellipse(0,cy-6,wt+1.6,(wt+1.6)*.42,0,0,TAU);g.fillStyle=rpHG(g,-wt,wt,M.lensL,M.lens,rpMix(M.lens,'#12081f',.35));g.fill();rpOut(g,1.6);
+ g.fillStyle='rgba(255,255,255,.85)';g.beginPath();g.ellipse(-wt*.35,cy-6.6,wt*.32,wt*.13,0,0,TAU);g.fill()}
+const rpsfScopeS=tier=>{const L=RPLAY.star[tier];return rpSpr('sf|sc|'+tier,-L.sw*1.22-22,-L.sl-8,L.sw*2.44+44,L.sl+22,g=>rpsfScopeArt(g,tier))};
+/* pose: the slit longitude follows the lean; the pivot sits on that meridian a little below the top */
+function rpsfPose(tier,lean,fire){const L=RPLAY.star[rpsfT(tier)],Y=rpsfY(L),ln=Math.max(-1.15,Math.min(1.15,lean||0)),ph=ln*.78,p=rpsfDP(L,Y.db,.62,ph),f=fire||0;
+ return{L,Y,ln,ph,px:p.x,py:p.y,kick:3.5*f*f}}
+function rpsfLens(tier,lean,fire){const p=rpsfPose(tier,lean,fire),d=p.L.sl-2-p.kick;return{x:p.px+Math.sin(p.ln)*d,y:p.py-Math.cos(p.ln)*d}}
+
+/* ---------- live parts ---------- */
+function rpsfArmLive(g,tier,P,t,ph,L,Y,spin){const A=rpsfArm(L,Y),n=L.arm[1],r=A.r,M=rpsfMet(tier),lt=RPFX.lite;
+ /* core: a glowing orb (a star from tier 3) */
+ g.globalCompositeOperation='lighter';rpGlow(g,A.x,A.y,r*.9,r*.9,M.lens,.55+.25*Math.sin(t*3+ph));g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+ if(tier>=3)rpsfStarArt(g,A.x,A.y,r*.42,'#ffffff',M.lens,'#ffffff',1.2);else{g.beginPath();g.arc(A.x,A.y,r*.3,0,TAU);g.fillStyle=rpHG(g,A.x-r*.3,A.x+r*.3,'#ffffff',M.lens,rpMix(M.lens,'#12081f',.4));g.fill();rpOut(g,1.2)}
+ /* rings: each a tilted ellipse whose width breathes as it turns */
+ for(let i=0;i<n;i++){const a=t*(.9+i*.35)*(i%2?-1:1)*(1+spin*2.5)+ph+i*1.3,rw=r*(.96-i*.06),rh=Math.max(r*.12,Math.abs(Math.sin(a))*rw),tilt=i*Math.PI/n+.35;
+  g.beginPath();g.ellipse(A.x,A.y,rw,rh,tilt,0,TAU);g.lineWidth=lt?3:3.6;g.strokeStyle=RPTO;g.stroke();g.lineWidth=1.8;g.strokeStyle=i===1?P.trimL:P.trim;g.stroke()}
+ /* the outer meridian ring stays still */
+ g.beginPath();g.arc(A.x,A.y,r,0,TAU);g.lineWidth=3.4;g.strokeStyle=RPTO;g.stroke();g.lineWidth=1.6;g.strokeStyle=P.trimD;g.stroke()}
+function rpsfLive(g,tier,P,t,o,L,ph){const Y=rpsfY(L),D=rpsfDome(tier),M=rpsfMet(tier),f=Math.max(0,Math.min(1,o.fire||0)),ch=Math.max(0,Math.min(1,o.charge||0)),lt=RPFX.lite,
+  lean=o.aim==null?.55:o.aim,p=rpsfPose(tier,lean,f);
+ rpsfArmLive(g,tier,P,t,ph,L,Y,f);
+ /* the dome slit: a dark gore along the scope's meridian, with a few stars inside */
+ {const w=.2;g.beginPath();for(let k=0;k<=10;k++){const q=rpsfDP(L,Y.db,k/10*Math.PI/2,p.ph-w);k?g.lineTo(q.x,q.y):g.moveTo(q.x,q.y)}for(let k=10;k>=0;k--){const q=rpsfDP(L,Y.db,k/10*Math.PI/2,p.ph+w);g.lineTo(q.x,q.y)}g.closePath();
+  g.fillStyle=D.slit;g.globalAlpha=RPGA*Math.max(.25,Math.cos(p.ph));g.fill();g.globalAlpha=RPGA;g.lineWidth=1.6;g.strokeStyle=RPTO;g.stroke();
+  if(!lt)for(let i=0;i<3;i++){const q=rpsfDP(L,Y.db,.25+i*.4,p.ph+(i-1)*.08);g.fillStyle=`rgba(255,246,200,${(.5+.5*Math.sin(t*4+i*2+ph)).toFixed(3)})`;g.beginPath();g.arc(q.x,q.y,.9,0,TAU);g.fill()}}
+ /* the telescope */
+ g.save();g.translate(p.px,p.py);g.rotate(p.ln);g.translate(0,p.kick);g.globalAlpha=RPGA;rpPut(g,rpsfScopeS(tier));g.restore();
+ /* collar where it leaves the dome */
+ g.beginPath();g.ellipse(p.px,p.py+2,L.sw*.95,L.sw*.42,p.ln,0,TAU);g.fillStyle=rpHG(g,p.px-L.sw,p.px+L.sw,P.trimL,P.trim,P.trimD);g.fill();rpOut(g,1.6);
+ /* the lens: a soft glow that swells while charging, a white flash on firing */
+ const lz=rpsfLens(tier,lean,f);g.globalCompositeOperation='lighter';
+ rpGlow(g,lz.x,lz.y,9+7*ch+tier,9+7*ch+tier,M.lens,.35+.15*Math.sin(t*3+ph)+.55*ch);
+ if(f>.02){const fl=f*f;rpGlow(g,lz.x,lz.y,22+24*fl,22+24*fl,'#ffffff',fl);rpGlow(g,lz.x,lz.y,34+30*fl,34+30*fl,M.lens,.7*fl);
+  /* a shaft of light up into the sky along the scope */
+  const dx=Math.sin(p.ln),dy=-Math.cos(p.ln),len=110+60*(1-f);g.globalAlpha=RPGA*fl*.85;g.strokeStyle=M.lensL;g.lineWidth=6*fl+1.5;g.beginPath();g.moveTo(lz.x,lz.y);g.lineTo(lz.x+dx*len,lz.y+dy*len);g.stroke();
+  g.lineWidth=2;g.strokeStyle='#ffffff';g.stroke()}
+ /* charging: star motes spiral into the lens */
+ if(ch>.05&&!lt){const st=rpStarS().c;for(let i=0;i<4;i++){const a=i/4*TAU+t*3+ph,d=(1-((ch*1.6+i*.25)%1))*26,z=2.5+3*ch;g.globalAlpha=RPGA*Math.min(1,ch*2)*(.4+.6*(1-d/26));g.drawImage(st,lz.x+Math.cos(a)*d-z,lz.y+Math.sin(a)*d*.8-z,z*2,z*2)}}
+ g.globalCompositeOperation='source-over';g.globalAlpha=RPGA;
+ /* twinkles around the dome */
+ if(!lt){const st=rpStarS().c;g.globalCompositeOperation='lighter';for(let i=0;i<2;i++){const q=t*.55+i*.5+ph,u=q%1,n=Math.floor(q),x=(rpR(i*17+n)-.5)*L.dr*2.6,y=Y.dt-6-rpR(i*5+n+2)*26,z=(3+4*rpR(i+n))*Math.sin(Math.PI*u);if(z>.4){g.globalAlpha=RPGA*.9;g.drawImage(st,x-z,y-z,z*2,z*2)}}
+  g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+{const p0=rpTowerParts;rpTowerParts=function(g,type,tier,skin,t,o,nopad){if(type!=='star')return p0.apply(this,arguments);
+ const P=rpPalT(type,skin,tier),L=RPLAY[type][tier],ph=o.ph||0;
+ if(tier>=4){if(!nopad)rpAscGround(g,tier,t,ph,1);rpAscLive(g,type,tier,t,ph,L,0)}
+ g.globalAlpha=RPGA;rpPut(g,nopad?rpBody(type,tier,skin):rpBack(type,tier,skin));
+ {const q=RPPULSE[type];g.globalCompositeOperation='lighter';g.globalAlpha=RPGA*(1-q[1]+q[1]*Math.sin(t*q[0]+ph*7));rpPut(g,rpGlowLayer(type,tier,skin));g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}
+ if(!nopad){const u=((t+ph*2.3)*.28)%1;if(u<.12){const v=u/.12*tier,i=Math.min(tier-1,v|0);g.globalCompositeOperation='lighter';rpGlow(g,(i-(tier-1)/2)*10,RPPIPY-1,8,8,'#fff6c8',Math.sin(Math.PI*(v-i))*.95);g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+ rpsfLive(g,tier,P,t,o,L,ph);
+ if(tier>=4)rpAscLive(g,type,tier,t,ph,L,1);
+ g.globalCompositeOperation='source-over';g.globalAlpha=RPGA}}
+{const w0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){const r=w0.apply(this,arguments);if(type==='star'){tier=rpsfT(tier);try{rpsfScopeS(tier);rpsfBoltS(tier)}catch(e){}}return r}}
+
+/* ---------- the falling star, the reticle, the impact and the mark ---------- */
+const rpsfBoltC=tier=>tier>=5?['#ffffff','#fff2b0','#ffffff']:tier===4?['#f4e8ff','#c08aff','#ffffff']:['#fff6c8','#ffc83a','#ffffff'];
+const rpsfBoltS=tier=>rpSpr('sf|bolt|'+rpsfT(tier),-20,-20,40,40,g=>{const C=rpsfBoltC(rpsfT(tier));g.drawImage(rpGlowC(C[1]),-20,-20,40,40);rpsfStarArt(g,0,0,13,C[0],C[1],C[2],2.6);
+ g.fillStyle='rgba(18,8,31,.85)';g.beginPath();g.arc(-3.2,-.5,1.3,0,TAU);g.arc(3.2,-.5,1.3,0,TAU);g.fill()});
+function rpStarBolt(g,x,y,tier,rot,sc){g.save();g.translate(x,y);g.rotate(rot||0);const k=sc||1;g.scale(k,k);rpPut(g,rpsfBoltS(tier));g.restore()}
+const rpsfRetS=()=>rpSpr('sf|ret',-54,-54,108,108,g=>{g.lineCap='round';for(const [lw,c] of [[9,'rgba(18,8,31,.55)'],[4,'#ff4a5a'],[1.4,'#ffd0d4']]){g.lineWidth=lw;g.strokeStyle=c;g.beginPath();g.arc(0,0,44,0,TAU);g.stroke();
+  g.beginPath();g.arc(0,0,24,0,TAU);g.stroke();g.beginPath();for(let i=0;i<4;i++){const a=i*Math.PI/2;g.moveTo(Math.cos(a)*30,Math.sin(a)*30);g.lineTo(Math.cos(a)*52,Math.sin(a)*52)}g.stroke()}},1);
+function rpStarReticle(g,x,y,r,u,a){if(a<=.01)return;const k=r/44*(1.35-.35*u);g.save();g.translate(x,y);g.scale(k,k*RPFX.sq);g.rotate(u*1.6);g.globalAlpha=Math.min(1,a);rpPut(g,rpsfRetS());g.restore();g.globalAlpha=1}
+function rpStarImpact(g,x,y,u,tier,big){if(u<=0||u>=1)return;const C=rpsfBoltC(tier),e=1-Math.pow(1-u,3),s=big?1.35:1;g.save();g.globalCompositeOperation='lighter';
+ rpGlow(g,x,y-14,(46+40*e)*s,(40+30*e)*s,C[1],(1-u)*1.1);rpGlow(g,x,y-14,22*s,22*s,'#ffffff',Math.max(0,1-u*2.5));
+ g.globalAlpha=(1-u)*.85;g.translate(x,y-14);g.rotate(u*.8);const z=(30+70*e)*s;g.drawImage(rpRaysS().c,-z,-z,z*2,z*2);g.restore();
+ g.save();const rr=(16+60*e)*s;g.globalAlpha=(1-u)*.9;g.beginPath();g.ellipse(x,y,rr,rr*RPFX.sq,0,0,TAU);g.lineWidth=5*(1-u)+3;g.strokeStyle='rgba(18,8,31,.5)';g.stroke();g.lineWidth=3.4*(1-u)+1.2;g.strokeStyle=C[1];g.stroke();
+ /* the star itself flares and pops before fading */
+ if(u<.45){const k=u/.45,z=(1.4+1.6*rpEO(k))*s;g.globalAlpha=1-k;g.translate(x,y-16);g.rotate(k*1.2);g.scale(z,z);rpPut(g,rpsfBoltS(tier))}
+ g.restore();g.save();
+ if(!RPFX.lite){const st=rpStarS().c;for(let i=0;i<6;i++){const a=i/6*TAU+rpR(i+(x|0))*.6,d=(10+46*e)*s,zz=(6+5*rpR(i))*(1-u);g.globalAlpha=1-u;g.drawImage(st,x+Math.cos(a)*d-zz,y-14+Math.sin(a)*d*.7-zz-10*e,zz*2,zz*2)}}
+ g.restore();g.globalAlpha=1}
+const rpsfMarkS=()=>rpSpr('sf|mk',-11,-11,22,22,g=>{g.drawImage(rpGlowC('#ffc83a'),-11,-11,22,22);rpsfStarArt(g,0,.5,7.5,'#fff6c8','#ffc83a','#ffffff',1.8)});
+function rpStarMark(g,x,y,t,a){if(a<=.01)return;const s=1+.12*Math.sin(t*6);g.save();g.translate(x,y);g.rotate(Math.sin(t*2.2)*.25);g.scale(s,s);g.globalAlpha=Math.min(1,a);rpPut(g,rpsfMarkS());g.restore();g.globalAlpha=1}
+function rpStarMarkRing(g,x,y,r,t,a){if(a<=.01)return;const k=r/44;g.save();g.translate(x,y);g.scale(k,k*RPFX.sq);g.rotate(t*1.2);g.globalAlpha=Math.min(1,a)*.6;rpPut(g,rpsfRetS());g.restore();g.globalAlpha=1}
+/* ===== RUNESTONE TOWER DEFENSE 9.9i: the Starfall Observatory in battle (97e, after 97d) =====
+   The tenth tower (key U, 450 supply), the winner of the Tower Vote. A global support tower: it reaches the whole map, ground and air.
+   While a star charges, the telescope swings toward the toughest monster on the map (tw.aim = lean, on a damped spring, so the turn
+   eases in and settles), then calls a star down on it. The red reticle shows where it will land. A star hit:
+   - marks the monster: it takes RP_TW.star.mark more damage from every tower for markT seconds (several Observatories do not stack the
+     bonus, they spread out: a target that is already marked counts for less);
+   - finishes it if it is left below exec of its health (never a boss); bosses take double star damage instead (RPSF.boss).
+   Tier 3 Star Shards: the star bursts into shards that hit and mark the toughest monsters near the impact. Tier 4 Mythic Comet: the
+   impact also hits and marks everything within RP_TW.star.comet px. Tier 5 Meteor Shower: every shower[4]th cast also drops RPSF.showerN
+   more stars on the next toughest monsters. Overcharge speeds it up and adds 15% damage like every other tower.
+   Targeting (the info panel's Target buttons): Strong (default) = the toughest monster, preferring one the star can finish and one
+   that is not marked yet; First = the one closest to the castle; Close = the nearest to the tower.
+   Monster state: e.mk (mark seconds left), e.mkK (bonus). State on RPX: sfStars [{e,x0,y0,cx,cy,x1,y1,t,d,tw,tier,dmg,kind,seed}],
+   sfHits [{x,y,t,d,tier,big}], sfCasts. Tower: tw.cd, tw.charge, tw.fire, tw.aim (lean), tw.lv (lean speed), tw.tg (target), tw.nv. */
+RP_TW.star={cost:[450,320,560,1100,1800],range:[0,0,0,0,0],dmg:[150,220,320,420,560],cd:[3,2.9,2.8,2.7,2.6],ap:[5,8,99,99,99],
+ mark:[.18,.2,.22,.25,.28],markT:[4,4.5,5,5.5,6],exec:[.1,.12,.14,.15,.15],shards:[0,0,2,3,4],comet:[0,0,0,90,100],shower:[0,0,0,0,4],air:1,ground:1,
+ desc:'Calls falling stars down on the toughest monster anywhere on the map, ground or air. A hit marks it: it takes more damage from every tower. Finishes weakened monsters; bosses take double.',
+ up:['Brighter stars: more damage, a stronger and longer mark.','Star Shards: each star bursts into two shards that hit and mark nearby monsters.','Mythic comet: the impact hits and marks everything around it.','Celestial meteor shower: every fourth cast rains five more stars.']};
+RP_TWORDER.push('star');RP_KEYS.push('U');
+const RPSF={boss:2,shardK:.45,shardR:180,cometK:.35,showerN:5,showerK:.7,charge:.85,flight:.72,k:30,z:.72};
+/* marked monsters take more damage from everything */
+{const h0=rpHurt;rpHurt=function(e,dmg,ap,src){if(e&&e.mk>0&&e.mkK)dmg*=1+e.mkK;return h0.call(this,e,dmg,ap,src)}}
+/* default target mode: the toughest monster */
+{const b0=rpBuild;rpBuild=function(pad,type){const r=b0.apply(this,arguments);try{if(r!==false&&type==='star'&&pad&&pad.tw&&pad.tw.type==='star'){pad.tw.prio='strong';pad.tw.aim=.55;pad.tw.lv=0}}catch(e){}return r}}
+const rpsfAt=(R,e)=>{const q=rpPos(R,e);return{x:q.x,y:q.y-(e.air?40:16)}};
+/* pick a target anywhere: excl = monsters already chosen this cast */
+function rpsfPick(R,tw,dmg,excl){const T=RP_TW.star,i=tw.tier-1,ex=T.exec[i];let best=null,bv=-1e18;
+ const aimed=new Map();for(const s of R.sfStars)if(s.e)aimed.set(s.e,(aimed.get(s.e)||0)+s.dmg);
+ for(const e of R.foes){if(e.dead||e.s<0||(excl&&excl.has(e)))continue;const inc=aimed.get(e)||0,left=e.hp-inc;if(left<=0||(inc&&!e.boss&&left<=ex*e.mx))continue;/* already doomed by a star on its way */
+  const d=dmg*(e.boss?RPSF.boss:1)*(1+(e.mk>.8?e.mkK||0:0)),fin=!e.boss&&left-d<=ex*e.mx;let v;
+  if(tw.prio==='first')v=e.s/rpLen(R,e)*1e3+(fin?300:0);
+  else if(tw.prio==='close'){const q=rpPos(R,e);v=-rpD2(q.x,q.y,tw.x,tw.y)}
+  else{v=e.mx*(e.boss?1.4:1)*(fin?3:1)*(e.mk>1.2?.55:1)*(inc?.5:1)+left*.01}
+  if(v>bv){bv=v;best=e}}
+ return best}
+function rpsfSfx(k){try{if(k==='charge'){beep(1320,.06,'sine',.06)}
+ else if(k==='cast'){[1568,2093,2637].forEach((f,j)=>setTimeout(()=>beep(f,.07,'triangle',.08),j*45))}
+ else if(k==='hit'){beep(880+Math.random()*120,.06,'triangle',.12);setTimeout(()=>beep(220,.14,'sine',.12),30)}
+ else if(k==='fin'){[1175,1568,2349].forEach((f,j)=>setTimeout(()=>beep(f,.08,'square',.06),j*50))}
+ else if(k==='shower'){[784,988,1175,1568,1976].forEach((f,j)=>setTimeout(()=>beep(f,.1,'triangle',.1),j*70))}}catch(e){}}
+/* launch a star at monster e: it falls out of the sky from the tower's side, curving in */
+function rpsfLaunch(R,tw,e,dmg,kind,delay,from){const p=rpsfAt(R,e),side=p.x>=tw.x?1:-1;let x0,y0,cx,cy,d;
+ if(from){x0=from.x;y0=from.y;cx=(x0+p.x)/2;cy=Math.min(y0,p.y)-90;d=.38}
+ else{x0=p.x-side*(150+Math.random()*60);y0=Math.min(p.y-380,-30);cx=p.x-side*40;cy=y0+60;d=RPSF.flight}
+ R.sfStars.push({e,x0,y0,cx,cy,x1:p.x,y1:p.y,t:-(delay||0),d,tw,tier:tw.tier,dmg,kind:kind||'main',seed:Math.random()*99})}
+function rpStarFire(R,tw,dt){const T=RP_TW.star,i=tw.tier-1,sp=tw.over>0?RPT.AB.over.k:1;tw.over=Math.max(0,tw.over-dt);
+ tw.fire=Math.max(0,(tw.fire||0)-dt*1.7);tw.cd-=dt*sp;const dmgK=tw.over>0?1.15:1,dmg=T.dmg[i]*dmgK;
+ /* the target: chosen as the charge starts (so the scope has time to swing), kept while it lives */
+ if(tw.tg&&(tw.tg.dead||tw.tg.s<0))tw.tg=null;
+ if(tw.cd<RPSF.charge){if(!tw.tg)tw.tg=rpsfPick(R,tw,dmg);if(tw.tg&&!(tw.charge>0))rpsfSfx('charge');tw.charge=tw.tg?Math.min(1,1-tw.cd/RPSF.charge):Math.max(0,(tw.charge||0)-dt*3)}
+ else tw.charge=Math.max(0,(tw.charge||0)-dt*3);
+ /* the swing: a damped spring toward the target's side, it keeps following the last target, and scans the sky slowly when idle */
+ {let goal;const ref=tw.tg||(tw.lt&&!tw.lt.dead&&tw.lt.s>=0?tw.lt:null);if(ref){const p=rpsfAt(R,ref),a=Math.atan2(p.y-tw.y,p.x-tw.x);goal=Math.max(-1,Math.min(1,Math.cos(a)*1.25))}else goal=Math.sin(R.t*.35+tw.ph)*.55;
+  const k=RPSF.k,c=2*RPSF.z*Math.sqrt(k);tw.lv=(tw.lv||0)+(k*(goal-(tw.aim||0))-c*(tw.lv||0))*dt;tw.aim=(tw.aim||0)+tw.lv*dt}
+ if(tw.cd>0)return;
+ const e=tw.tg&&!tw.tg.dead?tw.tg:rpsfPick(R,tw,dmg);if(!e){tw.cd=.15;tw.charge=Math.max(0,tw.charge-.4);return}
+ tw.cd=T.cd[i];tw.fire=1;tw.charge=0;tw.nv=(tw.nv||0)+1;tw.lt=e;R.sfCasts=(R.sfCasts||0)+1;rpsfLaunch(R,tw,e,dmg,'main',0);
+ const lz=rpsfLens(tw.tier,tw.aim,1);try{ptBurst(R.fx,tw.x+lz.x,tw.y+lz.y,R.lite?4:9,rpsfBoltC(tw.tier),{v:160,s:3,up:1,g:120})}catch(x){}
+ rpsfSfx('cast');
+ /* tier 5: the meteor shower */
+ const sn=T.shower[i];if(sn&&tw.nv%sn===0){const ex=new Set([e]);for(let k=0;k<RPSF.showerN;k++){const f=rpsfPick(R,tw,dmg*RPSF.showerK,ex);if(!f)break;ex.add(f);rpsfLaunch(R,tw,f,dmg*RPSF.showerK,'shower',.18+k*.13)}
+  rpText(tw.x,tw.y-RPLAY.star[5].top-14,'METEOR SHOWER','#fff2b0',20);setTimeout(()=>rpsfSfx('shower'),150)}
+ tw.tg=null}
+/* hurt, finish and mark one monster */
+function rpsfStrike(R,e,dmg,tw,i){const T=RP_TW.star;if(!e||e.dead)return false;rpHurt(e,dmg*(e.boss?RPSF.boss:1),T.ap[i],tw);if(e.dead)return true;
+ if(!e.boss&&e.hp<=T.exec[i]*e.mx){const p=rpsfAt(R,e);rpKillFoe(e,tw);R.sfFin=(R.sfFin||0)+1;rpText(p.x,p.y-46,'FINISHED!','#fff2b0',18);rpsfSfx('fin');
+  try{ptBurst(R.fx,p.x,p.y,R.lite?5:12,['#fff6c8','#ffc83a','#ffffff'],{v:220,s:3.2,g:300})}catch(x){}return true}
+ e.mkK=e.mk>0?Math.max(e.mkK||0,T.mark[i]):T.mark[i];e.mk=Math.max(e.mk||0,T.markT[i]);return false}
+function rpsfLand(R,s){const T=RP_TW.star,i=Math.max(0,Math.min(4,s.tw.tier-1));let e=s.e;
+ if(!e||e.dead){e=null;let bd=60*60;for(const f of R.foes){if(f.dead||f.s<0)continue;const p=rpsfAt(R,f),d=rpD2(p.x,p.y,s.x1,s.y1);if(d<bd){bd=d;e=f}}}
+ rpsfStrike(R,e,s.dmg,s.tw,i);
+ const big=s.kind==='main';R.sfHits.push({x:s.x1,y:s.y1+(e&&e.air?0:12),t:0,d:big?.6:.42,tier:s.tier,big:big&&s.tier>=4});if(R.sfHits.length>30)R.sfHits.shift();
+ R.shake=Math.max(R.shake||0,big?1.8:.8);rpsfSfx('hit');
+ try{ptBurst(R.fx,s.x1,s.y1,R.lite?4:10,rpsfBoltC(s.tier),{v:200,s:3,g:260})}catch(x){}
+ if(!big)return;
+ /* tier 4: the comet splash */
+ const cr=T.comet[i];if(cr){for(const f of R.foes){if(f.dead||f.s<0||f===e)continue;const p=rpsfAt(R,f);if(rpD2(p.x,p.y,s.x1,s.y1)<cr*cr)rpsfStrike(R,f,s.dmg*RPSF.cometK,s.tw,i)}rpRing(s.x1,s.y1+12,s.tier>=5?'#fff2b0':'#c08aff',cr*1.1,5)}
+ /* tier 3: shards to the toughest monsters nearby */
+ const n=T.shards[i];if(n){const near=[];for(const f of R.foes){if(f.dead||f.s<0||f===e)continue;const p=rpsfAt(R,f);if(rpD2(p.x,p.y,s.x1,s.y1)<RPSF.shardR*RPSF.shardR)near.push(f)}
+  near.sort((a,b)=>b.mx-a.mx||b.hp-a.hp);for(let k=0;k<Math.min(n,near.length);k++)rpsfLaunch(R,s.tw,near[k],s.dmg*RPSF.shardK,'shard',k*.05,{x:s.x1,y:s.y1})}}
+function rpsfStep(R,dt){if(!R.sfStars)return;
+ for(const s of R.sfStars){s.t+=dt;if(s.e&&!s.e.dead&&s.t>0){const p=rpsfAt(R,s.e);s.x1=p.x;s.y1=p.y}if(s.t>=s.d&&!s.done){s.done=1;rpsfLand(R,s)}}R.sfStars=R.sfStars.filter(s=>!s.done);
+ for(const h of R.sfHits)h.t+=dt;R.sfHits=R.sfHits.filter(h=>h.t<h.d);
+ for(const e of R.foes){if(e.mk>0){e.mk-=dt;if(e.mk<=0||e.dead){e.mk=0;e.mkK=0}}}}
+/* hooks: fire routine, battle state, step, upgrade */
+{const f0=rpFire;rpFire=function(R,tw,dt){if(tw.type==='star')return rpStarFire(R,tw,dt);return f0.apply(this,arguments)}}
+{const s0=rpStart;rpStart=function(){const r=s0.apply(this,arguments);if(RPX)Object.assign(RPX,{sfStars:[],sfHits:[],sfCasts:0,sfFin:0});return r}}
+{const s0=rpStep;rpStep=function(R,dt){const r=s0.apply(this,arguments);try{rpsfStep(R,dt)}catch(e){console.error(e)}return r}}
+{const u0=rpUpgrade;rpUpgrade=function(tw){const r=u0.apply(this,arguments);if(r&&tw&&tw.type==='star'){tw.charge=0;tw.fire=0}return r}}
+/* drawing: reticles and mark rings on the ground; stars with dashed trails, impacts and mark badges on top */
+const rpsfBez=(s,u)=>{const a=1-u;return{x:a*a*s.x0+2*a*u*s.cx+u*u*s.x1,y:a*a*s.y0+2*a*u*s.cy+u*u*s.y1}};
+{const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.sfStars){
+ for(const e of R.foes){if(!(e.mk>0)||e.dead)continue;const q=rpPos(R,e);rpStarMarkRing(c,q.x,q.y+2,e.boss?40:22,R.t+e.ph*3,Math.min(1,e.mk*2))}
+ for(const s of R.sfStars){if(s.kind==='shard'||s.t<0)continue;const u=Math.max(0,Math.min(1,s.t/s.d)),gy=s.e&&s.e.air?rpPos(R,s.e).y:s.y1+16;rpStarReticle(c,s.x1,gy,s.e&&s.e.boss?46:30,u,Math.min(1,u*3))}}}catch(e){console.error(e)}return r}}
+{const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);if(!R.sfStars)return;
+ for(const h of R.sfHits)rpStarImpact(c,h.x,h.y,h.t/h.d,h.tier,h.big);
+ for(const s of R.sfStars){if(s.t<0)continue;const u=Math.max(0,Math.min(1,s.t/s.d)),p=rpsfBez(s,u),C=rpsfBoltC(s.tier),sm=s.kind==='shard';
+  /* the dashed trail: golden dashes along the path just behind the star */
+  if(!R.lite||!sm){c.save();c.lineCap='round';const u0=Math.max(0,u-(sm?.5:.42)),n=sm?5:9;for(let k=0;k<n;k++){const a=u0+(u-u0)*k/n,b=u0+(u-u0)*(k+.55)/n,P1=rpsfBez(s,a),P2=rpsfBez(s,b);
+    c.globalAlpha=(k+1)/n*.9;c.lineWidth=sm?3:5;c.strokeStyle=RPTO;c.beginPath();c.moveTo(P1.x,P1.y);c.lineTo(P2.x,P2.y);c.stroke();c.lineWidth=sm?1.6:3;c.strokeStyle=C[1];c.stroke()}c.restore()}
+  c.save();c.globalCompositeOperation='lighter';rpGlow(c,p.x,p.y,sm?16:38,sm?16:38,C[1],.85);rpGlow(c,p.x,p.y,sm?8:16,sm?8:16,'#ffffff',.7);c.restore();c.globalAlpha=1;
+  rpStarBolt(c,p.x,p.y,s.tier,s.t*7+s.seed,sm?.75:s.kind==='shower'?1.3:1.6)}}}
+{const f0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){const r=f0.apply(this,arguments);if(e.mk>0&&!e.dead){try{const h=(RPMOB[e.id]?RPMOB[e.id].h:50)+(e.air?44:8);
+  rpStarMark(c,q.x+(e.acid>0&&e.melt>0?-22:0),q.y-h-(e.hp<e.mx?16:8),R.t+e.ph,Math.min(1,e.mk*2))}catch(x){}}return r}}
+/* while an Observatory is selected: a crosshair on the monster it would pick now */
+{const d0=rpDraw;rpDraw=function(){const r=d0.apply(this,arguments);try{const R=RPX;if(!R||!S.rp||!R.sel||R.sel.type!=='star'||R.sel.build<1)return r;const tw=R.sel,e=tw.tg&&!tw.tg.dead?tw.tg:rpsfPick(R,tw,RP_TW.star.dmg[tw.tier-1]);
+  if(e){const c=ctx;c.save();c.setTransform(RS,0,0,RS,0,0);const p=rpsfAt(R,e);rpStarReticle(c,p.x,p.y+(e.air?0:16),e.boss?46:30,.5+.5*Math.sin(R.t*3),.8);c.restore()}}catch(e){}return r}}
+/* the info panel */
+{const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='star')return r;try{const T=RP_TW.star,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
+  const seg=(v,max)=>Math.max(0,Math.min(6,Math.round(v/max*6))),bar=(lab,v,max,nv)=>`<div class="rpst"><span>${lab}</span><i>${[0,1,2,3,4,5].map(k=>`<s class="${k<seg(v,max)?'on':nv!=null&&k<seg(nv,max)?'up':''}"></s>`).join('')}</i></div>`;
+  const st=el.querySelector('.rpsts');if(st)st.innerHTML=bar('Star damage',Math.sqrt(T.dmg[i]),Math.sqrt(500),nx!=null?Math.sqrt(T.dmg[nx]):null)+bar('Mark',T.mark[i],.28,nx!=null?T.mark[nx]:null)+bar('Finish',T.exec[i],.15,nx!=null?T.exec[nx]:null)+bar('Fire rate',1/T.cd[i],1/2.8,nx!=null?1/T.cd[nx]:null);
+  const ex=[`Range <b>whole map</b>`,`marked: <b>+${Math.round(T.mark[i]*100)}%</b> damage for ${T.markT[i]} s`,`finishes below <b>${Math.round(T.exec[i]*100)}%</b>`,`bosses take <b>double</b>`];
+  if(T.shards[i])ex.push(`<b>${T.shards[i]}</b> shards`);if(T.comet[i])ex.push(`comet splash`);if(T.shower[i])ex.push(`meteor shower every <b>${T.shower[i]}</b>`);
+  if(st)st.insertAdjacentHTML('afterend',`<div class="rpsfx">${ex.join(' · ')}</div>`);
+  {const b=el.querySelector('.rpih b');if(b){b.style.fontSize='23px';b.style.whiteSpace='nowrap'}}
+  const hgt=el.offsetHeight||420;el.style.top=rpClamp(tw.y-hgt*.62,76,770-hgt)+'px'}catch(e){console.error(e)}return r}}
+/* key U picks it */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;if(R&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key.length===1&&e.key.toLowerCase()==='u'){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpPlace('star');return}return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+/* ten buttons in the build ring: wider still (the 95v pass already spreads nine by 1.12) */
+{const g0=rpHudRing;rpHudRing=function(R,C){const was=C.rg;const r=g0.apply(this,arguments);try{if(C.rg!==was&&C.rg){const bs=[...$('rpring').querySelectorAll('.rprb')],p=R.selPad;if(bs.length>=10){bs.forEach(b=>{for(const v of ['--x','--y']){const n=parseFloat(b.style.getPropertyValue(v));if(isFinite(n))b.style.setProperty(v,(n*1.08).toFixed(1)+'px')}});
+   if(p){const xs=bs.map(b=>p.x+(parseFloat(b.style.getPropertyValue('--x'))||0)),lo=Math.min(...xs)-46,hi=Math.max(...xs)+46,dx=lo<0?-lo:hi>1600?1600-hi:0;
+    if(dx)bs.forEach(b=>b.style.setProperty('--x',((parseFloat(b.style.getPropertyValue('--x'))||0)+dx).toFixed(1)+'px'))}}}}catch(e){console.error(e)}return r}}
+/* ten tiles in the bar */
+{const st=document.createElement('style');st.textContent=`.rph.rp7.rp8.rp9.rp10 .rpbar{gap:3px}.rph.rp7.rp8.rp9.rp10 .rpcard{width:82px}.rph.rp7.rp8.rp9.rp10 .rpct>b{max-width:80px;font-size:11.5px}.rph.rp7.rp8.rp9.rp10 .rpcard img{width:66px;height:66px;margin-left:-33px;top:-18px}
+.rpsfx{margin:6px 0 2px;font:600 12px Poppins,system-ui,sans-serif;color:#f4e8c8;line-height:1.35}.rpsfx b{color:#ffd45a}`;document.head.appendChild(st)}
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{const h=$('rphud');if(h&&RP_TWORDER.length>=10)h.classList.add('rp10')}catch(e){}return r}}
+try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" The Starfall Observatory (U, 450 supply) reaches the whole map: it calls falling stars down on the toughest monster, marks it so every tower hits it harder, finishes weakened monsters and hits bosses for double."}catch(e){}
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w)w.insertAdjacentHTML('beforeend',`<p><b>Starfall Observatory.</b> A support tower (450 supply, key U) that reaches the whole map, ground and air. Its telescope finds the toughest monster and calls a falling star down on it: the star marks it (every tower hits it harder for a few seconds), finishes it if it is left badly hurt, and hits bosses for double. Tier 3 stars burst into shards, tier 4 comets splash and mark a whole group, tier 5 calls a meteor shower every fourth cast.</p>`)}catch(e){}return r}}
+/* fix: the base rpTowerWarm (95c) treats any tower it does not know as a Storm Bell and bakes the bell's front and bell sprites with the
+   other tower's layout; those sprites are cached by tier and skin only, so warming a Mortar, Still, Tidecaller, Dragon, Prism or
+   Observatory before a Storm Bell of the same tier left the Bell drawn wrong for the rest of the session. Sprites of that kind made
+   while warming another type are thrown away again. */
+{const w0=rpTowerWarm,CL=['ballista','brazier','frost','bell'];rpTowerWarm=function(type,tier,skin){if(CL.includes(type))return w0.apply(this,arguments);
+  const had=new Set(RPSPR.keys()),bf=rpBellFront,ba=rpBellArt;rpBellFront=rpBellArt=()=>{};let r;try{r=w0.apply(this,arguments)}finally{rpBellFront=bf;rpBellArt=ba}for(const k of [...RPSPR.keys()])if(!had.has(k)&&(k.startsWith('bf|')||k.startsWith('bl|')))RPSPR.delete(k);return r}}
+/* ===== THE TOWER VOTE, switched off (97f, after 97e) =====
+   The vote is over: Starfall Observatory won (now the tenth tower, 97d/97e). The poll is hidden but all its code stays in 96zz, so a
+   new poll can be run later: set TPOLL.off = 0 (and give TPOLL a new id, tag, end, reward and opts in 96zz, with new art).
+   Tests switch it back on with window.TPOLL_ON = 1 (set before the page loads). While off: no first-open window, no VOTE button by the bell, and tpShow does nothing. Saved votes (P.poll) are kept. */
+TPOLL.off=window.TPOLL_ON?0:1;
+{const b0=tpBtn;tpBtn=function(){if(TPOLL.off){const b=$('tpbtn');if(b)b.remove();return}return b0.apply(this,arguments)}}
+{const s0=tpShow;tpShow=function(){if(TPOLL.off)return;return s0.apply(this,arguments)}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

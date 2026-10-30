@@ -53671,7 +53671,12 @@ function twaSaveSes(){const s=TWAS;if(!s)return;const raw=JSON.stringify(s);if(s
 function twaEndSes(){TWAS=null;sgDel(TWA.sesK);try{sessionStorage.removeItem(TWA.sesK)}catch(e){}twaChip()}
 const twaKeysOf=s=>twaAcctKeys(twaUnhex(s.M));
 /* ---------- the key box ---------- */
-async function twaFindBoxes(u){const r=await twaQuery({kinds:[TWA.kind],'#d':['twa-key:'+twaNorm(u)],limit:50});const out=[];for(const ev of r.evs){if(twaD(ev)!=='twa-key:'+twaNorm(u))continue;if(await rkEvOk(ev))out.push(ev)}return{ok:r.ok,n:r.n,evs:out}}
+async function twaFindBoxes(u){const r=await twaQuery({kinds:[TWA.kind],'#d':['twa-key:'+twaNorm(u)],limit:50});const by={};
+ /* the newest event per author (a key box can be replaced, or withdrawn after a lost sign-up race) */
+ for(const ev of r.evs){if(twaD(ev)!=='twa-key:'+twaNorm(u))continue;const o=by[ev.pubkey];if(o&&(o.created_at>ev.created_at||o.created_at===ev.created_at&&o.id<=ev.id))continue;if(await rkEvOk(ev))by[ev.pubkey]=ev}
+ const out=Object.values(by).filter(ev=>{try{return!JSON.parse(ev.content).gone}catch(e){return false}});return{ok:r.ok,n:r.n,evs:out}}
+/* is a username free? (for the live check while typing) */
+async function twaNameFree(u){if(twaNameErr(u))return null;const b=await twaFindBoxes(u);return b.ok?!b.evs.length:null}
 function twaBoxOpen(ev,pk){try{const o=JSON.parse(ev.content);const M=twaOpen(pk.e,pk.m,twaUnb64(o.b));if(!M||M.length!==32)return null;const K=twaAcctKeys(M);return K.pk===ev.pubkey?{M,K,disp:String(o.u||''),ev}:null}catch(e){return null}}
 async function twaBoxEvent(K,M,pwK,u,disp,at){return rkEvSign(K,TWA.kind,[['d','twa-key:'+twaNorm(u)],['t','twa']],JSON.stringify({v:1,u:disp,b:twaB64(twaSeal(pwK.e,pwK.m,M))}),at)}
 /* ---------- the save in the cloud ---------- */
@@ -53735,7 +53740,10 @@ async function twaSignUp(u,pw,rem){const ne=twaNameErr(u)||twaPwErr(pw);if(ne)re
  if(boxes.evs.length)return{err:'That username is taken. Pick another one.'};
  const M=twaRand(32),K=twaAcctKeys(M);TWAS={u:twaNorm(u),d:disp,M:twaHex(M),pk:K.pk,rev:0,sum:'',at:0,rem:!!rem,lastAt:0};
  const box=await twaBoxEvent(K,M,pwK,u,disp,twaAt());const n=await twaSend([box]);if(!n){TWAS=null;return{err:'The account servers did not accept the new account. Try again in a moment.',off:1}}
- TWAS.lastAt=box.created_at;TWAS.boxEv=box;if(!P.name||P.name==='Hero'){P.name=disp.slice(0,24);save()}twaSaveSes();const r=await twaPush(true);twaChip();
+ TWAS.lastAt=box.created_at;TWAS.boxEv=box;
+ /* two people taking the same name at the same moment: the older key box wins; the other withdraws its box and asks for another name */
+ {const again=await twaFindBoxes(u);const rival=again.evs.find(ev=>ev.pubkey!==K.pk&&(ev.created_at<box.created_at||ev.created_at===box.created_at&&ev.pubkey<K.pk));
+  if(rival){try{await twaSend([await rkEvSign(K,TWA.kind,[['d','twa-key:'+twaNorm(u)],['t','twa']],JSON.stringify({v:1,gone:1}),box.created_at+1)])}catch(e){}TWAS=null;return{err:'Someone took that username a moment ago. Pick another one.'}}}if(!P.name||P.name==='Hero'){P.name=disp.slice(0,24);save()}twaSaveSes();const r=await twaPush(true);twaChip();
  return{ok:1,code:twaCode(M),saved:r==='ok'}}
 async function twaSignedIn(o,u,pwK,rem,how){TWAS={u:twaNorm(u),d:o.disp||String(u).trim(),M:twaHex(o.M),pk:o.K.pk,rev:0,sum:'',at:0,rem:!!rem,lastAt:0,boxEv:o.ev||null};twaSaveSes();twaChip();
  const cur=await twaManifest(o.K);if(cur.m){const sv=await twaFetchSave(o.K,cur.m);if(sv.err)return{ok:1,how,warn:'Signed in, but your cloud save could not be downloaded yet ('+sv.err+'). Try "Sync now" in a moment.'};
@@ -53779,37 +53787,48 @@ async function twaGameCopy(){try{if(!/^https?:/.test(location.protocol))return{e
  catch(e){return{err:'The game file could not be downloaded from this page. Use your browser\'s "Save page as" to keep a copy.'}}}
 /* ---------- the account window ---------- */
 const TWAU={tab:'in',msg:'',bad:0,busy:0};
-function twaClose(){const w=$('twa');if(w)w.remove()}
+function twaClose(){const w=$('twa');if(w)w.remove();TWAU.nudge=0}
 function twaShell(inner){twaClose();const w=document.createElement('div');w.id='twa';w.innerHTML=`<div class="twab" role="dialog" aria-modal="true" aria-label="Account"><button class="twax" aria-label="Close">×</button>${inner}</div>`;
  for(const ev of['keydown','keyup','keypress'])w.addEventListener(ev,e=>{e.stopPropagation();if(e.type==='keydown'&&e.key==='Escape'&&!TWAU.busy)twaClose()});
  w.addEventListener('pointerdown',e=>{if(e.target===w&&!TWAU.busy)twaClose()});(document.getElementById('wrap')||document.body).appendChild(w);w.querySelector('.twax').onclick=()=>{if(!TWAU.busy)twaClose()};return w}
 const TWA_LOGO='<svg viewBox="0 0 48 48" width="44" height="44"><circle cx="24" cy="18" r="9" fill="#ffd45a" stroke="#12081f" stroke-width="3"/><path d="M8 42c2-9 9-14 16-14s14 5 16 14z" fill="#7a6ad8" stroke="#12081f" stroke-width="3"/><path d="M33 9a10 10 0 0 1 9 11" fill="none" stroke="#7ad8ff" stroke-width="3" stroke-linecap="round"/></svg>';
-function twaField(id,label,type,val,ac){return `<label class="twaf"><span>${label}</span><input id="${id}" type="${type}" value="${esc(val||'')}" autocomplete="${ac||'off'}" spellcheck="false" maxlength="${type==='password'?200:id==='twac'?120:40}"></label>`}
+const TWA_CLOUD='<svg viewBox="0 0 56 48" width="54" height="46"><path d="M14 40a10 10 0 0 1-1-20 13 13 0 0 1 25-4 10 10 0 0 1 6 24z" fill="#7ad8ff" stroke="#12081f" stroke-width="3" stroke-linejoin="round"/><path d="M28 34V21m-6 6 6-6 6 6" fill="none" stroke="#12081f" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="46" cy="10" r="5" fill="#ffd45a" stroke="#12081f" stroke-width="2.5"/></svg>';
+function twaField(id,label,type,val,ac,hint){const pw=type==='password';return `<label class="twaf"><span>${label}${hint?`<em id="${id}h">${hint}</em>`:''}</span><span class="twain"><input id="${id}" type="${type}" value="${esc(val||'')}" autocomplete="${ac||'off'}" spellcheck="false" autocapitalize="off" maxlength="${pw?200:id==='twac'?120:40}">${pw?`<button type="button" class="twaeye" data-for="${id}" aria-label="Show password">Show</button>`:''}</span></label>`}
 function twaOpenUI(tab){if(twaLoadSes())return twaPanel();TWAU.tab=tab||TWAU.tab||'in';TWAU.msg='';twaForm()}
-function twaForm(){const t=TWAU.tab,v=id=>{const e=$(id);return e?e.value:''};const keep={u:v('twau')||(TWAU.u||''),r:$('twarem')?$('twarem').checked:true};
+function twaForm(){const t=TWAU.tab,v=id=>{const e=$(id);return e?e.value:''};const pn=(typeof P==='object'&&P&&typeof P.name==='string'&&P.name!=='Hero'&&!twaNameErr(P.name))?P.name.trim():'';const keep={u:v('twau')||(TWAU.u||'')||(t==='up'?pn:''),r:$('twarem')?$('twarem').checked:true};
  const tabs=`<div class="twatabs">${[['in','Sign in'],['up','Create account'],['rec','Forgot password'],['file','Backup file']].map(([k,l])=>`<button data-t="${k}" class="${k===t?'on':''}">${l}</button>`).join('')}</div>`;
- const body=t==='up'?`${twaField('twau','Username','text',keep.u,'username')}${twaField('twap','Password (8+ characters)','password','','new-password')}${twaField('twap2','Password again','password','','new-password')}
-   <p class="twanote">Pick something you will remember: there is no email reset. You get a recovery code next, so keep it safe.</p>`
-  :t==='rec'?`${twaField('twau','Username','text',keep.u,'username')}${twaField('twac','Recovery code','text','')}${twaField('twap','New password','password','','new-password')}${twaField('twap2','New password again','password','','new-password')}`
+ const body=t==='up'?`${twaField('twau','Pick a username','text',keep.u,'username',' ')}${twaField('twap','Pick a password','password','','new-password','8 or more characters')}
+   <p class="twanote">There is no email reset, so pick a password you will remember. You get a recovery code next, just in case.</p>`
+  :t==='rec'?`${twaField('twau','Username','text',keep.u,'username')}${twaField('twac','Recovery code','text','')}${twaField('twap','New password','password','','new-password','8 or more characters')}`
   :t==='file'?`<p class="twanote">Use this when the account servers are blocked or out of reach: it restores your account and progress from a backup file made in the account panel.</p><label class="twaf"><span>Backup file</span><input id="twafile" type="file" accept=".json,.twa,application/json"></label>${twaField('twau','Username','text',keep.u,'username')}${twaField('twap','Password or recovery code','password','')}`
   :`${twaField('twau','Username','text',keep.u,'username')}${twaField('twap','Password','password','','current-password')}`;
  const btn={in:'Sign in',up:'Create account',rec:'Set new password and sign in',file:'Restore'}[t];
- const w=twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">TYPE WARRIORS</p><h2>Your account</h2><p class="twas">Play on any device or web address. Your progress follows you.</p></div></div>${tabs}
+ const nudge=TWAU.nudge&&t==='up';
+ const w=twaShell(`${nudge?`<div class="twah">${TWA_CLOUD}<div><p class="twak">NEW · FREE · 20 SECONDS</p><h2>Save your progress</h2><p class="twas">Create an account and your hero, gold and unlocks are safe, even if this browser is cleared, and you can keep playing on any device.</p></div></div>
+  <ul class="twaben"><li>Never lose your progress</li><li>Play on any computer, phone or web address</li><li>Your leaderboard name comes with you</li></ul>`:`<div class="twah">${TWA_LOGO}<div><p class="twak">TYPE WARRIORS</p><h2>Your account</h2><p class="twas">Play on any device or web address. Your progress follows you.</p></div></div>${tabs}`}
   <div class="twaform">${body}<label class="twarm"><input type="checkbox" id="twarem"${keep.r?' checked':''}> Keep me signed in on this device</label>
   <div class="twamsg${TWAU.bad?' bad':''}" id="twamsg" role="status">${esc(TWAU.msg||'')}</div><button class="twago" id="twago">${btn}</button></div>
-  <p class="twafoot">Accounts are optional. Your progress is encrypted with your password before it leaves this device.</p>`);
+  ${nudge?`<div class="twanb"><button id="twanin" class="twalink">I already have an account</button><button id="twanlater" class="twalink">Later</button><button id="twannever" class="twalink">Don't ask again</button></div>`:''}<p class="twafoot">Accounts are optional. Your progress is encrypted with your password before it leaves this device.</p>`);
+ if(nudge)w.querySelector('.twab').classList.add('twanudge');twaFormWire(w,t);
  w.querySelectorAll('.twatabs button').forEach(b=>b.onclick=()=>{TWAU.u=v('twau');TWAU.tab=b.dataset.t;TWAU.msg='';TWAU.bad=0;twaForm()});
  const go=()=>twaSubmit();$('twago').onclick=go;w.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')go()}));setTimeout(()=>{const f=$('twau');if(f&&!f.value)f.focus();else{const p=$('twap');if(p)p.focus()}},30)}
+/* the eye buttons, the live username check, the nudge's links */
+let TWA_NT=0,TWA_NQ='';
+function twaFormWire(w,t){w.querySelectorAll('.twaeye').forEach(b=>b.onclick=e=>{e.preventDefault();const i=$(b.dataset.for);if(!i)return;const show=i.type==='password';i.type=show?'text':'password';b.textContent=show?'Hide':'Show';b.setAttribute('aria-label',show?'Hide password':'Show password');i.focus()});
+ const pw=$('twap'),ph=$('twaph');if(pw&&ph&&(t==='up'||t==='rec')){const upd=()=>{const n=pw.value.length;ph.textContent=n>=8?'✓ 8 or more characters':`8 or more characters${n?` (${8-n} more)`:''}`;ph.className=n>=8?'ok':''};pw.addEventListener('input',upd);upd()}
+ const un=$('twau'),uh=$('twauh');if(un&&uh&&t==='up'){const chk=()=>{clearTimeout(TWA_NT);const u=un.value.trim(),e=twaNameErr(u);if(!u){uh.textContent='';uh.className='';return}if(e){uh.textContent=e.replace('Usernames need','Needs').replace('Usernames can be','Can be');uh.className='bad';return}
+   uh.textContent='Checking…';uh.className='';TWA_NT=setTimeout(async()=>{TWA_NQ=twaNorm(u);const free=await twaNameFree(u);if(twaNorm(un.value)!==TWA_NQ||!uh.isConnected)return;uh.textContent=free===true?'✓ Available':free===false?'✗ Taken':'';uh.className=free===true?'ok':free===false?'bad':''},550)};un.addEventListener('input',chk);if(un.value)chk()}
+ const nin=$('twanin');if(nin)nin.onclick=()=>{TWAU.nudge=0;TWAU.tab='in';TWAU.msg='';twaForm()};const nl=$('twanlater');if(nl)nl.onclick=()=>{twaNudgeLater(false);twaClose()};const nn=$('twannever');if(nn)nn.onclick=()=>{twaNudgeLater(true);twaClose()}}
 function twaSay(msg,bad){TWAU.msg=msg;TWAU.bad=bad?1:0;const m=$('twamsg');if(m){m.textContent=msg;m.classList.toggle('bad',!!bad)}}
 async function twaSubmit(){if(TWAU.busy)return;const v=id=>{const e=$(id);return e?e.value:''},t=TWAU.tab,u=v('twau').trim(),pw=v('twap'),rem=$('twarem')?$('twarem').checked:true;
  const ne=twaNameErr(u);if(ne)return twaSay(ne,1);
- if(t==='up'||t==='rec'){const pe=twaPwErr(pw);if(pe)return twaSay(pe,1);if(pw!==v('twap2'))return twaSay('The two passwords are not the same.',1)}
+ if(t==='up'||t==='rec'){const pe=twaPwErr(pw);if(pe)return twaSay(pe,1);if($('twap2')&&pw!==v('twap2'))return twaSay('The two passwords are not the same.',1)}
  if(t==='file'&&!($('twafile')&&$('twafile').files&&$('twafile').files[0]))return twaSay('Choose your backup file first.',1);
  TWAU.busy=1;const b=$('twago');if(b){b.disabled=true;b.textContent='Working…'}twaSay(t==='up'?'Creating your account…':'Unlocking your account…');let r;
  try{if(t==='up')r=await twaSignUp(u,pw,rem);else if(t==='rec')r=await twaRecover(u,v('twac'),pw,rem);else if(t==='file'){const txt=await $('twafile').files[0].text();r=await twaFromFile(txt,u,pw,rem)}else r=await twaSignIn(u,pw,rem)}
  catch(e){r={err:'Something went wrong: '+(e&&e.message||e)}}finally{TWAU.busy=0}
  if(!r||r.err){if(b){b.disabled=false;b.textContent={in:'Sign in',up:'Create account',rec:'Set new password and sign in',file:'Restore'}[t]}return twaSay(r?r.err:'Something went wrong.',1)}
- if(r.code)return twaCodeScreen(r.code,true,r.saved);
+ TWAU.nudge=0;if(r.code)return twaCodeScreen(r.code,true,r.saved);
  if(r.choose){twaClose();await twaChoose(r.choose.m,r.choose.txt,'You signed in on a device that already has progress. Pick the progress you want on your account.');return}
  if(r.loaded)return;twaPanel(r.warn||(r.how==='recover'?'Your new password is set.':r.how==='exists'?'That account is yours, so you are signed in.':'Signed in.'))}
 function twaCodeScreen(code,first,saved){const w=twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">${first?'ACCOUNT CREATED':'RECOVERY CODE'}</p><h2>Your recovery code</h2><p class="twas">${first?(saved?'Your progress is saved to your account. ':'')+'Keep this code somewhere safe.':'Keep this code somewhere safe.'} It is the only way back in if you forget your password, and anyone who has it can open your account.</p></div></div>
@@ -53817,7 +53836,7 @@ function twaCodeScreen(code,first,saved){const w=twaShell(`<div class="twah">${T
  ${first?`<label class="twarm"><input type="checkbox" id="twaok"> I have saved my recovery code</label>`:''}<button class="twago" id="twagood"${first?' disabled':''}>${first?'Continue':'Done'}</button>`);
  $('twacp').onclick=async()=>{try{await navigator.clipboard.writeText(code);sgNote('Recovery code copied.')}catch(e){const r=document.createRange();r.selectNodeContents($('twacode'));const s=getSelection();s.removeAllRanges();s.addRange(r);sgNote('Select and copy the code.')}};
  $('twadl').onclick=()=>{const s=twaLoadSes();twaDownload(`type-warriors-recovery-${s?s.u:'account'}.txt`,`Type Warriors account: ${s?s.d:''}\nRecovery code: ${code}\n\nUse it in the game: Account > Forgot password.\n`,'text/plain')};
- const ok=$('twaok');if(ok)ok.onchange=()=>{$('twagood').disabled=!ok.checked};$('twagood').onclick=()=>twaPanel(first?'Welcome! You are signed in.':'')}
+ const ok=$('twaok');if(ok)ok.onchange=()=>{$('twagood').disabled=!ok.checked};const tick=()=>{if(ok&&!ok.checked){ok.checked=true;$('twagood').disabled=false}};for(const id of ['twacp','twadl']){const b0=$(id),f0=b0.onclick;b0.onclick=async e=>{await f0(e);tick()}}$('twagood').onclick=()=>twaPanel(first?'Welcome! You are signed in.':'')}
 function twaAgo(t){if(!t)return'never';const s=Math.max(0,(Date.now()-t)/1000);return s<45?'just now':s<3300?Math.round(s/60)+' min ago':s<82800?Math.round(s/3600)+' h ago':Math.round(s/86400)+' d ago'}
 function twaStatus(){const s=twaLoadSes();if(!s)return'';if(TWA.st.busy)return'Syncing…';if(TWA.st.conflict)return'Needs your choice';if(TWA.st.err==='offline')return'Offline · will retry';if(TWA.st.err)return'Sync problem';return twaDirty()?'Changes not synced yet':'Synced '+twaAgo(s.at)}
 function twaPanel(msg){const s=twaLoadSes();if(!s)return twaOpenUI('in');let ex=[];try{ex=JSON.parse(sgGet(TWA.relK)||'[]')}catch(e){}
@@ -53854,7 +53873,18 @@ function twaChip(){const host=ov&&ov.querySelector('.dkst0');let b=$('twachip');
  if(!b){b=document.createElement('button');b.id='twachip';b.onclick=e=>{e.stopPropagation();twaOpenUI()};host.parentElement.insertBefore(b,host)}
  const s=twaLoadSes(),st=s?twaStatus():'';const k=s?(TWA.st.conflict?'warn':TWA.st.busy?'busy':TWA.st.err?'off':'on'):'out';
  const html=s?`<i class="twaci ${k}">☁</i><span><b>${esc(s.d)}</b><small>${esc(st)}</small></span>`:`<i class="twaci out">☁</i><span><b>Sign in</b><small>Save your progress</small></span>`;if(b.dataset.v!==html){b.dataset.v=html;b.innerHTML=html;b.className=k}}
-{const t0=title;title=function(){const r=t0.apply(this,arguments);try{twaChip()}catch(e){}return r}}
+/* ---------- the "save your progress" pop-up for new players (guests who have played) ---------- */
+const TWA_NK='typeWarriorsNudge';
+const twaPlayed=p=>{try{const n=x=>Math.max(0,Math.round(+x||0)),rp=p.rp||{},wr=p.wr||{},pz=p.pz||{},fs=p.fish||{};let fc=0;for(const k in fs.b||{})fc+=n((fs.b[k]||{}).n);
+ return n(p.runs)+n(rp.runs)+n(wr.runs)+n(pz.racks)+Math.min(3,fc)+((p.xp||0)>=60?1:0)}catch(e){return 0}};
+function twaNudgeSt(){try{return JSON.parse(sgGet(TWA_NK)||'{}')||{}}catch(e){return{}}}
+function twaNudgeLater(never){const o=twaNudgeSt(),pl=twaPlayed(P);o.n=(o.n||0);if(never)o.never=1;else o.next=pl+(o.n>1?15:5);sgPut(TWA_NK,JSON.stringify(o))}
+function twaNudgeDue(){if(twaLoadSes()||!P)return false;if(navigator.webdriver&&!window.TWA_NUDGE)return false;const o=twaNudgeSt();if(o.never||(o.n||0)>=3)return false;const pl=twaPlayed(P);return pl>=1&&pl>=(o.next||0)}
+function twaNudgeBlocked(){if(S.mode!=='title'||!ov||!ov.querySelector('.dkst0'))return true;if(ov.classList.contains('dkmod')||document.querySelector('#twa,#svm,#tpoll,#svwel,#sgm,#ccm,#tvhow,.dks,[aria-modal="true"]'))return true;const m=$('rpmod');return!!(m&&!m.hidden)}
+let TWA_NUT=0;
+function twaNudgeMaybe(){clearTimeout(TWA_NUT);if(!twaNudgeDue())return;TWA_NUT=setTimeout(()=>{try{if(!twaNudgeDue()||twaNudgeBlocked())return;const o=twaNudgeSt();o.n=(o.n||0)+1;o.next=twaPlayed(P)+(o.n>1?15:5);sgPut(TWA_NK,JSON.stringify(o));
+ TWAU.nudge=1;TWAU.tab='up';TWAU.msg='';TWAU.bad=0;twaForm()}catch(e){}},1200)}
+{const t0=title;title=function(){const r=t0.apply(this,arguments);try{twaChip()}catch(e){}try{twaNudgeMaybe()}catch(e){}return r}}
 /* ---------- background sync ---------- */
 let TWA_T=0;
 function twaTick(){const s=twaLoadSes();if(!s||TWA.st.conflict||TWA.st.pushing)return;try{twaChip()}catch(e){}if(!twaDirty())return;if(Date.now()-(TWA.st.tried||0)<TWA.every)return;TWA.st.tried=Date.now();twaPush(false).then(r=>{if(r==='conflict')sgNote('Another device changed your account. Open Account to choose which progress to keep.')})}
@@ -53888,6 +53918,13 @@ try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on 
 .twarow{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.twarow>*{flex:1}.twagrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
 .twasec{margin-top:12px;padding:12px 14px;border-radius:14px;background:#ffffff08;border:1px solid #3a3070}.twasec b,.twasec summary{font:700 14px Poppins,sans-serif;color:#ffd45a;cursor:pointer}.twasec p{margin:6px 0;font:500 12.5px/1.45 Poppins,sans-serif;color:#cfc6f0}
 .twarel{display:flex;flex-wrap:wrap;gap:5px}.twarel span{padding:3px 9px;border-radius:999px;background:#12081f;border:1px solid #3a3070;font:600 11px Poppins,sans-serif;color:#cfc6f0}.twarel button{all:unset;cursor:pointer;color:#ff9aa8;margin-left:4px}
+.twain{display:flex;gap:6px;align-items:stretch}.twain input{flex:1;min-width:0}
+.twab .twaeye{flex:none;padding:0 12px!important;border-radius:12px!important;font-size:12.5px!important;box-shadow:none!important;background:#1a1240!important;border-color:#4a3a90!important;color:#cfc6f0!important;min-width:58px}
+.twaf em{font-style:normal;font-weight:600;margin-left:8px;color:#8a7ec0;letter-spacing:0}.twaf em.ok{color:#7dffb0}.twaf em.bad{color:#ff9aa8}
+.twaben{margin:0 0 12px;padding:10px 14px 10px 14px;list-style:none;border-radius:14px;background:#ffffff0a;border:1px solid #3a3070;display:flex;flex-direction:column;gap:5px}
+.twaben li{font:600 13.5px/1.35 Poppins,sans-serif;color:#e8e0ff;padding-left:26px;position:relative}.twaben li:before{content:'✓';position:absolute;left:2px;top:-1px;width:18px;height:18px;border-radius:50%;background:#2a8a5a;border:2px solid #12081f;color:#fff;font:800 11px/18px Poppins,sans-serif;text-align:center}
+.twanb{display:flex;justify-content:center;gap:18px;margin-top:12px;flex-wrap:wrap}
+.twab .twalink{all:unset!important;cursor:pointer!important;font:700 13px Poppins,sans-serif!important;color:#a99be0!important;text-decoration:underline!important;text-underline-offset:3px}.twab .twalink:hover{color:#fff8e8!important}
 .twaout{margin-top:14px}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,

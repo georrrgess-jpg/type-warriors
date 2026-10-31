@@ -53783,10 +53783,6 @@ async function twaFromFile(text,u,secret,rem){let o;try{o=JSON.parse(text)}catch
  /* put the account back on the relays when they can be reached (key box, then the save) */
  if(o.boxEv)twaSend([o.boxEv]).catch(()=>0);await twaInstallTxt(txt,m);setTimeout(()=>{twaPush(true)},5000);return{ok:1}}
 function twaDownload(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:type||'application/json'}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
-/* an offline copy of the game itself, for when the website is blocked or moves */
-async function twaGameCopy(){try{if(!/^https?:/.test(location.protocol))return{err:'You are already playing from a file on this device. Copy that file (for example to a USB stick) to keep the game.'};
- const r=await fetch(location.href,{cache:'force-cache'});if(!r.ok)throw 0;const t=await r.text();if(t.length<100000||!/Type Warriors/.test(t))throw 0;twaDownload('type-warriors.html',t,'text/html');return{ok:1}}
- catch(e){return{err:'The game file could not be downloaded from this page. Use your browser\'s "Save page as" to keep a copy.'}}}
 /* ---------- the account window ---------- */
 const TWAU={tab:'in',msg:'',bad:0,busy:0};
 function twaClose(){const w=$('twa');if(w)w.remove();TWAU.nudge=0}
@@ -53845,8 +53841,6 @@ function twaPanel(msg){const s=twaLoadSes();if(!s)return twaOpenUI('in');let ex=
  const w=twaShell(`<div class="twah">${TWA_LOGO}<div><p class="twak">SIGNED IN</p><h2>${esc(s.d)}</h2><p class="twas" id="twast">${esc(twaStatus())}${s.sumInfo?` · cloud save: level ${s.sumInfo.lvl}, ${Number(s.sumInfo.gold||0).toLocaleString()} gold`:''}</p></div></div>
  ${msg?`<div class="twamsg ok">${esc(msg)}</div>`:''}${TWA.st.conflict?`<div class="twamsg bad">Another device uploaded newer progress. Press Sync now to choose which to keep.</div>`:''}
  <div class="twagrid"><button id="twasync" class="twago">Sync now</button><button id="twabk">Download account backup</button><button id="twapw">Change password</button><button id="twarc">Show recovery code</button></div>
- <div class="twasec"><b>If the website moves or gets blocked</b><p>Open Type Warriors anywhere (a new address, or a downloaded copy of the game) and sign in: your progress comes with you. If the account servers are blocked too, restore from your account backup file.</p>
-  <div class="twarow"><button id="twagame">Download an offline copy of the game</button></div></div>
  <details class="twasec"><summary>Account servers (${twaRelays().length})</summary><p>Your encrypted save is kept on all of these public relays. You can add another one (an address starting with wss://).</p>
   <div class="twarel">${twaRelays().map(u=>`<span>${esc(u.replace(/^wss?:\/\//,''))}${ex.includes(u)?` <button data-rm="${esc(u)}" aria-label="Remove">×</button>`:''}</span>`).join('')}</div>
   <div class="twarow"><input id="twarelin" placeholder="wss://…" spellcheck="false"><button id="twaradd">Add</button></div></details>
@@ -53856,7 +53850,6 @@ function twaPanel(msg){const s=twaLoadSes();if(!s)return twaOpenUI('in');let ex=
   if(r==='ok')twaPanel('Your progress is saved to your account.');else twaPanel(r==='offline'?'The account servers could not be reached. Your progress stays on this device and syncs when they are back.':'Nothing to sync.')});
  $('twabk').onclick=()=>busy('twabk','Preparing…',async()=>{const t=await twaBackupFile();if(t){twaDownload(`type-warriors-account-${s.u}.json`,t);sgNote('Account backup downloaded. Keep it with your recovery code.')}});
  $('twapw').onclick=()=>twaPwScreen();$('twarc').onclick=()=>twaRcScreen();
- $('twagame').onclick=()=>busy('twagame','Downloading…',async()=>{const r=await twaGameCopy();if(r.err)twaPanel(r.err);else sgNote('Game copy downloaded. Open it in any browser and sign in.')});
  $('twaradd').onclick=()=>{const u=($('twarelin').value||'').trim();if(!/^wss:\/\/[a-z0-9.-]+(:\d+)?(\/\S*)?$/i.test(u)){$('twarelin').value='';$('twarelin').placeholder='Use a wss:// address';return}if(!ex.includes(u))ex.push(u);sgPut(TWA.relK,JSON.stringify(ex.slice(-6)));twaPanel('Server added. Press Sync now to put your save there too.')};
  w.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{sgPut(TWA.relK,JSON.stringify(ex.filter(u=>u!==b.dataset.rm)));twaPanel()});
  $('twaso').onclick=()=>busy('twaso','Signing out…',async()=>{await twaSignOut(false);twaClose();sgNote('Signed out. Your progress stays on this device.')});
@@ -53895,7 +53888,7 @@ document.addEventListener('visibilitychange',()=>{try{if(document.visibilityStat
 /* start-up: newer progress from another device loads by itself, or the player chooses */
 setTimeout(()=>{try{if(twaLoadSes()&&!window.TWA_NOSTART)twaPull('',true).then(()=>twaChip())}catch(e){}},2500);
 /* the Save Center mentions accounts */
-try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on the home screen) and your progress follows you to any device, any copy of the game and any web address. Your save is encrypted with your password and kept on several public relays. Keep your recovery code: there is no email reset. If the account servers are blocked, the account panel can download a backup file and an offline copy of the game.'])}catch(e){}
+try{HELP.Modes.push(['Accounts','Optional. Create an account (the cloud chip on the home screen) and your progress follows you to any device, any copy of the game and any web address. Your save is encrypted with your password and kept on several public relays. Keep your recovery code: there is no email reset. If the account servers are blocked, restore from the account backup file made in the account panel.'])}catch(e){}
 {const st=document.createElement('style');st.textContent=`
 #twachip{all:unset;cursor:pointer;position:relative;flex:none;margin:0 14px 0 auto;align-self:center;height:80px;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:0 16px 0 12px;border-radius:20px;background:linear-gradient(180deg,#241a5cf2,#140c38f5);border:2px solid #4a3a90;box-shadow:0 0 0 2.5px #12081f;font-family:Poppins,system-ui,sans-serif;transition:transform .15s}
 #twachip:hover{transform:translateY(-2px)}#twachip span{display:flex;flex-direction:column;min-width:0}#twachip b{font:700 15px Poppins,system-ui,sans-serif;color:#fff8e8;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -54204,6 +54197,11 @@ rpSkins=function(back){back=back||(()=>rampartsMenu(title));const r=RPP(),list=R
 {const st=document.createElement('style');st.textContent=`.rph .rpsortw{z-index:3}.rph .rpsortw:has(.rpsortm.open),.rph .rpsortw.rpsopen{z-index:9}.rph.rp7 .rpcard.on{z-index:5}`;document.head.appendChild(st)}
 /* for browsers without :has(), mirror the open state on the wrapper */
 document.addEventListener('click',()=>{setTimeout(()=>{try{for(const w of document.querySelectorAll('.rpsortw'))w.classList.toggle('rpsopen',!!w.querySelector('.rpsortm.open'))}catch(e){}},0)},true);
+/* ===== RUNESTONE TOWER DEFENSE 9.9s: ability tooltips stay on screen (97n) =====
+   The 9.2 tower bar (95m) centres every .rptip on its card (translateX(-50%)) with a higher specificity than the ability rule
+   `.rpab .rptip{left:0;transform:none}`, so the Overcharge tooltip (the leftmost button) was pushed half off the left edge. Ability
+   tooltips are now anchored to the left edge of their button and grow from its lower left corner. */
+{const st=document.createElement('style');st.textContent=`.rph.rp7 .rpab .rptip{left:0;right:auto;transform:scale(.81);transform-origin:0 100%;z-index:12}.rph.rp7.rptyon .rpab .rptip{bottom:calc(100% + 50px)}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

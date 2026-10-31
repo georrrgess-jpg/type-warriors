@@ -54197,6 +54197,13 @@ rpSkins=function(back){back=back||(()=>rampartsMenu(title));const r=RPP(),list=R
 #ov .rpcact:hover{transform:translateY(-2px)}#ov .rpcact:disabled{cursor:default;opacity:.7;transform:none}.rpcact svg{width:20px;height:20px}
 #ov .rpcact.gold{background:linear-gradient(180deg,#ffe27a,#f2b92a);border-color:#12081f;color:#3a1a04;box-shadow:0 0 0 2px #12081f,0 5px 0 #8a4a0a}
 #ov .rpcact.blue{background:linear-gradient(180deg,#8ad0ff,#3a8ae8);border-color:#12081f;font:400 30px 'Pirata One',Georgia,serif;color:#0c1640;box-shadow:0 0 0 2px #12081f,0 5px 0 #c99a3a}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 9.9r: the Sort tab no longer covers a raised tower card (97m) =====
+   The Sort tab above the tower bar (96zp) had z-index 5, the selected card 4, so the leftmost card (the Rune Ballista in the
+   default order), once selected and lifted, slid under the tab. The tab now sits below any lifted or hovered card and comes back
+   on top only while its menu is open. */
+{const st=document.createElement('style');st.textContent=`.rph .rpsortw{z-index:3}.rph .rpsortw:has(.rpsortm.open),.rph .rpsortw.rpsopen{z-index:9}.rph.rp7 .rpcard.on{z-index:5}`;document.head.appendChild(st)}
+/* for browsers without :has(), mirror the open state on the wrapper */
+document.addEventListener('click',()=>{setTimeout(()=>{try{for(const w of document.querySelectorAll('.rpsortw'))w.classList.toggle('rpsopen',!!w.querySelector('.rpsortm.open'))}catch(e){}},0)},true);
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

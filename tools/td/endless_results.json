@@ -460,5 +460,278 @@
   },
   "name": "control+prism",
   "secs": 362
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 94,
+  "stars": 0,
+  "kills": 9252,
+  "leaked": 30,
+  "towers": "tid5 tid5 pri5 fro5 tid5 fro5 tid5 pri5 pri5 fro5 fro5 pri5 pri5 fro5",
+  "time": 14402,
+  "coins": 22468,
+  "run": 22468,
+  "held": 93,
+  "abil": {
+   "over": 316,
+   "slow": 345,
+   "repair": 23
+  },
+  "name": "prism+frost+tide",
+  "secs": 285
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 15,
+  "stars": 0,
+  "kills": 616,
+  "leaked": 22,
+  "towers": "tid2 pri1 sti1 pri1 pri1 tid1 sti1 tid1 pri1 sti1 tid1 pri1 pri1 pri1",
+  "time": 853,
+  "coins": 1001,
+  "run": 1001,
+  "held": 14,
+  "abil": {
+   "over": 18,
+   "slow": 19,
+   "repair": 5
+  },
+  "name": "prism+tide+still",
+  "secs": 5
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 100,
+  "stars": 0,
+  "kills": 9857,
+  "leaked": 16,
+  "towers": "pri5 pri5 pri5 sti5 tid5 fro5 fro5 sti5 pri5 tid5 pri5 tid5 fro5 pri5",
+  "time": 13716,
+  "coins": 29670,
+  "run": 29670,
+  "held": 99,
+  "abil": {
+   "over": 296,
+   "slow": 319,
+   "repair": 18
+  },
+  "name": "control+prism #1",
+  "secs": 337
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 103,
+  "stars": 0,
+  "kills": 10121,
+  "leaked": 19,
+  "towers": "pri5 pri5 pri5 sti5 tid5 fro5 fro5 sti5 pri5 tid5 pri5 tid5 fro5 pri5",
+  "time": 14537,
+  "coins": 30774,
+  "run": 30774,
+  "held": 102,
+  "abil": {
+   "over": 314,
+   "slow": 336,
+   "repair": 19
+  },
+  "name": "control+prism #3",
+  "secs": 357
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 106,
+  "stars": 0,
+  "kills": 10412,
+  "leaked": 23,
+  "towers": "pri5 pri5 pri5 sti5 tid5 fro5 fro5 sti5 pri5 tid5 pri5 tid5 fro5 pri5",
+  "time": 15382,
+  "coins": 32091,
+  "run": 32091,
+  "held": 105,
+  "abil": {
+   "over": 335,
+   "slow": 357,
+   "repair": 22
+  },
+  "name": "control+prism #2",
+  "secs": 385
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 14,
+  "stars": 0,
+  "kills": 500,
+  "leaked": 15,
+  "towers": "pri1 tid1 tid1 sti1 fro1 tid1 tid1 sti1 pri1 fro1 fro1 tid1 pri1",
+  "time": 890,
+  "coins": 829,
+  "run": 829,
+  "held": 13,
+  "abil": {
+   "over": 19,
+   "slow": 19,
+   "repair": 5
+  },
+  "name": "prism+tide x2+frost+still",
+  "secs": 5
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 14,
+  "stars": 0,
+  "kills": 513,
+  "leaked": 19,
+  "towers": "pri2 sti1 sti1 mor1 tid1 fro1 fro1 mor1 pri1 tid1 sti1 tid1 fro1 pri1",
+  "time": 764,
+  "coins": 863,
+  "run": 863,
+  "held": 13,
+  "abil": {
+   "over": 17,
+   "slow": 17,
+   "repair": 4
+  },
+  "name": "prism+frost+tide+still+mortar",
+  "secs": 5
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 100,
+  "stars": 0,
+  "kills": 9843,
+  "leaked": 16,
+  "towers": "pri5 pri5 tid5 pri5 fro5 pri5 tid5 pri5 pri5 tid5 pri5 pri5 fro5 fro5",
+  "time": 14837,
+  "coins": 24632,
+  "run": 24632,
+  "held": 99,
+  "abil": {
+   "over": 322,
+   "slow": 346,
+   "repair": 8
+  },
+  "name": "prism x2+frost+tide",
+  "secs": 312
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 18,
+  "wave": 102,
+  "stars": 0,
+  "kills": 10019,
+  "leaked": 3,
+  "towers": "fro5 pri5 dra5 pri5 tid5 fro5 dra5 fro5 pri5 dra5 fro5 pri5 tid5 tid5",
+  "time": 16200,
+  "coins": 0,
+  "run": 0,
+  "held": null,
+  "abil": {
+   "over": 352,
+   "slow": 376,
+   "repair": 7
+  },
+  "name": "prism+frost+tide+dragon",
+  "secs": 322
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 100,
+  "stars": 0,
+  "kills": 9849,
+  "leaked": 8,
+  "towers": "fro5 pri5 sta5 pri5 tid5 fro5 sta5 fro5 pri5 sta5 fro5 pri5 tid5 tid5",
+  "time": 14727,
+  "coins": 24715,
+  "run": 24715,
+  "held": 99,
+  "abil": {
+   "over": 326,
+   "slow": 354,
+   "repair": 1
+  },
+  "name": "prism+frost+tide+star",
+  "secs": 269
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 18,
+  "wave": 112,
+  "stars": 0,
+  "kills": 10950,
+  "leaked": 9,
+  "towers": "pri5 tid5 tid5 sti5 fro5 dra5 dra5 sti5 pri5 fro5 tid5 fro5 dra5 pri5",
+  "time": 16200,
+  "coins": 0,
+  "run": 0,
+  "held": null,
+  "abil": {
+   "over": 354,
+   "slow": 384,
+   "repair": 13
+  },
+  "name": "prism+dragon+frost+tide+still",
+  "secs": 400
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 94,
+  "stars": 0,
+  "kills": 9273,
+  "leaked": 8,
+  "towers": "fro5 fro5 dra5 pri5 fro5 pri5 fro5 dra5 dra5 pri5 pri5 dra5 dra5 pri5",
+  "time": 12271,
+  "coins": 22706,
+  "run": 22706,
+  "held": 93,
+  "abil": {
+   "over": 268,
+   "slow": 290,
+   "repair": 1
+  },
+  "name": "dragon+prism+frost #2",
+  "secs": 205
+ },
+ {
+  "id": "wonder",
+  "won": false,
+  "hp": 0,
+  "wave": 94,
+  "stars": 0,
+  "kills": 9265,
+  "leaked": 19,
+  "towers": "fro5 pri5 sti5 pri5 pri5 fro5 sti5 fro5 pri5 sti5 fro5 pri5 pri5 pri5",
+  "time": 12691,
+  "coins": 27720,
+  "run": 27720,
+  "held": 93,
+  "abil": {
+   "over": 273,
+   "slow": 292,
+   "repair": 18
+  },
+  "name": "prism+frost+still #2",
+  "secs": 222
  }
 ]

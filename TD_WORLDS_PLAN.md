@@ -47,7 +47,7 @@ on its last wave and Freeplay after the win, like World 1. Balance is checked wi
 - **Gearworks Foundry** - a brass-and-iron factory floor: conveyor belts, giant turning gears, molten-metal channels, chimneys.
   *Twists: The switch track, conveyors and furnace vents.* The road splits at a rail switch into a north and a south line that
   join again; the switch flips every wave (odd waves: north, even waves: south), and the lever shows which. Conveyor stretches
-  (`map.conv`) carry monsters x1.5 faster. Furnace vents (`map.vents`, like Ember Crown's) erupt and burn monsters nearby.
+  (`map.conv`) carry monsters x1.3 faster. Furnace vents (`map.vents`, like Ember Crown's) erupt and burn monsters nearby.
   Animated: gears turning, belts moving, sparks, steam, molten glow.
 - **Storm Citadel** - a mountain citadel in a thunderstorm: dark clouds, rain, lightning-lit spires, crackling lightning rods.
   *Twist: Thunderstorm.* Every 10 s lightning strikes the monster nearest the castle for 10% of its max HP (4% on a boss).
@@ -67,8 +67,8 @@ map's variant (the way World 1 has moss / frost / ember / wonder variants).
 ### World 2 cast - sea folk
 | id | Name | Role | HP | Speed | Armor | Ability |
 |---|---|---|---|---|---|---|
-| crab | Crabling | swarm | 44 | 104 | 0 | **Scuttle**: a 1.6x sprint for 0.8 s every 4 s |
-| shell | Shellback | armored | 150 | 46 | 8 | **Shell up**: every 6 s hides for 1.6 s: stops, armor +16 |
+| crab | Crabling | swarm | 40 | 96 | 0 | **Scuttle**: a 1.6x sprint for 0.8 s every 4 s |
+| shell | Shellback | armored | 130 | 46 | 5 | **Shell up**: every 6 s hides for 1.6 s: stops, armor 12 (at most 12 per group) |
 | puffer | Puffer | bruiser | 120 | 58 | 2 | **Puff up**: below 50% HP it inflates: 25% bigger, 25% slower, armor +6 |
 | jelly | Jellyglide | flyer | 70 | 72 | 0 | **Glimmer**: every 5 s turns translucent for 1.2 s and cannot be hit |
 | brute | Barnacle Brute | tank | 440 | 34 | 14 | **Shedding shell**: its armor falls with its health (armor x HP%) |
@@ -83,13 +83,13 @@ navy bodies, glowing cyan/magenta spots and lures, translucent fins).
 ### World 3 cast - clockwork constructs
 | id | Name | Role | HP | Speed | Armor | Ability |
 |---|---|---|---|---|---|---|
-| cog | Cogling | swarm | 50 | 110 | 0 | fast wind-up bot (its key spins faster as it runs) |
-| knight | Brass Knight | guard | 170 | 48 | 10 | **Guard**: monsters within 70 px behind it take 30% less damage |
+| cog | Cogling | swarm | 42 | 100 | 0 | fast wind-up bot (its key spins faster as it runs) |
+| knight | Brass Knight | guard | 150 | 48 | 7 | **Guard**: other monsters (not knights) within 70 px behind it take 25% less damage (at most 12 per group) |
 | steam | Steam Golem | tank | 500 | 32 | 9 | **Overpressure**: every 15% of HP lost it vents: x1.6 speed and slow-immune for 1.8 s |
 | gyro | Gyrocopter | flyer | 85 | 94 | 0 | fast flyer |
 | tinker | Chronotinker | support | 130 | 50 | 0 | **Haste**: monsters within 110 px move 25% faster |
 | spring | Springjack | leaper | 105 | 56 | 3 | **Leap**: every 4.5 s jumps 80 px down the road (0.45 s in the air, cannot be hit) |
-| jammer | Sparkjammer | disruptor | 115 | 60 | 4 | **EMP**: jams each tower it passes within 120 px for 2 s (once per tower) |
+| jammer | Sparkjammer | disruptor | 115 | 60 | 4 | **EMP**: jams each tower it passes within 105 px for 1.8 s (once per tower; a tower is immune for 4 s after a jam; at most 4 per group) |
 | titan | Titan Automaton (boss) | boss | 5600 | 20 | 14 | **Stomp**: every 8 s jams towers within 200 px for 1.6 s; at 66% and 33% HP it sheds plates: armor -4, +20% speed |
 
 Variants: meadow = verdigris copper with moss, vines, flowers and little birds; foundry = soot-black iron, glowing furnace

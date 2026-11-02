@@ -55117,7 +55117,7 @@ function rpw2mDeath(c,id,x,y,k,o){const M=RPMOB[id],K=RPW2M_DX[id];if(!M||!K||!(
  c.globalAlpha=ga}
 {const d0=rpMobDeath;rpMobDeath=function(c,id){if(RPW_MOBS[id]===2&&RPW2M_DX[id])return rpw2mDeath.apply(this,arguments);return d0.apply(this,arguments)}}
 /* a battle start prebakes every monster in the map's variant (95e: rpMobPrebake(null, pal)); World 2 sheets are only baked on World 2 maps */
-{const p0=rpMobPrebake;rpMobPrebake=function(ids,v){if(!ids)ids=Object.keys(RPMOB).filter(id=>RPW_MOBS[id]!==2||RPW_VARS[2].includes(v));return p0.call(this,ids,v)}}
+{const p0=rpMobPrebake;rpMobPrebake=function(ids,v){if(!RPW_VARS[2].includes(v))ids=(ids||Object.keys(RPMOB)).filter(id=>RPW_MOBS[id]!==2);return p0.call(this,ids,v)}}
 /* World 1 style entries too, so anything reading RPMDX finds the new ids */
 for(const id of RPW2M_IDS)RPMDX[id]={n:6,k:['puff','puff','spark','spark','puff','spark'],c:[RPW2M_DC.coral[id==='shell_in'?'shell':id==='puffer_big'?'puffer':id][0],'#7ae8f8']};
 /* ===== RUNESTONE TOWER DEFENSE 10.0: World 3 (Skyforge Heights) monsters (98e) =====

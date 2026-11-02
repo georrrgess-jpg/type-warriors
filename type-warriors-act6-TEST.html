@@ -1730,6 +1730,13 @@ button.hxm.gyc small{color:#ffd9a8;font-weight:700}
 <div id="cn" style="position:absolute;right:16px;bottom:14px;z-index:5;display:flex;gap:8px;align-items:center"><button id="cz" tabindex="-1" title="Casino" aria-label="Open the casino"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="#c8202e" stroke="#fff" stroke-width="1.5"/><circle cx="16" cy="16" r="14" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="5.5 5.5" opacity=".9"/><circle cx="16" cy="16" r="8.5" fill="#7a0e1c" stroke="#ffd76a" stroke-width="1.5"/><path d="M16 9.5l2 4.6 5 .4-3.8 3.2 1.2 4.9-4.4-2.6-4.4 2.6 1.2-4.9-3.8-3.2 5-.4z" fill="#ffd76a" transform="translate(0 -.5) scale(.98) translate(.3 .4)"/></svg><span>Casino</span></button><button id="mt" class="sm" style="font-size:18px;padding:5px 14px" tabindex="-1" aria-label="Toggle music"></button><button id="fs" class="sm" style="font-size:18px;padding:5px 14px" tabindex="-1" title="Toggle fullscreen">Fullscreen</button></div>
 </div>
 <script>
+/* ===== 10.1e integrity marker (00a: the very first lines of the game script) =====
+   98t_integrity.js tells the game's own code apart from code a cheat injects (a browser extension, the console, an injected <script>):
+   it reads the call stack of every write to coins / XP / prestige and needs to know where the game script starts. mark(f) runs f with
+   a frame from this line on the stack. wd: whether the page runs under browser automation (the test scripts), read from the prototype
+   before anything else can patch it. */
+const TWAC0=(()=>{const o={wd:false};try{const d=Object.getOwnPropertyDescriptor(Navigator.prototype,'webdriver');o.wd=!!(d&&d.get&&d.get.call(navigator))}catch(e){}
+ o.mark=f=>f();return Object.freeze(o)})();
 'use strict';
 const W=1600,H=900,GY=770,KX=210,K=W/900,TAU=Math.PI*2;
 const $=id=>document.getElementById(id);
@@ -61638,6 +61645,96 @@ function rpuSkBgPut(fade){const bg=document.getElementById('rpskbg');if(!bg||!RP
 /* ---------- build / upgrade animation in the mastery colours ---------- */
 {const b0=rpTowerBuild;rpTowerBuild=function(g,type,tier,skin,k,t,o){const T=typeof rpySkinTheme==='function'&&!RPY_D&&skin&&rpySkinTheme(type,skin);
  if(!T||!(k<1))return b0.apply(this,arguments);RPY_D++;try{return b0.call(this,rpyCtx(g,T),type,tier,'base',k,t,o)}finally{RPY_D--}}}
+/* ===== 10.1e: save integrity and cheat guard (98t, after 98s; marker 00a_acmark.js) =====
+   Owner report: a browser extension set P.gold = 999,999,999 and the level (P.xp) straight from the page and called save(); and a
+   downloaded save file was easy to edit (its "sum" is the public sgHash, so an edited file could be re-summed, and a plain JSON file
+   was accepted as a "legacy" save). A game that runs only in the browser can never be made cheat-proof, but these holes are closed:
+   1. Coins, XP and prestige (P.gold, P.xp, P.pres) only change when the game's own code changes them. Every write reads the call
+      stack; a write that comes from anywhere else (an extension's script, the console, an injected <script>, eval, a timer set from
+      the console) is refused. The properties cannot be deleted or redefined, load() refuses foreign callers, and swapping the whole
+      P object from outside is undone. DEV mode can only be switched on through its password box, and DEV cheats need DEV mode.
+   2. The browser save is signed with a keyed checksum that only this code can make (kept in a closure, separate from the public
+      sgHash). A save edited in storage is caught on the next start: coins, XP and prestige go back to their last signed values
+      (the rest of the progress is kept) and the player is told. Writes to the save key from outside the game are refused.
+   3. Exported saves (file and code) carry the keyed checksum. A file without a valid one (an edited file, a hand-made JSON, or an
+      export from before 10.1e) still imports, but its coins, XP and prestige are capped at the current save's values (at least
+      25,000 coins and level 8, a one-time floor so an old backup is not worthless), with a message. Cloud saves from the player's account are encrypted with their key and are trusted.
+   Under browser automation (navigator.webdriver, the test scripts) everything is allowed unless window.TW_AC_TEST is set, so the
+   test suites can still set up saves; t_ac101.py sets TW_AC_TEST and checks every hole. Prefix twac. */
+const TWAC=(()=>{
+ const E0=Error,W=window,CAPG=25000;
+ const enforce=()=>!TWAC0.wd||!!W.TW_AC_TEST;
+ /* ---- the call stack: one entry per frame {f: file, l: line, ev: eval} ---- */
+ function frames(){let cs=null;const o=E0.prepareStackTrace,lim=E0.stackTraceLimit;
+  try{E0.stackTraceLimit=80;E0.prepareStackTrace=(e,s)=>s;cs=new E0().stack}catch(x){cs=null}finally{try{E0.prepareStackTrace=o;E0.stackTraceLimit=lim}catch(x){}}
+  if(Array.isArray(cs))return cs.map(c=>{let f='',l=null,ev=false;try{f=c.getFileName()||''}catch(x){}try{l=c.getLineNumber()}catch(x){}try{ev=!!c.isEval()}catch(x){}return{f,l,ev}});
+  let s='';try{s=String(new E0().stack||'')}catch(x){}
+  return s.split('\n').map(ln=>{const t=ln.trim(),m=/(?:@|\(|at )([^()@]*?):(\d+):(\d+)\)?$/.exec(t);return m?{f:m[1].replace(/^at /,''),l:+m[2],ev:/\beval\b/.test(t)}:null}).filter(Boolean)}
+ const F0=frames(),SELF=(F0[0]&&F0[0].f)||'';let L0=1;try{const g=TWAC0.mark(()=>frames()).filter(x=>x.f===SELF&&x.l!=null).map(x=>x.l);if(g.length)L0=Math.max(1,Math.min(...g)-2)}catch(e){}
+ /* true when any frame belongs to code that is not the game's own script */
+ function foreign(){const fr=frames();for(let i=1;i<fr.length;i++){const x=fr[i];if(!x.f&&x.l==null)continue;if(x.ev)return true;if(x.f!==SELF)return true;if(x.l!=null&&x.l<L0)return true}return false}
+ const ST2={blocked:0,last:'',tamper:0,capped:0,warned:0,seen:new Set()};
+ function blocked(what){ST2.blocked++;ST2.last=what;if(!ST2.warned){ST2.warned=1;try{console.warn('Type Warriors: a change from outside the game was blocked ('+what+').')}catch(e){}}}
+ const guardOK=()=>!(enforce()&&foreign());
+ /* ---- the keyed checksum (private; not the public sgHash) ---- */
+ const SK=[116,119,45,107,101,101,112,45,51,57,49,55,45,114,117,110,101,115,116,111,110,101].map((c,i)=>String.fromCharCode(c^((i*7)&3))).join('');
+ function mac(s){s=SK+'|'+s+'|'+SK.length;let a=0x6b2fe4c1^s.length,b=0x9e3779b9,c=0x1f83d9ab;
+  for(let i=0;i<s.length;i++){const k=s.charCodeAt(i);a=Math.imul(a^k,2654435761);b=Math.imul(b^k,1597334677)^(a>>>15);c=Math.imul(c+k,0x27d4eb2f)^(b>>>13)}
+  a=Math.imul(a^(a>>>16),2246822507)^Math.imul(b^(b>>>13),3266489909);b=Math.imul(b^(b>>>16),2246822507)^Math.imul(c^(c>>>13),3266489909);c=Math.imul(c^(c>>>15),0x85ebca6b)^a;
+  return [a,b,c].map(v=>(v>>>0).toString(16).padStart(8,'0')).join('')}
+ /* ---- 1. coins, XP and prestige only change from inside the game ---- */
+ const GF=['gold','xp','pres'];let PREF=null;
+ function guard(p){if(!p||typeof p!=='object')return;if(Object.prototype.hasOwnProperty.call(p,'__twg'))return;
+  for(const k of GF){const d=Object.getOwnPropertyDescriptor(p,k);let get,set;
+   if(d&&d.get){get=d.get;set=d.set||(()=>{})}else{let v=d?d.value:undefined;get=()=>v;set=nv=>{v=nv}}
+   const g2=function(){return get.call(p)};g2.ldg=1;
+   Object.defineProperty(p,k,{get:g2,set(nv){if(!guardOK()){blocked(k);return}if(TWAC0.wd&&!W.TW_AC_TEST&&ST2.seen.size<24){const fr=frames().slice(1).find(x=>(x.f||x.l!=null)&&(x.ev||x.f!==SELF||(x.l!=null&&x.l<L0)));if(fr)ST2.seen.add((fr.f||'(no file)')+(fr.ev?' eval':'')+(fr.f===SELF?' line '+fr.l:''))}set.call(p,nv)},enumerable:true,configurable:false})}
+  Object.defineProperty(p,'__twg',{value:1,enumerable:false,configurable:false,writable:false})}
+ function pcheck(){if(!P||P===PREF)return;if(PREF&&enforce()){blocked('P');P=PREF;return}guard(P);PREF=P}
+ try{if(typeof ldgInstall==='function')ldgInstall()}catch(e){}guard(P);PREF=P;
+ {const l0=load;load=function(){if(!guardOK()){blocked('load');return}const r=l0.apply(this,arguments);try{if(typeof ldgInstall==='function')ldgInstall()}catch(e){}guard(P);PREF=P;return r}}
+ {const s0=save;save=function(){pcheck();return s0.apply(this,arguments)}}
+ {const f0=sgFlush;sgFlush=function(){pcheck();return f0.apply(this,arguments)}}
+ setInterval(pcheck,1500);
+ /* DEV mode only through its password box; DEV cheats need DEV mode */
+ /* (devHash is a const, so only the password box can reach the line that switches DEV on) */
+ try{let on=!!DEV.on;Object.defineProperty(DEV,'on',{get(){return on},set(v){if(!v){on=false;return}if(guardOK()){on=true;return}blocked('dev')},enumerable:true,configurable:false})}catch(e){}
+ try{const a0=dvxAct;dvxAct=function(){if(enforce()&&!DEV.on){blocked('cheat');return}return a0.apply(this,arguments)}}catch(e){}
+ /* ---- 2. the browser save is signed ---- */
+ const SIGK='typeWarriorsAux',MARK='v2s',P0=sgPut;
+ function rec(raw){let o=null;try{o=JSON.parse(raw)}catch(e){}if(!o||typeof o!=='object')o={};
+  const g=Math.round(+o.gold||0),x=Math.round(+o.xp||0),p=o.pres|0;return{m:mac('s|'+raw),g,x,p,a:mac('a|'+g+'|'+x+'|'+p)}}
+ function sign(raw){try{if(typeof raw==='string')P0(SIGK,JSON.stringify(rec(raw)))}catch(e){}}
+ sgPut=function(k,v){if(k===KEY){if(!guardOK()){blocked('store');return false}const r=P0.apply(this,arguments);sign(v);return r}
+  if(k===SIGK&&!guardOK()){blocked('sig');return false}return P0.apply(this,arguments)};
+ function note(t){try{SGS.notes.push(t)}catch(e){}}
+ (function boot(){try{const raw=sgGet(KEY),m=sgMeta();if(m.acNote){note(m.acNote);m.acNote='';sgMetaSave()}
+  if(raw===null){if(!m[MARK]){m[MARK]=1;sgMetaSave()}return}
+  let r=null;try{r=JSON.parse(sgGet(SIGK)||'null')}catch(e){}
+  if(r&&r.m===mac('s|'+raw))return;
+  if(!m[MARK]||!enforce()){sign(raw);if(!m[MARK]){m[MARK]=1;sgMetaSave()}return}
+  /* edited outside the game: put coins, XP and prestige back to their last signed values */
+  ST2.tamper++;const an=r&&r.a===mac('a|'+r.g+'|'+r.x+'|'+r.p)?r:null;
+  const cg=an?an.g:Math.min(+P.gold||0,CAPG),cx=an?an.x:Math.min(+P.xp||0,lvx(8)),cp=an?an.p:0;let ch=false;
+  if((+P.gold||0)>cg){P.gold=cg;ch=true}if((+P.xp||0)>cx){P.xp=cx;ch=true}if((P.pres|0)>cp){P.pres=cp;ch=true}
+  try{syncPaths()}catch(e){}save();sign(sgGet(KEY));
+  if(ch)note('Your save was changed outside the game, so your coins and level were put back to their last real values.')}catch(e){console.error(e)}})();
+ /* ---- 3. exported saves carry the keyed checksum; unverified imports are capped ---- */
+ {const k0=sgPack;sgPack=function(){const r=k0.apply(this,arguments);try{r.mac=mac('x|'+r.payload)}catch(e){}return r}}
+ let TR=0;
+ for(const n of ['twaInstallTxt','twaChoose','twaSignedIn','twaPull','twaFromFile']){try{const f0=W[n];if(typeof f0!=='function')continue;
+  const w=function(){TR++;let r;try{r=f0.apply(this,arguments)}catch(e){TR--;throw e}if(r&&typeof r.then==='function'){return r.finally(()=>{TR--})}TR--;return r};
+  W[n]=w}catch(e){}}
+ {const r0=sgRead;sgRead=function(txt,lenient){const r=r0.apply(this,arguments);if(!r||!r.ok||lenient||TR>0||!enforce())return r;
+  let keyed=false;try{let s=String(txt).replace(/^﻿/,'').trim();const m=s.match(/^TWSAVE(\d+):/);if(m)s=sgUnb64(s.slice(m[0].length).replace(/\s+/g,''));
+   const o=JSON.parse(s);keyed=!!(o&&typeof o.payload==='string'&&typeof o.mac==='string'&&o.mac===mac('x|'+o.payload))}catch(e){}
+  r.keyed=keyed;if(keyed)return r;
+  const q=r.P,cg=Math.max(+P.gold||0,CAPG),cx=Math.max(+P.xp||0,lvx(8)),cp=P.pres|0;let capped=false;
+  if((+q.gold||0)>cg){q.gold=cg;capped=true}if((+q.xp||0)>cx){q.xp=cx;capped=true}if((q.pres|0)>cp){q.pres=cp;capped=true}
+  r.verified=false;r.capped=capped;
+  if(capped){ST2.capped++;try{const m=sgMeta();m.acNote='That save could not be verified (it was edited, or made before this version), so its coins and level were capped.';sgMetaSave()}catch(e){}}
+  return r}}
+ return Object.freeze({stat:()=>Object.assign({},ST2,{seen:[...ST2.seen],L0,enforced:enforce()})})})();
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

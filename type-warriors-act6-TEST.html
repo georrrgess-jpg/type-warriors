@@ -61576,6 +61576,68 @@ function rpuStarTxt(){return `${rpStarN()} / ${rpuStarMax()} stars`}
 {const st=document.createElement('style');st.textContent=`#dkrp .rpuemb{position:absolute;right:10px;bottom:8px;width:74px;height:74px;z-index:3;pointer-events:none;animation:rpuEmb 3.2s ease-in-out infinite}
 #dkrp .rpuemb svg{display:block}@keyframes rpuEmb{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-4px) rotate(3deg)}}
 @media (prefers-reduced-motion:reduce){#dkrp .rpuemb{animation:none}}body.rm #dkrp .rpuemb{animation:none}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 10.1d: banner text fit, Tower Skins without the freeze, no skin flicker on build (98s, after 98r) =====
+   - The big round banner in the middle of the battle (rpBannerDraw: "Wave 5", the boss warning, Victory...) had a fixed 620 x 124 box
+     and fixed font sizes, so long titles and the World 2/3 boss lines ("It dives out of reach: keep damage further down the road.")
+     ran out of the box. It is redrawn here: the title shrinks to fit, the subtitle wraps (up to three lines) and the box grows to hold
+     them (and widens a little for long titles). Same look otherwise. The 98a / 98b layers in the chain (ambTop art, storm flash) still
+     draw: the chain runs with the banner hidden, then this draws it.
+   - Tower Skins froze the first time a tower was opened: every skin card was painted, recoloured (mastery skins recolour all of the
+     tower's baked art) and PNG-encoded in one go (about 0.5 s on opening, 30-110 ms per tower on a fast machine, much more on a
+     Chromebook). Cards whose picture is not cached yet now open with an empty frame that fades in, filled one per frame; while the
+     screen is open the remaining towers' pictures are warmed in idle time, so switching towers is instant.
+   - Building or upgrading a tower with a mastery skin flickered: the build / upgrade animation (rpTowerBuild, 95c) only knows the
+     classic palettes and fell back to the classic colours until it finished. It now runs through 98m's recolouring context too. */
+/* ---------- the banner ---------- */
+function rpuBannerFit(c,R){const b=R.banner;if(!b)return;const u=b.t/b.d,a=u<.12?u/.12:u>.8?(1-u)/.2:1,s=R.rm?1:.85+.15*rpOver(Math.min(1,b.t/.35));
+ c.save();c.textAlign='center';c.textBaseline='middle';
+ /* title size: as before (70 / 54), shrunk until it fits */
+ let fs=b.txt.length>16?54:70;c.font=`400 ${fs}px 'Pirata One',Georgia,serif`;let tw=c.measureText(b.txt).width;const wMax=760;
+ while(tw>wMax-70&&fs>30){fs-=2;c.font=`400 ${fs}px 'Pirata One',Georgia,serif`;tw=c.measureText(b.txt).width}
+ const w=Math.min(wMax,Math.max(620,tw+80));
+ /* subtitle: wrapped to the box */
+ const L=[];if(b.sub){c.font='600 18px Poppins,system-ui,sans-serif';const words=String(b.sub).split(/\s+/);let line='';
+  for(const wd of words){const t=line?line+' '+wd:wd;if(c.measureText(t).width>w-56&&line){L.push(line);line=wd}else line=t}if(line)L.push(line);
+  if(L.length>3){L.length=3;L[2]=L[2].replace(/.{0,2}$/,'…')}}
+ const extra=Math.max(0,L.length-1)*23,h=124+extra,top=-62,ty=-14;
+ c.globalAlpha=a;c.translate(800,330);c.scale(s,s);
+ c.fillStyle='rgba(8,5,22,.8)';c.strokeStyle=b.boss||b.lose?'#ff6a5a':'#ffd45a';c.lineWidth=3;c.beginPath();c.roundRect(-w/2,top,w,h,24);c.fill();c.stroke();
+ c.font=`400 ${fs}px 'Pirata One',Georgia,serif`;c.lineWidth=7;c.strokeStyle=RPO;c.strokeText(b.txt,0,ty);
+ const g=c.createLinearGradient(0,ty-36,0,ty+34);g.addColorStop(0,'#fff6c0');g.addColorStop(.5,b.boss||b.lose?'#ff9a6a':'#ffd45a');g.addColorStop(1,b.boss||b.lose?'#c8301a':'#e08a1a');c.fillStyle=g;c.fillText(b.txt,0,ty);
+ if(L.length){c.font='600 18px Poppins,system-ui,sans-serif';c.fillStyle='#e8e0ff';L.forEach((ln,i)=>c.fillText(ln,0,36+i*23))}
+ c.restore()}
+{const d0=rpBannerDraw;rpBannerDraw=function(c,R){const b=R&&R.banner;if(!b)return d0.apply(this,arguments);R.banner=null;try{d0.apply(this,arguments)}finally{R.banner=b}rpuBannerFit(c,R)}}
+/* ---------- Tower Skins: lazy pictures + idle warm-up ---------- */
+const RPU_BLANK='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+let RPU_LQ=[],RPU_LT=0,RPU_WARM=null;
+function rpuIconKey(type,tier,skin,size){return type+tier+skin+size}
+function rpuLazyPump(){RPU_LT=0;const ov2=document.getElementById('rpsk');if(!ov2){RPU_LQ=[];return}
+ const job=RPU_LQ.shift();if(job){const [type,tier,skin,size]=job,k=rpuIconKey(type,tier,skin,size);let url='';try{url=rpIconCanvas(type,tier,skin,size)}catch(e){}
+  for(const im of ov2.querySelectorAll('img[data-rpulz]'))if(im.dataset.rpulz===k){im.src=url;im.removeAttribute('data-rpulz');im.classList.add('rpulzin')}}
+ if(RPU_LQ.length){RPU_LT=requestAnimationFrame(rpuLazyPump);return}
+ rpuWarmNext()}
+/* after the visible cards: warm the other towers' skin pictures, one per idle slot, while Tower Skins stays open */
+function rpuWarmNext(){if(!document.getElementById('rpsk'))return;if(!RPU_WARM){RPU_WARM=[];for(const t of RP_TWORDER){for(const s of (typeof rpySkinList==='function'?rpySkinList(t):[]))RPU_WARM.push([t,3,s.k,176])}}
+ let job;while((job=RPU_WARM.shift())&&rpIconURL[rpuIconKey(...job)]);if(!job)return;
+ const go=()=>{if(!document.getElementById('rpsk'))return;try{rpIconCanvas(...job)}catch(e){}rpuWarmNext()};
+ if(typeof requestIdleCallback==='function')requestIdleCallback(go,{timeout:400});else setTimeout(go,30)}
+/* the dimmed world painting behind Tower Skins: built once (in idle time), then copied 1:1; the screen re-renders on every click */
+let RPU_SKBG=null;const RPU_TINY=document.createElement('canvas');RPU_TINY.width=RPU_TINY.height=1;
+function rpuSkBgBuild(){if(RPU_SKBG)return RPU_SKBG;const c=document.createElement('canvas');c.width=1600;c.height=900;const g=c.getContext('2d');
+ try{g.drawImage(rpWorldArt(rpWonderOpen()),0,0,1600,900)}catch(e){try{g.drawImage(rpBake(RP_MAP('moss')).c,0,0,1600,900)}catch(x){}}g.fillStyle='rgba(8,5,28,.78)';g.fillRect(0,0,1600,900);return RPU_SKBG=c}
+function rpuSkBgPut(fade){const bg=document.getElementById('rpskbg');if(!bg||!RPU_SKBG)return;bg.getContext('2d').drawImage(RPU_SKBG,0,0);if(fade){bg.classList.remove('rpulzin');void bg.offsetWidth;bg.classList.add('rpulzin')}}
+{const s0=rpSkins;rpSkins=function(){const ic0=rpIconCanvas,q=[],wa0=rpWorldArt;rpWorldArt=()=>RPU_TINY;
+ rpIconCanvas=function(type,tier,skin,size){const k=rpuIconKey(type,tier,skin,size);if(rpIconURL[k])return rpIconURL[k];q.push([type,tier,skin,size]);return RPU_BLANK+'#rpulz='+encodeURIComponent(k)};
+ let r;try{r=s0.apply(this,arguments)}finally{rpIconCanvas=ic0;rpWorldArt=wa0}
+ try{if(RPU_SKBG)rpuSkBgPut(0);else{const go=()=>{rpuSkBgBuild();rpuSkBgPut(1)};if(typeof requestIdleCallback==='function')requestIdleCallback(go,{timeout:300});else setTimeout(go,60)}}catch(e){}
+ try{const ov2=document.getElementById('rpsk');if(ov2){for(const im of ov2.querySelectorAll('img')){const m=/#rpulz=(.+)$/.exec(im.getAttribute('src')||'');if(m){im.dataset.rpulz=decodeURIComponent(m[1]);im.src=RPU_BLANK;im.classList.add('rpulz')}}
+  /* the selected tower's cards first, then the nav */
+  q.sort((a,b)=>(b[3]-a[3]));RPU_LQ=q;if(RPU_LT)cancelAnimationFrame(RPU_LT);RPU_LT=requestAnimationFrame(rpuLazyPump)}}catch(e){console.error(e)}
+ return r}}
+{const st=document.createElement('style');st.textContent=`#rpsk img.rpulz{opacity:0}#rpsk img.rpulzin,#rpskbg.rpulzin{animation:rpuLzIn .28s ease-out both}@keyframes rpuLzIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}`;document.head.appendChild(st)}
+/* ---------- build / upgrade animation in the mastery colours ---------- */
+{const b0=rpTowerBuild;rpTowerBuild=function(g,type,tier,skin,k,t,o){const T=typeof rpySkinTheme==='function'&&!RPY_D&&skin&&rpySkinTheme(type,skin);
+ if(!T||!(k<1))return b0.apply(this,arguments);RPY_D++;try{return b0.call(this,rpyCtx(g,T),type,tier,'base',k,t,o)}finally{RPY_D--}}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

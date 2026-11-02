@@ -61536,6 +61536,46 @@ let RPMF_CUR=null;
  if(L&&dt>0)for(let i=0;i<L.length;i++){const e=L[i];if(!e||e.dead||e.s<0||e.stun>0||e.shIn>0||e.hide||e.air)continue;const p0=ph[i];if(p0==null||!isFinite(e.ph))continue;
   const min=dt*RPMF.minPh*(e.sp||50)/52;let d=e.ph-p0;if(d<0)d+=1;if(d<min)e.ph=(p0+min)%1}
  return r}}
+/* ===== RUNESTONE TOWER DEFENSE 10.1c: main-menu entries (98r, after 98q) =====
+   - The home card and the Choose a mode entry said "N / 9 stars": 95f hard-codes 9 (World 1's three maps), but rpStarN() counts the
+     stars of all nine campaign maps since 10.0. Both now read "N / 27 stars" (rpuStarMax: three per campaign map, the endless
+     Wonderland has none) and the aria labels match.
+   - A new, eye-catching mode icon (MG.ramparts, used by Choose a mode and anywhere mico('ramparts') is drawn): a rune-crowned castle
+     tower with a glowing crystal, a gold sunburst, a banner and three world gems, in a gold ring. The home card gets the same emblem as
+     a badge (a gentle transform-only bob; still in reduced motion). */
+const rpuStarMax=()=>RP_MAPS.filter(m=>!m.endless&&m.waves).length*3;
+MA.ramparts='#ffd45a';
+MG.ramparts=`<defs><radialGradient id="rpuIcoB" cx="50%" cy="30%" r="70%"><stop offset="0" stop-color="#6a3ac8"/><stop offset=".55" stop-color="#2a1660"/><stop offset="1" stop-color="#120a2c"/></radialGradient>
+<radialGradient id="rpuIcoG" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#fff6c0"/><stop offset=".3" stop-color="#ffd45a" stop-opacity=".85"/><stop offset="1" stop-color="#ff9a3a" stop-opacity="0"/></radialGradient>
+<linearGradient id="rpuIcoT" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c8d2ff"/><stop offset=".55" stop-color="#94a2e4"/><stop offset="1" stop-color="#5a64a8"/></linearGradient>
+<linearGradient id="rpuIcoS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6aa8ff"/><stop offset="1" stop-color="#2a4ac8"/></linearGradient>
+<linearGradient id="rpuIcoC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0ffff"/><stop offset=".5" stop-color="#7ae8ff"/><stop offset="1" stop-color="#2a7aff"/></linearGradient></defs>`+
+ `<circle cx="50" cy="50" r="46" fill="url(#rpuIcoB)"/>`+
+ [0,30,60,90,120,150,180,210,240,270,300,330].map((a,i)=>`<path d="M50 20L${i%2?51.6:53} ${i%2?6:-2}L${i%2?48.4:47} ${i%2?6:-2}Z" fill="${i%2?'#ffb84a':'#fff0a0'}" opacity="${i%2?.45:.7}" transform="rotate(${a} 50 20)"/>`).join('')+
+ `<circle cx="50" cy="20" r="24" fill="url(#rpuIcoG)"/>`+
+ bP('M16 58h14v30H16z','url(#rpuIcoT)')+bP('M14 58L23 38L32 58Z','url(#rpuIcoS)')+bH('M19 54l4-9','#cfe0ff',1.6)+   /* left turret */
+ bP('M70 58h14v30H70z','url(#rpuIcoT)')+bP('M68 58L77 38L86 58Z','url(#rpuIcoS)')+bH('M73 54l4-9','#cfe0ff',1.6)+  /* right turret */
+ bP('M28 36h7v-6h6v6h18v-6h6v6h7v10H28z','#a8b4ec')+                                     /* battlements */
+ bP('M31 46h38v42H31z','url(#rpuIcoT)')+bF('M58 46h11v42H58z','#000',.16)+
+ bH('M35 56h8M47 64h8M36 74h7M52 79h8','#ffffff',1.8)+
+ bP('M41 88V72a9 9 0 0 1 18 0v16z','#4a2a14')+bF('M43.5 88V73a6.5 6.5 0 0 1 13 0v15z','#ffc24a')+bF('M46 88V75a4 4 0 0 1 8 0v13z','#fff0a0',.7)+
+ bP('M47 53h6v8h-6z','#ffe07a',2)+bP('M20 66h6v7h-6zM74 66h6v7h-6z','#ffe07a',1.8)+
+ bP('M63 12v22','none',2.6)+bP('M63 13l14 4.5-14 5.5z','#ff4a6a',2)+bH('M65 16.5l8 2','#ffd0d8',1.4)+
+ bP('M50 2L62 19L50 36L38 19Z','url(#rpuIcoC)',2.8)+bF('M50 6L57 19L50 32Z','#ffffff',.38)+bH('M44 15l3.5-5','#ffffff',2.2)+
+ bR('M60 27Q76 36 87 27','#7ae8ff',2.2)+bS(88,26,5,'#e8ffff')+bS(30,13,5.5,'#fff8d8')+bS(14,34,3.5,'#fff8d8')+
+ bC(30,94,6,'#7dd36a',2.4)+bC(50,96,6,'#4ad8e8',2.4)+bC(70,94,6,'#ffb84a',2.4)+
+ bF('M27.5 91.5a2.4 2.4 0 1 1 3 2.4zM47.5 93.5a2.4 2.4 0 1 1 3 2.4zM67.5 91.5a2.4 2.4 0 1 1 3 2.4z','#ffffff',.75);
+function rpuStarTxt(){return `${rpStarN()} / ${rpuStarMax()} stars`}
+/* Choose a mode: the entry's text and icon */
+{const m0=modeSheet;modeSheet=function(){const r=m0.apply(this,arguments);try{const b=document.getElementById('dmrp');if(b){const s=b.querySelector('small');if(s)s.textContent=`Tower defense. Build, upgrade, hold the castle. ${rpuStarTxt()}.`;
+  const ic=b.querySelector('.dkmi');if(ic)ic.innerHTML=mico('ramparts',58)}}catch(e){console.error(e)}return r}}
+/* the home card: the count and the emblem badge */
+{const h0=rpHomeCard;rpHomeCard=function(){const r=h0.apply(this,arguments);try{const c=document.getElementById('dkrp');if(c){const n=rpStarN(),mx=rpuStarMax(),ev=c.querySelector('.dkevv');
+  if(ev&&n)ev.innerHTML=`${n} / ${mx} stars <i>›</i>`;c.setAttribute('aria-label',c.getAttribute('aria-label').replace(/\d+ of 9 stars/,`${n} of ${mx} stars`));
+  if(!c.querySelector('.rpuemb')){const e=document.createElement('span');e.className='rpuemb';e.setAttribute('aria-hidden','true');e.innerHTML=mico('ramparts',74);c.appendChild(e)}}}catch(e){console.error(e)}return r}}
+{const st=document.createElement('style');st.textContent=`#dkrp .rpuemb{position:absolute;right:10px;bottom:8px;width:74px;height:74px;z-index:3;pointer-events:none;animation:rpuEmb 3.2s ease-in-out infinite}
+#dkrp .rpuemb svg{display:block}@keyframes rpuEmb{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-4px) rotate(3deg)}}
+@media (prefers-reduced-motion:reduce){#dkrp .rpuemb{animation:none}}body.rm #dkrp .rpuemb{animation:none}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

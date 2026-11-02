@@ -60820,7 +60820,7 @@ function rpwPre(R,dt){const m=R.map,run=R.wst==='run';
   if(e.s<0){rpwSp(e,1);continue}
   e.hide=0;if(e.shieldT>0){e.shieldT-=dt;if(e.shieldT<=0)e.shield=0}
   if(F.scut){e.scT-=dt;if(e.scT<=0)e.scT=F.scut[0];if(e.scT>F.scut[0]-F.scut[1])mult*=F.scut[2]}
-  if(F.shellT){if(e.shIn>0){e.shIn-=dt;mult*=.02;if(e.shIn<=0){e.armor=e.arm0;e.shT=F.shellT}}else{e.shT-=dt;if(e.shT<=0&&!e.stun){e.shIn=F.shellD;e.armor=e.arm0+F.shellA}}}
+  if(F.shellT){if(e.shIn>0){e.shIn-=dt;mult*=.1;if(e.shIn<=0){e.armor=e.arm0;e.shT=F.shellT}}else{e.shT-=dt;if(e.shT<=0&&!e.stun){e.shIn=F.shellD;e.armor=e.arm0+F.shellA}}}
   if(F.puffAt&&!e.puff&&e.hp<e.mx*F.puffAt){e.puff=1;e.arm0+=F.puffA;e.armor+=F.puffA;try{ptBurst(R.fx,rpPos(R,e).x,rpPos(R,e).y-24,8,['#ffffff','#bff8ff'],{v:120,s:3})}catch(x){}}
   if(e.puff)mult*=F.puffSp;
   if(F.glimT){e.glT-=dt;if(e.glT<=-F.glimD)e.glT=F.glimT;if(e.glT<=0)e.hide=1}
@@ -61494,6 +61494,48 @@ function rpiaVeil(R,tw,fog,fn){let L=null;const H=R._iaH;
  const T=RP_TW[s.type],i=s.tier-1,r0=T.range[i],k=s.glowK;T.range[i]=r0*k;s.glowK=1;try{return d0.apply(this,arguments)}finally{T.range[i]=r0;s.glowK=k}}}
 /* ---------- 10: How to Play ---------- */
 {const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{for(const p of ov.querySelectorAll('#rpmod .rphw p'))if(/Singularity Engine\./.test(p.textContent)&&p.innerHTML.includes('(650 supply'))p.innerHTML=p.innerHTML.replace('(650 supply','(600 supply')}catch(e){}return r}}
+/* ===== RUNESTONE TOWER DEFENSE 10.1b: monster motion feel (98q, after 98p) =====
+   Fixes the "frozen / glitching turtle" reports and the same roughness on every walker:
+   - Shellback: shelling up eases in (a squash as it tucks, a pop as it comes out) instead of swapping sprites in one frame, and the
+     hidden shell rocks, bobs and shimmers (with a small shield ring that empties as the shell opens) so it never reads as frozen.
+     98b now lets it creep at 10% speed in the shell (was 2%).
+   - Facing: monsters used to flip left/right in a single frame whenever the road bent past an angle (and flickered on near-vertical
+     stretches). Each monster now keeps a facing with hysteresis and turns with a quick squash through the middle.
+   - Walk cycle: the walk animation only advanced with real forward speed, so a monster held in a Singularity well, shoved by a
+     Tidecaller wave or slowed to a crawl stopped mid-step like a paused video. Its legs now keep paddling at a minimum rate (it
+     struggles) unless it is stunned, shelled, dead or hidden.
+   Draw-only plus the walk phase: no gameplay values change here. Prefix rpmf. */
+const RPMF={turn:.16,hyst:.32,minPh:.42,tuck:.22};
+let RPMF_CUR=null;
+/* the current foe's draw transform, set by the rpFoeDraw wrapper and used by the first rpMobBlit call it makes */
+{const b0=rpMobBlit;rpMobBlit=function(c,id,x,y,ph,o){const T=RPMF_CUR;if(!T)return b0.apply(this,arguments);RPMF_CUR=null;
+ o=Object.assign({},o||{});o.flip=T.flip;const M=RPMOB[id]||{},lift=M.air?(M.lift||38)*(o.s||1):0;
+ if(T.sx===1&&T.sy===1&&!T.rot&&!T.dy)return b0.call(this,c,id,x,y,ph,o);
+ c.save();c.translate(x,y+(T.dy||0));if(T.rot)c.rotate(T.rot);c.scale(T.sx,T.sy);c.translate(-x,-y);const r=b0.call(this,c,id,x,y,ph,o);c.restore();return r}}
+{const d0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){if(!e||e.dead||!q||!R||!RPMOB[e.id])return d0.apply(this,arguments);
+ /* facing with hysteresis and a quick turn */
+ const cs=Math.cos(q.a||0),want=e._fw||(cs<-.2?-1:1);let w=want;if(want>0&&cs<-RPMF.hyst)w=-1;else if(want<0&&cs>RPMF.hyst)w=1;e._fw=w;
+ const t=R.t||0,dt=Math.max(0,Math.min(.1,t-(e._ft==null?t:e._ft)));e._ft=t;if(e._fc==null)e._fc=w;
+ const st=dt/RPMF.turn*2;e._fc=w>e._fc?Math.min(w,e._fc+st):Math.max(w,e._fc-st);
+ let sx=R.rm?1:Math.max(.18,Math.abs(e._fc)),sy=1,rot=0,dy=0;const flip=(R.rm?w:e._fc)<0;
+ /* the Shellback tucking in / popping out / rocking in its shell */
+ const F=RP_FOE[e.id];if(F&&F.shellT&&!R.rm){const D=F.shellD||1.6;
+  if(e.shIn>0){const tin=D-e.shIn,u=Math.min(1,tin/RPMF.tuck),v=Math.min(1,e.shIn/RPMF.tuck);sy*=1-.18*Math.sin(u*Math.PI)*(u<1?1:0);sx*=1+.1*Math.sin(u*Math.PI)*(u<1?1:0);
+   const k=Math.min(u,v);rot=Math.sin(t*7.5+(e.uid||0))*.07*k;dy=-Math.abs(Math.sin(t*7.5+(e.uid||0)))*2.5*k;e._sho=0}
+  else{if(e._sho==null)e._sho=9;e._sho+=dt;const u=Math.min(1,e._sho/RPMF.tuck);if(u<1){sy*=1+.12*Math.sin(u*Math.PI);sx*=1-.06*Math.sin(u*Math.PI)}}}
+ RPMF_CUR={flip,sx:flip?sx:sx,sy,rot,dy};
+ try{return d0.apply(this,arguments)}finally{RPMF_CUR=null;
+  if(F&&F.shellT&&e.shIn>0&&!e.dead){const D=F.shellD||1.6,h=((RPMOB[e.id]||{}).h||50)*.95,f=Math.max(0,Math.min(1,e.shIn/D));c.save();
+   c.globalAlpha=.85;c.lineWidth=3.5;c.strokeStyle='rgba(18,8,31,.75)';c.beginPath();c.arc(q.x,q.y-h-12,9,0,TAU);c.stroke();
+   c.strokeStyle='#9fe8ff';c.lineWidth=2.5;c.beginPath();c.arc(q.x,q.y-h-12,9,-Math.PI/2,-Math.PI/2+TAU*f);c.stroke();
+   c.fillStyle='#d8f4ff';c.beginPath();c.moveTo(q.x,q.y-h-17);c.lineTo(q.x+4.5,q.y-h-14.5);c.lineTo(q.x+3.6,q.y-h-9.5);c.lineTo(q.x,q.y-h-7);c.lineTo(q.x-3.6,q.y-h-9.5);c.lineTo(q.x-4.5,q.y-h-14.5);c.closePath();c.fill();
+   if(!R.lite){c.globalCompositeOperation='lighter';c.globalAlpha=.18+.1*Math.sin(R.t*6);c.fillStyle='#7ae8ff';c.beginPath();c.ellipse(q.x,q.y-h*.42,h*.62,h*.46,0,0,TAU);c.fill()}
+   c.restore()}}}}
+/* the walk cycle keeps moving while a monster is held, shoved or crawling (it struggles); never while stunned, shelled or hidden */
+{const s0=rpStep;rpStep=function(R,dt){const L=R&&R.foes?R.foes:null,ph=L?L.map(e=>e.ph):null;const r=s0.apply(this,arguments);
+ if(L&&dt>0)for(let i=0;i<L.length;i++){const e=L[i];if(!e||e.dead||e.s<0||e.stun>0||e.shIn>0||e.hide||e.air)continue;const p0=ph[i];if(p0==null||!isFinite(e.ph))continue;
+  const min=dt*RPMF.minPh*(e.sp||50)/52;let d=e.ph-p0;if(d<0)d+=1;if(d<min)e.ph=(p0+min)%1}
+ return r}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

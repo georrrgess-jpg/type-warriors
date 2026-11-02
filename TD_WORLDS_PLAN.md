@@ -111,7 +111,7 @@ it in honey (15% slow, 1.5 s) and find the next target when it dies. Range 250-3
 - T5 Queen's Court: a large Queen Bee joins the swarm and every 6 s releases a sting burst that hits everything within 90 px.
 - Animations: hive door flaps, honey drips, bee wings blurring, figure-eight swarm paths, pollen trails, queen take-off.
 
-### Singularity Engine (key G, 650 supply; unlocked when World 3 opens) - crowd control, ground only
+### Singularity Engine (key G, 600 supply; unlocked when World 3 opens) - crowd control, ground only
 A brass orrery with spinning rings around a contained black-hole core. It fires a gravity orb onto the road that opens a
 gravity well for 2.5 s: ground monsters within the radius are pulled toward its centre along the road (bosses half as much;
 total pull per monster capped, like the Tidecaller's push) and crushed (damage per second, more for each extra monster caught,

@@ -14,7 +14,7 @@ PICK="""const sam=R.map.paths.map(P=>{const o=[];for(let j=1;j<P.length;j++){con
 BOT=BOT.replace("const pads=[...R.pads].sort((a,b)=>cov(b)-cov(a));","const pads=[...R.pads].sort((a,b)=>cov(b)-cov(a));"+PICK).replace("const free=pads.find(p=>!p.tw);","const free=pick();")
 assert "const free=pick();" in BOT
 SETUP="()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;try{PFW.asked=true}catch(e){}const r=RPP();r.dragon=1;r.new99j=1;r.stars={moss:3,frost:3,ember:3,coral:3,wreck:3,abyss:3,meadow:3,foundry:3};for(const k in r.tut)r.tut[k]=1;save()}"
-BUILDS={'strong':{'up':1,'order':['prism','dragon','frost','tide','still']},'mixed':{'up':1,'order':['ballista','brazier','frost','bell','prism']},'lazy':{'up':0,'noAbil':1,'order':['ballista']}}
+BUILDS={'strong':{'up':1,'order':['prism','dragon','frost','tide','still']},'mixed':{'up':1,'order':['ballista','brazier','frost','bell','prism']},'lazy':{'up':0,'noAbil':1,'order':['ballista']},'new':{'up':1,'order':['frost','hive','bell','prism','grav']},'mixhive':{'up':1,'order':['ballista','brazier','frost','hive','prism']},'mixgrav':{'up':1,'order':['ballista','brazier','frost','bell','grav']}}
 async def run(br,m,bn,res):
     pg=await br.new_page(viewport={'width':800,'height':450});await pg.goto('file://'+SRC);await pg.wait_for_timeout(1200)
     await pg.evaluate(SETUP);await pg.evaluate("()=>{"+BOT+"}")
@@ -29,5 +29,5 @@ async def main():
             async with sem:
                 try:await run(br,m,bn,res)
                 except Exception as e:print('ERR',m,bn,str(e)[:200],flush=True)
-        await asyncio.gather(*[one(m,bn) for m in maps for bn in BUILDS]);await br.close()
+        await asyncio.gather(*[one(m,bn) for m in maps for bn in (os.environ.get('BUILDS','').split(',') if os.environ.get('BUILDS') else BUILDS)]);await br.close()
 asyncio.run(main())

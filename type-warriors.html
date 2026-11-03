@@ -44371,8 +44371,9 @@ function rpVentDraw(c,x,y,t,k){c.save();c.globalCompositeOperation='lighter';con
 /* live ambience: river shimmer, snowfall and ice glints, lava glow and vent smoke, motes, the castle's own live bits */
 function rpAmbient(c,R){const B=R.bake,pal=B.pal,t=R.t,rm=R.rm,G=R.G,K=R.map.pal;
  c.save();c.globalCompositeOperation='lighter';
- if(G.RV){const RS=G.RV.S;c.strokeStyle=pal.waterHi;c.lineWidth=2.4;for(let i=0;i<18;i++){const u=((t*.035+i/18)%1),j=Math.min(RS.length-1,(u*RS.length)|0),p=RS[j],o=(rnd(i)-.5)*34;
-   c.globalAlpha=.45*Math.sin(u*Math.PI);const x=p.x-Math.sin(p.a)*o,y=p.y+Math.cos(p.a)*o;c.beginPath();c.moveTo(x-Math.cos(p.a)*10,y-Math.sin(p.a)*10);c.lineTo(x+Math.cos(p.a)*10,y+Math.sin(p.a)*10);c.stroke()}}
+ if(G.RV){const RS=G.RV.S,RD=G._rvD||(G._rvD=RS.map(p=>G.dRoad(p.x,p.y)));c.strokeStyle=pal.waterHi;c.lineWidth=2.4;for(let i=0;i<18;i++){const u=((t*.035+i/18)%1),j=Math.min(RS.length-1,(u*RS.length)|0),p=RS[j],o=(rnd(i)-.5)*34;
+   /* 10.1f: no streaks on the bridge: they fade out as they flow under it (RD: the road's distance from the river line) */if(RD[j]<56)continue;
+   c.globalAlpha=.45*Math.sin(u*Math.PI)*Math.min(1,(RD[j]-56)/16);const x=p.x-Math.sin(p.a)*o,y=p.y+Math.cos(p.a)*o;c.beginPath();c.moveTo(x-Math.cos(p.a)*10,y-Math.sin(p.a)*10);c.lineTo(x+Math.cos(p.a)*10,y+Math.sin(p.a)*10);c.stroke()}}
  if(R.map.ice){for(let i=0;i<R.map.ice.length;i++){const z=R.map.ice[i],u=(t*.6+i*.37)%1;if(u>.3)continue;const a=Math.sin(u/.3*Math.PI);c.globalAlpha=a;c.fillStyle='#ffffff';
    const x=z[0]-z[2]*.3+rnd(i+Math.floor(t*.6))*z[2]*.6,y=z[1]-z[2]*.2;c.beginPath();c.moveTo(x,y-9*a);c.lineTo(x+2,y);c.lineTo(x,y+9*a);c.lineTo(x-2,y);c.closePath();c.fill();c.fillRect(x-9*a,y-1,18*a,2)}}
  if(R.map.lake){const [lx,ly,rx]=R.map.lake;c.globalAlpha=.22+.12*Math.sin(t*1.7);glow(c,lx,ly,rx*1.25,'#ff8a2a');
@@ -45738,7 +45739,7 @@ function rpWorldArt(open){if(open===undefined)open=rpwWOpen();open=!!open;const 
    if(it.id==='wonder'){g.save();g.globalCompositeOperation='lighter';g.globalAlpha=.5;g.drawImage(rpwGlow('200,140,255',90),it.x-110,it.y-200,220,240);g.restore()}
    g.imageSmoothingQuality='high';g.drawImage(A.c2,x0,y0,A.w*s,A.h*s);it.x0=x0;it.y0=y0;W.cast.push(it)}}
  /* bridges and trail dots */
- rpwPlankBridge(g,516,442,566,410,16);rpwPlankBridge(g,888,260,982,258,14);
+ for(const b of RPWW_BR)rpwPlankBridge(g,...b);
  for(const T of W.trail){let acc=0;for(let i=1;i<T.length;i++){acc+=Math.hypot(T[i][0]-T[i-1][0],T[i][1]-T[i-1][1]);if(acc>=20){acc=0;const p=T[i];g.fillStyle='#f4e2b8';g.beginPath();g.ellipse(p[0],p[1],5,4,0,0,RPW_PI*2);g.fill();rpwOut(g,1.8)}}}
  /* floating islands with crystal flora and rainbow falls (open) */
  if(open)for(const [x,y,r,k] of ISL){const top=()=>{g.beginPath();g.ellipse(x,y,r,r*.3,0,0,RPW_PI*2)};
@@ -45769,10 +45770,13 @@ function rpWorldArt(open){if(open===undefined)open=rpwWOpen();open=!!open;const 
  q=g.createLinearGradient(0,640,0,900);q.addColorStop(0,'rgba(10,6,24,0)');q.addColorStop(1,'rgba(10,6,24,.55)');g.fillStyle=q;g.fillRect(0,640,1600,260);
  q=g.createLinearGradient(1100,0,1600,0);q.addColorStop(0,'rgba(10,6,24,0)');q.addColorStop(1,'rgba(10,6,24,.4)');g.fillStyle=q;g.fillRect(1100,0,500,900);
  W.mist=rpwGlow('230,236,255',80);W.pmist=rpwGlow('150,100,220',80);W.lg=rpwGlow('255,110,30',30);RPWW_C[key]=W;return c}
+/* the two plank bridges (painted by rpWorldArt; the live layer keeps the river shimmer off them) */
+const RPWW_BR=[[516,442,566,410,16],[888,260,982,258,14]];
+function rpwBrD(x,y){let d=1e9;for(const [x0,y0,x1,y1,w] of RPWW_BR){const dx=x1-x0,dy=y1-y0,l2=dx*dx+dy*dy,u=Math.max(0,Math.min(1,((x-x0)*dx+(y-y0)*dy)/l2));d=Math.min(d,Math.hypot(x-x0-dx*u,y-y0-dy*u)-w/2)}return d}
 function rpWorldLive(g,t,open){if(open===undefined)open=rpwWOpen();open=!!open;const W=RPWW_C[open?'o':'l'];if(!W){rpWorldArt(open);return}g.save();
  /* river shimmer (Mossgate river) and starlight twinkles (the stream) */
  g.strokeStyle='rgba(255,255,255,.5)';g.lineWidth=1.6;g.beginPath();
- for(const r of W.riv){if(r.s)continue;const L=r.L,n=L.length;for(let i=0;i<16;i++){const u=(t*.035+i/16+rpwR(i+n)*.05)%1,j=Math.min(n-2,(u*n)|0),p=L[j],q=L[j+1],w=r.w0+(r.w1-r.w0)*j/n,o=(rpwR(i*3+n)-.5)*w*.7,dx=q[0]-p[0],dy=q[1]-p[1],m=Math.hypot(dx,dy)||1;
+ for(const r of W.riv){if(r.s)continue;const L=r.L,n=L.length,BD=r.bd||(r.bd=L.map(p=>rpwBrD(p[0],p[1])));for(let i=0;i<16;i++){const u=(t*.035+i/16+rpwR(i+n)*.05)%1,j=Math.min(n-2,(u*n)|0),p=L[j],q=L[j+1];if(BD[j]<14||BD[j+1]<14)continue;const w=r.w0+(r.w1-r.w0)*j/n,o=(rpwR(i*3+n)-.5)*w*.7,dx=q[0]-p[0],dy=q[1]-p[1],m=Math.hypot(dx,dy)||1;
   g.moveTo(p[0]-dy/m*o,p[1]+dx/m*o);g.lineTo(p[0]-dy/m*o+dx/m*8,p[1]+dx/m*o+dy/m*8)}}g.stroke();
  if(open){const r=W.riv.find(x=>x.s);if(r){g.fillStyle='#ffffff';g.globalAlpha=.9;g.beginPath();for(let i=0;i<12;i++){const u=(t*.4+i*.29)%1;if(u>.45)continue;const a=Math.sin(u/.45*RPW_PI),s=a*3.4,p=r.L[(i*7+3)%r.L.length],x=p[0]+(rpwR(i+3)-.5)*14,y=p[1];
    g.moveTo(x,y-s*1.5);g.lineTo(x+s*.3,y-s*.3);g.lineTo(x+s*1.5,y);g.lineTo(x+s*.3,y+s*.3);g.lineTo(x,y+s*1.5);g.lineTo(x-s*.3,y+s*.3);g.lineTo(x-s*1.5,y);g.lineTo(x-s*.3,y-s*.3);g.closePath()}g.fill()}}
@@ -45782,7 +45786,9 @@ function rpWorldLive(g,t,open){if(open===undefined)open=rpwWOpen();open=!!open;c
  for(let li=0;li<W.lava.length;li++){const L=W.lava[li];for(let i=10;i<L.length;i+=40){g.globalAlpha=.22+.16*Math.sin(t*2.4+i*.3+li);g.drawImage(lg,L[i][0]-30,L[i][1]-30)}}
  g.fillStyle='#fff0b0';g.globalAlpha=.6;g.beginPath();for(const L of W.lava)for(let i=0;i<6;i++){const u=(t*.06+i/6)%1,p=L[Math.min(L.length-1,(u*L.length)|0)];g.rect(p[0]-1.5,p[1]-1.5,3,3)}g.fill();
  g.globalAlpha=.35+.2*Math.sin(t*1.7);g.drawImage(rpwGlow('255,120,40',110),W.crater[0]-90,W.crater[1]-80,180,150);
- g.fillStyle='#ffb84a';g.globalAlpha=.6;g.beginPath();for(let i=0;i<12;i++){const u=(t*.07+rpwR(i+40))%1,x=990+rpwR(i+41)*560+Math.sin(t+i)*10,y=470-u*420;g.rect(x,y,2.2,2.2)}g.fill();
+ /* 10.1f: the castles' live layer first, so sparks, snow and smoke drift in front of the castles instead of under their lit windows */
+ g.globalCompositeOperation='source-over';g.globalAlpha=1;for(const it of W.cast){const s=RPWORLD.scale[it.id];g.save();g.translate(it.x0,it.y0);g.scale(s,s);rpCastleLive(g,it.id,0,0,t,1);g.restore()}g.globalCompositeOperation='lighter';
+ g.fillStyle='#ffb84a';g.globalAlpha=.6;g.beginPath();for(let i=0;i<12;i++){const u=(t*.07+rpwR(i+40))%1,x=990+rpwR(i+41)*560+Math.sin(t+i)*10,y=470-u*420,z=2.2*Math.min(1,u*8,(1-u)*8);/* grow in and fade out instead of popping */if(z>.2)g.rect(x-z/2,y-z/2,z,z)}g.fill();
  /* Wonderland: aurora shimmer and glowing islands (open), or the swirling shroud and the pulsing '?' (locked) */
  if(open){const av=typeof rpwAurora==='function'?rpwAurora():null;if(av)for(let k=0;k<2;k++){g.globalAlpha=.16+.1*Math.sin(t*.7+k*2.1);g.drawImage(av,640+k*150+Math.sin(t*.13+k)*40,420+k*22,520,60)}
   for(let i=0;i<W.isl.length;i++){const s=W.isl[i];g.globalAlpha=.2+.12*Math.sin(t*1.8+i*2);g.drawImage(rpwGlow('200,140,255',40),s[0]-s[2],s[1]-s[2]*.6,s[2]*2,s[2]*1.4)}}
@@ -45790,10 +45796,9 @@ function rpWorldLive(g,t,open){if(open===undefined)open=rpwWOpen();open=!!open;c
   g.globalCompositeOperation='lighter';g.globalAlpha=.3+.25*Math.sin(t*2);g.drawImage(rpwGlow('200,140,255',60),W.q[0]-70,W.q[1]-80,140,150)}
  g.globalCompositeOperation='source-over';
  for(let i=0;i<3;i++){const u=(t*.05+i/3)%1,r=8+u*26;g.globalAlpha=.32*(1-u);g.fillStyle='#3a2a36';g.beginPath();g.arc(W.crater[0]+Math.sin(u*4+i)*12+u*30,W.crater[1]-10-u*80,r,0,RPW_PI*2);g.fill()}
- g.fillStyle='#ffffff';for(let b=0;b<2;b++){g.globalAlpha=b?.45:.8;g.beginPath();for(let i=b;i<40;i+=2){const u=(t*(.03+rpwR(i+90)*.03)+rpwR(i+91))%1,x=452+rpwR(i+92)*470+Math.sin(t*.8+i)*14,y=-10+u*420;g.rect(x,y,b?1.6:2.4,b?1.6:2.4)}g.fill()}
+ g.fillStyle='#ffffff';for(let b=0;b<2;b++){g.globalAlpha=b?.45:.8;g.beginPath();for(let i=b;i<40;i+=2){const u=(t*(.03+rpwR(i+90)*.03)+rpwR(i+91))%1,x=452+rpwR(i+92)*470+Math.sin(t*.8+i)*14,y=-10+u*420,z=(b?1.6:2.4)*Math.min(1,(1-u)*10);if(z>.2)g.rect(x,y,z,z)}g.fill()}
  for(const [x,y,a,s] of[[930,250,.3,1],[955,470,.22,.9]]){g.globalAlpha=a*(.75+.25*Math.sin(t*.5+x));g.drawImage(W.mist,x-80*s+Math.sin(t*.25+y)*24,y-48*s,160*s,96*s)}
  g.globalAlpha=1;
- for(const it of W.cast){const s=RPWORLD.scale[it.id];g.save();g.translate(it.x0,it.y0);g.scale(s,s);rpCastleLive(g,it.id,0,0,t,1);g.restore()}
  g.restore()}
 /* a small tile with the castle, for the 'next region' card */
 function rpMapIcon(id,w,h){if(!RPW_PAL[id])id='moss';w=Math.round(w||88);h=Math.round(h||88);const k=id+w+'x'+h;if(RPWS[k])return RPWS[k];const c=rpwCv(w,h),g=c.getContext('2d'),A=rpCastleArt(id),r=Math.min(w,h)*.16;
@@ -57273,12 +57278,12 @@ function rpw2aCoralAmb(c,R){const B=R.bake,t=R.t,lite=R.lite,rm=R.rm,tk=R.tide?R
   for(let i=0;i<n&&i<S.length;i++){const p=S[i],u=(t*.05+i*.13)%1,x=p[0]+u*40-20,y=p[1]+Math.sin(t+i)*2;c.globalAlpha=1;c.moveTo(x-9*Math.sin(u*Math.PI),y);c.lineTo(x+9*Math.sin(u*Math.PI),y)}c.stroke();
   c.globalCompositeOperation='source-over';c.globalAlpha=.9;rpw2aTwinkle(c,B.sea,t,4,'#ffffff',.45);c.globalAlpha=1}
  /* fish and a sea turtle under the water */
- if(!rm&&!lite){c.globalAlpha=.75;const AT=rpw2aSeaAtlas(),T=[[470,700,110,40,.11,0],[1170,740,90,36,-.09,2]];for(const [x0,y0,rx,ry,w,ph] of T){const a=t*w+ph,h=Math.atan2(Math.cos(a)*ry*w,-Math.sin(a)*rx*w);let x=x0+Math.cos(a)*rx,y=y0+Math.sin(a)*ry;
+ if(!rm&&!lite){c.globalAlpha=.75;const AT=rpw2aSeaAtlas(),T=[[462,705,80,32,.11,0],[1170,740,90,36,-.09,2]];/* 10.1f: the first turtle's loop kept inside the cove (it crossed the beach) */for(const [x0,y0,rx,ry,w,ph] of T){const a=t*w+ph,h=Math.atan2(Math.cos(a)*ry*w,-Math.sin(a)*rx*w);let x=x0+Math.cos(a)*rx,y=y0+Math.sin(a)*ry;
    /* 10.1: a click on the water near it: the turtle dives (smaller, fainter) and darts away */const dv=typeof rpw2aAgo==='function'?rpw2aAgo(R,'turt'+ph):1e9,dk=dv<3?Math.sin(Math.min(1,dv/3)*Math.PI):0;if(dk){const o=rpw2aOff(R,'sea',x,y,ph,60);x+=o[0];y+=o[1]}
    c.save();c.translate(x,y);c.rotate(h);if(dk){c.globalAlpha=.75*(1-.6*dk);c.scale(1-.25*dk,1-.25*dk)}c.drawImage(AT,(((t*(5+dk*8))|0)%4)*80,24,80,70,-40,-35,80,70);c.restore()}c.globalAlpha=.75;
   for(let s=0;s<2;s++){const cx=s?830:300,cy=s?812:830,a=t*(s?.22:-.18)+s*2;for(let i=0;i<5;i++){const b=a-i*.09,h=Math.atan2(Math.cos(b)*26,-Math.sin(b)*70)+(s?0:Math.PI);let x=cx+Math.cos(b)*(70+i%2*8),y=cy+Math.sin(b)*26+Math.sin(t*3+i)*2;
     if(typeof rpw2aOff==='function'){const o=rpw2aOff(R,'sea',x,y,i+s*5,70);x+=o[0];y+=o[1]}
-    c.save();c.translate(x,y);c.rotate(h);c.drawImage(AT,((i+s)%3)*40,0,40,24,-14,-8.4,28,16.8);c.restore()}}c.globalAlpha=1}
+    c.save();c.translate(x,y);rpcoFlipY(c,h);c.drawImage(AT,((i+s)%3)*40,0,40,24,-14,-8.4,28,16.8);c.restore()}}c.globalAlpha=1}
  /* waves rolling onto the shore (pushed a little inland while the tide is high) */
  if(!rm)rpw2aWaves(c,B.shore,t,lite,'#ffffff',16,tk*6);
  /* gull shadows */
@@ -57925,18 +57930,20 @@ function rpw2aWorldLive(g,W,t){g.save();if(typeof rpw2aWorldLive2==='function')r
  /* the trench glows and its eye opens now and then */
  g.globalCompositeOperation='lighter';g.globalAlpha=.25+.15*Math.sin(t*1.2);g.drawImage(rpw2aGl('80,230,200',70),W.eye[0]-90,W.eye[1]-50,180,100);g.globalCompositeOperation='source-over';
  {const o=Math.max(0,Math.sin(t*.5));if(o>.05){g.globalAlpha=1;g.save();g.translate(W.eye[0],W.eye[1]);g.scale(.5,.5*o);g.beginPath();g.moveTo(-34,0);g.quadraticCurveTo(0,-30,34,0);g.quadraticCurveTo(0,30,-34,0);g.closePath();g.fillStyle='#d8f04a';g.fill();g.lineWidth=4;g.strokeStyle=RPO;g.stroke();g.fillStyle='#0a0614';g.beginPath();g.ellipse(Math.sin(t*.7)*8,0,5,13,0,0,TAU);g.fill();g.restore()}}
- /* a little ship sailing the routes */
- {const T=W.routes[1],u=(t*.025)%1,n=T.length-1,i=Math.min(n-1,(u*n)|0),p=T[i],q=T[i+1];g.save();g.translate(p[0],p[1]-6+Math.sin(t*2)*1.5);g.scale(q[0]<p[0]?-.9:.9,.9);
-  g.fillStyle='#8a5a32';g.beginPath();g.moveTo(-14,0);g.quadraticCurveTo(0,10,14,0);g.lineTo(18,-4);g.lineTo(-16,-4);g.closePath();g.fill();rpw2aOut(g,1.6);g.strokeStyle=RPO;g.lineWidth=1.6;g.beginPath();g.moveTo(0,-4);g.lineTo(0,-26);g.stroke();
-  g.fillStyle='#fff8e8';g.beginPath();g.moveTo(1,-24);g.quadraticCurveTo(12,-16,1,-7);g.closePath();g.fill();rpw2aOut(g,1.4);g.fillStyle='#e8343a';g.fillRect(0,-30,7,4);g.restore();
-  g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=1.4;g.beginPath();g.moveTo(p[0]-10,p[1]+2);g.quadraticCurveTo(p[0]-22,p[1]+5,p[0]-30,p[1]+2);g.stroke()}
+ /* a little ship (10.1f: on a water-only course from 98u, bow first, faded in and out at the ends of the painted sea) */
+ {const S=rpcoW2Ship(t);if(S&&S.a>.01){const bob=Math.sin(t*2)*1.5,sx=S.x-S.dir*10*.9;g.globalAlpha=S.a;
+   g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=1.4;g.beginPath();g.moveTo(sx,S.y+2);g.quadraticCurveTo(sx-S.dir*12,S.y+5-S.ty*4,sx-S.dir*20,S.y+2-S.ty*8);g.stroke();
+   g.save();g.translate(S.x,S.y-6+bob);g.scale(S.sx*.9,.9);
+   g.fillStyle='#8a5a32';g.beginPath();g.moveTo(-14,0);g.quadraticCurveTo(0,10,14,0);g.lineTo(18,-4);g.lineTo(-16,-4);g.closePath();g.fill();rpw2aOut(g,1.6);g.strokeStyle=RPO;g.lineWidth=1.6;g.beginPath();g.moveTo(0,-4);g.lineTo(0,-26);g.stroke();
+   g.fillStyle='#fff8e8';g.beginPath();g.moveTo(1,-24);g.quadraticCurveTo(12,-16,1,-7);g.closePath();g.fill();rpw2aOut(g,1.4);g.fillStyle='#e8343a';g.fillRect(0,-30,7,4);g.restore();g.globalAlpha=1}}
  if(typeof rpw2aWorldLive2==='function')rpw2aWorldLive2(g,W,t,1);
- /* mist drifting over the cove */
- const ms=rpw2aFogSpr(0);for(let k=0;k<2;k++){g.globalAlpha=.24;g.drawImage(ms,520+((t*6+k*150)%300)-60,240+k*80+Math.sin(t*.3+k)*8,200,110)}g.globalAlpha=1;
+ /* mist drifting over the cove (10.1f: it fades in and out instead of jumping back at the end of its drift) */
+ const ms=rpw2aFogSpr(0);for(let k=0;k<2;k++){const u=((t*6+k*150)%300)/300;g.globalAlpha=.24*Math.sin(u*Math.PI);g.drawImage(ms,460+u*300,240+k*80+Math.sin(t*.3+k)*8,200,110)}g.globalAlpha=1;
+ /* the castles' live layer before the gulls, so the gulls fly in front of the castles and their lit windows */
+ for(const it of W.cast){const s=RPW2A_WS;g.save();g.translate(it.x0,it.y0);g.scale(s,s);rpw2aCastleLive(g,rpw2aCastle(it.id),0,0,t,1);g.restore()}
  /* gulls and the lighthouse lamp */
  for(let i=0;i<3;i++){const a=t*(.18+i*.04)+i*2.1,x=330+Math.cos(a)*(140-i*20),y=540+Math.sin(a)*(70-i*10);rpw2aGull(g,x,y,.55,a+Math.PI,t*7+i,0)}
  if(W.light){g.globalCompositeOperation='lighter';g.globalAlpha=.5+.25*Math.sin(t*3);g.drawImage(rpw2aGl('255,240,170',20),W.light.x-20,W.light.y-20);g.globalCompositeOperation='source-over';g.globalAlpha=1}
- for(const it of W.cast){const s=RPW2A_WS;g.save();g.translate(it.x0,it.y0);g.scale(s,s);rpw2aCastleLive(g,rpw2aCastle(it.id),0,0,t,1);g.restore()}
  g.restore()}
 /* ---------- the small map pictures (next-region cards): the castle on a themed tile ---------- */
 function rpw2aIcon(id,w,h){w=Math.round(w||88);h=Math.round(h||88);const k='ic'+id+w+'x'+h;if(RPW2A.s[k])return RPW2A.s[k];const c=rpw2aCv(w,h),g=c.getContext('2d'),A=rpw2aCastle(id),r=Math.min(w,h)*.16;g.lineJoin='round';g.lineCap='round';
@@ -58195,10 +58202,12 @@ function rpw2aBfly(c,R,B){const t=R.t,rm=R.rm;for(const [x0,y0,i] of B.bfly){let
   c.fillStyle='rgba(20,40,20,.18)';c.beginPath();c.ellipse(x+4,y+26,4,1.6,0,0,TAU);c.fill();
   c.fillStyle=C;c.strokeStyle=RPO;c.lineWidth=1.1;for(const sd of[-1,1]){c.beginPath();c.ellipse(x+sd*(1+4.6*f),y-1.4,4.6*f+.6,4,sd*.3,0,TAU);c.ellipse(x+sd*(1+3.2*f),y+2.6,3.2*f+.5,2.6,-sd*.4,0,TAU);c.fill();c.stroke()}
   c.fillStyle=RPO;c.fillRect(x-.8,y-3.4,1.6,7)}}
-function rpw2aDolphins(c,R,B){const t=R.t;for(const [x0,y0,i] of B.dol){const per=14,off=i*4.7,pu=rpw2aAgo(R,'dol'+i);let ts=pu<2.6?pu:((t+off)%per);if(ts>2.6)continue;const dir=i%2?1:-1;
-  const u=Math.min(1,Math.max(0,(ts-.2)/1.5)),x=x0+(u-.5)*110*dir,y=y0-Math.sin(u*Math.PI)*58,ang=Math.atan2(-Math.cos(u*Math.PI)*58*Math.PI,110*dir);
+/* 10.1f: the nose leads (98u rpcoLeap) and the body is clipped at the water line, so it rises out of the sea and dives back in */
+function rpw2aDolPos(R,x0,y0,i){const per=14,off=i*4.7,pu=rpw2aAgo(R,'dol'+i);const ts=pu<2.6?pu:((R.t+off)%per);if(ts>2.6)return null;const dir=i%2?1:-1,u=(ts-.2)/1.5*1.24-.12;
+ if(u<-.12||u>1.12)return{ts,dir,u:null};const [x,y,rot]=rpcoLeap(x0,y0,dir,u,110,58);return{ts,dir,u,x,y,rot}}
+function rpw2aDolphins(c,R,B){for(const [x0,y0,i] of B.dol){const D=rpw2aDolPos(R,x0,y0,i);if(!D)continue;const {ts,dir}=D;
   if(ts<.75)rpw2aRipple(c,x0-55*dir,y0,ts/.75,26,'#ffffff',.85);if(ts>1.6&&ts<2.5)rpw2aRipple(c,x0+55*dir,y0,(ts-1.6)/.9,30,'#ffffff',.85);
-  if(ts>.2&&ts<1.7){const S=rpw2aDolphinSpr();c.save();c.translate(x,y);c.scale(dir,1);c.rotate(ang*dir);c.drawImage(S,-38,-22);c.restore()}}}
+  if(D.u!==null)rpcoLeapDraw(c,rpw2aDolphinSpr(),38,22,D.x,D.y,dir,D.rot,1,y0+3)}}
 function rpw2aCoralLive(c,R){const B=rpw2aCoralInit(R.bake);rpw2aTick(R);c.save();
  if(!R.rm&&!R.lite)rpw2aDolphins(c,R,B);
  rpw2aCrabs(c,R,B.crab||[],0);rpw2aGullsStand(c,R,B.gstand||[],0);
@@ -58237,7 +58246,7 @@ function rpw2aWreckInit(B,map){if(B._w2a)return B;B._w2a=1;const F=B.F,sh=map.sh
 function rpw2aWreckLive(c,R){const B=rpw2aWreckInit(R.bake,R.map),t=R.t,rm=R.rm,lite=R.lite,s=rpw2aTick(R);c.save();
  /* fish in the murky water */
  if(!rm&&!lite){const AT=rpw2aSeaAtlas();c.globalAlpha=.42;for(let q=0;q<B.wfish.length;q++){const [cx,cy]=B.wfish[q],a0=t*(q?.2:-.17)+q*2;for(let i=0;i<5;i++){const b=a0-i*.1,h=Math.atan2(Math.cos(b)*24,-Math.sin(b)*64)+(q?0:Math.PI);let x=cx+Math.cos(b)*(64+i%2*8),y=cy+Math.sin(b)*24;
-   const o=rpw2aOff(R,'seaW',x,y,i+q*5,70);x+=o[0];y+=o[1];c.save();c.translate(x,y);c.rotate(h);c.drawImage(AT,((i+q)%3)*40,0,40,24,-12,-7,24,14);c.restore()}}c.globalAlpha=1}
+   const o=rpw2aOff(R,'seaW',x,y,i+q*5,70);x+=o[0];y+=o[1];c.save();c.translate(x,y);rpcoFlipY(c,h);c.drawImage(AT,((i+q)%3)*40,0,40,24,-12,-7,24,14);c.restore()}}c.globalAlpha=1}
  /* lantern light shimmering on the water below */
  if(B.lrefl.length){c.globalCompositeOperation='lighter';c.fillStyle='rgba(255,190,100,.5)';c.beginPath();for(let i=0;i<B.lrefl.length;i++){const p=B.lrefl[i];for(let j=0;j<4;j++){const yy=p[1]+j*9,w=(10-j*1.6)*(.8+.2*Math.sin(t*3+i+j)),dx=rm?0:Math.sin(t*2.2+j*1.7+i)*3;c.rect(p[0]-w+dx,yy,w*2,2.2)}}
   c.globalAlpha=.55;c.fill();c.globalCompositeOperation='source-over';c.globalAlpha=1}
@@ -58290,7 +58299,7 @@ function rpw2aAbyssLive(c,R){const B=rpw2aAbyssInit(R.bake,R.map),t=R.t,rm=R.rm,
  if(!rm){c.globalCompositeOperation='lighter';const ray=rpw2aRaySpr();for(let i=0;i<(lite?1:3);i++){c.globalAlpha=.05+.03*Math.sin(t*.31+i*2);c.save();c.translate(300+i*480+Math.sin(t*.07+i*2)*90,-30);c.rotate(-.3+Math.sin(t*.05+i)*.05);c.drawImage(ray,-60,0,150,860);c.restore()}c.globalCompositeOperation='source-over';c.globalAlpha=1}
  /* a school of glowing fish circling the maw */
  if(!lite){const n=9;for(let i=0;i<n;i++){const a=(rm?0:t*.16)+i*.13+(i%3)*.04,rx=lrx+78+(i%3)*10,ry=lry+56+(i%2)*8;let x=lx+Math.cos(a)*rx,y=ly+Math.sin(a)*ry+Math.sin(t*2+i)*3;const o=rpw2aOff(R,'fishA',x,y,i,90);x+=o[0];y+=o[1];
-   const h=Math.atan2(Math.cos(a)*ry,-Math.sin(a)*rx);c.save();c.translate(x,y);c.rotate(h);c.drawImage(rpw2aFishASpr(i%5),-15,-8);c.restore()}}
+   const h=Math.atan2(Math.cos(a)*ry,-Math.sin(a)*rx);c.save();c.translate(x,y);rpcoFlipY(c,h);c.drawImage(rpw2aFishASpr(i%5),-15,-8);c.restore()}}
  /* clams breathe bubbles; a clicked clam opens its pearl glow */
  for(let i=0;i<B.clams.length;i++){const [x,y,sz]=B.clams[i],u=rpw2aAgo(R,'clam'+i);if(u<2.6){const k=u<.2?u/.2:1-rpw2aEio((u-.2)/2.4);c.globalCompositeOperation='lighter';c.globalAlpha=k;c.drawImage(rpw2aGl('255,230,250',30),x-40,y-sz*.14-30,80,60);c.globalCompositeOperation='source-over';c.fillStyle='#ffffff';c.beginPath();rpw2aStar4(c,x+6,y-sz*.3,5*k);c.fill();c.globalAlpha=1}}
  /* the sunken chest */
@@ -58341,10 +58350,10 @@ function rpw2aWorldLive2(g,W,t,ph){
   for(const [bx,by,a0,Ln,w,cu,bd] of W.tent||[])rpw2aTentacle(g,bx,by,a0,Ln,w,cu,bd,bx,t,0);
   /* the whale blows now and then */
   if(W.whale){const u=(t%7)/1.8;if(u<1){const [x,y]=W.whale;g.fillStyle='#ffffff';g.beginPath();for(let j=0;j<10;j++){const a=-Math.PI/2+(j-4.5)*.12,v=Math.min(1,u*1.6)*(.6+.4*rpw2aR(j)),r=46*v,px=x-26+Math.cos(a)*r*.5,py=y-6+Math.sin(a)*r+u*u*18;g.moveTo(px+2.2,py);g.arc(px,py,2.2*(1-u*.5),0,TAU)}g.globalAlpha=.85*(1-u*u);g.fill();g.globalAlpha=1}}
-  /* dolphins leaping in the shallows */
-  for(let i=0;i<W.dol.length;i++){const [x0,y0]=W.dol[i],ts=(t+i*3.1)%6.2;if(ts>1.8)continue;const u=Math.min(1,ts/1.4),dir=i%2?1:-1,x=x0+(u-.5)*60*dir,y=y0-Math.sin(u*Math.PI)*30,ang=Math.atan2(-Math.cos(u*Math.PI)*30*Math.PI,60*dir);
-   if(ts<.5)rpw2aRipple(g,x0-30*dir,y0,ts/.5,14,'#ffffff',.8);if(ts>1.1)rpw2aRipple(g,x0+30*dir,y0,(ts-1.1)/.7,16,'#ffffff',.8);
-   if(ts<1.4){g.save();g.translate(x,y);g.scale(dir*.55,.55);g.rotate(ang*dir);g.drawImage(rpw2aDolphinSpr(),-38,-22);g.restore()}}}
+  /* dolphins leaping in open water (10.1f: 98u's spots and leap: nose on the direction of travel, rising out of and diving into the sea) */
+  for(let i=0;i<RPCO_W2DOL.length;i++){const D=rpcoW2Dol(i,t);if(!D)continue;const {x0,y0,dir,ts}=D;
+   if(ts<.6)rpw2aRipple(g,x0-30*dir,y0,ts/.6,14,'#ffffff',.8);if(ts>1.25)rpw2aRipple(g,x0+30*dir,y0,Math.min(1,(ts-1.25)/.65),16,'#ffffff',.8);
+   rpcoLeapDraw(g,rpw2aDolphinSpr(),38,22,D.x,D.y,dir,D.rot,.55,y0+2)}}
  else{/* the lighthouse beam sweeping the sea */
   if(W.light){const L=W.light,a=t*.9,dx=Math.cos(a),dy=Math.sin(a)*.5,l=Math.hypot(dx,dy);g.save();g.globalCompositeOperation='lighter';g.globalAlpha=.16+.12*Math.max(0,Math.sin(a));g.translate(L.x,L.y);g.rotate(Math.atan2(dy,dx));g.drawImage(rpw2aBeam(),0,-16,190*l,32);g.restore()}
   /* two little clouds drifting across, with their shadows */
@@ -59421,13 +59430,15 @@ function rpw3aAmbMeadow(c,R){const B=R.bake,t=R.t,lite=R.lite||R.rm,S=rpw3aTick(
  {const SH=rpw3aShip('dock',.8,['#ff6a5a','#fff4dc','#c8402a','#ffd45a']),h=B.hot.find(q=>q.k==='ship'),age=rpw3aAge(R,h),b=Math.round(Math.sin(t*1.1)*3+rpw3aWob(age,5,7,2)),x=88,y=116+b,PR=rpw3aPropSpr();c.drawImage(SH.c,Math.round(x-SH.ax),Math.round(y-SH.ay));
   c.save();c.translate(x-78,y+22);c.rotate(t*(14+(age<3?30*(1-age/3):0)));c.drawImage(PR.c,-12,-12);c.restore();c.strokeStyle='rgba(18,8,31,.7)';c.lineWidth=1.2;c.beginPath();c.moveTo(x+20,y+34);c.lineTo(96,B.dock.y-80);c.stroke();
   if(age<2.4){const ST=rpw3aPuff(5,44,36,['rgba(255,255,255,.85)','rgba(240,240,250,.45)','rgba(240,240,250,0)']);for(let k=0;k<3;k++){const u=Math.min(1,(age-k*.18)/1.8);if(u<=0)continue;const s=.5+u*1.2;c.globalAlpha=(1-u)*.9;c.drawImage(ST.c,x+40+u*40-22*s,y-30-u*40-18*s,44*s,36*s)}c.globalAlpha=1}}
+ /* 10.1f: the castle's live layer before the birds, so they fly in front of its windows instead of under them */
+ c.save();rpw3aCastleLive(c,'meadow',B.cast.x,B.cast.y,t,lite);c.restore();
  /* birds high up */
  if(!R.rm){const V=rpw3aVee(0,'#2a2a4a');for(let i=0;i<B.vees.length;i+=lite?2:1){const b=B.vees[i],x=((b.x0+t*b.v)%1700)-50,y=b.y+Math.sin(t*.8+b.a)*18;rpw3aFr(c,V,t*9+b.a*3,x,y,b.s)}}
  /* reactions: bees round a poked hive, smoke from a poked cottage, chimes over the castle */
  for(const h of B.hot){const age=rpw3aAge(R,h);if(age>4)continue;
   if(h.k==='hive'){c.fillStyle='#ffd23a';c.strokeStyle=RPO;c.lineWidth=1;for(let i=0;i<7;i++){const a=t*(5+i*.7)+i*2.1,r=10+age*12+i*2,bx=h.x+Math.cos(a)*r,by=h.y-4+Math.sin(a*1.3)*r*.5-age*4;c.globalAlpha=Math.min(1,(4-age));c.beginPath();c.arc(bx,by,2,0,TAU);c.fill();c.stroke()}c.globalAlpha=1}
   else if(h.k==='house'){const SM=rpw3aPuff(2,40,32,['rgba(240,240,250,.8)','rgba(230,230,245,.4)','rgba(230,230,245,0)']);for(let k=0;k<3;k++){const u=Math.min(1,(age-k*.3)/2.6);if(u<=0)continue;const s=.4+u*1.1;c.globalAlpha=(1-u)*.85;c.drawImage(SM.c,h.x+13+u*14-20*s,h.y-26-u*50-16*s,40*s,32*s)}c.globalAlpha=1}}
- c.restore();rpw3aCastleLive(c,'meadow',B.cast.x,B.cast.y,t,lite)}
+ c.restore()}
 /* the reactions to a poke (sounds and particles; the live layer draws the rest from the hotspot's age) */
 RPW3A.react.meadow=(R,h,x,y)=>{const k=h&&h.k,P=(n,c,o)=>rpw3aPt(R,h?h.x:x,h?h.y:y,n,c,o);
  if(k==='mill'){rpw3aSnd('creak');P(6,['#ffffff','#fff4dc'],{v:90,s:4,k:'dust',g:-20,l:1.2})}
@@ -59574,7 +59585,8 @@ const RPW3A_CROW=['#3a3a56','#6a6a8a','#262638'];
 function rpw3aStormX(B,map){const G=B.G,M=B.M;
  B.flags=B.trees.filter(it=>it.k==='banner').map(it=>({x:it.x+1,y:it.y-58,i:it.i}));
  /* splash spots on the ground (not on the void) */
- B.spl=[];for(let i=0;i<600&&B.spl.length<90;i++){const x=rpw3aR(i+7000)*1600,y=130+rpw3aR(i+7100)*690;if(M.at(x,y)>4)B.spl.push([x|0,y|0])}
+ /* (10.1f: none on the citadel's walls) */const CA=rpw3aCastle('storm'),cx0=B.cast.x+10,cx1=B.cast.x+CA.w-10,cy0=B.cast.y+30,cy1=B.cast.y+CA.h;
+ B.spl=[];for(let i=0;i<600&&B.spl.length<90;i++){const x=rpw3aR(i+7000)*1600,y=130+rpw3aR(i+7100)*690;if(M.at(x,y)>4&&!(x>cx0&&x<cx1&&y>cy0&&y<cy1))B.spl.push([x|0,y|0])}
  /* crows wheel over the two spires furthest apart (or the castle) */
  const sp=B.spires.slice(0,2);B.crows=(sp.length?sp:[{x:B.cast.x+170,y:B.cast.y+200}]).map((s,j)=>({x:s.x,y:Math.max(90,s.y-170),rx:70+j*16,ry:22,n:4,ph:j*2.1,at:-99}));
  /* hotspots */
@@ -59677,23 +59689,27 @@ function rpw3aWorldLive(g,t){const W=RPW3A_W;if(!W)return;g.save();
  /* chimney smoke and steam; embers rising off the molten pool */
  {const SM=rpw3aSmk(4,40,32,['rgba(60,50,60,.6)','rgba(60,50,60,.3)','rgba(60,50,60,0)'],10,1.6);for(let i=0;i<W.smoke.length;i++){const [x,y]=W.smoke[i];for(let k=0;k<3;k++){const u=(t*.22+k/3+i*.3)%1;rpw3aFr(g,SM,u*10,x+u*24,y-u*70)}}
   g.fillStyle='#ffd27a';g.beginPath();for(let k=0;k<8;k++){const u=(t*.35+k/8)%1,x=W.glow[0]+(rpw3aR(k)-.5)*60+Math.sin(t*2+k)*6,y=W.glow[1]-u*70;g.moveTo(x+1.6*(1-u)+.4,y);g.arc(x,y,1.6*(1-u)+.4,0,TAU)}g.globalAlpha=.85;g.fill();g.globalAlpha=1}
- /* hot-air balloons drifting up and down over the meadows */
- for(let i=0;i<2;i++){const c=X.bal[i],x=(i?560:60)+Math.sin(t*.07+i*2)*40,y=(i?250:300)+Math.sin(t*.19+i)*22;rpw3aBl(g,c,x,y)}
- /* airships along the routes */
- for(let i=0;i<W.routes.length;i++){const L=W.routes[i],u=((t*.05+i*.37)%1),p=L[Math.min(L.length-1,(u*L.length)|0)],S=rpw3aShip('wm'+i,.38,i===1?['#ffd45a','#c8402a','#8a2a1a','#ffffff']:['#ffffff','#3a8ae0','#2a5aa8','#ffd45a']);rpw3aBl(g,S.c,p[0]-S.ax,p[1]-S.ay-14+Math.sin(t*1.4+i)*3)}
- /* a flock of birds crosses now and then */
- {const u=(t/26)%1;if(u<.55){const V=rpw3aVee(0,'#2a1e3e'),x=-60+u/.55*1300,y=200+Math.sin(u*7)*30;for(let k=0;k<5;k++)rpw3aFr(g,V,t*9+k*1.7,x-(k%2?1:-1)*k*14-k*10,y+k*9)}}
+ /* 10.1f: the castles' live layer before everything that flies, so nothing passes under their lit windows and flags */
+ for(const it of W.cast){g.save();g.translate(it.x0,it.y0);g.scale(W.scale,W.scale);rpw3aCastleLive(g,it.id,0,0,t,1);g.restore()}
+ /* hot-air balloons (10.1f: out of the chimney smoke and clear of the islands; 98u rpcoW3Bal) */
+ for(let i=0;i<2;i++){const c=X.bal[i],[x,y]=rpcoW3Bal(i,t);rpw3aBl(g,c,x-c.width/2,y-c.height/2)}
+ /* airships (10.1f: one shuttles from the Cloudspire dock off the left edge, one along the upper sky lane; the bow leads, they turn
+    slowly at the ends instead of jumping back; 98u rpcoW3Air) */
+ for(let i=0;i<RPCO_W3AIR.length;i++){const A=rpcoW3Air(i,t),S=rpw3aShip('wm'+i,.38,i===1?['#ffd45a','#c8402a','#8a2a1a','#ffffff']:['#ffffff','#3a8ae0','#2a5aa8','#ffd45a']);
+  g.save();g.translate(Math.round(A.x),Math.round(A.y-14+Math.sin(t*1.4+i)*3));g.scale(A.f,1);g.drawImage(S.c,-S.ax,-S.ay);g.restore()}
+ /* a flock of birds rises over the islands now and then and leaves at the top (no castle in its way; 98u rpcoW3Flock) */
+ {const q=rpcoW3Flock(t);if(q){const V=rpw3aVee(0,'#2a1e3e');for(let k=0;k<5;k++)rpw3aFr(g,V,t*9+k*1.7,q.x-(k%2?1:-1)*k*14-k*10,q.y+k*9)}}
  /* rain round the storm peak, lightning that lights the clouds, twinkling crystals */
  {const [sx,sy]=W.storm;g.strokeStyle='rgba(170,200,255,.4)';g.lineWidth=1.2;g.beginPath();for(const d of X.rain){const x=sx-230+((d[0]*460+t*40*d[2])%460),y=sy-60+((d[1]*360+t*300*d[2])%360);g.moveTo(x,y);g.lineTo(x-3,y-14*d[2])}g.stroke()}
  g.globalCompositeOperation='lighter';g.globalAlpha=.25+.12*Math.sin(t*2.2);rpw3aBl(g,rpw3aGlowE('255,120,30',70,.57),W.glow[0]-70,W.glow[1]-40);
- if(W.bolt){const ph=t%3.1,k=Math.floor(t/3.1);if(ph<.3){const [x,y]=W.bolt,bx=x+(rpw3aR(k)-.5)*240,a=ph<.1||ph>.18&&ph<.24?1:.3;g.globalAlpha=.5*a;rpw3aBl(g,rpw3aGlowE('150,200,255',120,.9),bx-120,y-200);
+ /* lightning (10.1f: it strikes the outer lightning rods beside the citadel instead of falling through it; 98u rpcoW3Bolt) */
+ if(W.bolt){const B=rpcoW3Bolt(W,t);if(B){const [x,y]=W.bolt,ph=B.ph,k=B.k,a=ph<.1||ph>.18&&ph<.24?1:.3;g.globalAlpha=.5*a;rpw3aBl(g,rpw3aGlowE('150,200,255',120,.9),B.ex-120,y-200);
    g.globalAlpha=.3*a;rpw3aBl(g,rpw3aGlowE('150,200,255',200,.7),x-200,y-80);
-   g.strokeStyle='#e8f8ff';g.lineWidth=2.4;g.globalAlpha=a;g.beginPath();let px=bx+(rpw3aR(k+3)-.5)*40,py=y-190;g.moveTo(px,py);for(let j=0;j<7;j++){px+=(rpw3aR(k*7+j)-.5)*30;py+=26;g.lineTo(px,py)}g.stroke()}}
+   g.strokeStyle='#e8f8ff';g.lineWidth=2.4;g.globalAlpha=a;g.beginPath();g.moveTo(B.sx,B.sy);const n=7;for(let j=1;j<n;j++){const v=j/n;g.lineTo(B.sx+(B.ex-B.sx)*v+(rpw3aR(k*7+j)-.5)*18,B.sy+(B.ey-B.sy)*v)}g.lineTo(B.ex,B.ey);g.stroke()}}
  g.fillStyle='#ffffff';g.beginPath();for(let i=0;i<X.crys.length;i++){const [x,y]=X.crys[i],u=(t*.6+i*.29)%1,s=Math.max(0,Math.sin(u*Math.PI*2))*4;if(s<.5)continue;g.moveTo(x,y-s*1.6);g.lineTo(x+s*.35,y-s*.35);g.lineTo(x+s*1.6,y);g.lineTo(x+s*.35,y+s*.35);g.lineTo(x,y+s*1.6);g.lineTo(x-s*.35,y+s*.35);g.lineTo(x-s*1.6,y);g.lineTo(x-s*.35,y-s*.35);g.closePath()}g.globalAlpha=.9;g.fill();
  g.globalCompositeOperation='source-over';g.globalAlpha=1;
  /* soft clouds drifting in front, low over the sea of clouds */
  {const PF=rpw3aPuff(12,200,70,['rgba(255,220,200,.5)','rgba(255,200,190,.3)','rgba(255,200,190,0)']);for(let i=0;i<3;i++){const x=((t*(6+i*3)+i*700)%1900)-250,y=[690,170,720][i];rpw3aBl(g,PF.c,x,y)}}
- for(const it of W.cast){g.save();g.translate(it.x0,it.y0);g.scale(W.scale,W.scale);rpw3aCastleLive(g,it.id,0,0,t,1);g.restore()}
  g.restore()}
 /* ===== RUNESTONE TOWER DEFENSE 10.0: the Clockwork Hive, art (98h, after 98a) =====
    The eleventh tower (TD_WORLDS_PLAN.md section 3): a brass beehive skep of stacked coils with honeycomb windows, on an iron stand on a
@@ -61735,6 +61751,59 @@ const TWAC=(()=>{
   if(capped){ST2.capped++;try{const m=sgMeta();m.acNote='That save could not be verified (it was edited, or made before this version), so its coins and level were capped.';sgMetaSave()}catch(e){}}
   return r}}
  return Object.freeze({stat:()=>Object.assign({},ST2,{seen:[...ST2.seen],L0,enforced:enforce()})})})();
+/* ===== RUNESTONE TOWER DEFENSE 10.1f: coherent world maps (98u, registered last; prefix rpco) =====
+   Owner report: the boat on the World 2 painting sailed through the castle and over land, the dolphins jumped backward, the river
+   streaks on Mossgate Hollow ran over the bridge. Audit of everything that moves on the three hub paintings and the ten battle maps;
+   the fixes live in the art modules themselves (95d, 95h, 98f, 98f2, 98f3, 98g3; backups .v10bak), this module holds the shared
+   motion helpers they call:
+   - rpcoPath / rpcoAt: a Catmull-Rom path with arc-length lookup (position and unit tangent at a distance along it).
+   - rpcoLeap: a leap out of the water and back (dolphins): position plus the rotation that keeps the nose on the direction of travel
+     (with the sprite mirrored by dir, the rotation is atan2(vy, |vx|); the old ang*dir turned a left-going dolphin upside down and
+     backward). Drawn clipped at the water line, so it rises out of and dives into the sea instead of popping.
+   - rpcoW2Ship: the little ship on the World 2 painting sails a water-only course (checked against the island and trench fields):
+     up from the south through the lagoon between the reef, the cove and the trench, south of the channel rock, west past the reef
+     castle's spires (behind them, never over them) and out past the lighthouse; bow first, a squash where it heads north, faded in
+     and out off the painted sea.
+   - rpcoShuttle: a ping-pong flight between two ends (airships): eased travel, a slow turn at each end (the sprite narrows through
+     zero instead of flipping), so the bow always leads.
+   - rpcoW3Air / rpcoW3Flock / rpcoW3Bal / rpcoW3Bolt: the World 3 painting's airships (an upper sky lane clear of the castles,
+     chimneys and labels, and the dock beside Cloudspire), the flock (rises over the islands and leaves at the top, no castle in its
+     way), the balloons (out of the chimney smoke) and the bolt (strikes the lightning rods beside the citadel, not through it).
+   - rpcoFlipY: keeps side-on fish upright when they swim left (mirror instead of rotating through 180 degrees). */
+const RPCO={};
+function rpcoPath(pts,step){const L=rpwSpl(pts,step||6),c=[0];for(let i=1;i<L.length;i++)c.push(c[i-1]+Math.hypot(L[i][0]-L[i-1][0],L[i][1]-L[i-1][1]));return{L,c,len:c[c.length-1]}}
+/* position and unit tangent at distance d along P (clamped) */
+function rpcoAt(P,d){const L=P.L,c=P.c,n=L.length;d=Math.max(0,Math.min(P.len,d));let lo=0,hi=n-1;while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<=d)lo=m;else hi=m}
+ const a=L[lo],b=L[hi],s=c[hi]-c[lo]||1,u=(d-c[lo])/s,dx=b[0]-a[0],dy=b[1]-a[1],m=Math.hypot(dx,dy)||1;return{x:a[0]+dx*u,y:a[1]+dy*u,tx:dx/m,ty:dy/m}}
+const rpcoEio=u=>u<=0?0:u>=1?1:u<.5?2*u*u:1-2*(1-u)*(1-u);
+/* a leap: u in [-k, 1+k] (outside 0..1 the body is under water and clipped); returns [x, y, rot] for scale(dir,1) then rotate(rot) */
+function rpcoLeap(x0,y0,dir,u,span,amp){const x=x0+(u-.5)*span*dir,y=y0-Math.sin(u*Math.PI)*amp,vx=span*dir,vy=-Math.cos(u*Math.PI)*amp*Math.PI;return[x,y,Math.atan2(vy,Math.abs(vx))]}
+/* draw a right-facing sprite S (centre cx, cy in it) leaping; clipped below the water line wy */
+function rpcoLeapDraw(g,S,cx,cy,x,y,dir,rot,sc,wy){g.save();g.beginPath();g.rect(x-200,y-200,400,Math.max(0,wy-(y-200)));g.clip();g.translate(x,y);g.scale(dir*sc,sc);g.rotate(rot);g.drawImage(S,-cx,-cy);g.restore()}
+/* side-on sprites swimming at heading h: rotate by h, and mirror vertically when heading left so the back stays up */
+function rpcoFlipY(c,h){c.rotate(h);if(Math.cos(h)<0)c.scale(1,-1)}
+/* ---------- World 2 painting: the ship's course ---------- */
+const RPCO_W2SHIP=[[700,880],[688,770],[652,650],[618,548],[592,494],[556,468],[508,463],[466,450],[430,427],[380,400],[330,372],[230,364],[120,366],[-70,372]];
+function rpcoW2Ship(t){const P=RPCO.w2s||(RPCO.w2s=rpcoPath(RPCO_W2SHIP,6)),sp=15,per=P.len/sp+14,d=((t%per)+per)%per*sp;
+ if(d>P.len)return null;const q=rpcoAt(P,d),dir=q.tx<0?-1:1,k=Math.min(1,d/90,(P.len-d)/90);
+ return{x:q.x,y:q.y,dir,sx:dir*Math.max(.55,Math.min(1,Math.abs(q.tx)*2.6)),a:Math.max(0,k),tx:q.tx,ty:q.ty}}
+/* the dolphins on the World 2 painting: open sea east of the cove island (clear of the compass, the rock and the trench) */
+const RPCO_W2DOL=[[1000,262,1],[1150,400,-1]];
+function rpcoW2Dol(i,t){const [x0,y0,dir]=RPCO_W2DOL[i],ts=(t+i*3.1)%6.2;if(ts>1.9)return null;const u=ts/1.9*1.3-.15,[x,y,rot]=rpcoLeap(x0,y0,dir,u,60,30);return{x,y,rot,dir,u,x0,y0,ts}}
+/* ---------- a ping-pong flight between the ends of a path ----------
+   go = seconds per crossing, wait = seconds turning at each end; returns {x, y, f (sprite x scale: +1 facing right, -1 left), d} */
+function rpcoShuttle(P,t,go,wait){const per=2*(go+wait),ph=((t%per)+per)%per;let d,back=false,turn=0;
+ if(ph<go)d=P.len*rpcoEio(ph/go);else if(ph<go+wait){d=P.len;turn=(ph-go)/wait}else if(ph<2*go+wait){back=true;d=P.len*(1-rpcoEio((ph-go-wait)/go))}else{d=0;back=true;turn=(ph-2*go-wait)/wait}
+ const q=rpcoAt(P,d),fw=Math.sign(q.tx)||1,f0=back?-fw:fw;let f=f0;if(turn)f=f0*Math.cos(turn*Math.PI);if(Math.abs(f)<.08)f=f<0?-.08:.08;return{x:q.x,y:q.y,f,d,back,turn}}
+/* ---------- World 3 painting ---------- */
+const RPCO_W3AIR=[{p:[[66,628],[30,642],[-40,660],[-120,670]],go:9,wait:5},{p:[[452,198],[640,188],[828,198]],go:26,wait:3.5}];
+function rpcoW3Air(i,t){const A=RPCO_W3AIR[i],P=A.P||(A.P=rpcoPath(A.p,6));return rpcoShuttle(P,t+i*7,A.go,A.wait)}
+const RPCO_W3FLOCK=[[-70,352],[200,302],[450,238],[700,132],[900,-70]];
+function rpcoW3Flock(t){const u=(t/26)%1;if(u>=.6)return null;const P=RPCO.w3f||(RPCO.w3f=rpcoPath(RPCO_W3FLOCK,8)),q=rpcoAt(P,u/.6*P.len);return q}
+const RPCO_W3BAL=[[576,628,18,10],[905,168,14,10]];/* centre x, y, drift x, drift y */
+function rpcoW3Bal(i,t){const [x,y,ax,ay]=RPCO_W3BAL[i];return[x+Math.sin(t*.07+i*2)*ax,y+Math.sin(t*.19+i)*ay]}
+const RPCO_W3ROD=[-130,130];/* the outer lightning rods beside the citadel (rpw3aWorld paints rods at dx -130, -90, 90, 130) */
+function rpcoW3Bolt(W,t){const ph=t%3.1,k=Math.floor(t/3.1);if(ph>=.3)return null;const [x,y]=W.storm,ex=x+RPCO_W3ROD[k%2],ey=y-26;return{ph,k,ex,ey,sx:ex+(rpw3aR(k+3)-.5)*24,sy:y-210}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

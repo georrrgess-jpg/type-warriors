@@ -1736,7 +1736,10 @@ button.hxm.gyc small{color:#ffd9a8;font-weight:700}
    a frame from this line on the stack. wd: whether the page runs under browser automation (the test scripts), read from the prototype
    before anything else can patch it. */
 const TWAC0=(()=>{const o={wd:false};try{const d=Object.getOwnPropertyDescriptor(Navigator.prototype,'webdriver');o.wd=!!(d&&d.get&&d.get.call(navigator))}catch(e){}
- o.mark=f=>f();return Object.freeze(o)})();
+ o.mark=f=>f();
+ /* the real storage functions, taken before any other script can patch them (98v writes the save back with these) */
+ try{const SP=Storage.prototype;o.ls=Object.freeze({get:SP.getItem,set:SP.setItem});o.idb=window.indexedDB||null;o.rnd=crypto.getRandomValues.bind(crypto)}catch(e){}
+ return Object.freeze(o)})();
 'use strict';
 const W=1600,H=900,GY=770,KX=210,K=W/900,TAU=Math.PI*2;
 const $=id=>document.getElementById(id);
@@ -61804,6 +61807,84 @@ const RPCO_W3BAL=[[576,628,18,10],[905,168,14,10]];/* centre x, y, drift x, drif
 function rpcoW3Bal(i,t){const [x,y,ax,ay]=RPCO_W3BAL[i];return[x+Math.sin(t*.07+i*2)*ax,y+Math.sin(t*.19+i)*ay]}
 const RPCO_W3ROD=[-130,130];/* the outer lightning rods beside the citadel (rpw3aWorld paints rods at dx -130, -90, 90, 130) */
 function rpcoW3Bolt(W,t){const ph=t%3.1,k=Math.floor(t/3.1);if(ph>=.3)return null;const [x,y]=W.storm,ex=x+RPCO_W3ROD[k%2],ey=y-26;return{ph,k,ex,ey,sx:ex+(rpw3aR(k+3)-.5)*24,sy:y-210}}
+/* ===== 10.1g: save integrity, second layer (98v, after 98u; needs 98t and 00a) =====
+   Owner report: an updated cheat tool copied 98t's checksum key and formula out of the page source, wrote forged coins / level into
+   browser storage together with a matching signature, locked the game's own saving (SGS.lock) and reloaded. A secret shipped inside
+   a browser game can always be read, so this layer adds checks the tool cannot satisfy by copying code:
+   1. Watchdog: the save and its signature can only change through the game (sgPut). A write made behind its back in the same tab
+      (localStorage.setItem from a script) is undone at once: every 0.7 s (after a second look, so a write from another game tab that
+      arrives by the 'storage' event is accepted), and on pagehide / beforeunload / visibilitychange, i.e. before a reload. The real
+      Storage functions are taken in 00a before any other script can patch them.
+   2. A per-device key: 16 random bytes kept in IndexedDB (never in the source, never in localStorage). The signature record gains
+      m2 / a2 made with that key on every save, and a device-signed copy of the last real coins / XP / prestige is kept in IndexedDB. On start the record is checked against it; a record without m2 (like the one the tool
+      writes), with a wrong m2, or a save whose key was deleted counts as edited, and coins / XP / prestige go back to that IndexedDB copy (or the values the
+      device key last signed in the record) (or, without them, to the gold ledger's last balance and at most level 8). Saves from 10.1f and older get
+      the key on their first start; their coins are checked against the ledger then.
+   3. Gold ledger cross-check (94e records every legitimate change of P.gold with its balance): coins above the ledger's last balance
+      are put back to it.
+   Under automation the reverts are off unless window.TW_AC_TEST is set (as in 98t). Prefix twac2. */
+const TWAC2=(()=>{
+ const W=window,LS=TWAC0.ls,IDB=TWAC0.idb,SIGK='typeWarriorsAux',enforce=()=>!TWAC0.wd||!!W.TW_AC_TEST;
+ const ST={restored:0,edited:0,ledger:0,key:0,migrated:0,lost:0,ready:0};
+ const lsGet=k=>{try{return LS?LS.get.call(localStorage,k):localStorage.getItem(k)}catch(e){return null}};
+ const lsSet=(k,v)=>{try{LS?LS.set.call(localStorage,k,v):localStorage.setItem(k,v);return true}catch(e){return false}};
+ /* ---- a second private checksum, keyed with the device key ---- */
+ function mac2(key,s){s=key+'#'+s+'#'+key.length;let a=0x2545f491^s.length,b=0x6c8e9cf5,c=0x7fb5d329,d=0x1b873593;
+  for(let i=0;i<s.length;i++){const k=s.charCodeAt(i);a=Math.imul(a^k,0x85ebca6b);b=Math.imul(b+k,0xc2b2ae35)^(a>>>13);c=Math.imul(c^b,0x27d4eb2f)+k;d=Math.imul(d^(c>>>11),0x165667b1)}
+  for(const r of [16,13,16]){a=Math.imul(a^(a>>>r),0x85ebca6b)^d;b=Math.imul(b^(b>>>r),0xc2b2ae35)^a;c=Math.imul(c^(c>>>r),0x27d4eb2f)^b;d=Math.imul(d^(d>>>r),0x165667b1)^c}
+  return [a,b,c,d].map(v=>(v>>>0).toString(16).padStart(8,'0')).join('')}
+ let DK=null;
+ const vals=raw=>{let o=null;try{o=JSON.parse(raw)}catch(e){}if(!o||typeof o!=='object')o={};return{g:Math.round(+o.gold||0),x:Math.round(+o.xp||0),p:o.pres|0}};
+ /* add the device-key fields to the signature record that 98t just wrote for this save string */
+ function sign2(raw){if(!DK||typeof raw!=='string')return;let r=null;try{r=JSON.parse(lsGet(SIGK)||'null')}catch(e){}if(!r||typeof r!=='object')r={};
+  const v=vals(raw);r.m2=mac2(DK,'s|'+raw);r.a2=mac2(DK,'a|'+v.g+'|'+v.x+'|'+v.p);r.g2=v.g;r.x2=v.x;r.p2=v.p;lsSet(SIGK,JSON.stringify(r));
+  if(!AN||AN.g!==v.g||AN.x!==v.x||AN.p!==v.p){AN={g:v.g,x:v.x,p:v.p,m:mac2(DK,'an|'+v.g+'|'+v.x+'|'+v.p)};anPut(AN)}}
+ /* ---- 1. the watchdog ---- */
+ let lastK=lsGet(KEY),lastA=lsGet(SIGK),other=0,pend=0;
+ {const p0=sgPut;sgPut=function(k,v){const r=p0.apply(this,arguments);if(k===KEY){if(r!==false)sign2(v);lastK=lsGet(KEY);lastA=lsGet(SIGK)}else if(k===SIGK){lastA=lsGet(SIGK)}return r}}
+ W.addEventListener('storage',e=>{try{if(e.storageArea!==localStorage)return;if(e.key===KEY||e.key===SIGK||e.key===null){other=Date.now();lastK=lsGet(KEY);lastA=lsGet(SIGK)}}catch(x){}});
+ function watch(now){if(!enforce()||(typeof SGS!=='undefined'&&SGS.mem))return;const k=lsGet(KEY),a=lsGet(SIGK);
+  if(k===lastK&&a===lastA){pend=0;return}
+  if(Date.now()-other<2000){lastK=k;lastA=a;pend=0;return}
+  if(!now&&!pend){pend=1;return}
+  pend=0;ST.restored++;if(lastK!==null)lsSet(KEY,lastK);if(lastA!==null)lsSet(SIGK,lastA)}
+ setInterval(()=>watch(0),700);W.addEventListener('pagehide',()=>watch(1),true);W.addEventListener('beforeunload',()=>watch(1),true);
+ document.addEventListener('visibilitychange',()=>watch(1),true);
+ /* ---- 2 + 3. the device key, then the start-up check ---- */
+ function idb(fn){return new Promise(res=>{try{if(!IDB){res(null);return}const q=IDB.open('typeWarriorsK',1);q.onupgradeneeded=()=>{try{q.result.createObjectStore('k')}catch(e){}};
+  q.onerror=()=>res(null);q.onsuccess=()=>{const db=q.result;try{fn(db,v=>{try{db.close()}catch(e){}res(v)})}catch(e){try{db.close()}catch(x){}res(null)}}}catch(e){res(null)}})}
+ const keyGet=()=>idb((db,done)=>{const t=db.transaction('k','readonly'),g=t.objectStore('k').get('dk');g.onsuccess=()=>done(typeof g.result==='string'?g.result:null);g.onerror=()=>done(null)});
+ const keyPut=k=>idb((db,done)=>{const t=db.transaction('k','readwrite');t.objectStore('k').put(k,'dk');t.oncomplete=()=>done(true);t.onerror=()=>done(false)});
+ const anGet=()=>idb((db,done)=>{const t=db.transaction('k','readonly'),g=t.objectStore('k').get('an');g.onsuccess=()=>done(g.result&&typeof g.result==='object'?g.result:null);g.onerror=()=>done(null)});
+ const anPut=o=>idb((db,done)=>{const t=db.transaction('k','readwrite');t.objectStore('k').put(o,'an');t.oncomplete=()=>done(true);t.onerror=()=>done(false)});
+ let AN=null;
+ function ledgerBal(){try{const L=P.ldg;if(Array.isArray(L)&&L.length){const b=+L[L.length-1].bal;if(isFinite(b))return b}}catch(e){}return null}
+ function revert(g,x,p,why){let ch=false;if((+P.gold||0)>g){P.gold=g;ch=true}if((+P.xp||0)>x){P.xp=x;ch=true}if((P.pres|0)>p){P.pres=p;ch=true}
+  if(ch){try{syncPaths()}catch(e){}try{SGS.lock=false}catch(e){}save();ST.edited++;
+   try{if(typeof sgNote==='function'&&typeof S!=='undefined')setTimeout(()=>sgNote('Your save was changed outside the game, so your coins and level were put back to their last real values.'),1200)}catch(e){}}
+  return ch}
+ (async function boot(){try{
+  let k=await keyGet();const raw=lsGet(KEY);let r=null;try{r=JSON.parse(lsGet(SIGK)||'null')}catch(e){}
+  const on=enforce(),lb=ledgerBal();let an=k?await anGet():null;if(an&&an.m!==mac2(k,'an|'+an.g+'|'+an.x+'|'+an.p))an=null;AN=an;
+  /* the last real values: the device-signed copy in IndexedDB, else the ledger and level 8 at most */
+  const back=()=>an?revert(an.g,an.x,an.p):revert(lb!=null?lb:Math.min(+P.gold||0,25000),Math.min(+P.xp||0,lvx(8)),0);
+  if(raw!==null&&on){
+   if(k&&r&&typeof r.m2==='string'){
+    if(r.m2!==mac2(k,'s|'+raw)){if(an)back();else if(r.a2===mac2(k,'a|'+r.g2+'|'+r.x2+'|'+r.p2))revert(r.g2,r.x2,r.p2);else back()}}
+   else if(k){/* a key exists but the record has no device signature: written by something else */
+    back()}
+   else if(r&&typeof r.m2==='string'){/* the device key was deleted: nothing can be verified */
+    revert(lb!=null?lb:Math.min(+P.gold||0,25000),Math.min(+P.xp||0,lvx(8)),0)}
+   else if(P.ac3===1||sgMeta().v3k){/* this save had a device key on this browser before and it is gone now: nothing can be verified */
+    ST.lost=1;revert(lb!=null?lb:Math.min(+P.gold||0,25000),Math.min(+P.xp||0,lvx(8)),0)}
+   else{/* first start with this layer: coins must match the ledger */
+    ST.migrated=1;if(lb!=null&&(+P.gold||0)>lb+1){ST.ledger++;revert(lb,+P.xp||0,P.pres|0)}}}
+  /* every start: coins above the ledger's last balance go back to it */
+  if(on){const b=ledgerBal();if(b!=null&&(+P.gold||0)>b+1){ST.ledger++;revert(b,+P.xp||0,P.pres|0)}}
+  if(!k){const a=new Uint8Array(16);try{TWAC0.rnd(a)}catch(e){for(let i=0;i<16;i++)a[i]=Math.random()*256|0}k=[...a].map(v=>v.toString(16).padStart(2,'0')).join('');if(await keyPut(k))ST.key=1;else k=null}
+  DK=k;if(DK){try{const m=sgMeta();if(!m.v3k){m.v3k=1;sgMetaSave()}if(P.ac3!==1){P.ac3=1;save()}}catch(e){}const cur=lsGet(KEY);if(cur!==null){sign2(cur);lastK=lsGet(KEY);lastA=lsGet(SIGK)}}
+ }catch(e){console.error(e)}finally{ST.ready=1}})();
+ return Object.freeze({stat:()=>Object.assign({},ST,{dk:!!DK,enforced:enforce()})})})();
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

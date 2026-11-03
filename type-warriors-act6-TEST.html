@@ -1739,6 +1739,11 @@ const TWAC0=(()=>{const o={wd:false};try{const d=Object.getOwnPropertyDescriptor
  o.mark=f=>f();
  /* the real storage functions, taken before any other script can patch them (98v writes the save back with these) */
  try{const SP=Storage.prototype;o.ls=Object.freeze({get:SP.getItem,set:SP.setItem});o.idb=window.indexedDB||null;o.rnd=crypto.getRandomValues.bind(crypto)}catch(e){}
+ /* 10.1h: WebCrypto for the device key (98v keeps it as a key object the page can use but never read out) */
+ try{const SC=crypto.subtle,SP=SubtleCrypto.prototype;o.sub=Object.freeze({imp:(...a)=>Reflect.apply(SP.importKey,SC,a),der:(...a)=>Reflect.apply(SP.deriveBits,SC,a)})}catch(e){o.sub=null}
+ /* 10.1h: the stack formatter the guard reads cannot be swapped out for good by a later script (it stays settable, so tools keep working) */
+ try{const d=Object.getOwnPropertyDescriptor(Error,'prepareStackTrace');let v=d&&'value' in d?d.value:undefined;
+  Object.defineProperty(Error,'prepareStackTrace',{get(){return v},set(n){v=n},configurable:false,enumerable:false})}catch(e){}
  return Object.freeze(o)})();
 'use strict';
 const W=1600,H=900,GY=770,KX=210,K=W/900,TAU=Math.PI*2;
@@ -61691,10 +61696,12 @@ const TWAC=(()=>{
   return s.split('\n').map(ln=>{const t=ln.trim(),m=/(?:@|\(|at )([^()@]*?):(\d+):(\d+)\)?$/.exec(t);return m?{f:m[1].replace(/^at /,''),l:+m[2],ev:/\beval\b/.test(t)}:null}).filter(Boolean)}
  const F0=frames(),SELF=(F0[0]&&F0[0].f)||'';let L0=1;try{const g=TWAC0.mark(()=>frames()).filter(x=>x.f===SELF&&x.l!=null).map(x=>x.l);if(g.length)L0=Math.max(1,Math.min(...g)-2)}catch(e){}
  /* true when any frame belongs to code that is not the game's own script */
- function foreign(){const fr=frames();for(let i=1;i<fr.length;i++){const x=fr[i];if(!x.f&&x.l==null)continue;if(x.ev)return true;if(x.f!==SELF)return true;if(x.l!=null&&x.l<L0)return true}return false}
+ /* 10.1h: a change also needs a caller from the game's own code outside this guard (T0..T1); a change started by the browser itself with no game code on the stack (a timer or promise scheduled straight onto a built-in function) is refused too */
+ let T0=0,T1=0;try{T0=Math.max(L0,Math.min(...F0.filter(x=>x.f===SELF&&x.l!=null).map(x=>x.l))-12)}catch(e){}
+ function foreign(){const fr=frames();let game=!T1;for(let i=1;i<fr.length;i++){const x=fr[i];if(!x.f&&x.l==null)continue;if(x.ev)return true;if(x.f!==SELF)return true;if(x.l!=null&&x.l<L0)return true;if(x.l!=null&&(x.l<T0||x.l>T1))game=true}return !game}
  const ST2={blocked:0,last:'',tamper:0,capped:0,warned:0,seen:new Set()};
  function blocked(what){ST2.blocked++;ST2.last=what;if(!ST2.warned){ST2.warned=1;try{console.warn('Type Warriors: a change from outside the game was blocked ('+what+').')}catch(e){}}}
- const guardOK=()=>!(enforce()&&foreign());
+ let SYS=0;const guardOK=()=>SYS>0||!(enforce()&&foreign());
  /* ---- the keyed checksum (private; not the public sgHash) ---- */
  const SK=[116,119,45,107,101,101,112,45,51,57,49,55,45,114,117,110,101,115,116,111,110,101].map((c,i)=>String.fromCharCode(c^((i*7)&3))).join('');
  function mac(s){s=SK+'|'+s+'|'+SK.length;let a=0x6b2fe4c1^s.length,b=0x9e3779b9,c=0x1f83d9ab;
@@ -61733,10 +61740,10 @@ const TWAC=(()=>{
   if(r&&r.m===mac('s|'+raw))return;
   if(!m[MARK]||!enforce()){sign(raw);if(!m[MARK]){m[MARK]=1;sgMetaSave()}return}
   /* edited outside the game: put coins, XP and prestige back to their last signed values */
-  ST2.tamper++;const an=r&&r.a===mac('a|'+r.g+'|'+r.x+'|'+r.p)?r:null;
-  const cg=an?an.g:Math.min(+P.gold||0,CAPG),cx=an?an.x:Math.min(+P.xp||0,lvx(8)),cp=an?an.p:0;let ch=false;
+  ST2.tamper++;let ch=false;SYS++;try{const an=r&&r.a===mac('a|'+r.g+'|'+r.x+'|'+r.p)?r:null;
+  const cg=an?an.g:Math.min(+P.gold||0,CAPG),cx=an?an.x:Math.min(+P.xp||0,lvx(8)),cp=an?an.p:0;
   if((+P.gold||0)>cg){P.gold=cg;ch=true}if((+P.xp||0)>cx){P.xp=cx;ch=true}if((P.pres|0)>cp){P.pres=cp;ch=true}
-  try{syncPaths()}catch(e){}save();sign(sgGet(KEY));
+  try{syncPaths()}catch(e){}save();sign(sgGet(KEY))}finally{SYS--}
   if(ch)note('Your save was changed outside the game, so your coins and level were put back to their last real values.')}catch(e){console.error(e)}})();
  /* ---- 3. exported saves carry the keyed checksum; unverified imports are capped ---- */
  {const k0=sgPack;sgPack=function(){const r=k0.apply(this,arguments);try{r.mac=mac('x|'+r.payload)}catch(e){}return r}}
@@ -61753,7 +61760,8 @@ const TWAC=(()=>{
   r.verified=false;r.capped=capped;
   if(capped){ST2.capped++;try{const m=sgMeta();m.acNote='That save could not be verified (it was edited, or made before this version), so its coins and level were capped.';sgMetaSave()}catch(e){}}
   return r}}
- return Object.freeze({stat:()=>Object.assign({},ST2,{seen:[...ST2.seen],L0,enforced:enforce()})})})();
+ try{T1=frames()[1].l+2}catch(e){}
+ return Object.freeze({stat:()=>Object.assign({},ST2,{seen:[...ST2.seen],L0,T0,T1,tr:TR,enforced:enforce()})})})();
 /* ===== RUNESTONE TOWER DEFENSE 10.1f: coherent world maps (98u, registered last; prefix rpco) =====
    Owner report: the boat on the World 2 painting sailed through the castle and over land, the dolphins jumped backward, the river
    streaks on Mossgate Hollow ran over the bridge. Audit of everything that moves on the three hub paintings and the ten battle maps;
@@ -61825,7 +61833,7 @@ function rpcoW3Bolt(W,t){const ph=t%3.1,k=Math.floor(t/3.1);if(ph>=.3)return nul
    Under automation the reverts are off unless window.TW_AC_TEST is set (as in 98t). Prefix twac2. */
 const TWAC2=(()=>{
  const W=window,LS=TWAC0.ls,IDB=TWAC0.idb,SIGK='typeWarriorsAux',enforce=()=>!TWAC0.wd||!!W.TW_AC_TEST;
- const ST={restored:0,edited:0,ledger:0,key:0,migrated:0,lost:0,ready:0};
+ const ST={restored:0,edited:0,ledger:0,key:0,migrated:0,lost:0,ck:0,capped:0,ready:0};
  const lsGet=k=>{try{return LS?LS.get.call(localStorage,k):localStorage.getItem(k)}catch(e){return null}};
  const lsSet=(k,v)=>{try{LS?LS.set.call(localStorage,k,v):localStorage.setItem(k,v);return true}catch(e){return false}};
  /* ---- a second private checksum, keyed with the device key ---- */
@@ -61842,7 +61850,7 @@ const TWAC2=(()=>{
  /* ---- 1. the watchdog ---- */
  let lastK=lsGet(KEY),lastA=lsGet(SIGK),other=0,pend=0;
  {const p0=sgPut;sgPut=function(k,v){const r=p0.apply(this,arguments);if(k===KEY){if(r!==false)sign2(v);lastK=lsGet(KEY);lastA=lsGet(SIGK)}else if(k===SIGK){lastA=lsGet(SIGK)}return r}}
- W.addEventListener('storage',e=>{try{if(e.storageArea!==localStorage)return;if(e.key===KEY||e.key===SIGK||e.key===null){other=Date.now();lastK=lsGet(KEY);lastA=lsGet(SIGK)}}catch(x){}});
+ W.addEventListener('storage',e=>{try{if(!e.isTrusted||e.storageArea!==localStorage)return;if(e.key===KEY||e.key===SIGK||e.key===null){other=Date.now();lastK=lsGet(KEY);lastA=lsGet(SIGK)}}catch(x){}});
  function watch(now){if(!enforce()||(typeof SGS!=='undefined'&&SGS.mem))return;const k=lsGet(KEY),a=lsGet(SIGK);
   if(k===lastK&&a===lastA){pend=0;return}
   if(Date.now()-other<2000){lastK=k;lastA=a;pend=0;return}
@@ -61856,6 +61864,13 @@ const TWAC2=(()=>{
  const keyGet=()=>idb((db,done)=>{const t=db.transaction('k','readonly'),g=t.objectStore('k').get('dk');g.onsuccess=()=>done(typeof g.result==='string'?g.result:null);g.onerror=()=>done(null)});
  const keyPut=k=>idb((db,done)=>{const t=db.transaction('k','readwrite');t.objectStore('k').put(k,'dk');t.oncomplete=()=>done(true);t.onerror=()=>done(false)});
  const anGet=()=>idb((db,done)=>{const t=db.transaction('k','readonly'),g=t.objectStore('k').get('an');g.onsuccess=()=>done(g.result&&typeof g.result==='object'?g.result:null);g.onerror=()=>done(null)});
+ const keyDel=()=>idb((db,done)=>{const t=db.transaction('k','readwrite');t.objectStore('k').delete('dk');t.oncomplete=()=>done(true);t.onerror=()=>done(false)});
+ /* 10.1h: the device key is a WebCrypto key object made non-extractable: the page can use it, but its bytes can never be read out of IndexedDB */
+ const SUB=TWAC0.sub,HX=b=>[...new Uint8Array(b)].map(v=>v.toString(16).padStart(2,'0')).join('');
+ const ckGet=()=>idb((db,done)=>{const t=db.transaction('k','readonly'),g=t.objectStore('k').get('dk3');g.onsuccess=()=>done(g.result&&typeof g.result==='object'&&g.result.type==='secret'?g.result:null);g.onerror=()=>done(null)});
+ const ckPut=k=>idb((db,done)=>{const t=db.transaction('k','readwrite');t.objectStore('k').put(k,'dk3');t.oncomplete=()=>done(true);t.onerror=()=>done(false)});
+ async function ckBits(ck){if(!SUB||!ck)return null;try{return HX(await SUB.der({name:'HKDF',hash:'SHA-256',salt:new Uint8Array(16),info:new TextEncoder().encode('tw-dk3')},ck,256))}catch(e){return null}}
+ async function ckNew(){if(!SUB)return null;try{const a=new Uint8Array(32);TWAC0.rnd(a);return await SUB.imp('raw',a,'HKDF',false,['deriveBits'])}catch(e){return null}}
  const anPut=o=>idb((db,done)=>{const t=db.transaction('k','readwrite');t.objectStore('k').put(o,'an');t.oncomplete=()=>done(true);t.onerror=()=>done(false)});
  let AN=null;
  function ledgerBal(){try{const L=P.ldg;if(Array.isArray(L)&&L.length){const b=+L[L.length-1].bal;if(isFinite(b))return b}}catch(e){}return null}
@@ -61863,8 +61878,19 @@ const TWAC2=(()=>{
   if(ch){try{syncPaths()}catch(e){}try{SGS.lock=false}catch(e){}save();ST.edited++;
    try{if(typeof sgNote==='function'&&typeof S!=='undefined')setTimeout(()=>sgNote('Your save was changed outside the game, so your coins and level were put back to their last real values.'),1200)}catch(e){}}
   return ch}
+ {const k0=sgPack;sgPack=function(){const r=k0.apply(this,arguments);try{if(DK)r.dm=mac2(DK,'x|'+r.payload)}catch(e){}return r}}
+ {const r0=sgRead;sgRead=function(txt,lenient){const r=r0.apply(this,arguments);if(!r||!r.ok||lenient||!r.keyed||!enforce())return r;
+  try{if(TWAC.stat().tr>0)return r}catch(e){}
+  let mine=false;try{let s=String(txt).replace(/^\uFEFF/,'').trim();const m=s.match(/^TWSAVE(\d+):/);if(m)s=sgUnb64(s.slice(m[0].length).replace(/\s+/g,''));
+   const o=JSON.parse(s);mine=!!(DK&&o&&typeof o.payload==='string'&&typeof o.dm==='string'&&o.dm===mac2(DK,'x|'+o.payload))}catch(e){}
+  if(mine)return r;
+  const q=r.P,cg=Math.max(+P.gold||0,25000),cx=Math.max(+P.xp||0,lvx(8)),cp=P.pres|0;let capped=false;
+  if((+q.gold||0)>cg){q.gold=cg;capped=true}if((+q.xp||0)>cx){q.xp=cx;capped=true}if((q.pres|0)>cp){q.pres=cp;capped=true}
+  r.keyed=false;r.verified=false;r.capped=capped;
+  if(capped){ST.capped++;try{const m=sgMeta();m.acNote='That save file was made on another device (or edited), so its coins and level were capped. To move your progress between devices, sign in to your account.';sgMetaSave()}catch(e){}}
+  return r}}
  (async function boot(){try{
-  let k=await keyGet();const raw=lsGet(KEY);let r=null;try{r=JSON.parse(lsGet(SIGK)||'null')}catch(e){}
+  const ck=await ckGet();let k=ck?await ckBits(ck):null;const legacy=k?null:await keyGet();if(!k)k=legacy;const raw=lsGet(KEY);let r=null;try{r=JSON.parse(lsGet(SIGK)||'null')}catch(e){}
   const on=enforce(),lb=ledgerBal();let an=k?await anGet():null;if(an&&an.m!==mac2(k,'an|'+an.g+'|'+an.x+'|'+an.p))an=null;AN=an;
   /* the last real values: the device-signed copy in IndexedDB, else the ledger and level 8 at most */
   const back=()=>an?revert(an.g,an.x,an.p):revert(lb!=null?lb:Math.min(+P.gold||0,25000),Math.min(+P.xp||0,lvx(8)),0);
@@ -61881,7 +61907,11 @@ const TWAC2=(()=>{
     ST.migrated=1;if(lb!=null&&(+P.gold||0)>lb+1){ST.ledger++;revert(lb,+P.xp||0,P.pres|0)}}}
   /* every start: coins above the ledger's last balance go back to it */
   if(on){const b=ledgerBal();if(b!=null&&(+P.gold||0)>b+1){ST.ledger++;revert(b,+P.xp||0,P.pres|0)}}
-  if(!k){const a=new Uint8Array(16);try{TWAC0.rnd(a)}catch(e){for(let i=0;i<16;i++)a[i]=Math.random()*256|0}k=[...a].map(v=>v.toString(16).padStart(2,'0')).join('');if(await keyPut(k))ST.key=1;else k=null}
+  /* a new device key object (or, the first time after 10.1g, the readable key replaced by one); the old readable key is deleted */
+  if(!ck){const nk=await ckNew(),nb=nk?await ckBits(nk):null;
+   if(nb&&await ckPut(nk)){k=nb;AN=null;ST.key=1;ST.ck=1;if(legacy)await keyDel()}
+   else if(!k){const a=new Uint8Array(16);try{TWAC0.rnd(a)}catch(e){for(let i=0;i<16;i++)a[i]=Math.random()*256|0}k=HX(a);if(await keyPut(k))ST.key=1;else k=null}}
+  else ST.ck=1;
   DK=k;if(DK){try{const m=sgMeta();if(!m.v3k){m.v3k=1;sgMetaSave()}if(P.ac3!==1){P.ac3=1;save()}}catch(e){}const cur=lsGet(KEY);if(cur!==null){sign2(cur);lastK=lsGet(KEY);lastA=lsGet(SIGK)}}
  }catch(e){console.error(e)}finally{ST.ready=1}})();
  return Object.freeze({stat:()=>Object.assign({},ST,{dk:!!DK,enforced:enforce()})})})();

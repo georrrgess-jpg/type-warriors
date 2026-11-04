@@ -53893,6 +53893,160 @@ function pznRegsTabs(){const Z=PZS(),grid=ov.querySelector('.pzrggrid');if(!grid
 .pzn8k .pzn8rg canvas{background:radial-gradient(circle at 50% 42%,#2a4a9a,#08103a 70%)}
 .pzn8r .pzun.pzn8un,.pzun.pzn8un{border-color:#5ac8ff}
 `;document.head.appendChild(st)}
+/* ===== 10.2b THE CROOKED CUE: ball sets you can read at a glance, and your group on show (97b5, prefix pzb2, after 97b4) =====
+   The owner's rule for every ball set, old or new: solids are coloured all over, stripes show a clearly lighter area above and
+   below a coloured band, the 8 is clearly the darkest ball with a high-contrast disc, the cue ball is white, numbers are readable.
+   t_pzb102.py measures it per set (light-area fraction of stripes against solids, the 8's luminance against every other ball,
+   disc and number contrast, cue-ball whiteness), so a new set that breaks it fails.
+   - Ember Core redone: solids are molten through in their colour with white-hot veins and darker crust plates; stripes are pale
+     bone-ash stone with a molten band and a glowing seam where the band meets the ash; the 8 is black obsidian with an ember seam
+     and a bright bone disc ringed in fire. Number discs are obsidian with glowing numbers.
+   - Starfall: solids are bright nebulae, stripes have pale stardust caps with an aurora edge, the 8 is a black hole with a
+     violet event-horizon ring and a white disc. Neon Nights: solids glow through, stripes have frosted white caps with neon tube
+     edges, the 8 is black glass with a white tube and a white disc. Champion Gold: solids are anodised colour, stripes polished
+     platinum, the 8 black chrome with a gold seam and a gold disc. Moonstone: deeper pearl colours (the stripes now read), a
+     black-pearl 8. Carrara Marble: slightly deeper colours, darker numbers, a black Nero Marquina 8 with white veins.
+     Classic and Gemstone already followed the rule and paint exactly as before.
+   The painter is the 96zb one (same atlas, conventions and per-pixel lighting) with the new materials; it replaces it whole. */
+Object.assign(PZ_BPAL.moon,{col:{1:[244,196,64],2:[74,124,232],3:[232,78,112],4:[150,92,222],5:[246,138,62],6:[52,182,140],7:[176,62,92],8:[30,26,46]},
+ white:[240,242,255],disc:[255,255,255],num:[50,58,140],disc8:[250,250,255],num8:[22,20,40]});
+Object.assign(PZ_BPAL.marble,{col:{1:[236,194,72],2:[78,112,190],3:[198,78,78],4:[138,92,180],5:[228,138,70],6:[70,150,108],7:[140,66,62],8:[26,25,30]},num:[118,76,8],num8:[24,20,24],mk:.1});
+Object.assign(PZ_BPAL.neon,{col:{1:[255,226,50],2:[50,160,255],3:[255,50,110],4:[186,80,255],5:[255,140,30],6:[40,240,150],7:[255,80,60],8:[10,9,18]},
+ white:[244,244,255],cap:[222,228,246],disc:[22,18,34],num:[255,255,255],disc8:[240,242,255],num8:[14,12,24],ring8:[230,236,255],spec:1.3,win:.12,rim:.4});
+Object.assign(PZ_BPAL.lava,{col:{1:[255,196,36],2:[56,140,255],3:[255,62,38],4:[196,80,255],5:[255,128,22],6:[64,236,104],7:[206,30,64],8:[14,10,14]},
+ white:[244,236,224],cap:[238,228,210],disc:[30,20,18],num:[255,214,140],disc8:[252,232,196],num8:[24,14,10],ring8:[255,120,30],spec:1.1,win:.1,rim:.22});
+Object.assign(PZ_BPAL.galaxy,{col:{1:[255,206,80],2:[70,124,255],3:[255,82,136],4:[168,100,255],5:[255,144,70],6:[64,224,196],7:[226,84,112],8:[6,5,14]},
+ white:[240,242,255],cap:[224,226,244],disc:[232,234,248],num:[28,24,70],disc8:[244,244,255],num8:[14,10,36],ring8:[190,150,255],spec:1.3,win:.14,rim:.32});
+Object.assign(PZ_BPAL.royal,{col:{1:[255,200,60],2:[70,130,255],3:[255,80,80],4:[176,100,255],5:[255,150,60],6:[60,210,130],7:[200,70,70],8:[30,28,36]},
+ white:[248,244,232],cap:[250,246,236],disc:[255,248,226],num:[60,40,10],disc8:[255,220,130],num8:[20,14,6],ring8:[255,200,90],spec:1.6,win:.2,rim:.3});
+/* a fast sine (parabolic, error under 0.001): the lava cracks and the galaxy nebula call it several times a pixel */
+const pzb2Sin=x=>{x-=6.283185307*Math.floor(x*.159154943+.5);const y=1.27323954*x-.405284735*x*(x<0?-x:x);return .225*(y*(y<0?-y:y)-y)+y};
+/* an integer hash for the galaxy's star cells (cheaper than the sine hash) */
+const pzb2Hash=(x,y,z)=>{let h=(Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(z,1274126177))|0;h=Math.imul(h^(h>>>13),1103515245);return ((h^(h>>>16))>>>0)/4294967296};
+function pzbPaint(slot,n,M){const P=PZ_BS,pal=P.pal,K=pal.kind||'classic',d=P.img.data,stripe=n>8,is8=n===8,cue=n===0,C=cue?pal.white:pal.col[stripe?n-8:n],W=pal.white,CP=pal.cap||W,
+ DS=(is8&&pal.disc8)||pal.disc,NM=(is8&&pal.num8)||pal.num,R8=is8?(pal.ring8||null):null,RB=R8||[240,240,255],gl=n>0?P.gm[n]:null,
+ m0=M[0],m1=M[1],m2=M[2],m3=M[3],m4=M[4],m5=M[5],m6=M[6],m7=M[7],m8=M[8],sk=pal.spec,wk=pal.win,rk=pal.rim||.25,mk=pal.mk==null?.18:pal.mk;
+ if(!P.rimA||P.rimA.length!==P.n){P.rimA=new Float32Array(P.n);for(let j=0;j<P.n;j++)P.rimA[j]=Math.pow(1-P.nz[j],2.6)}const RA=P.rimA;
+ /* hot vein colour (same hue, brighter) and the stripe seam colour */
+ const hr=Math.min(255,C[0]*1.2+70),hg=Math.min(255,C[1]*1.2+52),hb=Math.min(255,C[2]*1.2+24);
+ for(let j=0;j<P.n;j++){const wx=P.nx[j],wy=P.ny[j],wz=P.nz[j];
+  const lx=m0*wx+m3*wy+m6*wz,ly=m1*wx+m4*wy+m7*wz,lz=m2*wx+m5*wy+m8*wz,ay=ly<0?-ly:ly;
+  /* band: 1 inside the coloured part (whole ball for solids), 0 on the light caps of a stripe; edge: 1 on the band's border */
+  let band=1,edge=0;if(stripe){band=1-Math.max(0,Math.min(1,(ay-.56)/.035+.5));const de=ay-.56;edge=Math.max(0,1-(de<0?-de:de)/.05)}
+  let r,g,b,er=0,eg=0,eb=0,lit=1,metal=0;
+  if(cue){r=W[0];g=W[1];b=W[2]}
+  else if(K==='marble'){const v=Math.sin(lx*3.1+ly*1.2+3.4*Math.sin(ly*2.7+lz*1.9+1.3*Math.sin(lx*5.1))+2.3*Math.sin(lz*4.1-lx*2.3)),v1=1-Math.abs(v),v2=v1*v1,v4=v2*v2,vm=v4*v4*v1*.55,cl=.93+.07*Math.sin(ly*7+lz*3+lx*2);
+   if(is8){const w=Math.min(1,vm*1.5);r=(C[0]+(214-C[0])*w)*cl;g=(C[1]+(212-C[1])*w)*cl;b=(C[2]+(220-C[2])*w)*cl}
+   else{const br=C[0]+(W[0]-C[0])*mk,bg=C[1]+(W[1]-C[1])*mk,bb=C[2]+(W[2]-C[2])*mk;r=(W[0]+(br-W[0])*band)*cl;g=(W[1]+(bg-W[1])*band)*cl;b=(W[2]+(bb-W[2])*band)*cl;const vr=band?.45:.62;r*=1-vm*(1-vr);g*=1-vm*(1-vr);b*=1-vm*(1-vr)}}
+  else if(K==='gem'){const fx=Math.round(lx*2.6),fy=Math.round(ly*2.6),fz=Math.round(lz*2.6),h=pzbH(fx,fy,fz),k=.72+.5*h;r=(W[0]+(C[0]-W[0])*band)*k;g=(W[1]+(C[1]-W[1])*band)*k;b=(W[2]+(C[2]-W[2])*band)*k;
+   const ins=wz*wz*.3*band;er=C[0]*ins;eg=C[1]*ins;eb=C[2]*ins;if(h>.86&&P.spe[j]<.2){const s=(h-.86)*6*Math.max(0,wz);er+=255*s*.5;eg+=255*s*.5;eb+=255*s*.5}}
+  else if(K==='pearl'){const a=6*lx+4*ly+(1-wz)*5,ir=((1-wz)*.6+.25)*(is8?30:band?30:40);r=W[0]+(C[0]-W[0])*band+ir*Math.sin(a);g=W[1]+(C[1]-W[1])*band+ir*Math.sin(a+2.1);b=W[2]+(C[2]-W[2])*band+ir*Math.sin(a+4.2)}
+  else if(K==='neon'){const cu=wz*wz;
+   if(is8){r=C[0];g=C[1];b=C[2];const s=Math.max(0,1-ay/.05),e=s*s;er=RB[0]*e;eg=RB[1]*e;eb=RB[2]*e;const rm=RA[j]*.3;er+=150*rm;eg+=150*rm;eb+=190*rm}
+   else{/* coloured glass lit from inside; stripes: frosted white caps and a neon tube on each edge of the band */
+    const gk=.42+.5*cu;r=CP[0]+(C[0]*.22-CP[0])*band;g=CP[1]+(C[1]*.22-CP[1])*band;b=CP[2]+(C[2]*.22-CP[2])*band;const fr=(1-band)*.12;er=C[0]*gk*band+CP[0]*fr;eg=C[1]*gk*band+CP[1]*fr;eb=C[2]*gk*band+CP[2]*fr;
+    const rm=RA[j]*.6*band;er+=C[0]*rm;eg+=C[1]*rm;eb+=C[2]*rm;if(edge){const e=edge*edge;er+=(C[0]*.7+110)*e;eg+=(C[1]*.7+110)*e;eb+=(C[2]*.7+110)*e}}}
+  else if(K==='lava'){const c=Math.abs(pzb2Sin(lx*6.1+pzb2Sin(ly*3.7)*2)*pzb2Sin(ly*5.3+pzb2Sin(lz*4.1)*2)*pzb2Sin(lz*5.9+pzb2Sin(lx*3.3)*2)),cr=c<.13?1-c/.13:0,c2=cr*cr;
+   if(is8){/* black obsidian, an ember seam round the middle and faint embers in its cracks */
+    r=C[0];g=C[1];b=C[2];const s=Math.max(0,1-ay/.06),e=s*s,c4=c2*c2*.3;er=255*e+190*c4;eg=150*e+50*c4;eb=50*e+10*c4}
+   else{/* molten: emissive colour with white-hot veins and darker crust plates; stripes: bone ash with char veins */
+    const ab=1-band;r=0;g=0;b=0;
+    if(band>0){const pl=c>.42?(c>.72?1:(c-.42)/.3):0,em=.74-.3*pl,mr=C[0]*em,mg=C[1]*em,mb=C[2]*em;r=C[0]*.26*band;g=C[1]*.26*band;b=C[2]*.26*band;er=(mr+(hr-mr)*c2)*band;eg=(mg+(hg-mg)*c2)*band;eb=(mb+(hb-mb)*c2)*band}
+    if(ab>0){/* the ash keeps a little warmth: a faint inner glow, hotter near the band */const ash=(.9+.14*c)*(1-c2*.2)*ab,w0=Math.max(0,1-(ay-.56)/.16),w=w0*w0*ab;r+=CP[0]*ash;g+=CP[1]*ash;b+=CP[2]*ash;er+=(CP[0]*.1+70*w)*ab;eg+=(CP[1]*.1+30*w)*ab;eb+=(CP[2]*.1+6*w)*ab}
+    if(edge){const e=edge*edge*.95;er+=hr*e;eg+=hg*e;eb+=hb*e}}}
+  else if(K==='galaxy'){const nb=.5+.5*pzb2Sin(lx*3.3+pzb2Sin(ly*4.1+lz*2.3)*1.6+pzb2Sin(lz*3.7)*.8),k2=nb*nb;let sa=1;
+   if(is8){r=C[0];g=C[1];b=C[2];const s=Math.max(0,1-ay/.1),e=s*s,h=Math.max(0,1-ay/.026),hh=Math.max(0,1-ay/.3),ha=hh*hh*hh*.22;
+    er=RB[0]*e+255*h*.7+90*ha;eg=RB[1]*e+255*h*.7+50*ha;eb=RB[2]*e+255*h*.7+200*ha;sa=.45}
+   else{/* the nebula in the ball's colour (thinner and darker in places, a little blue in the dark); stripes: pale stardust caps */
+    const ab=1-band,cl=.95+.08*k2,kk=(.32+.72*k2)*band;r=CP[0]*cl*ab+C[0]*kk;g=CP[1]*cl*ab+C[1]*kk;b=CP[2]*cl*ab+C[2]*kk+18*(1-k2)*band;
+    const ek=(.22+.38*k2*k2)*band;er=C[0]*ek;eg=C[1]*ek;eb=C[2]*ek;sa=band;if(edge){const e=edge*edge*.7;er+=(C[0]*.8+60)*e;eg+=(C[1]*.8+60)*e;eb+=(C[2]*.8+80)*e}}
+   if(sa>.05){const qx=Math.floor(lx*13),qy=Math.floor(ly*13),qz=Math.floor(lz*13),h=pzb2Hash(qx,qy,qz);if(h>.88){const cx=lx*13-qx-.5,cy=ly*13-qy-.5,cz=lz*13-qz-.5,dd=cx*cx+cy*cy+cz*cz,s=Math.max(0,1-dd*9)*(h-.88)*11*sa;er+=255*s;eg+=245*s;eb+=255*s}}}
+  else if(K==='metal'){metal=1;const rx=2*wz*wx,ry=2*wz*wy,env=.25+.75*Math.max(0,-ry*.6+.45)+.25*Math.max(0,ry)*.3+.35*Math.pow(Math.max(0,1-Math.abs(rx+.35)*1.4),3)*Math.max(0,-ry+.2);
+   if(is8){const s=Math.max(0,1-ay/.05),e=s*s;r=C[0]*(.5+env);g=C[1]*(.5+env);b=C[2]*(.5+env);er=RB[0]*e;eg=RB[1]*e;eb=RB[2]*e}
+   else{const ce=.5+.62*env,tr=C[0]*.82+255*.18,tg=C[1]*.82+214*.18,tb=C[2]*.82+120*.18;r=(CP[0]*ce+(tr*env-CP[0]*ce)*band);g=(CP[1]*ce+(tg*env-CP[1]*ce)*band);b=(CP[2]*ce+(tb*env-CP[2]*ce)*band)}lit=0}
+  else{r=W[0]+(C[0]-W[0])*band;g=W[1]+(C[1]-W[1])*band;b=W[2]+(C[2]-W[2])*band}
+  /* number discs on both poles, with a crisp ring round each */
+  const az=lz<0?-lz:lz;
+  if(n>0){if(az>.8){const u=lx*2,v=ly*2,q=u*u+v*v;if(q<1.3){const dk=Math.max(0,Math.min(1,(1-q)/.1+.2)),fade=Math.min(1,(az-.8)/.03);
+    const s=lz>0?1:-1,gx=((u*s*.5+.5)*64)|0,gy=((v*.5+.5)*64)|0;let gm=0;if(gx>=0&&gx<64&&gy>=0&&gy<64)gm=gl[gy*64+gx]/255;
+    const t=dk*fade;let dr=DS[0]+(NM[0]-DS[0])*gm,dg=DS[1]+(NM[1]-DS[1])*gm,db=DS[2]+(NM[2]-DS[2])*gm;
+    if(is8&&pal.disc8){er*=1-t;eg*=1-t;eb*=1-t}
+    else if(K==='neon'){dr=DS[0];dg=DS[1];db=DS[2];const e=gm*t;er=er*(1-t)+C[0]*e*.8+110*e;eg=eg*(1-t)+C[1]*e*.8+110*e;eb=eb*(1-t)+C[2]*e*.8+110*e}
+    else if(K==='lava'){er*=1-t;eg*=1-t;eb*=1-t;const e=gm*t;er+=255*e;eg+=196*e;eb+=110*e;dr=DS[0];dg=DS[1];db=DS[2]}
+    else{er*=1-t;eg*=1-t;eb*=1-t}
+    r+=(dr-r)*t;g+=(dg-g)*t;b+=(db-b)*t;
+    /* the ring: a dark line, or a glowing one round the 8's bright disc */
+    const rg=Math.max(0,1-Math.abs(q-1.02)/.09)*fade*.5;if(R8){const e=rg*1.6;er+=R8[0]*e;eg+=R8[1]*e;eb+=R8[2]*e;r*=1-rg;g*=1-rg;b*=1-rg}else{r*=1-rg;g*=1-rg;b*=1-rg}}}}
+  else{let dm=0;if(az>.93){const q=lx*lx+ly*ly;if(q<.026)dm=Math.min(1,(.026-q)/.006)}
+   else{const ax=lx<0?-lx:lx;if(ax>.95){const q=ly*ly+lz*lz;if(q<.018)dm=Math.min(1,(.018-q)/.005)}else if(ay>.95){const q=lx*lx+lz*lz;if(q<.018)dm=Math.min(1,(.018-q)/.005)}}
+   if(dm>0){r+=(210-r)*dm;g+=(48-g)*dm;b+=(52-b)*dm}}
+  const f=metal?1:(P.dif[j]*lit+(1-lit)*.55),sp=P.spe[j]*255*sk,o=P.idx[j]*4,bo=P.bou[j]*38,wn=P.win[j]*255*wk,rim=RA[j]*255*rk;
+  let rr=r*f+sp+wn+rim*.86+er,gg=g*f+sp+wn+bo+rim*.9+eg,bb=b*f+sp+wn+bo*.4+rim+eb;d[o]=rr>255?255:rr<0?0:rr;d[o+1]=gg>255?255:gg<0?0:gg;d[o+2]=bb>255?255:bb<0?0:bb;d[o+3]=P.al[j]*255}
+ P.ax.putImageData(P.img,slot*P.D,0)}
+try{Object.assign(PZ_TAG97,{lava:'Molten solids, ash-white stripes, an obsidian 8.',galaxy:'Nebula solids, stardust stripes, a black-hole 8.',neon:'Glowing solids, frosted stripes, a black-glass 8.'})}catch(e){}
+/* ---------- the Cue Rack's set cards show a solid, its stripe and the 8, so the rule is visible before you buy ---------- */
+function pzBallCard97(cv,it){const g=cv.getContext('2d');g.clearRect(0,0,300,100);const D0=PZ_BS.D||64;pzbSetup(D0,it.id);const n=[1,9,8];for(let i=0;i<3;i++){const M=pzbRot(pzbRot(pzbI(),0,1,0,.25+i*.22),1,0,0,-.22);pzbPaint(15,n[i],M);const sz=88;g.fillStyle='rgba(0,0,0,.35)';g.beginPath();g.ellipse(58+i*92,94,34,6,0,0,TAU);g.fill();g.drawImage(PZ_BS.atlas,15*PZ_BS.D,0,PZ_BS.D,PZ_BS.D,14+i*92,2,sz,sz)}pzbSetup(D0,PZ.rackSel&&PZ.rackTab==='balls'?PZ.rackSel:PZS().balls)}
+/* ---------- your group in the HUD: a badge (OPEN TABLE / SOLIDS / STRIPES / 8-BALL) and the balls left, the 8 at the end ---------- */
+const pzb2Left=(st,p)=>{const g=st&&st.grp[p];if(!g||st.open)return -1;let k=0;for(const b of st.B)if(b.on&&b.id&&b.id!==8&&pzGrp(b.id)===g)k++;return k};
+function pzBallsHTML(grp,B){if(!grp)return '';const ids=grp==='s'?[1,2,3,4,5,6,7]:[9,10,11,12,13,14,15],on8=ids.every(n=>!B[n]||!B[n].on),e8=B[8]&&B[8].on;
+ return ids.map(n=>`<img class="${B[n]&&B[n].on?'':'out'}" src="${pzbIcon(n,22)}" alt="${n}">`).join('')+`<b class="pzb2sep"></b><span class="pzb2e8${on8&&e8?' tgt':''}${e8?'':' out'}"><img src="${pzbIcon(8,22)}" alt="8"><i></i></span>`}
+function pzb2Badge(p){const st=PZ.st;if(!st)return {k:'',h:''};const g=st.grp[p],left=pzb2Left(st,p),me=p===0;
+ let k,lab,sm;if(!g||st.open){k='o';lab='Open table';sm=st.brk?'':'pot any ball'}else if(left===0){k='e';lab='8-ball';sm=me?'your target':'on the 8'}else{k=g==='s'?'s':'t';lab=g==='s'?'Solids':'Stripes';sm=`${left} left`}
+ return {k,h:`<span class="pzb2c ${k}"><em class="pzb2i ${k}"></em><b>${lab}</b></span><small>${sm}</small>`}}
+{const f0=pzMount;pzMount=function(R){PZ.pzb2E8=null;PZ.pzb2P=null;const r=f0.apply(this,arguments);try{const m=$('pzm');if(m){m.classList.add('pzb2');for(const [c,id] of [['pzcm','pzb2gm'],['pzco','pzb2go']]){const card=$(c);if(card&&!$(id)){const d=document.createElement('div');d.className='pzb2g';d.id=id;card.appendChild(d)}}pzb2Hud()}}catch(e){console.error(e)}return r}}
+function pzb2Hud(){if(!PZ.on||!PZ.st||(PZ.M&&PZ.M.trick))return;for(const [p,id] of [[0,'pzb2gm'],[1,'pzb2go']]){const el=$(id);if(!el)continue;const o=pzb2Badge(p);
+ if(el._h!==o.h){const was=el._k;el.innerHTML=o.h;el._h=o.h;if(was&&was!==o.k&&o.k!=='o'){el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop')}el._k=o.k}}}
+{const f0=pzHudAll;pzHudAll=function(){const r=f0.apply(this,arguments);try{pzb2Hud()}catch(e){console.error(e)}return r}}
+/* ---------- on the table: your balls flash when your turn starts, the 8 is marked once it is your target ---------- */
+{const f0=pzBeginTurn;pzBeginTurn=function(){const r=f0.apply(this,arguments);try{const st=PZ.st,M=PZ.M,B=PZ.B;if(PZ.on&&st&&M&&!M.trick&&st.turn===0&&!st.brk&&!st.open&&st.grp[0]){
+  const on8=pzrOn8(st),ids=on8?[8]:B.filter(b=>b.on&&b.id&&b.id!==8&&pzGrp(b.id)===st.grp[0]).map(b=>b.id);PZ.pzb2P={t0:PZ.t,ids,e8:on8};
+  const e=$('pzbm');if(e&&!pzRM()){e.classList.remove('hop');void e.offsetWidth;e.classList.add('hop');clearTimeout(PZ.pzb2HT);PZ.pzb2HT=setTimeout(()=>e.classList.remove('hop'),1400)}
+  if(on8&&PZ.pzb2E8!==M.rack){PZ.pzb2E8=M.rack;if(!st.bih)pzBanner('On the 8!','turn',1200);pzSub('Your target now: the 8 · call its pocket',2200)}}}catch(e){console.error(e)}return r}}
+function pzb2Draw(g,t){const st=PZ.st,B=PZ.B,M=PZ.M;if(!st||!B||!M||M.trick||PZ.rk)return;const G=PZ_G,R=PZ_PHY.R,rm=pzRM();
+ const P=PZ.pzb2P;if(P&&st.turn===0){const age=t-P.t0;if(age>1.6||age<0)PZ.pzb2P=null;else{g.save();g.lineCap='round';
+  P.ids.forEach((id,k)=>{const b=B[id];if(!b||!b.on)return;const u=(age-k*.045)/.75;if(u<=0||u>=1)return;const x=G.x+b.x,y=G.y+b.y,e=1-(1-u)*(1-u);
+   if(rm){g.globalAlpha=(1-u)*.9;g.strokeStyle='#ffd45a';g.lineWidth=3;g.beginPath();g.arc(x,y,R+5,0,TAU);g.stroke();return}
+   g.globalAlpha=Math.min(1,(1-u)*1.3);g.strokeStyle='#12081f';g.lineWidth=4.4*(1-u)+2.4;g.beginPath();g.arc(x,y,R+3+e*(P.e8?24:16),0,TAU);g.stroke();
+   g.strokeStyle=P.e8?'#fff3b0':'#ffd45a';g.lineWidth=3.6*(1-u)+1.2;g.stroke();g.globalAlpha=(1-u)*.7;g.lineWidth=2.2;g.beginPath();g.arc(x,y,R+3+e*6,0,TAU);g.stroke()});g.restore()}}
+ /* the 8 as your target: a turning gold ring and a bobbing marker while you aim */
+ const e=B[8];if(st.turn===0&&PZ.ph==='aim'&&!st.open&&e&&e.on&&pzrOn8(st)){const x=G.x+e.x,y=G.y+e.y,bob=rm?0:Math.sin(t*4.2)*2.5;g.save();
+  g.strokeStyle='#12081f';g.lineWidth=5;g.beginPath();g.arc(x,y,R+6,0,TAU);g.stroke();g.strokeStyle='#ffd45a';g.lineWidth=2.6;g.setLineDash([7,5]);g.lineDashOffset=rm?0:-t*14;g.beginPath();g.arc(x,y,R+6,0,TAU);g.stroke();g.setLineDash([]);
+  const my=y-R-14+bob;g.beginPath();g.moveTo(x-9,my-11);g.lineTo(x+9,my-11);g.lineTo(x,my+1);g.closePath();g.lineJoin='round';g.lineWidth=4;g.strokeStyle='#12081f';g.stroke();g.fillStyle='#ffd45a';g.fill();g.restore()}}
+{const f0=pzDrawTable;pzDrawTable=function(g,t){const r=f0.apply(this,arguments);try{pzb2Draw(g,t)}catch(e){}return r}}
+{const st=document.createElement('style');st.textContent=`
+.pzm.pzb2:not(.trick) .pzct i{display:none}
+.pzm.pzb2:not(.trick) .pzturn{top:44px;bottom:auto}
+.pzm.trick .pzb2g{display:none}
+.pzb2g{position:absolute;left:108px;top:44px;height:23px;display:flex;align-items:center;gap:8px;pointer-events:none;transform-origin:20% 50%}
+.pzb2g.pop{animation:pzb2pop .5s cubic-bezier(.3,1.7,.5,1)}
+@keyframes pzb2pop{0%{transform:scale(.6);opacity:.3}100%{transform:none;opacity:1}}
+.pzb2c{display:flex;align-items:center;gap:6px;height:23px;padding:0 11px 0 3px;border-radius:12px;border:2px solid #12081f;box-sizing:border-box;font:800 12px/1 Poppins,sans-serif;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.pzb2c b{font-weight:800}
+.pzcard.me .pzb2c{background:linear-gradient(180deg,#ffe189,#e9b43a);color:#2a1a04}
+.pzcard.opp .pzb2c{background:linear-gradient(180deg,#4a3c9c,#2e2272);color:#efe8ff;border-color:#12081f}
+.pzb2c.o{background:#1c1450!important;color:#a89ed0!important;border:2px dashed #5a4ca0}
+.pzb2c.e{background:linear-gradient(180deg,#2a2236,#0c0812)!important;color:#ffd45a!important;border-color:#ffd45a}
+.pzb2g small{font:700 12px Poppins,sans-serif;color:#c4badf;white-space:nowrap}
+.pzcard.me .pzb2g small{color:#ffe6a0}
+.pzb2i{width:15px;height:15px;border-radius:50%;border:1.5px solid #12081f;box-sizing:border-box;flex:none}
+.pzb2i.s{background:radial-gradient(circle at 34% 30%,#ffffffc0 0 14%,transparent 18%),radial-gradient(circle at 40% 36%,#ff7a3a,#c42a1e 72%)}
+.pzb2i.t{background:radial-gradient(circle at 34% 30%,#ffffffc0 0 14%,transparent 18%),linear-gradient(180deg,#f6f0e2 0 30%,#3a72ff 30% 70%,#f6f0e2 70%)}
+.pzb2i.e{background:radial-gradient(circle at 50% 52%,#fff 0 24%,transparent 28%),radial-gradient(circle at 40% 34%,#4a4458,#08060c 72%)}
+.pzb2i.o{background:transparent;border:1.5px dashed #8a80c8}
+.pzballs .pzb2sep{width:2px;height:15px;align-self:center;border-radius:2px;background:#5a4ca0;flex:none}
+.pzballs .pzb2e8{position:relative;width:23px;height:23px;flex:none;opacity:.5;transition:opacity .25s,transform .25s}
+.pzballs .pzb2e8.tgt{opacity:1;transform:scale(1.14)}
+.pzballs .pzb2e8.out{opacity:.22;transform:scale(.8)}
+.pzballs .pzb2e8 i{position:absolute;left:-4px;top:-4px;width:31px;height:31px;border-radius:50%;border:2px solid #ffd45a;box-sizing:border-box;opacity:0}
+.pzballs .pzb2e8.tgt i{animation:pzb2pul 1.4s ease-out infinite}
+@keyframes pzb2pul{0%{transform:scale(.78);opacity:.95}100%{transform:scale(1.45);opacity:0}}
+.pzballs.hop>img:not(.out){animation:pzb2hop .62s cubic-bezier(.3,1.6,.5,1) both}
+.pzballs.hop>img:nth-child(2){animation-delay:.05s}.pzballs.hop>img:nth-child(3){animation-delay:.1s}.pzballs.hop>img:nth-child(4){animation-delay:.15s}
+.pzballs.hop>img:nth-child(5){animation-delay:.2s}.pzballs.hop>img:nth-child(6){animation-delay:.25s}.pzballs.hop>img:nth-child(7){animation-delay:.3s}
+@keyframes pzb2hop{0%{transform:none}40%{transform:translateY(-7px) scale(1.15)}100%{transform:none}}
+body.pf-low .pzballs .pzb2e8.tgt i{animation:none;opacity:.9;transform:none}
+@media (prefers-reduced-motion:reduce){.pzballs .pzb2e8.tgt i{animation:none;opacity:.9;transform:none}.pzb2g.pop{animation:none}}
+`;document.head.appendChild(st)}
 /* ===== RUNESTONE TOWER DEFENSE 9.9h: healers that can be out-damaged, and an endless Wonderland that stays beatable past wave 60 (97c, after 97b) =====
    Hex Shamans (95e) pulsed 8% of max health into every hurt monster in reach every 2.4 s. Three faults made late waves unwinnable:
    - pulses stacked: a monster between three shamans got 24% back per pulse;
@@ -61961,7 +62115,7 @@ const rpmbMet=tier=>tier>=5?{ms:['#fffdf6','#f4ead0','#d6bc84','#8a6a2a'],ar:['#
 function rpmbCresPath(g,cx,cy,R,d,r,rot){const y=(r*r-R*R-d*d)/(2*d),x=Math.sqrt(Math.max(0,R*R-y*y));g.save();g.translate(cx,cy);if(rot)g.rotate(rot);g.beginPath();
  let a0=Math.atan2(y,x),a1=Math.atan2(y,-x);if(a1<a0)a1+=TAU;g.arc(0,0,R,a0,a1,false);g.arc(0,-d,r,Math.atan2(y+d,-x),Math.atan2(y+d,x),true);g.closePath();g.restore()}
 /* the arm angles (from hanging straight down, outward positive) */
-const RPMB_A={hold:2.2,wind:3.0,rel:1.5,out:1.35,rest:.32,catchK:.55};
+const RPMB_A={hold:2.2,wind:3.0,rel:1.5,out:1.35,rest:.32,catchK:.55,swing:.6,dip:.45,swap:.14};
 function rpmbShoulder(tier,side){const L=RPLAY.moon[rpmbT(tier)],s=L.s;return{x:side*14*s,y:L.py-49*s}}
 const rpmbArmLen=tier=>22*RPLAY.moon[rpmbT(tier)].s;
 function rpmbHand(tier,side,a){const S=rpmbShoulder(tier,side),l=rpmbArmLen(tier);return{x:S.x+side*Math.sin(a)*l,y:S.y+Math.cos(a)*l}}
@@ -62091,9 +62245,9 @@ function rpmbEclArt(g){g.drawImage(rpGlowC('#fff0c0'),-46,-46,92,92);
 const rpmbEclS=()=>rpSpr('mb|ecl',-46,-46,92,92,rpmbEclArt);
 function rpmbEclipse(g,x,y,tier,rot,sc,k){if(k<=.01)return;const s=(sc||1)*(.6+.4*k);g.save();g.translate(x,y);g.globalCompositeOperation='lighter';g.globalAlpha=.55*k;g.drawImage(rpGlowC('#fff0c0'),-70*s,-46*s,140*s,92*s);g.globalAlpha=.35*k;g.drawImage(rpGlowC('#9ae8ff'),-44*s,-30*s,88*s,60*s);
  g.globalCompositeOperation='source-over';g.globalAlpha=k;g.scale(s,s*.82);g.rotate(rot);rpPut(g,rpmbEclS());g.restore();g.globalAlpha=1}
-/* the wake: a silver smear on the road */
-const rpmbWakeS=tier=>rpSpr('mb|wk|'+(tier>=5?5:4),-22,-10,44,20,g=>{const c=tier>=5?'#fff0c0':'#bcd4ff',q=g.createRadialGradient(0,0,0,0,0,20);q.addColorStop(0,rpA('#ffffff',1));q.addColorStop(.3,rpA(c,.8));q.addColorStop(1,rpA(c,0));
- g.save();g.scale(1,.45);g.fillStyle=q;g.beginPath();g.arc(0,0,20,0,TAU);g.fill();g.restore();g.strokeStyle=rpA('#ffffff',.9);g.lineWidth=1.6;g.beginPath();g.moveTo(-14,0);g.lineTo(14,0);g.stroke()},1);
+/* the wake: a silver smear on the road (review 10.2: softer core and line; overlapping marks drawn with 'lighter' burnt the road white) */
+const rpmbWakeS=tier=>rpSpr('mb|wk|'+(tier>=5?5:4),-22,-10,44,20,g=>{const c=tier>=5?'#fff0c0':'#bcd4ff',q=g.createRadialGradient(0,0,0,0,0,20);q.addColorStop(0,rpA('#ffffff',.6));q.addColorStop(.3,rpA(c,.5));q.addColorStop(1,rpA(c,0));
+ g.save();g.scale(1,.45);g.fillStyle=q;g.beginPath();g.arc(0,0,20,0,TAU);g.fill();g.restore();g.strokeStyle=rpA('#ffffff',.45);g.lineWidth=1.2;g.beginPath();g.moveTo(-14,0);g.lineTo(14,0);g.stroke()},1);
 function rpmbWake(g,x,y,k,tier,rot){if(k<=.02)return;g.save();g.translate(x,y);g.rotate(rot||0);g.globalAlpha=Math.min(1,k);rpPut(g,rpmbWakeS(tier));g.restore();g.globalAlpha=1}
 /* a cut: a sharp white-blue spark */
 const rpmbSparkS=tier=>rpSpr('mb|sp|'+rpmbT(tier),-14,-14,28,28,g=>{const M=rpmbMet(rpmbT(tier));g.drawImage(rpGlowC(M.glow),-14,-14,28,28);g.fillStyle='#ffffff';g.beginPath();
@@ -62101,13 +62255,25 @@ const rpmbSparkS=tier=>rpSpr('mb|sp|'+rpmbT(tier),-14,-14,28,28,g=>{const M=rpmb
 function rpmbSpark(g,x,y,u,tier){if(u<=0||u>=1)return;const z=(.7+.8*Math.sin(Math.PI*Math.min(1,u*1.8)))*(1-u*.3);g.save();g.translate(x,y);g.rotate(u*1.2);g.scale(z,z*.8);g.globalAlpha=1-u*u;rpPut(g,rpmbSparkS(tier));g.restore();g.globalAlpha=1}
 /* the tower being drawn (99b sets it around rpTowerAt), so the arms and the held glaives follow the battle */
 const RPMB_ART={cur:null};
-/* arm angle for one side, from the tower's state: wind 0..1, thr 0..1 (just released), catch 0..1 (recoil), holding or not */
-function rpmbArmA(tw,side,t,ph,active,holding){const A=RPMB_A,idle=Math.sin(t*1.3+ph*3+side)*.05;if(!active)return A.rest+Math.sin(t*1.1+ph*2+side)*.04;
+/* arm angle for one side, from the tower's state (wind 0..1, thr 0..1 just released, catch 0..1 recoil, holding or not, rc 0..1 the reach for a
+   glaive coming home). Review 10.2: every phase starts where the last one ended, so the arm never jumps: the wind-up takes the glaive back
+   over the helm (the first RPMB_A.swing of the wind-up) and swings it forward to the release angle, where it leaves the hand (99b starts
+   the flight at the hand at RPMB_A.rel); the follow-through runs from the release past the open hand and back to it; the open hand rises to
+   the catch angle as its glaive comes home, and the recoil starts there. */
+function rpmbArmA(tw,side,t,ph,active,holding,rc){const A=RPMB_A,idle=Math.sin(t*1.3+ph*3+side)*.05;if(!active)return A.rest+Math.sin(t*1.1+ph*2+side)*.04;
  if(!tw)return A.hold+idle;
  const w=Math.max(0,Math.min(1,tw.mbW||0)),th=Math.max(0,Math.min(1,tw.mbT||0)),cc=Math.max(0,Math.min(1,tw.mbC||0));
- if(holding){const e=w*w*(3-2*w);let a=A.hold+(A.wind-A.hold)*e+idle*(1-e);if(cc>0)a-=A.catchK*Math.sin(Math.PI*Math.min(1,cc))*cc;return a}
- /* empty: the follow-through of the throw, then the open hand held out towards the glaive */
- if(th>0)return A.out+(A.wind-A.out)*th*th*th+(A.rel-A.out)*(1-th)*th;return A.out+Math.sin(t*2.2+ph+side)*.06}
+ if(holding){let a;if(w<A.swing){const u=w/A.swing,e=u*u*(3-2*u);a=A.hold+(A.wind-A.hold)*e+idle*(1-e)}else{const u=(w-A.swing)/(1-A.swing);a=A.wind+(A.rel-A.wind)*u*u}
+  if(cc>0)a-=A.catchK*Math.sin(Math.PI*Math.min(1,cc))*cc;return a}
+ /* empty: the follow-through of the throw, then the open hand held out towards the glaive, rising to meet it */
+ const wob=Math.sin(t*2.2+ph+side)*.06;let a=th>0?A.out+(A.rel-A.out)*th*th-A.dip*Math.sin(Math.PI*(1-th))*th+wob*(1-th):A.out+wob;
+ if(rc>0){const e=rc*rc*(3-2*rc);a+=(A.hold-a)*e}return a}
+/* the drawn arm angle: the active pose (holding or the open hand) blended with the resting arm by wa (1 active, 0 resting; between while the
+   glaive changes hands) */
+function rpmbArmAt(tw,side,t,ph,wa,holding,rc){if(wa<=0)return rpmbArmA(tw,side,t,ph,false,false,0);const a=rpmbArmA(tw,side,t,ph,true,holding,rc);if(wa>=1)return a;const r=rpmbArmA(tw,side,t,ph,false,false,0);return r+(a-r)*wa}
+/* how far the glaive of a hand slot has come home: 0 while it flies out, rising to 1 over the last 30% of the way back (99b's flight) */
+function rpmbReach(tw,slot){const R=typeof RPX!=='undefined'?RPX:null;if(!tw||!R||!R.mbGl)return 0;for(const gl of R.mbGl){if(gl.tw!==tw||gl.slot!==slot||gl.done)continue;
+ if(gl.home){const H=rpmbHandW(tw,slot,RPMB_A.hold),d=Math.hypot(H.x-gl.X,H.y/RPFX.sq-gl.Y);return Math.max(0,Math.min(1,1-d/70))}return Math.max(0,Math.min(1,(gl.u-1.7)/.3))}return 0}
 function rpmbLive(g,tier,P,t,o,L,ph){const M=rpmbMet(tier),lt=RPFX.lite,tw=RPMB_ART.cur&&RPMB_ART.cur.type==='moon'?RPMB_ART.cur:null,s=L.s,ga=RPGA;
  const yh=L.py-59*s,gy=L.py-49*s+8.5*s,w=tw?Math.max(0,Math.min(1,tw.mbW||0)):0,cc=tw?Math.max(0,tw.mbC||0):0;
  /* eyes and chest stone breathe; they flare on a wind-up and a catch */
@@ -62116,12 +62282,18 @@ function rpmbLive(g,tier,P,t,o,L,ph){const M=rpmbMet(tier),lt=RPFX.lite,tw=RPMB_
  for(const k of [-1,1]){g.fillStyle=M.eye;g.beginPath();g.ellipse(k*2.6*s,yh+1.6*s,1.5*s,.8*s,0,0,TAU);g.fill()}
  /* which hands hold a glaive, and which arm throws */
  const two=tier>=3,side=tw&&tw.mbSide?tw.mbSide:1,hold=tw&&tw.mbHold?tw.mbHold:[1,1,1];
- for(const k of [-1,1]){const active=two||k===side,holding=active&&(two?hold[k<0?0:1]:hold[0]),a=rpmbArmA(tw,k,t,ph,active,holding),S=rpmbShoulder(tier,k);
-  g.save();g.translate(S.x,S.y);g.scale(k,1);g.rotate(-a);g.globalAlpha=ga;rpPut(g,rpmbArmS(tier,active&&!holding));g.restore();
-  if(holding){const H=rpmbHand(tier,k,a),l=6.5*s,dx=k*Math.sin(a),dy=Math.cos(a),bob=Math.sin(t*1.6+ph*4+k)*.7;
-   const rot=k*(Math.PI-a)*(.55+.45*w)+Math.sin(t*1.2+ph+k)*.06*(1-w);g.globalAlpha=ga;
-   if(tier>=4&&!lt){g.globalCompositeOperation='lighter';rpGlow(g,H.x+dx*l,H.y+dy*l+bob,16,12,M.glow,.45+.3*w);g.globalCompositeOperation='source-over';g.globalAlpha=ga}
-   rpmbBlade(g,H.x+dx*l,H.y+dy*l+bob,tier,rot,1,s*.92,1)}}
+ /* review 10.2: at tiers 1-2 99b throws with the hand on the target's side; when it changes hands the glaive is passed over the helm to the
+    other hand in RPMB_A.swap s while the arms trade poses (it used to jump across the statue in a frame and both arms snapped) */
+ let from=side,xf=1;if(tw&&!two){if(tw._mbVS==null)tw._mbVS=side;if(tw._mbVS!==side){tw._mbXF=tw._mbVS;tw._mbX0=t;tw._mbVS=side}
+  if(tw._mbX0!=null){const u=(t-tw._mbX0)/RPMB_A.swap;if(u>=1||u<0)tw._mbX0=null;else{const e=u*u*(3-2*u);xf=e;from=tw._mbXF}}}
+ const HP={};
+ for(const k of [-1,1]){const slot=two?(k<0?0:1):0,wa=two?1:from===side?(k===side?1:0):(k===side?xf:k===from?1-xf:0),holding=wa>0&&!!hold[slot];
+  const a=rpmbArmAt(tw,k,t,ph,wa,holding,holding?0:rpmbReach(tw,slot)),S=rpmbShoulder(tier,k);
+  g.save();g.translate(S.x,S.y);g.scale(k,1);g.rotate(-a);g.globalAlpha=ga;rpPut(g,rpmbArmS(tier,wa>.5&&!holding));g.restore();
+  const H=rpmbHand(tier,k,a),l=6.5*s,dx=k*Math.sin(a),dy=Math.cos(a);HP[k]={x:H.x+dx*l,y:H.y+dy*l+Math.sin(t*1.6+ph*4+k)*.7,rot:k*(Math.PI-a)*(.55+.45*w)+Math.sin(t*1.2+ph+k)*.06*(1-w)}}
+ const blade=(x,y,rot)=>{g.globalAlpha=ga;if(tier>=4&&!lt){g.globalCompositeOperation='lighter';rpGlow(g,x,y,16,12,M.glow,.45+.3*w);g.globalCompositeOperation='source-over';g.globalAlpha=ga}rpmbBlade(g,x,y,tier,rot,1,s*.92,1)};
+ if(two){for(const k of [-1,1])if(hold[k<0?0:1])blade(HP[k].x,HP[k].y,HP[k].rot)}
+ else if(hold[0]){if(from!==side){const A=HP[from],B=HP[side],lift=Math.sin(Math.PI*xf)*30*s;blade(A.x+(B.x-A.x)*xf,A.y+(B.y-A.y)*xf-lift,A.rot+(B.rot-A.rot)*xf)}else blade(HP[side].x,HP[side].y,HP[side].rot)}
  /* tier 5: the third glaive hovers over the helm, turning slowly */
  if(tier>=5&&(!tw||hold[2])){const y=yh-26*s+Math.sin(t*1.5+ph)*2.2,r=t*.9+ph,sy=.5+.12*Math.sin(t*.7);g.globalCompositeOperation='lighter';rpGlow(g,0,y,22,14,M.glow,.55+.2*Math.sin(t*2));g.globalCompositeOperation='source-over';g.globalAlpha=ga;
   rpmbBlade(g,0,y,tier,r,sy,.95,1)}
@@ -62171,7 +62343,7 @@ RP_TW.moon={cost:[300,220,420,850,1450],range:[210,225,240,255,270],dmg:[36,54,8
  up:['Keen Edge: sharper, faster glaives that pierce more armor.','Twin Moons: a glaive in each hand, thrown on mirrored curves; armor no longer matters.','Moonlit Wake: glaives leave a silver wake on the road that slows monsters 20%.','Eclipse: a third glaive, and every fifth throw an eclipse crescent circles the tower for 3 s, cutting everything it touches.']};
 RP_TWORDER.push('moon');RP_KEYS.push('M');
 const RPMBL={spd:[560,620,660,700,740],bulge:.24,back:.1,hit:22,hitW:.3,wind:.2,cruise:30,overV:2.1,
- wakeK:.2,wakeT:1.5,wakeLife:2,wakeGap:16,wakeRoad:30,wakeR:22,eclN:5,eclT:3,eclR:.56,eclW:34,eclSpan:.34,eclSpd:2.4,eclDmg:180,eclRe:.8,f:0};
+ wakeK:.2,wakeT:1.5,wakeLife:2,wakeGap:16,wakeRoad:30,wakeR:22,eclN:5,eclT:3,eclR:.56,eclW:34,eclSpan:.34,eclSpd:2.4,eclDmg:180,eclRe:.8,relT:.12,catT:.1,f:0};
 const rpmbK=()=>{try{return RPG.off?1:(RPG.k||1)}catch(e){return 1}};
 const rpmbMs=()=>{try{return RPC.mob||1}catch(e){return 1}};
 /* the tower's reach: its tier's range x the map's bonus (tw.rangeK, or the Glowcap tw.glowK) */
@@ -62240,7 +62412,7 @@ function rpmbHitR(e){const M=RPMOB[e.id]||{w:40};return RPMBL.hit+(M.w||40)*rpmb
 function rpmbRoad(R,x,y){const G=R.G;if(!G||!G.U)return false;let M=G._mbG;if(!M){M=G._mbG=new Map();for(const q of G.U){const k=(q.x>>5)*1024+(q.y>>5);let L=M.get(k);if(!L)M.set(k,L=[]);L.push(q)}}
  const r=RPMBL.wakeRoad,cx=x>>5,cy=y>>5;for(let i=cx-1;i<=cx+1;i++)for(let j=cy-1;j<=cy+1;j++){const L=M.get(i*1024+j);if(L)for(const q of L)if((q.x-x)*(q.x-x)+(q.y-y)*(q.y-y)<r*r)return true}return false}
 function rpmbCatch(R,gl){const tw=gl.tw;gl.done=1;tw.mbHold[gl.slot]=1;tw.mbOut=Math.max(0,(tw.mbOut||1)-1);tw.mbC=1;tw.fire=Math.max(tw.fire||0,.45);
- if(!R.lite&&!R.rm)R.mbFx.push({x:gl.X,y:gl.Y*RPFX.sq-gl.h,t:0,d:.3,tier:gl.tier});rpmbSfx('catch')}
+ if(!R.lite&&!R.rm)R.mbFx.push({x:gl.X,y:gl.Y*RPFX.sq-gl.h,t:0,d:.3,tier:gl.tier,tw});rpmbSfx('catch')}
 function rpmbStepGl(R,gl,dt){const tw=gl.tw,sq=RPFX.sq;if(!tw.pad||tw.pad.tw!==tw){gl.done=1;return}
  const x0=gl.X,y0=gl.Y;gl.spin+=dt*(gl.home?14:22)*gl.sd;
  /* jammed: the glaive loses its edge and comes straight home */
@@ -62255,18 +62427,18 @@ function rpmbStepGl(R,gl,dt){const tw=gl.tw,sq=RPFX.sq;if(!tw.pad||tw.pad.tw!==t
  const set=gl.u<1?gl.hitO:gl.hitB;
  for(const e of R.foes){if(set.has(e)||!rpmbCan(e))continue;const q=rpPos(R,e);if(rpmbDistSeg(q.x,q.y/sq,x0,y0,gl.X,gl.Y)>rpmbHitR(e))continue;
   set.add(e);rpHurt(e,gl.dmg,gl.ap,tw);R.mbHits=(R.mbHits||0)+1;
-  if(!R.lite&&!R.rm){const M=RPMOB[e.id]||{h:50},lift=e.air?(M.lift||38)*rpmbMs():0;R.mbFx.push({x:(q.x+gl.X)/2,y:q.y-lift-M.h*rpmbMs()*.45,t:0,d:.26,tier:gl.tier});if(R.mbFx.length>50)R.mbFx.shift()}rpmbSfx('cut')}
+  if(!R.lite&&!R.rm){const M=RPMOB[e.id]||{h:50},lift=e.air?(M.lift||38)*rpmbMs():0;R.mbFx.push({x:(q.x+gl.X)/2,y:q.y-lift-M.h*rpmbMs()*.45,t:0,d:.26,tier:gl.tier,tw});if(R.mbFx.length>50)R.mbFx.shift()}rpmbSfx('cut')}
  /* tier 4+: the silver wake where it crosses the road */
  if(gl.tier>=4){gl.wd+=Math.hypot(gl.X-x0,gl.Y-y0);if(gl.wd>=RPMBL.wakeGap){gl.wd=0;const x=gl.X,y=gl.Y*sq;if(rpmbRoad(R,x,y)){R.mbWake.push({x,y,t:0,d:RPMBL.wakeLife,tier:gl.tier,rot:Math.atan2((gl.Y-y0)*sq,gl.X-x0)});R.mbWakeN=(R.mbWakeN||0)+1;if(R.mbWake.length>160)R.mbWake.shift()}}}
  rpmbTrail(R,gl,dt)}
-function rpmbTrail(R,gl,dt){if(R.lite||R.rm){gl.tr.length=0;return}gl.tt-=dt;if(gl.tt<=0){gl.tt=.022;gl.tr.unshift(gl.X,gl.Y*RPFX.sq-gl.h,gl.spin);if(gl.tr.length>15)gl.tr.length=15}}
+function rpmbTrail(R,gl,dt){if(R.lite||R.rm){gl.tr.length=0;return}gl.tt-=dt;if(gl.tt<=0){gl.tt=.022;const v=rpmbVis(gl);gl.tr.unshift(v.x,v.y,gl.spin);if(gl.tr.length>15)gl.tr.length=15}}
 /* the eclipse: a crescent orbiting the tower that cuts what it touches */
 function rpmbEclPos(R,E){const tw=E.tw,r=rpmbRange(tw)*RPMBL.eclR,a=E.a0+E.dir*RPMBL.eclSpd*E.t;return{X:tw.x+Math.cos(a)*r,Y:tw.y/RPFX.sq+Math.sin(a)*r,a,r}}
 function rpmbStepEcl(R,E,dt){const tw=E.tw;if(!tw.pad||tw.pad.tw!==tw){E.t=E.d;return}E.t+=dt;if(E.t>=E.d)return;const P=rpmbEclPos(R,E),sq=RPFX.sq,ov=tw.over>0?1.15:1,k=Math.min(1,E.t/.25,(E.d-E.t)/.3);if(k<.3)return;
  for(const e of R.foes){if(!rpmbCan(e))continue;const q=rpPos(R,e),X=q.x-tw.x,Y=q.y/sq-tw.y/sq,d=Math.hypot(X,Y);if(Math.abs(d-P.r)>RPMBL.eclW+rpmbHitR(e)*.4)continue;
   let da=Math.atan2(Y,X)-P.a;da=Math.atan2(Math.sin(da),Math.cos(da));if(Math.abs(da)*Math.max(d,1)>RPMBL.eclSpan*P.r+rpmbHitR(e)*.5)continue;
   const last=E.hit.get(e);if(last!=null&&E.t-last<RPMBL.eclRe)continue;E.hit.set(e,E.t);rpHurt(e,RPMBL.eclDmg*ov,99,tw);R.mbEclHits=(R.mbEclHits||0)+1;
-  if(!R.lite&&!R.rm)R.mbFx.push({x:q.x,y:q.y-20,t:0,d:.3,tier:5});rpmbSfx('cut')}}
+  if(!R.lite&&!R.rm)R.mbFx.push({x:q.x,y:q.y-20,t:0,d:.3,tier:5,tw});rpmbSfx('cut')}}
 /* the wake slows (pre-step: like honey, re-applied every step while it lasts); contact with the wake and its fading (post-step) */
 function rpmbPre(R,dt){if(!R.mbWake)return;const k=RPMBL.wakeK;for(const e of R.foes){e._mk=0;if(e.dead||!(e.mbWk>0)||e.air||e.vent>0)continue;
  if(!(e.slowT>0)||e.slowK<=k+1e-9){e.slowK=k;e.slowT=Math.max(e.slowT||0,dt*1.5);e._mk=k}}}
@@ -62291,26 +62463,40 @@ function rpmbPost(R,dt){if(!R.mbGl)return;
   R.mbGl=R.mbGl.filter(g=>!g.done);R.mbEcl=R.mbEcl.filter(E=>E.tw!==tw)}}catch(e){}return s0.apply(this,arguments)}}
 /* ---------- drawing ---------- */
 const rpmbScr=gl=>({x:gl.X,y:gl.Y*RPFX.sq-gl.h});
+/* review 10.2: where a glaive is drawn. Its flight position, eased out of the hand that throws it (the first RPMBL.relT s: it starts where
+   the statue held it, at the release angle) and into the hand that catches it (the last RPMBL.catT s: it ends where the statue holds it),
+   growing from its size in the hand to its flight size and tipping from upright to a flat spin on the way. Drawing only. */
+function rpmbHeldW(tw,slot,a){const tier=rpmbT(tw.tier),L=RPLAY.moon[tier],s=L.s,K=rpmbK();let x,y;
+ if(slot===2){x=0;y=L.py-59*s-26*s}else{const side=tier>=3?(slot===0?-1:1):(tw.mbSide||1),H=rpmbHand(tier,side,a),l=6.5*s;x=H.x+side*Math.sin(a)*l;y=H.y+Math.cos(a)*l}
+ return{x:tw.x+x*K,y:tw.y+y*K}}
+function rpmbVis(gl){const sq=RPFX.sq,p=rpmbScr(gl),tw=gl.tw,big=rpmbBig(gl.tier)*(gl.home?.9:1),h2=gl.slot===2,hs=(h2?.95:RPLAY.moon[rpmbT(gl.tier)].s*.92)*rpmbK();let k=0,ox=0,oy=0;
+ if(gl.home){const H=rpmbHeldW(tw,gl.slot,RPMB_A.hold),d=Math.hypot(H.x-p.x,H.y-p.y),u=Math.min(1,d/50);k=1-u*u*(3-2*u)}
+ else{const P0x=gl.P0.X,P0y=gl.P0.Y*sq-gl.h0,out=gl.u<1,t=out?gl.u*gl.L1/gl.v:(2-gl.u)*gl.L2/gl.v,u=Math.min(1,Math.max(0,t)/(out?RPMBL.relT:RPMBL.catT));k=1-u*u*(3-2*u);
+  if(k>0){const H=rpmbHeldW(tw,gl.slot,out?RPMB_A.rel:RPMB_A.hold);ox=(H.x-P0x)*k;oy=(H.y-P0y)*k}}
+ return{x:p.x+ox,y:p.y+oy,sc:big+(hs-big)*k,sy:h2?.55:.55+.45*k}}
 const rpmbBig=t=>t>=5?1.55:t>=4?1.48:t>=3?1.42:1.36;/* glaives read bigger in flight than in the hand */
 /* the arms and held glaives follow the tower being drawn */
 {const t0=rpTowerAt;rpTowerAt=function(c,R,tw){if(tw&&tw.type==='moon')RPMB_ART.cur=tw;try{return t0.apply(this,arguments)}finally{RPMB_ART.cur=null}}}
 /* ground layer: the wake, glaive shadows, the eclipse's track */
 {const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.mbGl){const sq=RPFX.sq;
- if(R.mbWake.length){c.save();c.globalCompositeOperation='lighter';for(const w of R.mbWake){const k=Math.min(1,w.t*8,(w.d-w.t)/.5);rpmbWake(c,w.x,w.y,k*.9,w.tier,w.rot)}c.restore();c.globalAlpha=1;
+ if(R.mbWake.length){c.save();c.globalCompositeOperation='lighter';for(const w of R.mbWake){const k=Math.min(1,w.t*8,(w.d-w.t)/.5);rpmbWake(c,w.x,w.y,k*.6,w.tier,w.rot)}/* review 10.2: .9 burnt overlapping marks white */c.restore();c.globalAlpha=1;
   if(!R.lite&&!R.rm){const st=rpStarS().c;c.save();c.globalCompositeOperation='lighter';for(let j=0;j<R.mbWake.length;j+=3){const w=R.mbWake[j],u=(R.t*1.3+j*.37)%1,z=3+3*Math.sin(Math.PI*u);c.globalAlpha=Math.min(1,(w.d-w.t)/.5)*Math.sin(Math.PI*u)*.8;c.drawImage(st,w.x-z+Math.sin(j)*8,w.y-z-u*6,z*2,z*2)}c.restore();c.globalAlpha=1}}
  for(const gl of R.mbGl){const k=Math.max(.25,1-gl.h/150);c.fillStyle=`rgba(8,4,20,${(.28*k).toFixed(3)})`;c.beginPath();c.ellipse(gl.X,gl.Y*sq,11*k+3,4*k+1.4,0,0,TAU);c.fill()}
  for(const E of R.mbEcl){const tw=E.tw,r=rpmbRange(tw)*RPMBL.eclR,k=Math.min(1,E.t/.25,(E.d-E.t)/.3);c.save();c.globalAlpha=.45*k;c.setLineDash([10,8]);c.lineDashOffset=-R.t*40*E.dir;c.lineWidth=2.6;c.strokeStyle='#ffe9a0';
   c.beginPath();c.ellipse(tw.x,tw.y,r,r*sq,0,0,TAU);c.stroke();c.setLineDash([]);c.restore();c.globalAlpha=1}}}catch(e){console.error(e)}return r}}
 /* top layer: trails, glaives, the eclipse, cut sparks */
+/* review 10.2: glaives, trails, the eclipse and cut sparks of a Sentinel in a mastery skin are drawn through 98m's recolouring context, so a
+   Jade or Rose Moon Sentinel throws the glaive it holds (they kept the base silver-blue in flight) */
+const rpmbSkG=(c,tw)=>{try{const k=tw&&tw.skin;if(!k||k==='base'||typeof rpyCtx!=='function')return c;const T=rpySkinTheme('moon',k);return T?rpyCtx(c,T):c}catch(e){return c}};
 {const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);if(!R.mbGl)return;try{const sq=RPFX.sq;
- if(!R.lite&&!R.rm){c.save();c.globalCompositeOperation='lighter';for(const gl of R.mbGl){const T=gl.tr,n=T.length/3,big=rpmbBig(gl.tier);for(let k=1;k<n;k++){const a=(1-k/n)*.7;rpmbGhost(c,T[k*3],T[k*3+1],gl.tier,T[k*3+2],.55,big*(1-k/n*.3),a)}}c.restore();c.globalAlpha=1}
- for(const gl of R.mbGl){const p=rpmbScr(gl),big=rpmbBig(gl.tier);
-  if(!R.lite){c.save();c.globalCompositeOperation='lighter';rpGlow(c,p.x,p.y,24*big,15*big,rpmbMet(gl.tier).glow,gl.home?.3:gl.tier>=3?.6:.45);c.restore();c.globalAlpha=1}
-  rpmbBlade(c,p.x,p.y,gl.tier,gl.spin,.55,big*(gl.home?.9:1),gl.home?.75:1)}
- for(const E of R.mbEcl){const P=rpmbEclPos(R,E),k=Math.min(1,E.t/.25,(E.d-E.t)/.3);
-  if(!R.lite&&!R.rm){c.save();c.globalCompositeOperation='lighter';for(let j=1;j<=4;j++){const a=P.a-E.dir*j*.13,x=E.tw.x+Math.cos(a)*P.r,y=(E.tw.y/sq+Math.sin(a)*P.r)*sq-34;c.globalAlpha=k*(.5-j*.1);c.drawImage(rpGlowC('#fff0c0'),x-26,y-18,52,36)}c.restore();c.globalAlpha=1}
-  rpmbEclipse(c,P.X,P.Y*sq-34,5,R.t*6*E.dir,1.55,k)}
- if(!R.lite&&!R.rm)for(const f of R.mbFx)rpmbSpark(c,f.x,f.y,f.t/f.d,f.tier)}catch(e){console.error(e)}}}
+ if(!R.lite&&!R.rm){c.save();c.globalCompositeOperation='lighter';for(const gl of R.mbGl){const T=gl.tr,n=T.length/3,big=rpmbBig(gl.tier);const g=rpmbSkG(c,gl.tw);for(let k=1;k<n;k++){const a=(1-k/n)*.7;rpmbGhost(g,T[k*3],T[k*3+1],gl.tier,T[k*3+2],.55,big*(1-k/n*.3),a)}}c.restore();c.globalAlpha=1}
+ for(const gl of R.mbGl){const p=rpmbVis(gl),big=p.sc,g=rpmbSkG(c,gl.tw);
+  if(!R.lite){c.save();c.globalCompositeOperation='lighter';rpGlow(g,p.x,p.y,24*big,15*big,rpmbMet(gl.tier).glow,gl.home?.3:gl.tier>=3?.6:.45);c.restore();c.globalAlpha=1}
+  rpmbBlade(g,p.x,p.y,gl.tier,gl.spin,p.sy,big,gl.home?.75:1)}
+ for(const E of R.mbEcl){const P=rpmbEclPos(R,E),k=Math.min(1,E.t/.25,(E.d-E.t)/.3),g=rpmbSkG(c,E.tw);
+  if(!R.lite&&!R.rm){c.save();c.globalCompositeOperation='lighter';for(let j=1;j<=4;j++){const a=P.a-E.dir*j*.13,x=E.tw.x+Math.cos(a)*P.r,y=(E.tw.y/sq+Math.sin(a)*P.r)*sq-34;c.globalAlpha=k*(.5-j*.1);g.drawImage(rpGlowC('#fff0c0'),x-26,y-18,52,36)}c.restore();c.globalAlpha=1}
+  rpmbEclipse(g,P.X,P.Y*sq-34,5,R.t*6*E.dir,1.55,k)}
+ if(!R.lite&&!R.rm)for(const f of R.mbFx)rpmbSpark(rpmbSkG(c,f.tw),f.x,f.y,f.t/f.d,f.tier)}catch(e){console.error(e)}}}
 /* while a Sentinel is selected: its next loop as a faint dashed path (refreshed five times a second) */
 {const d0=rpDraw;rpDraw=function(){const r=d0.apply(this,arguments);try{const R=RPX;if(!R||!S.rp||!R.sel||R.sel.type!=='moon'||R.sel.build<1||!R.mbGl)return r;const tw=R.sel;
   if(!tw._pvT||R.t-tw._pvT>.2||R.t<tw._pvT){tw._pvT=R.t;const tg=rpmbTargets(R,tw,2);tw._pv=tg.length?rpmbPlan(R,tw,tg):null}const P=tw._pv;if(!P)return r;
@@ -62320,7 +62506,7 @@ const rpmbBig=t=>t>=5?1.55:t>=4?1.48:t>=3?1.42:1.36;/* glaives read bigger in fl
 /* monsters in the wake: a silver sheen instead of the frost look (they are slowed 20%) */
 {const f0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){let hide=false,st=0;try{if(e._mk>0&&e.slowT>0&&e.slowK<=e._mk+1e-6&&!(e.inField>0)){hide=true;st=e.slowT;e.slowT=0}}catch(x){}
  let r;try{r=f0.apply(this,arguments)}finally{if(hide)e.slowT=st}
- if(hide&&!e.dead&&q)try{const M=RPMOB[e.id]||{h:50,w:40},s=rpmbMs();c.save();c.globalCompositeOperation='lighter';rpGlow(c,q.x,q.y-2,(M.w||40)*s*.7,10,'#dfe8ff',.55+.15*Math.sin(R.t*6+(e.uid||0)));c.restore();c.globalAlpha=1}catch(x){}
+ if(hide&&!e.dead&&q)try{const M=RPMOB[e.id]||{h:50,w:40},s=rpmbMs();c.save();c.globalCompositeOperation='lighter';rpGlow(c,q.x,q.y-2,(M.w||40)*s*.7,10,'#dfe8ff',.32+.1*Math.sin(R.t*6+(e.uid||0)));c.restore();c.globalAlpha=1}catch(x){}
  return r}}
 /* ---------- the info panel ---------- */
 {const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='moon')return r;try{const T=RP_TW.moon,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
@@ -62349,7 +62535,8 @@ try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h){h[1]=h[1]
 /* ---------- mastery skins (98m): five themes from RPY_TH ---------- */
 try{RPY_SET.moon=[['jade','Jade Sentinel'],['rosegold','Rose Moon Sentinel'],['inferno','Harvest Moon Sentinel'],['voidstar','Eclipse Sentinel'],['aurora','Aurora Sentinel']]}catch(e){}
 /* warm the battle sprites with the tower */
-{const w0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){const r=w0.apply(this,arguments);if(type==='moon')try{rpStarS()}catch(e){}return r}}
+{const w0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){const r=w0.apply(this,arguments);if(type==='moon')try{rpStarS();const T=skin&&skin!=='base'&&typeof rpyImg==='function'?rpySkinTheme('moon',skin):null;
+ if(T){const t=rpmbT(tier),M=rpmbMet(t);for(const S of [rpmbBladeS(t),rpmbGhostS(t),rpmbSparkS(t),rpmbArmS(t,0),rpmbArmS(t,1)])rpyImg(T,S.c);for(const col of [M.glow,M.eye,'#fff6c8'])rpyImg(T,rpGlowC(col));if(t>=5){rpyImg(T,rpmbEclS().c);rpyImg(T,rpGlowC('#fff0c0'));rpyImg(T,rpGlowC('#9ae8ff'))}}}catch(e){}return r}}
 /* ===== RUNESTONE TOWER DEFENSE 10.2: the Phantom Lantern, art (99c, after 98v) =====
    The fourteenth tower (UPDATE_10_2_PLAN.md section 2): a haunted iron lantern hanging from a gnarled grave-post over a small stone
    crypt. A hooded spectral keeper glows inside the glass; a soul jar on the pad fills with the souls the lantern harvests; the crypt's
@@ -62686,11 +62873,15 @@ function rplnSwordArt(g,G,tier){const A=tier>=5?['#ffffff','#fff2c8','#e0c070']:
 const rplnSwordS=tier=>rpSpr('ln|sw|'+rplnT(tier),-8,-31,16,36,g=>rplnSwordArt(g,rplnGh(rplnT(tier)),rplnT(tier)));
 /* a glow behind a phantom (baked) */
 const rplnAuraS=(tier,big)=>rpSpr('ln|au|'+rplnT(tier)+'|'+(big?1:0),-40,-46,80,72,g=>{const G=rplnGh(rplnT(tier)),k=big?1.35:1;g.drawImage(rpGlowC(G.m),-30*k,-38*k,60*k,60*k)},1);
-function rplnKnight(g,x,y,dir,tier,t,al,sw){const a0=g.globalAlpha,b=Math.sin(t*5.4)*2,lean=.06+(sw||0)*.12;g.save();g.translate(x,y-4+b);g.scale(dir<0?-RPLN_KS:RPLN_KS,RPLN_KS);
+/* review 10.2: a cut's swing (sw runs 1 -> 0): a quick lift back, the strike forward and the return to the guard; it starts and ends at the
+   guard (the old curve snapped back over the head halfway through and jumped up at the cut) */
+function rplnSwing(sw,back,fwd){const p=1-Math.max(0,Math.min(1,sw||0));if(p<=0||p>=1)return 0;if(p<.25){const u=p/.25;return -back*Math.sin(u*Math.PI/2)}
+ if(p<.6){const u=(p-.25)/.35,e=u*u*(3-2*u);return -back+(back+fwd)*e}const u=(p-.6)/.4;return fwd*(1-u*u*(3-2*u))}
+function rplnKnight(g,x,y,dir,tier,t,al,sw){const a0=g.globalAlpha,b=Math.sin(t*5.4)*2,lean=.06+.12*Math.sin(Math.PI*(1-Math.max(0,Math.min(1,sw||0))));g.save();g.translate(x,y-4+b);g.scale(dir<0?-RPLN_KS:RPLN_KS,RPLN_KS);
  g.globalCompositeOperation='lighter';g.globalAlpha=al*.8;rpPut(g,rplnAuraS(tier,0),0,-6);g.globalCompositeOperation='source-over';
  g.rotate(lean);g.globalAlpha=al;rpPut(g,rplnKnightS(tier));
  /* the sword arm: raised, then a swing forward on a cut */
- const s=sw||0,ang=-.25+Math.sin(t*3)*.06+(s>0?(s>.5?-1.1+(1-s)*2.4:-1.1*s*2):0);g.translate(7,-28);g.rotate(ang+.5);rpPut(g,rplnSwordS(tier));g.restore();g.globalAlpha=a0}
+ const ang=-.25+Math.sin(t*3)*.06+rplnSwing(sw,.45,1);g.translate(7,-28);g.rotate(ang+.5);rpPut(g,rplnSwordS(tier));g.restore();g.globalAlpha=a0}
 /* ---------- the Reaper (feet at 0,0, facing right; about 1.6x a knight) ---------- */
 function rplnReaperArt(g,G){const robe=[rpMix(G.d,G.k,.15),rpMix(G.d,G.k,.6)];
  /* tattered robe: dark spectral cloth with a ghost-light rim */
@@ -62724,7 +62915,7 @@ const rplnScytheS=tier=>rpSpr('ln|sc|'+rplnT(tier),-8,-72,44,94,g=>rplnScytheArt
 function rplnReaper(g,x,y,dir,tier,t,al,sw){const a0=g.globalAlpha,b=Math.sin(t*3.6)*2.6;g.save();g.translate(x,y-6+b);g.scale(dir<0?-RPLN_RS:RPLN_RS,RPLN_RS);
  g.globalCompositeOperation='lighter';g.globalAlpha=al*.8;rpPut(g,rplnAuraS(tier,1),0,-16);g.globalCompositeOperation='source-over';
  g.globalAlpha=al;rpPut(g,rplnReaperS(tier));
- const s=sw||0,ang=-.35+Math.sin(t*2.2)*.05+(s>0?(s>.45?-.9+(1-s)*2.2:-.9*s/.45):0);g.translate(12,-42);g.rotate(ang);rpPut(g,rplnScytheS(tier));g.restore();g.globalAlpha=a0}
+ const ang=-.35+Math.sin(t*2.2)*.05+rplnSwing(sw,.4,.95);g.translate(12,-42);g.rotate(ang);rpPut(g,rplnScytheS(tier));g.restore();g.globalAlpha=a0}
 /* ---------- cuts, hits, haunts ---------- */
 const rplnSlashS=(tier,big)=>rpSpr('ln|sl|'+rplnT(tier)+'|'+(big?1:0),-34,-34,68,68,g=>{const G=rplnGh(rplnT(tier)),r=big?28:20;g.lineCap='round';
  g.beginPath();g.arc(0,0,r,-2.2,.5);g.lineWidth=big?9:7;g.strokeStyle=rpA(G.m,.7);g.stroke();g.lineWidth=big?4:3;g.strokeStyle=G.w;g.stroke();g.lineWidth=1.2;g.strokeStyle=rpA(RPTO,.5);g.beginPath();g.arc(0,0,r+(big?5:4),-2,.4);g.stroke()},1.5);
@@ -62806,7 +62997,7 @@ function rplnLaunch(R,tw,e,dmg,hd,from,jump){const o=from||rplnGlassW(tw),B=rpln
  R.lnWisps.push({x:o.x,y:o.y,vx:dx/d*sp-dy/d*sp*.6*side,vy:dy/d*sp+dx/d*sp*.6*side-(from?0:sp*.5),e,tw,dmg,hd,tier:tw.tier,t:0,jump:!!jump,tr:[],tt:0,fade:0,a:Math.atan2(dy,dx),ph:Math.random()*9});
  if(R.lnWisps.length>80)R.lnWisps.shift();R.lnShots=(R.lnShots||0)+1}
 function rplnWispHit(R,w,e){const tw=w.tw;rpHurt(e,w.dmg,0,tw);if(!e.dead)rplnHaunt(e,w.hd,tw);R.lnHits=(R.lnHits||0)+1;tw.nv=(tw.nv||0)+1;
- R.lnFx.push({k:'hit',x:w.x,y:w.y,t:0,d:.4,tier:w.tier});if(R.lnFx.length>60)R.lnFx.shift();rplnSfx('hit');
+ R.lnFx.push({k:'hit',x:w.x,y:w.y,t:0,d:.4,tier:w.tier,tw});if(R.lnFx.length>60)R.lnFx.shift();rplnSfx('hit');
  /* tier 3+: the wisp jumps on to a second monster */
  if(tw.tier>=3&&!w.jump){const q=rpPos(R,e);let best=null,bd=RPLNB.jumpR*RPLNB.jumpR;for(const f of R.foes){if(f===e||!rplnCan(f))continue;const p=rpPos(R,f),d=rpD2(p.x,p.y,q.x,q.y);if(d<bd){bd=d;best=f}}
   if(best){rplnLaunch(R,tw,best,w.dmg*RPLNB.jumpK,w.hd,{x:w.x,y:w.y},1);R.lnJumps=(R.lnJumps||0)+1}}}
@@ -62828,7 +63019,7 @@ function rplnSoulStep(R,dt){for(const s of R.lnSouls){s.t+=dt;const tw=s.tw,aliv
   s.x=s.x0+dx*e+nx*(sw+sp);s.y=s.y0+dy*e+ny*(sw+sp)-Math.sin(u*Math.PI)*28;
   if(!R.lite&&!R.rm){s.tt-=dt;if(s.tt<=0){s.tt=.035;s.tr.unshift(s.x,s.y);if(s.tr.length>10)s.tr.length=10}}
   if(u>=1){s.done=1;tw.inc=Math.max(0,(tw.inc||0)-1);const need=RP_TW.lant.souls[tw.tier-1];tw.souls=Math.min(need,(tw.souls||0)+1);tw.flare=1;R.lnSoulN=(R.lnSoulN||0)+1;
-   R.lnFx.push({k:'soul',x:g.x,y:g.y,t:0,d:.45,tier:tw.tier});if(!R.rm)rplnSfx('soul')}}
+   R.lnFx.push({k:'soul',x:g.x,y:g.y,t:0,d:.45,tier:tw.tier,tw});if(!R.rm)rplnSfx('soul')}}
  R.lnSouls=R.lnSouls.filter(s=>!s.done)}
 /* ---------- phantoms ---------- */
 /* where a phantom would start: for every road, its point nearest the lantern (within range) and the ground monsters coming along it */
@@ -62848,11 +63039,11 @@ function rplnRelease(R,tw){const T=RP_TW.lant,i=tw.tier-1,need=T.souls[i];tw.rea
  if(T.legion[i]>1){/* the second phantom takes another road if one starts somewhere else in range, else it follows the first */const o=L.find(q=>q!==L[0]&&Math.hypot(q.x-L[0].x,q.y-L[0].y)>60);rplnSpawn(R,tw,o||L[0],'knight',RPLNB.legionGap)}
  R.lnPhN=(R.lnPhN||0)+1;if(reap){R.lnReapN=(R.lnReapN||0)+1;rpText(tw.x,tw.y-rpTowerTop('lant',tw.tier)-16,'THE REAPER!','#e8fff8',22);rplnSfx('reaper')}else rplnSfx('rise');
  return true}
-function rplnCut(R,ph,f){const tw=ph.tw,reap=ph.kind==='reaper';ph.hit.add(f);ph.will--;ph.sw=1;ph.cut++;R.lnCuts=(R.lnCuts||0)+1;
+function rplnCut(R,ph,f){const tw=ph.tw,reap=ph.kind==='reaper';ph.hit.add(f);ph.will--;if(!(ph.sw>.05))ph.sw=1;/* one swing at a time (review 10.2: a restart mid-swing snapped the sword) */ph.cut++;R.lnCuts=(R.lnCuts||0)+1;
  const q=rpPos(R,f),M=RPMOB[f.id]||{h:50},fl=f.fl;rpHurt(f,ph.dmg*(reap&&f.boss?RPLNB.reapBoss:1),99,tw);
  if(!f.dead&&ph.tier>=3)rplnChill(f);
  if(reap&&!f.dead&&!f.boss&&f.hp<=RPLNB.reapExec*f.mx){rpKillFoe(f,tw);if(f.dead){R.lnFin=(R.lnFin||0)+1;rpText(q.x,q.y-50,'REAPED!','#e8fff8',18);rplnSfx('reap')}}
- R.lnFx.push({k:'slash',x:q.x,y:q.y-M.h*rplnMs()*.45,t:0,d:.32,tier:ph.tier,dir:ph.dir,big:reap});if(R.lnFx.length>60)R.lnFx.shift();
+ R.lnFx.push({k:'slash',x:q.x,y:q.y-M.h*rplnMs()*.45,t:0,d:.32,tier:ph.tier,dir:ph.dir,big:reap,tw});if(R.lnFx.length>60)R.lnFx.shift();
  if(!R.rm)rplnSfx('cut')}
 function rplnPhStep(R,dt){const G=R.G;
  for(const ph of R.lnPh){if(ph.wait>0){ph.wait-=dt;if(ph.wait<=0){const D=rplnDoorW(ph.tw);ph.x0=ph.x=D.x;ph.y0=ph.y=D.y;if(ph.tw.pad&&ph.tw.pad.tw===ph.tw)ph.tw.dOp=Math.max(ph.tw.dOp||0,1)}continue}
@@ -62910,34 +63101,43 @@ try{RPIA.fogT.lant=1}catch(e){}
 /* ---------- drawing ---------- */
 const rplnPhPos=ph=>({x:ph.x,y:ph.y-(ph.h||0)});
 function rplnPhAlpha(ph){if(ph.st==='rise')return Math.min(1,ph.t/RPLNB.rise*1.6)*.9;if(ph.st==='fade')return Math.max(0,1-ph.t/RPLNB.fade)*.9;return .9}
-function rplnDrawPh(c,R,ph){if(ph.wait>0)return;const p=rplnPhPos(ph),a=rplnPhAlpha(ph),reap=ph.kind==='reaper',t=R.t+ph.s*.01;
+/* review 10.2: the phantoms, wisps, souls, cuts and haunts of a lantern in a mastery skin are drawn through 98m's recolouring context, so a
+   Hellfire or Frostwake Lantern sends ghosts in its own light (they kept the base ghost-green) */
+const rplnSkG=(c,tw)=>{try{const k=tw&&tw.skin;if(!k||k==='base'||typeof rpyCtx!=='function')return c;const T=rpySkinTheme('lant',k);return T?rpyCtx(c,T):c}catch(e){return c}};
+function rplnDrawPh(c0,R,ph){if(ph.wait>0)return;const c=rplnSkG(c0,ph.tw);const p=rplnPhPos(ph),a=rplnPhAlpha(ph),reap=ph.kind==='reaper',t=R.t+ph.s*.01;
  let sc=1;if(ph.st==='rise')sc=.45+.55*Math.min(1,ph.t/RPLNB.rise);else if(ph.st==='fade')sc=1+.15*ph.t/RPLNB.fade;const y=p.y-(ph.st==='fade'?ph.t*30:0);
  /* the ghost trail: faded copies at the last few positions */
  if(ph.tr.length>=4&&ph.st==='march'&&!R.lite&&!R.rm){const S=reap?rplnReaperS(ph.tier):rplnKnightS(ph.tier),n=ph.tr.length/2;for(let k=n-1;k>=1;k--){c.save();c.globalAlpha=a*.22*(1-k/n);c.translate(ph.tr[k*2],ph.tr[k*2+1]-4);const z=reap?RPLN_RS:RPLN_KS;c.scale(ph.dir<0?-z:z,z);rpPut(c,S);c.restore()}c.globalAlpha=1}
  c.save();c.translate(p.x,y);c.scale(sc,sc);if(reap)rplnReaper(c,0,0,ph.dir,ph.tier,t,a,ph.sw);else rplnKnight(c,0,0,ph.dir,ph.tier,t,a,ph.sw);c.restore();c.globalAlpha=1}
 {const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.lnPh){
  for(const ph of R.lnPh){if(ph.wait>0)continue;rplnShadow(c,ph.x,ph.y+2,ph.kind==='reaper'?1.5:1,rplnPhAlpha(ph)*(ph.st==='rise'?.5:1))}
+ /* review 10.2: the frame's phantoms in depth order; rpDraw's tower and monster loop draws each one just before the first thing in front of it */
+ R._lnZ=R.lnPh.length?R.lnPh.filter(p=>!(p.wait>0)).sort((a,b)=>a.y-b.y):null;R._lnZi=0;R._lnZc=c;
  /* a selected lantern shows where its phantoms would rise onto the road */
  const s=R.sel;if(s&&s.type==='lant'&&s.build>=1){if(!s._pvT||R.t-s._pvT>.3||R.t<s._pvT){s._pvT=R.t;s._pv=rplnPlan(R,s,1)[0]||null}const P=s._pv;
   if(P){const G=rplnGh(s.tier),k=.55+.25*Math.sin(R.t*4);c.save();c.globalAlpha=k;c.setLineDash([5,6]);c.lineDashOffset=R.t*18;c.lineWidth=2.2;c.strokeStyle=G.l;c.beginPath();c.ellipse(P.x,P.y,20,20*RPFX.sq,0,0,TAU);c.stroke();c.setLineDash([]);
    const b=rpAt(R.G,Math.max(0,P.s-36),P.pi);c.lineWidth=3;c.beginPath();c.moveTo(P.x,P.y);c.lineTo(b.x,b.y);c.stroke();const an=Math.atan2(b.y-P.y,b.x-P.x);c.beginPath();c.moveTo(b.x+Math.cos(an)*6,b.y+Math.sin(an)*6);c.lineTo(b.x+Math.cos(an+2.5)*8,b.y+Math.sin(an+2.5)*8);c.lineTo(b.x+Math.cos(an-2.5)*8,b.y+Math.sin(an-2.5)*8);c.closePath();c.fillStyle=G.l;c.fill();c.restore()}}}}catch(e){console.error(e)}return r}}
 {const b0=rpBeamsDraw;rpBeamsDraw=function(c,R){b0.apply(this,arguments);if(!R.lnWisps)return;try{
  /* rising columns at crypt doors while a phantom climbs out */
- for(const ph of R.lnPh){if(ph.st!=='rise'||ph.wait>0)continue;const u=ph.t/RPLNB.rise,G=rplnGh(ph.tier);c.globalCompositeOperation='lighter';rpGlow(c,ph.x0,ph.y0-16,22,30,G.m,(1-u)*.9);c.globalCompositeOperation='source-over';c.globalAlpha=1}
- for(const ph of R.lnPh.length>1?R.lnPh.slice().sort((a,b)=>a.y-b.y):R.lnPh)rplnDrawPh(c,R,ph);
+ for(const ph of R.lnPh){if(ph.st!=='rise'||ph.wait>0)continue;const u=ph.t/RPLNB.rise,G=rplnGh(ph.tier);c.globalCompositeOperation='lighter';rpGlow(rplnSkG(c,ph.tw),ph.x0,ph.y0-16,22,30,G.m,(1-u)*.9);c.globalCompositeOperation='source-over';c.globalAlpha=1}
+ if(R._lnZ&&R._lnZc===c)rplnZFlush(c,R,null);else for(const ph of R.lnPh.length>1?R.lnPh.slice().sort((a,b)=>a.y-b.y):R.lnPh)if(!(ph.wait>0))rplnDrawPh(c,R,ph);R._lnZ=null;
  /* trails of wisps and souls in one pass */
- if(!R.lite&&!R.rm){c.globalCompositeOperation='lighter';for(const w of R.lnWisps){const D=rplnDotS(w.tier).c,n=w.tr.length/2;for(let k=1;k<n;k++){const z=8*(1-k/n)+2;c.globalAlpha=(1-k/n)*.8*(w.fade>0?1-w.fade/.3:1);c.drawImage(D,w.tr[k*2]-z,w.tr[k*2+1]-z,z*2,z*2)}}
-  for(const s of R.lnSouls){const D=rplnDotS(s.tw?s.tw.tier:1).c,n=s.tr.length/2;for(let k=1;k<n;k++){const z=6*(1-k/n)+1.5;c.globalAlpha=(1-k/n)*.7;c.drawImage(D,s.tr[k*2]-z,s.tr[k*2+1]-z,z*2,z*2)}}
+ if(!R.lite&&!R.rm){c.globalCompositeOperation='lighter';for(const w of R.lnWisps){const D=rplnDotS(w.tier).c,n=w.tr.length/2,g=rplnSkG(c,w.tw);for(let k=1;k<n;k++){const z=8*(1-k/n)+2;c.globalAlpha=(1-k/n)*.8*(w.fade>0?1-w.fade/.3:1);g.drawImage(D,w.tr[k*2]-z,w.tr[k*2+1]-z,z*2,z*2)}}
+  for(const s of R.lnSouls){const D=rplnDotS(s.tw?s.tw.tier:1).c,n=s.tr.length/2,g=rplnSkG(c,s.tw);for(let k=1;k<n;k++){const z=6*(1-k/n)+1.5;c.globalAlpha=(1-k/n)*.7;g.drawImage(D,s.tr[k*2]-z,s.tr[k*2+1]-z,z*2,z*2)}}
   c.globalCompositeOperation='source-over';c.globalAlpha=1}
- for(const s of R.lnSouls)rplnSoulDraw(c,s.x,s.y,s.tw?s.tw.tier:1,R.t+s.seed,s.gone?Math.max(0,1-s.gone/.4):Math.min(1,s.t*5));
- for(const w of R.lnWisps)rplnWisp(c,w.x,w.y,w.a,w.tier,R.t+w.ph,w.jump?.85:1,w.fade>0?Math.max(0,1-w.fade/.3):Math.min(1,.4+w.t*6));
- for(const f of R.lnFx){const u=f.t/f.d;if(f.k==='slash')rplnSlash(c,f.x,f.y,u,f.tier,f.dir,f.big);else if(f.k==='soul'){c.globalCompositeOperation='lighter';rpGlow(c,f.x,f.y,14+20*u,14+20*u,rplnGh(f.tier).w,(1-u)*.9);c.globalCompositeOperation='source-over';c.globalAlpha=1}
-  else if(!R.rm||u<.5)rplnBurst(c,f.x,f.y,u,f.tier)}}catch(e){console.error(e)}}}
+ for(const s of R.lnSouls)rplnSoulDraw(rplnSkG(c,s.tw),s.x,s.y,s.tw?s.tw.tier:1,R.t+s.seed,s.gone?Math.max(0,1-s.gone/.4):Math.min(1,s.t*5));
+ for(const w of R.lnWisps)rplnWisp(rplnSkG(c,w.tw),w.x,w.y,w.a,w.tier,R.t+w.ph,w.jump?.85:1,w.fade>0?Math.max(0,1-w.fade/.3):Math.min(1,.4+w.t*6));
+ for(const f of R.lnFx){const u=f.t/f.d,g=rplnSkG(c,f.tw);if(f.k==='slash')rplnSlash(g,f.x,f.y,u,f.tier,f.dir,f.big);else if(f.k==='soul'){c.globalCompositeOperation='lighter';rpGlow(g,f.x,f.y,14+20*u,14+20*u,rplnGh(f.tier).w,(1-u)*.9);c.globalCompositeOperation='source-over';c.globalAlpha=1}
+  else if(!R.rm||u<.5)rplnBurst(g,f.x,f.y,u,f.tier)}}catch(e){console.error(e)}}}
+/* review 10.2: phantoms are drawn between the towers and ground monsters by depth (behind what stands in front of them); flyers come after */
+function rplnZFlush(c,R,y){const Z=R._lnZ;if(!Z||R._lnZc!==c)return;while(R._lnZi<Z.length&&(y==null||Z[R._lnZi].y<y)){rplnDrawPh(c,R,Z[R._lnZi]);R._lnZi++}}
+{const t0=rpTowerAt;rpTowerAt=function(c,R,tw){if(R&&R._lnZ&&tw)try{rplnZFlush(c,R,tw.y)}catch(e){}return t0.apply(this,arguments)}}
+{const f0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){if(R&&R._lnZ&&e&&q)try{rplnZFlush(c,R,e.air?null:q.y)}catch(x){}return f0.apply(this,arguments)}}
 /* the tower being drawn: its door, jar and sway follow the battle */
 {const t0=rpTowerAt;rpTowerAt=function(c,R,tw){if(!tw||tw.type!=='lant')return t0.apply(this,arguments);RPLN.cur=tw;try{return t0.apply(this,arguments)}finally{RPLN.cur=null}}}
 /* a haunted monster: a ghost-light ring at its feet and wisps rising off it */
 {const f0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){const r=f0.apply(this,arguments);if(e&&!e.dead&&e.lnT>0&&q)try{const M=RPMOB[e.id]||{w:40},w=(M.w||40)*rplnMs();
-  rplnHauntDraw(c,q.x,q.y,w,Math.min(1,e.lnT*2)*(R.rm?.6:1),R.rm?0:R.t+(e.ph||0)*7,e.lnS?e.lnS.tier:1)}catch(x){}return r}}
+  rplnHauntDraw(rplnSkG(c,e.lnS),q.x,q.y,w,Math.min(1,e.lnT*2)*(R.rm?.6:1),R.rm?0:R.t+(e.ph||0)*7,e.lnS?e.lnS.tier:1)}catch(x){}return r}}
 /* ---------- the info panel ---------- */
 {const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);if(tw.type!=='lant')return r;try{const T=RP_TW.lant,i=tw.tier-1,top=RP_MAXT(R.map),nx=tw.tier<top?tw.tier:null;
   const seg=(v,max)=>Math.max(0,Math.min(6,Math.round(v/max*6))),bar=(lab,v,max,nv)=>`<div class="rpst"><span>${lab}</span><i>${[0,1,2,3,4,5].map(k=>`<s class="${k<seg(v,max)?'on':nv!=null&&k<seg(nv,max)?'up':''}"></s>`).join('')}</i></div>`;
@@ -62958,6 +63158,11 @@ try{const h=HELP.Modes.find(x=>x[0]==='Runestone Tower Defense');if(h)h[1]+=" Th
 try{RPY_SET.lant=[['toxic','Bog Light Lantern'],['inferno','Hellfire Lantern'],['glacier','Frostwake Lantern'],['amethyst','Amethyst Lantern'],['aurora','Aurora Lantern']]}catch(e){}
 /* 97k's particles: the ghost motes take the tier's colour */
 {const p0=rpgParts;rpgParts=function(g,type,tier){if(type!=='lant')return p0.apply(this,arguments);const P=RPG_PAR.lant,c0=P.c,G=rplnGh(tier);P.c=[G.l,G.m];try{return p0.apply(this,arguments)}finally{P.c=c0}}}
+/* review 10.2: warm the recoloured live and effect sprites of a mastery skin with the tower (the door, jar, phantoms and wisps were
+   recoloured the first time they showed, in the middle of a fight) */
+{const w0=rpTowerWarm;rpTowerWarm=function(type,tier,skin){const r=w0.apply(this,arguments);if(type==='lant')try{const T=skin&&skin!=='base'&&typeof rpyImg==='function'?rpySkinTheme('lant',skin):null;
+ if(T){const t=rplnT(tier),G=rplnGh(t);for(const S of [rplnWispS(t),rplnDotS(t),rplnSoulS(t),rplnKnightS(t),rplnSwordS(t),rplnAuraS(t,0),rplnSlashS(t,0),rplnHauntS(t),rplnLantS(t,'base'),rplnLantGlowS(t),rplnDoorS(t,'base'),rplnDoorGlowS(t),rplnDoorInS(t),rplnJarFrontS(t,'base'),rplnJarLiqS(t)].concat(t>=5?[rplnReaperS(t),rplnScytheS(t),rplnAuraS(t,1),rplnSlashS(t,1)]:[]))rpyImg(T,S.c);
+  for(const col of [G.w,G.l,G.m,'#fff6c8','#ffffff'])rpyImg(T,rpGlowC(col))}}catch(e){}return r}}
 /* ===== RUNESTONE TOWER DEFENSE 10.2: battle UI and features (99e, after 98v; prefix rpq, config RPQX) =====
    1. Damage meter. Every point of monster health a tower takes away is booked on that tower (tw.rpqD). The hook is the one damage
       gate every effect already goes through: rpHurt(e,dmg,ap,src) (bolts, splash, burning ground, puddles, chains, bees, stars,
@@ -63231,6 +63436,67 @@ function rpqDmRes(){const R=RPX,res=R&&R.result,box=ov.querySelector('.rpres');i
 #ov .rpcsl.rpqsfit .rpcsn img{width:calc(var(--rpqsn,62px) - 4px);height:calc(var(--rpqsn,62px) - 4px)}
 #ov .rpcsl.rpqsfit .rpcsn b{font-size:14.5px;line-height:1.1}#ov .rpcsl.rpqsfit .rpcsn i{font-size:19px}
 @media (prefers-reduced-motion:reduce){.rpqpop{animation:none;opacity:0}.rpqbars li s{animation:none}}`;document.head.appendChild(st)}
+/* ===== RUNESTONE TOWER DEFENSE 10.2: tower and monster interactions with fourteen towers (99f, after 99e; overrides only, prefix rpib) =====
+   An audit of all fourteen towers (the Moonblade Sentinel and the Phantom Lantern included) against every monster, every monster
+   ability, every map twist and every other tower, plus selling, upgrading, wave ends, defeat, leaving, pause, speed and early calls
+   (t_ia102.py: every map, a tower x monster matrix, soak battles and a randomized fuzz). Fixes:
+   1. Damage meter (99e): a sold tower was booked as a snapshot of its damage at the moment of the sale, and only if it had dealt any by
+      then. Everything its effects did afterwards (burning ground, Mortar craters, Still puddles, Tidecaller waves, Engine wells, stars
+      and bolts in flight, Lantern haunts) was counted in the battle total but on no tower, so the results' MVP card and damage bars
+      missed it. A sold tower's record now keeps reading the tower: its damage and kills stay live.
+   2. Phantom Lantern: phantoms kept marching up to 8 s down an empty road after a wave was cleared, and a sold lantern's phantoms
+      and wisps went on fighting (its souls already faded). Now once the road is clear (no ground monster left and none still to
+      spawn) the phantoms go back: they fade where they stand, and a legion phantom still waiting at the crypt never rises. Selling
+      a lantern fades its phantoms and fizzles its wisps, the way a sold Moonblade Sentinel takes its glaives along. Haunts already
+      on monsters run out as before (a status, like a burn or a soak) and stay booked on the sold lantern.
+   3. Slow immunity: on the step a Steam Golem starts venting (98b), the slow from the step before (Moonlit Wake, honey, Frost, Grave
+      Chill, craters...) still held it for that frame. A venting golem now sheds every slow from its first venting step.
+   4. World 2/3 monsters on a World 1 map (the Wonderland, DEV): 98p runs their ability step only while such a monster is alive, so an
+      ink blob still in flight when its Inkling died never landed and an EMP or stomp ring froze on screen (drawn until the next such
+      monster came). The ink, EMP and bolt effects now run out after their monster is gone.
+   5. Moonblade Sentinel: a jam takes the edge off its glaives in flight (they fly home without cutting, 99b), but a tier-5 eclipse kept
+      circling and cutting through the whole jam. The eclipse now loses its edge too: it stops cutting and fades out.
+   RPIB.off = 1 switches the step hooks off (tests). Test: t_ia102.py. */
+const RPIB={off:0};
+/* ---------- 1. the damage meter keeps reading sold towers ---------- */
+{const s0=rpSell;rpSell=function(tw){const R=RPX;let n0=-1;try{if(R&&tw&&tw.type){R.rpqSold=R.rpqSold||[];n0=R.rpqSold.length}}catch(e){}
+ const r=s0.apply(this,arguments);
+ try{if(n0>=0&&R===RPX&&R.rpqSold){let rec=R.rpqSold.length>n0?R.rpqSold[R.rpqSold.length-1]:null;
+   if(!rec||rec._tw)R.rpqSold.push(rec={type:tw.type,tier:tw.tier,skin:tw.skin,d:tw.rpqD||0,k:tw.kills||0,t:tw.rpqT||0,sold:1});rec._tw=tw}}catch(e){console.error(e)}
+ return r}}
+function rpqDmList(R){const L=[];for(const p of R.pads){const tw=p.tw;if(tw&&(tw.rpqD>0||tw.kills>0))L.push({type:tw.type,tier:tw.tier,skin:tw.skin,d:tw.rpqD||0,k:tw.kills||0,t:tw.rpqT||0})}
+ for(const s of R.rpqSold||[]){const tw=s._tw;if(!tw){if(s.d>0||s.k>0)L.push(s);continue}const d=Math.max(s.d||0,tw.rpqD||0),k=Math.max(s.k||0,tw.kills||0);
+  if(d>0||k>0)L.push({type:s.type,tier:s.tier,skin:s.skin,d,k,t:s.t,sold:1})}return L}
+/* ---------- 2. phantoms go back when the wave is cleared; a sold lantern takes its phantoms and wisps along ---------- */
+function rpibPhEnd(R,ph){if(!ph||ph.done||ph.st==='fade')return;if(ph.wait>0){ph.done=1;return}ph.st='fade';ph.t=0;
+ try{const G=rplnGh(ph.tier);ptBurst(R.fx,ph.x,ph.y-30-(ph.h||0),R.lite?3:9,[G.l,G.w],{v:90,s:2.6,up:1})}catch(x){}}
+function rpibLnPost(R){const P=R.lnPh;if(!P||!P.length)return;const clear=!(R.q&&R.q.length)&&!R.foes.some(e=>!e.dead&&!e.air);
+ for(const ph of P){const tw=ph.tw;if(clear||!tw||!tw.pad||tw.pad.tw!==tw)rpibPhEnd(R,ph)}R.lnPh=P.filter(p=>!p.done)}
+{const s0=rpSell;rpSell=function(tw){try{const R=RPX;if(R&&tw&&tw.type==='lant'&&R.lnPh){for(const ph of R.lnPh)if(ph.tw===tw)rpibPhEnd(R,ph);R.lnPh=R.lnPh.filter(p=>!p.done);
+  for(const w of R.lnWisps||[])if(w.tw===tw&&!(w.fade>0))w.fade=1e-3}}catch(e){console.error(e)}return s0.apply(this,arguments)}}
+/* ---------- 3. a venting Steam Golem sheds every slow from its first venting step ---------- */
+{const p0=rpwPre;rpwPre=function(R,dt){const r=p0.apply(this,arguments);if(!RPIB.off&&R&&R.foes)for(const e of R.foes)if(e.vent>0&&!e.dead&&!e.air&&e.slowT>0){e.slowT=0;e.slowK=0}return r}}
+/* ---------- 4. ink, EMP and bolt effects run out on World 1 maps after their monster is gone ---------- */
+function rpibW1Fx(R,dt){if(!R||!R.map||R.map.world>1)return;if(!((R.inks&&R.inks.length)||(R.emps&&R.emps.length)||(R.bolts&&R.bolts.length)))return;
+ if(R.foes&&R.foes.some(e=>!e.dead&&RPIA_AB[e.id]))return;/* 98p steps them while such a monster is alive */
+ rpwPre(R,dt)}
+{const s0=rpStep;rpStep=function(R,dt){if(!RPIB.off&&R)try{rpibW1Fx(R,dt)}catch(e){console.error(e)}const r=s0.apply(this,arguments);if(!RPIB.off&&R)try{rpibLnPost(R)}catch(e){console.error(e)}return r}}
+/* ---------- 5. a jammed Sentinel's eclipse stops cutting and fades ---------- */
+{const e0=rpmbStepEcl;rpmbStepEcl=function(R,E,dt){const tw=E&&E.tw;if(!RPIB.off&&tw&&tw.jam>0&&E.t<E.d){E.t=Math.max(E.t+dt,E.d-.25);return}return e0.apply(this,arguments)}}
+/* ===== RUNESTONE TOWER DEFENSE 10.2 review: balance numbers for the two new towers (99g, after 99e; prefix rprv) =====
+   Numbers only. t_bal102.py (the t_ramparts bot: slot 5 of a mixed build on the nine campaign maps, each tower alone on the same pads
+   with the same budget and waves, all-of-one-tower builds, the endless Wonderland) measured the 10.2 Phantom Lantern below the towers it
+   was meant to be level with: alone about 0.8 x the Prism / Dragon Roost / Hive per supply, 11% in the stressed slot test (Prism 33%,
+   Dragon 56%, Hive 11%), all-Lantern builds won no map, and with eight towers the endless Wonderland fell 9 waves short of the reference.
+   Wisps and their haunt hit 20% harder and phantoms cut 15% harder. The Moonblade Sentinel met its targets (value pick, about 1.2 x the
+   Prism alone, lazy all-Sentinel loses most maps, Wonderland reach level with the reference) and is unchanged. */
+const RPRV={lant:{dmg:[96,138,194,276,396],haunt:[22,31,46,65,94],ph:[110,160,230,320,460]}};
+try{Object.assign(RP_TW.lant,RPRV.lant)}catch(e){}
+/* 10.2b (lead): the owner asked for the Moonblade Sentinel to be the slightly overpowered value pick. The review measured it best per
+   supply among the mid-price towers but only about +10% over the Prism, so glaive damage goes up 10% (36/54/80/122/182 -> 40/59/88/134/200);
+   t_bal102 then checks it stays under 1.3 x the best mid-price tower, that lazy all-Sentinel builds still lose most maps and that the
+   endless Wonderland stays within +10 waves of the reference. */
+try{RP_TW.moon.dmg=[40,59,88,134,200]}catch(e){}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

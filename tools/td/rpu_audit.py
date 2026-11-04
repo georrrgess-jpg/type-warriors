@@ -8,6 +8,8 @@ SRC=os.path.join(HERE,'..','..','type-warriors-source');H='file://'+os.path.absp
 OUT=sys.argv[1] if len(sys.argv)>1 else os.path.join(SRC,'shots','w101_tdui','audit')
 VPS=[tuple(map(int,a.split('x'))) for a in sys.argv[2:]] or [(1600,900)]
 OVL=open(os.path.join(HERE,'rpu_ovl.js')).read()
+# RPQ_DUMMY=1: two temporary towers (rpq_dummy.js) so every screen is checked with 14 towers (10.2)
+DUMMY=open(os.path.join(HERE,'rpq_dummy.js')).read() if os.environ.get('RPQ_DUMMY') else ''
 SETUP="()=>{RS_ASK=false;WCRELAYS=[];ST.perfAsked=1;try{PFW.asked=true}catch(e){}const r=RPP();r.new99j=1;r.dragon=1;r.stars=%s;for(const k in r.tut)r.tut[k]=1;save()}"
 ALL="{moss:3,frost:3,ember:3,coral:3,wreck:2,abyss:3,meadow:1,foundry:3,storm:2,wonder:0}"
 SOME="{moss:3,frost:2,ember:1}"
@@ -19,6 +21,7 @@ async def main():
         for vw,vh in VPS:
             pg=await b.new_page(viewport={'width':vw,'height':vh});er=[];pg.on('pageerror',lambda e:er.append(str(e)[:300]));E=pg.evaluate
             await pg.goto(H);await pg.wait_for_timeout(1500);await E(SETUP%ALL);await E(OVL)
+            if DUMMY:await E('()=>{'+DUMMY+'}')
             tag=f'{vw}x{vh}'
             async def snap(name,root="document.getElementById('ov')",wait=500):
                 await pg.wait_for_timeout(wait);await pg.screenshot(path=os.path.join(OUT,f'{tag}_{name}.png'))

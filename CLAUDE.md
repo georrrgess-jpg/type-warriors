@@ -34,6 +34,9 @@ springy animations. New art should sit next to the fishing mode without looking 
 - **Never add or push an Updates-tab (bell) notification unless explicitly asked, and ask for an okay first.**
   (The 8.4, 8.6, 8.7 and 8.8 notices already exist and were approved; small wording edits to them are fine. 8.7 is The Crooked Cue, `96zk_update87.js`, code CROOKEDCUE; 8.8 is Penalty Kings, `96zy_update88.js`, code PENALTYKINGS.)
 - Do not change the Celestial or Graveyard chest animations.
+- **Pool ball sets (owner, 10.2b): every set, old or new, must make the groups obvious at a glance:** solids coloured all over,
+  stripes with a clearly lighter area above and below a coloured band, the 8 clearly the darkest ball with a high-contrast disc,
+  the cue ball white, numbers readable. New sets follow the redesigned Ember Core; the readability test (`t_pzb102.py`) must pass.
 - No Wix, no Firebase.
 - Kill test servers by PID only (`tools/servers.sh stop`), never `pkill -f`.
 - No model IDs in anything committed to the repository.

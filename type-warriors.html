@@ -63501,13 +63501,13 @@ try{RP_TW.moon.dmg=[40,59,88,134,200]}catch(e){}
    UPDATE_10_3_PLAN.md. Eight potions are brewed between battles with coins (a coin sink) and carried into battle in a three-slot satchel.
    In battle each slot is used once: drinks work on the whole map for a few seconds, throws are aimed like the Slow Field.
    Rules (RPPTX): three slots, one use each; a shared cooldown after any potion; none in the first seconds of wave 1; at most RPPTX.cap
-   of each potion in stock; a first-time gift (one Fury Draught, one Frostbite Flask) when the Apothecary is first opened; drinks of the
+   of each potion in stock; a first-time gift (one Fury Draught, one Frostbite Flask) when the Witch’s Cauldron is first opened; drinks of the
    same kind never stack (a second one refreshes the time); a potion is spent the moment it is used, won or lost.
    Save P.rp.pot (rpptSave repairs it every time it is read):
      st  {id: 0..cap}        stock
      sat [id|'', x3]         the satchel (a slot holds a potion kind; a kind can fill more than one slot)
      gift 0|1                the first-time gift taken
-     seen 0|1                the Apothecary opened at least once (the hub button's "New" badge)
+     seen 0|1                the Witch’s Cauldron opened at least once (the hub button's "New" badge)
      n   {id: count}         potions used (all time),  b {id: count} potions brewed,  c coins spent on brewing
      tip {key: 1}            first-time tips shown (belt, throw, drink)
    Unlocks: Fury, Quicksilver and Frostbite from the start; Dragonfire 6 stars, Mending 12, Hourglass 18 (stars over all nine campaign
@@ -63578,7 +63578,7 @@ function rpptSpend(k){const p=rpptSave();if(!(p.st[k]>0))return false;p.st[k]--;
    - rpptCv(k,px) / rpptURL(k,px)   the bottle baked at px (cached canvas / data URL for the DOM)
    - rpptIco(k,px)           <img> markup for the DOM
    - battle sprites (rpptSpr): frost ground, ice block, scorch, flame, glow; drawn by 99j
-   - rpptRoom()              the Apothecary room (1600 x 900, baked once): stone wall, arched night window, shelves of bottles,
+   - rpptRoom()              the Witch’s Cauldron room (1600 x 900, baked once): stone wall, arched night window, shelves of bottles,
                              hanging herbs, a workbench, the cauldron on its fire; rpptRoomLive(g,t,st) draws the moving parts
                              (candle flames, the fire, bubbles and steam over the cauldron, drifting motes) on a small canvas. */
 const RPPTO='#12081f';
@@ -63691,7 +63691,7 @@ const rpptFlame=()=>rpptSpr('flame',40,60,(g,w,h)=>{g.lineJoin='round';const p=n
 const rpptGlow=col=>rpptSpr('glow'+col,128,128,(g)=>{const gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,rpptHex(col,.75));gr.addColorStop(.4,rpptHex(col,.3));gr.addColorStop(1,rpptHex(col,0));g.fillStyle=gr;g.fillRect(0,0,128,128)});
 /* the shards of a shattered bottle (one sprite per potion) */
 const rpptShard=k=>rpptSpr('shard'+k,16,16,(g)=>{const p=new Path2D('M3 3L13 6L8 13Z');g.lineJoin='round';g.lineWidth=2;g.strokeStyle=RPPTO;g.stroke(p);g.fillStyle=rpptMix((RPPD[k]||RPPD.fury).col,'#ffffff',.45);g.fill(p)});
-/* ---------- the Apothecary room ---------- */
+/* ---------- the Witch’s Cauldron room ---------- */
 const RPPTR={x:0,y:0,cx:300,cy:648,cw:600,ch:780};
 function rpptRoom(){return rpptSpr('room',1600,900,(g)=>{g.lineJoin='round';g.lineCap='round';const O=RPPTO;
  const L=(p,f,w)=>{g.lineWidth=w||3;g.strokeStyle=O;g.stroke(p);if(f){g.fillStyle=f;g.fill(p)}};
@@ -63796,7 +63796,7 @@ function rpptRoomLive(g,t,st){const cx=RPPTR.cx,cy=RPPTR.cy,col=st&&st.col||'#7a
  /* drifting motes */
  if(!rm&&!lite)for(let i=0;i<9;i++){const ph=(t*.05+i*.111)%1,x=40+((i*137)%520)+Math.sin(t*.7+i)*20,y=720-ph*640;g.globalAlpha=Math.sin(ph*Math.PI)*.7;g.fillStyle='#ffd27a';g.fillRect(x,y,2.4,2.4)}
  g.globalAlpha=1;g.restore()}
-/* ===== RUNESTONE TOWER DEFENSE 10.3: Potions in battle and the Apothecary (99j, after 99i; prefix rppt) =====
+/* ===== RUNESTONE TOWER DEFENSE 10.3: Potions in battle and the Witch’s Cauldron (99j, after 99i; prefix rppt) =====
    Battle (RPX.pt): the satchel's potions on a belt above the abilities (keys 4 / 5 / 6 or a click), one use per slot, a shared cooldown
    (RPPTX.cd) after any potion, none before wave 1 or in its first RPPTX.lock s. Drinks: the bottle pops over the castle, a coloured wave
    rolls over the map and a buff chip with a timer appears above the belt. Throws: aimed like the Slow Field with a range ring (press the
@@ -63993,7 +63993,7 @@ function rpptTop(c,R){const T=R.pt,t=R.t;c.save();
 /* ---------- the belt (HUD) ---------- */
 function rpptBelt(){const R=RPX,h=$('rphud');if(!R||!R.pt||!h)return;let b=$('rpptb');if(!rpptHas(R)){if(b)b.remove();h.classList.remove('rpptOn');return}
  if(!b){b=document.createElement('div');b.id='rpptb';b.className='rpptb';h.appendChild(b)}h.classList.add('rpptOn');
- const slot=(s,i)=>{if(s.empty)return `<button class="rppts empty${s.short?' short':''}" data-i="${i}" aria-label="${s.short?`${esc(RPPD[s.k].n)}: none in stock`:'Empty potion slot'}"><span class="rpptsi">${s.short?rpptIco(s.k,46,'rpptgh'):''}</span><kbd>${RPPTX.keys[i]}</kbd><em>${s.short?'None left':'Empty'}</em><span class="rptip"><b>Slot ${i+1} · ${RPPTX.keys[i]}</b>${s.short?`No ${esc(RPPD[s.k].n)} left in stock. Brew more in the Apothecary.`:'Fill it in the Apothecary on the map screen.'}</span></button>`;
+ const slot=(s,i)=>{if(s.empty)return `<button class="rppts empty${s.short?' short':''}" data-i="${i}" aria-label="${s.short?`${esc(RPPD[s.k].n)}: none in stock`:'Empty potion slot'}"><span class="rpptsi">${s.short?rpptIco(s.k,46,'rpptgh'):''}</span><kbd>${RPPTX.keys[i]}</kbd><em>${s.short?'None left':'Empty'}</em><span class="rptip"><b>Slot ${i+1} · ${RPPTX.keys[i]}</b>${s.short?`No ${esc(RPPD[s.k].n)} left in stock. Brew more in the Witch’s Cauldron.`:'Fill it in the Witch’s Cauldron on the map screen.'}</span></button>`;
   const D=RPPD[s.k];return `<button class="rppts" data-i="${i}" style="--c:${D.col}" aria-label="${esc(D.n)}, key ${RPPTX.keys[i]}"><span class="rpptsi">${rpptIco(s.k,52)}</span><i class="rpptcd"></i><b class="rpptcn"></b><kbd>${RPPTX.keys[i]}</kbd><em>${esc(D.sh)}</em><u class="rpptst"></u>
    <span class="rptip"><b>${esc(D.n)} · ${RPPTX.keys[i]}</b>${esc(D.desc)}${D.kind==='throw'?' Press, then click near the road (press again for the biggest crowd).':''}<i>One use · ${RPPTX.cd} s shared cooldown</i></span></button>`};
  b.innerHTML=`<div class="rpptch" id="rpptch"></div><div class="rpptbelt"><span class="rpptbg2" title="Your satchel">${RPPT_SATCHEL}</span>${R.pt.sl.map(slot).join('')}</div>`;
@@ -64064,7 +64064,7 @@ if(typeof rpLbMine==='function'){
  {const m0=rpLbMine;rpLbMine=function(){const o=m0.apply(this,arguments);try{const L=rpLbSt();if(L.bp>0&&L.bp<=RPPTX.slots&&o&&o.w>0)o.p=L.bp|0}catch(e){}return o}}
  {const c0=rpLbCheck;rpLbCheck=function(ev){const r=c0.apply(this,arguments);try{if(r&&!r.hide){const c=JSON.parse(ev.content);if(Number.isInteger(c.p)&&c.p>=1&&c.p<=RPPTX.slots)r.p=c.p}}catch(e){}return r}}
  {const w0=rpLbRow;rpLbRow=function(e){let h=w0.apply(this,arguments);try{const p=e.me?(rpLbSt().bp|0):e.p|0;if(p>0)h=h.replace('</small></span>',`</small><i class="rpptlb" title="Used ${p} potion${p>1?'s':''} in this run">${RPPT_SATCHEL}<u>${p}</u></i></span>`)}catch(x){}return h}}}
-/* ===================== the Apothecary (hub: a top-bar button) =====================
+/* ===================== the Witch’s Cauldron (hub: a top-bar button) =====================
    A candle-lit room (99i rpptRoom, baked once; rpptRoomLive on a 600 x 780 canvas at slow 2): the cauldron on the left, the potion shelf
    (eight cards: art, effect, stock pips, the price, hold-to-brew or the lock reason, + to add to the satchel; the art can be dragged onto a
    slot) and the satchel (three slots, click a filled one to empty it). Hold-to-brew: RPPTX.hold ms (letting go cancels; Enter / Space held
@@ -64083,7 +64083,7 @@ function rpptShop(back){back=back||(()=>rampartsMenu(title));const p=rpptSave();
    :`<div class="rpptlk">${RPI.lock}<span>${esc(rpptLockWhy(k))}</span>${D.stars?`<i><s style="transform:scaleX(${Math.min(1,rpStarN()/D.stars).toFixed(3)})"></s></i>`:''}</div>`}</div>`};
 S.mode='title';S.view='ramparts';
  show(`<div class="rpptx${RPPTA.rm?' rpptrm':''}" id="rpptx"><canvas class="rpptbg" id="rpptbg" width="1600" height="900"></canvas><canvas class="rpptlv" id="rpptlv" width="${RPPTR.cw}" height="${RPPTR.ch}"></canvas>
-  <div class="rpptop"><button class="rpbk" id="rpptback" aria-label="Back (Esc)">‹ Back</button><span class="rppttl"><b>Apothecary</b><small>Brew potions with coins · carry three into battle</small></span></div>
+  <div class="rpptop"><button class="rpbk" id="rpptback" aria-label="Back (Esc)">‹ Back</button><span class="rppttl"><b>Witch’s Cauldron</b><small>Brew potions with coins · carry three into battle</small></span></div>
   <div class="rpptcoin" id="rpptcoin" title="Your coins">${RPI.coin}<b id="rpptg">${cmn(P.gold||0)}</b></div>
   <div class="rpptbl" id="rpptbl" aria-live="polite"></div>
   <div class="rppthint"><b>How it works</b><span>Hold <em>Brew</em> to brew a potion with coins (up to ${RPPTX.cap} of each). Pick three for your satchel with <em>+</em> or drag a bottle onto a slot.</span></div>
@@ -64104,7 +64104,7 @@ const rpptPips=n=>`<span class="rpptpips">${Array.from({length:RPPTX.cap},(_,i)=
 /* a card's stock, price state and satchel count */
 function rpptCardPaint(k,pop){const c=document.querySelector(`.rpptcard[data-k="${k}"]`);if(!c||c.classList.contains('lock'))return;const n=rpptStock(k),cb=rpptCanBrew(k);
  const st=c.querySelector('.rpptstk');if(st){st.innerHTML=`${rpptPips(n)}<em>${n} / ${RPPTX.cap}</em>`;if(pop){const pi=st.querySelectorAll('.rpptpips i')[n-1];if(pi&&!RPPTA.rm){pi.classList.add('pop')}}}
- const b=c.querySelector('.rpptbrew');if(b){b.classList.toggle('no',!cb.ok);b.setAttribute('aria-label',cb.ok?`Hold to brew the ${RPPD[k].n} for ${RPPD[k].cost} coins`:cb.why);b.querySelector('.rpptbt').textContent=cb.ok?'Hold to brew':n>=RPPTX.cap?'Stock full':'Not enough coins';b.title=cb.ok?'Hold to brew':cb.why}
+ const b=c.querySelector('.rpptbrew');if(b){b.classList.toggle('no',!cb.ok);b.setAttribute('aria-label',cb.ok?`Hold to brew the ${RPPD[k].n} for ${RPPD[k].cost} coins`:cb.why);b.querySelector('.rpptbt').textContent=cb.ok?'Hold to brew':n>=RPPTX.cap?'Stock full':'Need';b.title=cb.ok?'Hold to brew':cb.why}
  c.classList.toggle('full',n>=RPPTX.cap)}
 function rpptInPaint(){const p=rpptSave();document.querySelectorAll('.rpptin').forEach(e=>{const k=e.dataset.k,n=p.sat.filter(x=>x===k).length;e.textContent=n?`In satchel${n>1?' ×'+n:''}`:'';e.hidden=!n})}
 /* the satchel's three slots */
@@ -64162,19 +64162,19 @@ function rpptDragWire(a){const k=a.dataset.k;let st=null;
  a.addEventListener('pointerup',end);a.addEventListener('pointercancel',()=>{if(st&&st.g)st.g.remove();st=null;const root=$('rpptx');if(root)root.classList.remove('dragging')})}
 /* the first-time gift */
 function rpptGiftShow(){const root=$('rpptx');if(!root||rpptSave().gift||root.querySelector('.rpptgift'))return;const d=document.createElement('div');d.className='rpptgift';
- d.innerHTML=`<div class="rpptgc" role="dialog" aria-label="A gift from the Apothecary"><small>WELCOME TO THE APOTHECARY</small><h3>A gift for you</h3><div class="rpptgb"><span>${rpptIco('fury',110)}<b>Fury Draught</b><em>${esc(RPPD.fury.tag)}</em></span><span>${rpptIco('frost',110)}<b>Frostbite Flask</b><em>${esc(RPPD.frost.tag)}</em></span></div>
+ d.innerHTML=`<div class="rpptgc" role="dialog" aria-label="A gift from the Witch’s Cauldron"><small>WELCOME TO THE WITCH’S CAULDRON</small><h3>A gift for you</h3><div class="rpptgb"><span>${rpptIco('fury',110)}<b>Fury Draught</b><em>${esc(RPPD.fury.tag)}</em></span><span>${rpptIco('frost',110)}<b>Frostbite Flask</b><em>${esc(RPPD.frost.tag)}</em></span></div>
   <p>Two potions to start with, already in your satchel. Use them in battle with the keys 4 and 5.</p><button class="rpptgo" id="rpptgo">Take them</button></div>`;root.appendChild(d);
  rpptSfx('brewed');const b=$('rpptgo');b.focus();b.onclick=()=>{rpptGift();rpptSfx('clink');const imgs=[...d.querySelectorAll('.rpptgb img')];d.classList.add('out');
   setTimeout(()=>{d.remove();rpptSatPaint();rpptInPaint();for(const k of RPPT_ORDER)rpptCardPaint(k);const sl=$('rpptslots');if(sl&&!RPPTA.rm)[...sl.children].forEach((x,i)=>{if(rpptSave().sat[i]){x.classList.add('pop')}})},RPPTA.rm?0:320)}}
-/* Esc closes the gift card first; keys in the Apothecary */
+/* Esc closes the gift card first; keys in the Witch’s Cauldron */
 if(!window.__rpptKeys){window.__rpptKeys=1;window.addEventListener('keydown',e=>{try{if(!$('rpptx'))return;const g=document.querySelector('.rpptgift');if(g&&(e.key==='Escape'||e.key==='Enter')){e.preventDefault();e.stopImmediatePropagation();const b=$('rpptgo');if(b)b.click();return}}catch(x){}},true)}
-/* ---------- the hub: an Apothecary button in the top bar ---------- */
+/* ---------- the hub: an Witch’s Cauldron button in the top bar ---------- */
 {const m0=rampartsMenu;rampartsMenu=function(){const r=m0.apply(this,arguments);try{const top=ov.querySelector('.rphtop');if(top&&!$('rphpt')){const p=rpptSave(),badge=!p.gift?'<em class="rpptnew">Gift</em>':'';
   const sat=p.sat.map(k=>k?`<i style="--c:${RPPD[k].col}"></i>`:'<i></i>').join('');
-  top.insertAdjacentHTML('beforeend',`<button class="rpbk rpbkpt" id="rphpt" aria-label="Apothecary: brew potions and fill your satchel"><i class="rpbki">${rpptIco('fury',30)}</i>Apothecary<span class="rpptdots" aria-hidden="true">${sat}</span>${badge}</button>`);
+  top.insertAdjacentHTML('beforeend',`<button class="rpbk rpbkpt" id="rphpt" aria-label="Witch’s Cauldron: brew potions and fill your satchel"><i class="rpbki">${rpptIco('fury',30)}</i>Witch’s Cauldron<span class="rpptdots" aria-hidden="true">${sat}</span>${badge}</button>`);
   $('rphpt').onclick=()=>{try{rpSfx('key',2)}catch(e){}rpptShop()}}}catch(e){console.error(e)}return r}}
 /* ---------- How to Play ---------- */
-{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w&&!w.querySelector('.rppthow'))w.insertAdjacentHTML('beforeend',`<div class="rppthow"><p><b>Potions.</b> Brew them in the Apothecary (the button at the top of the map screen) with coins, up to ${RPPTX.cap} of each, and put three in your satchel. In battle press 4, 5 or 6 or click a bottle on the belt: drinks work on the whole map for a few seconds; throws are aimed like the Slow Field (press the key again to throw at the biggest crowd). Each slot works once per battle, potions share a ${RPPTX.cd} s cooldown, none can be used in the first ${RPPTX.lock} s of wave 1, and a potion you use is gone, won or lost. The same rules apply in the Wonderland Championship.</p>
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w&&!w.querySelector('.rppthow'))w.insertAdjacentHTML('beforeend',`<div class="rppthow"><p><b>Potions.</b> Brew them in the Witch’s Cauldron (the button at the top of the map screen) with coins, up to ${RPPTX.cap} of each, and put three in your satchel. In battle press 4, 5 or 6 or click a bottle on the belt: drinks work on the whole map for a few seconds; throws are aimed like the Slow Field (press the key again to throw at the biggest crowd). Each slot works once per battle, potions share a ${RPPTX.cd} s cooldown, none can be used in the first ${RPPTX.lock} s of wave 1, and a potion you use is gone, won or lost. The same rules apply in the Wonderland Championship.</p>
   <div class="rpptht">${RPPT_ORDER.map(k=>{const D=RPPD[k];return `<span style="--c:${D.col}">${rpptIco(k,40)}<b>${esc(D.n)}</b><small>${esc(D.desc)}${rpptOpen(k)?'':` <i>${esc(rpptLockWhy(k))}.</i>`}</small></span>`}).join('')}</div></div>`)}catch(e){console.error(e)}return r}}
 /* ---------- DEV › Cheats ---------- */
 if(typeof dvxHTML==='function'){const h0=dvxHTML;dvxHTML=function(){let h=h0.apply(this,arguments);try{h+=`<div class="dvx"><h5>Tower Defense: potions</h5><div class="dvrow">${dvBtn('x:pt5','Fill every potion (5 each)')}${dvBtn('x:ptsat','Satchel: Fury, Frostbite, Dragonfire')}${dvBtn('x:pt0','Clear potions and gift')}${dvBtn('x:ptcd','Potions ready now (in battle)')}</div></div>`}catch(e){}return h}}
@@ -64241,7 +64241,7 @@ if(typeof dvxAct==='function'){const a0=dvxAct;dvxAct=function(a){if(!/^pt(5|sat
 .rppthow .rpptht{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;margin:4px 0 8px}
 .rpptht span{display:grid;grid-template-columns:40px 1fr;column-gap:8px;align-items:center}
 .rpptht img{grid-row:span 2;width:40px;height:40px}.rpptht b{font:800 13px var(--ui);color:#ffd45a}.rpptht small{font:500 11.5px/1.3 var(--ui);color:#d8d0f0}.rpptht small i{color:#a99be0;font-style:normal}
-/* the Apothecary */
+/* the Witch’s Cauldron */
 .rpptx{position:absolute;inset:0;width:1600px;height:900px;overflow:hidden;font-family:var(--ui);color:#fff8e8;user-select:none}
 .rpptbg{position:absolute;left:0;top:0;width:1600px;height:900px}
 .rpptlv{position:absolute;left:0;top:0;width:${RPPTR.cw}px;height:${RPPTR.ch}px;pointer-events:none}
@@ -64336,6 +64336,48 @@ if(typeof rpw2aWreckTop==='function'){const w0=rpw2aWreckTop;rpw2aWreckTop=funct
 /* the pause menu's key list names the potion keys when the battle has potions */
 {const p0=rpPauseMenu;rpPauseMenu=function(){const r=p0.apply(this,arguments);try{const R=RPX,h=ov.querySelector('.rppause .rpph');if(h&&rpptHas(R)&&!h.querySelector('.rpptph')){const s=document.createElement('span');s.className='rpptph';
   const left=R.pt.sl.filter(x=>!x.empty&&!x.used).length;s.innerHTML=`<kbd>4</kbd><kbd>5</kbd><kbd>6</kbd> use a potion (${left} left in your satchel)`;const sp=h.querySelector('span:last-child');if(sp)sp.before(s);else h.appendChild(s)}}catch(e){console.error(e)}return r}}
+/* ===== RUNESTONE TOWER DEFENSE 10.3b: the potion belt moves off the map's build pads (99k, after 99j; prefix rpptf, config RPPTFIT) =====
+   Owner request: the potions and the potion bar in battle must not overlap anything or poke through other boxes.
+   t_potui103.py audits the belt on all ten maps at three sizes. It found that the belt above the abilities (bottom left) and its row of
+   buff chips covered build pads and towers on several maps (Coral Shallows pad 1, Cloudspire Meadows pad 1, Storm Citadel pad 3, ...)
+   and touched a tower's info panel. The right-hand column above the Next Wave panel has no pad on any map (every pad's edge stays left
+   of x 1290), so the belt now sits there, right-aligned with the wave panel. The chip row is gone: a drink's countdown shows on its
+   own bottle instead (seconds on its face and a bar that empties; the names under the bottles live in their tooltips, so the belt sits just above the wave panel), so nothing grows above the belt. The bottle tooltips open to the
+   left, the Next Wave card opens above the belt, the first-time potion tip points at the new place, the ability tip goes back to its
+   own spot, and with Rune Typing on the belt rises so the potion words fit between it and the wave panel. */
+const RPPTFIT={beltB:157,beltBty:157};
+{const st=document.createElement('style');st.textContent=`
+.rph .rpptb{left:auto;right:14px;bottom:${RPPTFIT.beltB}px;align-items:flex-end}
+.rph.rptyon .rpptb{bottom:${RPPTFIT.beltBty}px}
+.rph .rpptb .rpptbelt{margin-top:0}
+.rph .rpptb .rppts{transform-origin:50% 100%}
+.rph .rpptb .rpptch{display:none}
+.rph .rppts .rptip{left:auto;right:-12px;bottom:calc(100% + 18px)}
+.rph .rpptb .rppts em{display:none}
+.rph .rpptb .rpptyw{top:auto;bottom:calc(100% + 4px)}
+.rph .rppts .rpptlt{position:absolute;inset:0;display:grid;place-items:center;z-index:3;font:800 17px var(--ui);color:#fff8e8;text-shadow:0 2px 0 #12081f,0 0 6px #12081f;pointer-events:none}
+.rph .rppts .rpptlv{position:absolute;left:11px;right:auto;width:36px;max-width:36px;bottom:5px;height:4px;border-radius:2px;background:#12081fcc;overflow:hidden;z-index:3;pointer-events:none;opacity:0;transition:opacity .2s}
+.rph .rppts .rpptlv u{position:absolute;inset:0;background:var(--c);transform-origin:0 50%;text-decoration:none}
+.rph .rppts.live .rpptlv{opacity:1}
+.rph .rppts.live.used{border-color:var(--c)}.rph .rppts.live.used .rpptsi{opacity:.55}.rph .rppts.live.used em{color:#fff8e8;background:#2a1f6a}
+#rphud.rpq.rpptOn .rpqnc{bottom:calc(100% + 96px)}
+#rphud.rpq.rpptOn.rptyon .rpqnc{bottom:calc(100% + 126px)}
+.rph.rpptOn .rptut.at-abil{bottom:126px}
+.rph.rpptOn.rptyon .rptut.at-abil{bottom:186px}
+.rph .rptut.at-pot{left:auto;right:16px;bottom:${RPPTFIT.beltB+86}px}.rph .rptut.at-pot::after{left:auto;right:100px}
+.rph.rptyon .rptut.at-pot{bottom:${RPPTFIT.beltBty+86}px}
+`;document.head.appendChild(st)}
+/* a drink's countdown on its own bottle (the chips are hidden) */
+{const t0=rpptTick;rpptTick=function(force){const r=t0.apply(this,arguments);try{const R=RPX,b=$('rpptb');if(!R||!R.pt||!b)return r;const T=R.pt;
+  b.querySelectorAll('.rppts:not(.empty)').forEach(x=>{const i=+x.dataset.i,s=T.sl[i];if(!s)return;const D=RPPD[s.k],F=T.fx&&T.fx[s.k];
+   const live=!!(s.used&&D&&D.kind==='drink'&&F&&F.t<F.d&&rpptAct(R,s.k));x.classList.toggle('live',live);
+   let lv=x.querySelector('.rpptlv');if(live&&!lv){lv=document.createElement('i');lv.className='rpptlv';lv.innerHTML='<u></u>';x.appendChild(lv)}
+   let lt=x.querySelector('.rpptlt');if(live&&!lt){lt=document.createElement('b');lt.className='rpptlt';x.appendChild(lt)}if(!live&&lt)lt.remove();
+   if(live){const left=Math.max(0,F.d-F.t),txt=Math.ceil(left)+'s';if(lt.textContent!==txt)lt.textContent=txt;
+    const v=(left/F.d).toFixed(2),u=lv.firstChild;if(u.dataset.v!==v){u.dataset.v=v;u.style.transform=`scaleX(${v})`}}
+   })}catch(e){console.error(e)}return r}}
+/* the brew button when coins are short: "Need" and the price in red (the old "Not enough coins" pushed the price off the button) */
+{const st=document.createElement('style');st.textContent=`.rpptx .rpptbrew.no b{color:#ff8a96}`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

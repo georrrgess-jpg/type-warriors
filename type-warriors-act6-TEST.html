@@ -63497,6 +63497,845 @@ try{Object.assign(RP_TW.lant,RPRV.lant)}catch(e){}
    t_bal102 then checks it stays under 1.3 x the best mid-price tower, that lazy all-Sentinel builds still lose most maps and that the
    endless Wonderland stays within +10 waves of the reference. */
 try{RP_TW.moon.dmg=[40,59,88,134,200]}catch(e){}
+/* ===== RUNESTONE TOWER DEFENSE 10.3: Potions, data and save (99h, after 99g; prefix rppt) =====
+   UPDATE_10_3_PLAN.md. Eight potions are brewed between battles with coins (a coin sink) and carried into battle in a three-slot satchel.
+   In battle each slot is used once: drinks work on the whole map for a few seconds, throws are aimed like the Slow Field.
+   Rules (RPPTX): three slots, one use each; a shared cooldown after any potion; none in the first seconds of wave 1; at most RPPTX.cap
+   of each potion in stock; a first-time gift (one Fury Draught, one Frostbite Flask) when the Apothecary is first opened; drinks of the
+   same kind never stack (a second one refreshes the time); a potion is spent the moment it is used, won or lost.
+   Save P.rp.pot (rpptSave repairs it every time it is read):
+     st  {id: 0..cap}        stock
+     sat [id|'', x3]         the satchel (a slot holds a potion kind; a kind can fill more than one slot)
+     gift 0|1                the first-time gift taken
+     seen 0|1                the Apothecary opened at least once (the hub button's "New" badge)
+     n   {id: count}         potions used (all time),  b {id: count} potions brewed,  c coins spent on brewing
+     tip {key: 1}            first-time tips shown (belt, throw, drink)
+   Unlocks: Fury, Quicksilver and Frostbite from the start; Dragonfire 6 stars, Mending 12, Hourglass 18 (stars over all nine campaign
+   maps, rpStarN); Gilded with World 2 open, Seer's with World 3 open (rpWorldOpen). A locked potion keeps its stock but cannot sit in
+   the satchel. */
+const RPPT_ORDER=['fury','quick','frost','fire','mend','hour','gild','seer'];
+/* numbers: the plan's start values, tuned by the balance test (t_potbal103.py; HANDOFF 10.3): Frostbite 110 px / 2.5 s -> 120 px / 3 s,
+   Hourglass 35% / 6 s -> 40% / 8 s, Gilded +50% / 20 s / 350 -> +25% / 12 s / 400, Seer's 15 s / +15% -> 18 s / +20% */
+const RPPD={
+ fury:{n:'Fury Draught',sh:'Fury',col:'#ff4a5a',c2:'#ffb0a0',kind:'drink',dur:12,k:.25,cost:300,
+  desc:'Every tower deals +25% damage for 12 s.',cd:'Every tower deals +25% damage for 12 s.',tag:'+25% damage'},
+ quick:{n:'Quicksilver Tonic',sh:'Quicksilver',col:'#cfe2f4',c2:'#ffffff',kind:'drink',dur:10,k:.3,cost:300,
+  desc:'Every tower fires 30% faster for 10 s.',cd:'Every tower fires 30% faster for 10 s.',tag:'+30% fire rate'},
+ frost:{n:'Frostbite Flask',sh:'Frostbite',col:'#5ab8ff',c2:'#d8f4ff',kind:'throw',r:120,dur:3,bossK:.5,cost:350,
+  desc:'Throw it: monsters within 120 px freeze for 3 s. Bosses are slowed by half instead.',cd:'Monsters within 120 px freeze for 3 s. Bosses slow down instead.',tag:'Freeze 3 s'},
+ fire:{n:'Dragonfire Bomb',sh:'Dragonfire',col:'#ff8a2a',c2:'#ffd27a',kind:'throw',r:90,dmg:260,burn:40,burnT:5,cost:400,stars:6,
+  desc:'Throw it: 260 damage within 90 px, then the ground burns for 5 s (40 per second).',cd:'260 damage within 90 px, then 5 s of burning ground.',tag:'260 blast + fire'},
+ mend:{n:'Elixir of Mending',sh:'Mending',col:'#5aeb8a',c2:'#d8ffe0',kind:'drink',heal:5,dur:5,cost:450,stars:12,
+  desc:'The castle regains 5 health over 5 s (never above its maximum).',cd:'The castle regains 5 health over 5 s.',tag:'+5 health'},
+ hour:{n:'Hourglass Brew',sh:'Hourglass',col:'#b47aff',c2:'#ecdcff',kind:'drink',k:.4,dur:8,bossK:.5,cost:500,stars:18,
+  desc:'Every monster on the map moves 40% slower for 8 s (bosses half as much).',cd:'Every monster moves 40% slower for 8 s.',tag:'-40% speed'},
+ gild:{n:'Gilded Tonic',sh:'Gilded',col:'#ffd45a',c2:'#fff4c0',kind:'drink',k:.25,dur:12,cost:400,world:2,
+  desc:'Kills give +25% supply for 12 s (coins unchanged).',cd:'Kills give +25% supply for 12 s.',tag:'+25% supply'},
+ seer:{n:"Seer's Tincture",sh:'Seer',col:'#3ae0c8',c2:'#c8fff4',kind:'drink',dur:18,rng:.2,cost:400,world:3,
+  desc:'For 18 s towers see through fog and hiding (dive, glimmer, leap) and gain +20% range.',cd:'For 18 s towers see through fog and hiding, +20% range.',tag:'True sight'}};
+const RPPTX={slots:3,cap:5,cd:20,lock:10,hold:900,fly:.55,keys:['4','5','6']};
+const rpptOk=k=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(RPPD,k);
+/* the save, repaired on every read: bad types, unknown potions, out-of-range stock and a satchel that is not three known kinds */
+function rpptSave(){const r=RPP();let p=r.pot;if(!p||typeof p!=='object'||Array.isArray(p))p=r.pot={};
+ const num=(o,max)=>{const out={};if(o&&typeof o==='object'&&!Array.isArray(o))for(const k of RPPT_ORDER){const v=Math.floor(+o[k]);if(v>0&&isFinite(v))out[k]=Math.min(max,v)}return out};
+ p.st=num(p.st,RPPTX.cap);p.n=num(p.n,1e7);p.b=num(p.b,1e7);
+ const c=Math.floor(+p.c);p.c=c>0&&isFinite(c)?Math.min(c,1e10):0;
+ let s=Array.isArray(p.sat)?p.sat.slice(0,RPPTX.slots):[];while(s.length<RPPTX.slots)s.push('');
+ p.sat=s.map(k=>rpptOk(k)&&rpptOpen(k)?k:'');
+ p.gift=p.gift===1?1:0;p.seen=p.seen===1?1:0;
+ if(!p.tip||typeof p.tip!=='object'||Array.isArray(p.tip))p.tip={};for(const k in p.tip)if(p.tip[k]!==1)delete p.tip[k];
+ for(const k in p)if(!/^(st|sat|gift|seen|n|b|c|tip)$/.test(k))delete p[k];
+ return p}
+/* unlocks */
+function rpptOpen(k){const D=RPPD[k];if(!D)return false;try{if(D.stars&&rpStarN()<D.stars)return false;if(D.world&&!rpWorldOpen(D.world))return false}catch(e){return false}return true}
+function rpptLockWhy(k){const D=RPPD[k];if(!D||rpptOpen(k))return'';
+ if(D.stars){const n=(()=>{try{return rpStarN()}catch(e){return 0}})();return `Earn ${D.stars} stars to unlock (you have ${n})`}
+ if(D.world===2)return'Opens with World 2 (a star on Ember Crown)';if(D.world===3)return"Opens with World 3 (a star on Kraken's Maw)";return'Locked'}
+const rpptStock=k=>rpptSave().st[k]||0;
+/* how many slots of the satchel hold kind k */
+const rpptInSat=k=>rpptSave().sat.filter(x=>x===k).length;
+/* brewing: one potion for its price, paid by the game's own code (the 98t / 98v guard allows it: a game function is on the stack) */
+function rpptCanBrew(k){const D=RPPD[k];if(!D)return{ok:false,why:'Unknown potion'};if(!rpptOpen(k))return{ok:false,why:rpptLockWhy(k)};
+ if(rpptStock(k)>=RPPTX.cap)return{ok:false,why:`Stock full (${RPPTX.cap})`};if((+P.gold||0)<D.cost)return{ok:false,why:`Need ${cmn(D.cost)} coins`};return{ok:true,why:''}}
+function rpptBrew(k){const c=rpptCanBrew(k);if(!c.ok)return false;const D=RPPD[k],p=rpptSave(),g0=+P.gold||0;
+ P.gold-=D.cost;if(!((+P.gold||0)<g0)){return false}/* the guard refused the payment: nothing is brewed */
+ p.st[k]=Math.min(RPPTX.cap,(p.st[k]||0)+1);p.b[k]=(p.b[k]||0)+1;p.c+=D.cost;try{save()}catch(e){}return true}
+/* the satchel */
+function rpptSatSet(i,k){const p=rpptSave();if(!(i>=0&&i<RPPTX.slots))return false;if(k===''||k==null){p.sat[i]='';try{save()}catch(e){}return true}
+ if(!rpptOk(k)||!rpptOpen(k))return false;p.sat[i]=k;try{save()}catch(e){}return true}
+/* add to the first empty slot (or replace the last one when full); returns the slot used */
+function rpptSatAdd(k){const p=rpptSave();if(!rpptOk(k)||!rpptOpen(k))return-1;let i=p.sat.indexOf('');if(i<0)i=RPPTX.slots-1;rpptSatSet(i,k);return i}
+/* the first-time gift: one Fury Draught and one Frostbite Flask, put in the satchel */
+function rpptGift(){const p=rpptSave();if(p.gift)return false;p.gift=1;for(const k of['fury','frost']){p.st[k]=Math.min(RPPTX.cap,(p.st[k]||0)+1);if(!p.sat.includes(k)){const i=p.sat.indexOf('');if(i>=0)p.sat[i]=k}}try{save()}catch(e){}return true}
+/* what a battle takes: the satchel's kinds, as far as the stock covers them (two slots of one kind need two in stock) */
+function rpptLoad(){const p=rpptSave(),use={},out=[];for(let i=0;i<RPPTX.slots;i++){const k=p.sat[i];if(k&&rpptOpen(k)&&(use[k]||0)<(p.st[k]||0)){use[k]=(use[k]||0)+1;out.push({k,i,used:0})}else out.push({k:k||'',i,used:0,empty:1,short:!!k})}return out}
+/* spend one (on use, so a potion is gone whether the battle is won or lost) */
+function rpptSpend(k){const p=rpptSave();if(!(p.st[k]>0))return false;p.st[k]--;if(!p.st[k])delete p.st[k];p.n[k]=(p.n[k]||0)+1;try{save()}catch(e){}return true}
+/* ===== RUNESTONE TOWER DEFENSE 10.3: Potions, art (99i, after 99h; prefix rppt) =====
+   Baked once, drawn cheaply (no shadowBlur, no ctx.filter, additive glows only as small baked sprites):
+   - rpptPaint(g,k)          a potion bottle in a 100 x 100 box (chunky #12081f outline, dark indigo glass, the potion's liquid with
+                             a surface and bubbles, a darker right half, a white highlight stroke, the potion's mark, its stopper)
+   - rpptCv(k,px) / rpptURL(k,px)   the bottle baked at px (cached canvas / data URL for the DOM)
+   - rpptIco(k,px)           <img> markup for the DOM
+   - battle sprites (rpptSpr): frost ground, ice block, scorch, flame, glow; drawn by 99j
+   - rpptRoom()              the Apothecary room (1600 x 900, baked once): stone wall, arched night window, shelves of bottles,
+                             hanging herbs, a workbench, the cauldron on its fire; rpptRoomLive(g,t,st) draws the moving parts
+                             (candle flames, the fire, bubbles and steam over the cauldron, drifting motes) on a small canvas. */
+const RPPTO='#12081f';
+const RPPTC=new Map();
+/* ---------- the bottle ---------- */
+function rpptShape(k){const P=a=>{const p=new Path2D();a(p);return p};
+ const neck=(x0,x1,y0,y1)=>P(p=>p.roundRect(x0,y0,x1-x0,y1-y0,3));
+ switch(k){
+  case'fury':return{parts:[neck(42,58,22,40),P(p=>p.arc(50,63,27,0,TAU))],body:1,lvl:50,cx:50,cy:63,r:27,mk:[50,68]};
+  case'quick':return{parts:[neck(44,56,20,36),P(p=>p.roundRect(35,32,30,60,12))],body:1,lvl:46,cx:50,cy:62,r:15,mk:[50,64]};
+  case'frost':return{parts:[neck(42,58,24,40),P(p=>p.ellipse(50,65,31,26,0,0,TAU)),P(p=>p.roundRect(36,84,28,8,3))],body:1,lvl:52,cx:50,cy:65,r:30,mk:[50,68]};
+  case'fire':return{parts:[P(p=>p.roundRect(41,24,18,12,3)),P(p=>p.arc(50,62,29,0,TAU))],body:1,lvl:46,cx:50,cy:62,r:29,mk:[50,66]};
+  case'mend':return{parts:[neck(43,57,22,40),P(p=>{p.moveTo(50,90);p.bezierCurveTo(18,70,18,40,36,40);p.bezierCurveTo(44,40,48,44,50,50);p.bezierCurveTo(52,44,56,40,64,40);p.bezierCurveTo(82,40,82,70,50,90);p.closePath()})],body:1,lvl:52,cx:50,cy:62,r:26,mk:[50,64]};
+  case'hour':return{parts:[neck(44,56,20,34),P(p=>{p.moveTo(30,32);p.lineTo(70,32);p.bezierCurveTo(72,48,58,56,54,62);p.bezierCurveTo(58,68,74,76,72,92);p.lineTo(28,92);p.bezierCurveTo(26,76,42,68,46,62);p.bezierCurveTo(42,56,28,48,30,32);p.closePath()})],body:1,lvl:44,cx:50,cy:62,r:22,mk:[50,80],hour:1};
+  case'gild':return{parts:[neck(43,57,22,36),P(p=>{p.moveTo(36,36);p.lineTo(64,36);p.quadraticCurveTo(74,38,74,50);p.lineTo(74,82);p.quadraticCurveTo(74,92,64,92);p.lineTo(36,92);p.quadraticCurveTo(26,92,26,82);p.lineTo(26,50);p.quadraticCurveTo(26,38,36,36);p.closePath()})],body:1,lvl:50,cx:50,cy:64,r:24,mk:[50,68]};
+  case'seer':return{parts:[neck(44,56,18,34),P(p=>{p.moveTo(50,30);p.bezierCurveTo(60,42,78,50,78,68);p.bezierCurveTo(78,84,66,93,50,93);p.bezierCurveTo(34,93,22,84,22,68);p.bezierCurveTo(22,50,40,42,50,30);p.closePath()})],body:1,lvl:54,cx:50,cy:68,r:26,mk:[50,70]}}
+ return rpptShape('fury')}
+const rpptHex=(c,a)=>{const n=parseInt(c.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};
+const rpptMix=(c1,c2,u)=>{const a=parseInt(c1.slice(1),16),b=parseInt(c2.slice(1),16),m=(s)=>Math.round(((a>>s)&255)*(1-u)+((b>>s)&255)*u);return '#'+((1<<24)|(m(16)<<16)|(m(8)<<8)|m(0)).toString(16).slice(1)};
+/* the potion's mark on its glass */
+function rpptMark(g,k,x,y,s){s=s||1;g.save();g.translate(x,y);g.scale(s,s);g.lineJoin='round';g.lineCap='round';const o=RPPTO;
+ const sh=(p,f,w)=>{g.lineWidth=w||2.4;g.strokeStyle=o;g.stroke(p);g.fillStyle=f;g.fill(p)};
+ if(k==='fury'){/* a sword */const b=new Path2D('M-3.4 6L-3.4 -9L0 -15L3.4 -9L3.4 6Z');sh(b,'#f4f6ff',2.2);g.strokeStyle='#9aa8d0';g.lineWidth=1.4;g.beginPath();g.moveTo(0,-11);g.lineTo(0,4);g.stroke();
+  const gd=new Path2D();gd.roundRect(-10,5,20,5,2.5);sh(gd,'#ffd45a',2.2);const gp=new Path2D();gp.roundRect(-2.2,10,4.4,6,1.5);sh(gp,'#8a4a22',2);const pm=new Path2D();pm.arc(0,17.5,2.8,0,TAU);sh(pm,'#ffd45a',1.8)}
+ else if(k==='fire'){const p=new Path2D('M0 -13C5 -7 9 -4 9 3C9 9 5 13 0 13C-5 13 -9 9 -9 3C-9 -2 -6 -4 -5 -9C-3 -5 -2 -4 -1 -3C0 -7 -1 -10 0 -13Z');sh(p,'#fff2a8');
+  const q=new Path2D('M0 -2C3 1 4 3 4 6C4 9 2 10 0 10C-2 10 -4 9 -4 6C-4 3 -2 2 0 -2Z');g.fillStyle='#ff8a2a';g.fill(q)}
+ else if(k==='quick'){const p=new Path2D('M3 -15L-7 2H-1L-4 15L8 -3H1L5 -15Z');sh(p,'#ffe27a')}
+ else if(k==='frost'){g.strokeStyle=o;g.lineWidth=5;for(let i=0;i<3;i++){g.save();g.rotate(i*Math.PI/3);g.beginPath();g.moveTo(0,-12);g.lineTo(0,12);g.stroke();g.restore()}
+  g.strokeStyle='#ffffff';g.lineWidth=2.4;for(let i=0;i<3;i++){g.save();g.rotate(i*Math.PI/3);g.beginPath();g.moveTo(0,-12);g.lineTo(0,12);g.moveTo(-4,-9);g.lineTo(0,-6);g.lineTo(4,-9);g.moveTo(-4,9);g.lineTo(0,6);g.lineTo(4,9);g.stroke();g.restore()}}
+ else if(k==='mend'){const p=new Path2D('M-4 -11H4V-4H11V4H4V11H-4V4H-11V-4H-4Z');sh(p,'#ffffff')}
+ else if(k==='hour'){const p=new Path2D('M0 -8L2.4 -2.4L8 0L2.4 2.4L0 8L-2.4 2.4L-8 0L-2.4 -2.4Z');sh(p,'#fff4c0',2)}
+ else if(k==='gild'){const p=new Path2D();p.arc(0,0,11,0,TAU);sh(p,'#ffe9a0');g.strokeStyle='#c98a1a';g.lineWidth=2;g.beginPath();g.arc(0,0,7,0,TAU);g.stroke();
+  const q=new Path2D('M0 -5L1.5 -1.5L5 0L1.5 1.5L0 5L-1.5 1.5L-5 0L-1.5 -1.5Z');g.fillStyle='#c98a1a';g.fill(q)}
+ else if(k==='seer'){const p=new Path2D('M-13 0C-7 -9 7 -9 13 0C7 9 -7 9 -13 0Z');sh(p,'#f4fffd');const q=new Path2D();q.arc(0,0,5.4,0,TAU);g.lineWidth=2;g.strokeStyle=o;g.fillStyle='#16a894';g.fill(q);g.stroke(q);g.fillStyle=o;g.beginPath();g.arc(0,0,2.2,0,TAU);g.fill();g.fillStyle='#fff';g.beginPath();g.arc(-1.8,-2,1.3,0,TAU);g.fill()}
+ g.restore()}
+/* the stopper on top of each bottle */
+function rpptCork(g,k,o){const L=(p,f,w)=>{g.lineWidth=w||3;g.strokeStyle=RPPTO;g.stroke(p);g.fillStyle=f;g.fill(p)};g.lineJoin='round';
+ if(k==='fire'){/* a fuse with a spark (the spark is drawn live in battle; baked here as a glint) */
+  g.lineCap='round';g.strokeStyle=RPPTO;g.lineWidth=6;g.beginPath();g.moveTo(50,25);g.quadraticCurveTo(52,14,60,11);g.stroke();g.strokeStyle='#d8b07a';g.lineWidth=2.6;g.stroke();
+  if(!(o&&o.nospark)){const gl=g.createRadialGradient(61,10,0,61,10,9);gl.addColorStop(0,'#fff8c0');gl.addColorStop(.4,'#ffb04acc');gl.addColorStop(1,'#ff6a1a00');g.fillStyle=gl;g.fillRect(52,1,18,18);
+   g.fillStyle='#fff';g.beginPath();g.arc(61,10,2.2,0,TAU);g.fill()}
+  /* the metal collar */
+  const c=new Path2D();c.roundRect(39,24,22,9,3);L(c,'#8a7aa8',2.6);g.fillStyle='#c8bce8';g.fillRect(41,26,6,2);return}
+ const cols={fury:['#a8703a','#7a4a22'],quick:['#c8d4e8','#8a98b8'],frost:['#a8703a','#7a4a22'],mend:['#7ac85a','#4a8a3a'],hour:['#8a5ac8','#5a3a90'],gild:['#ffd45a','#c98a1a'],seer:['#8affea','#2ab8a4']}[k]||['#a8703a','#7a4a22'];
+ if(k==='seer'){const p=new Path2D('M50 4L58 13L50 22L42 13Z');L(p,cols[0],2.8);g.fillStyle='#ffffffaa';g.beginPath();g.moveTo(47,10);g.lineTo(50,6);g.lineTo(52,9);g.fill()}
+ else if(k==='gild'||k==='hour'||k==='quick'){const p=new Path2D();p.roundRect(43,13,14,10,3);L(p,cols[0],2.8);const q=new Path2D();q.arc(50,11,5.2,0,TAU);L(q,cols[0],2.6);g.fillStyle=cols[1];g.fillRect(52,15,4,6);g.fillStyle='#ffffffaa';g.fillRect(45,15,2.4,5)}
+ else{const p=new Path2D();p.roundRect(42.5,11,15,15,[5,5,2,2]);L(p,cols[0],2.8);g.fillStyle=cols[1];g.fillRect(52,14,4,10);g.strokeStyle='#ffffff88';g.lineWidth=1.6;g.beginPath();g.moveTo(45.5,14);g.lineTo(45.5,22);g.stroke();
+  if(k==='frost'){const f=new Path2D('M41 13Q50 7 59 13L58 16Q50 12 42 16Z');L(f,'#e8f8ff',2)}
+  if(k==='mend'){const f=new Path2D('M56 12Q66 4 70 10Q64 16 56 14Z');L(f,'#8ae06a',2)}}}
+function rpptPaint(g,k,o){o=o||{};const D=RPPD[k]||RPPD.fury,S=rpptShape(k),col=D.col,lt=D.c2;g.save();g.lineJoin='round';g.lineCap='round';
+ /* the outline: every part stroked double width, then filled, so the parts read as one shape */
+ g.strokeStyle=RPPTO;g.lineWidth=7;for(const p of S.parts)g.stroke(p);
+ g.fillStyle='#2a2260';for(const p of S.parts)g.fill(p);
+ const body=S.parts[S.body];
+ g.save();g.clip(body);
+ /* glass: dark indigo with a soft lighter top */
+ let gr=g.createLinearGradient(0,20,0,95);gr.addColorStop(0,'#4a4090');gr.addColorStop(1,'#241c58');g.fillStyle=gr;g.fillRect(0,0,100,100);
+ /* the liquid */
+ const lv=S.lvl+(o.level||0);gr=g.createLinearGradient(20,lv,80,96);gr.addColorStop(0,rpptMix(col,'#ffffff',.25));gr.addColorStop(.55,col);gr.addColorStop(1,rpptMix(col,'#12081f',.35));
+ g.fillStyle=gr;g.fillRect(0,lv,100,100-lv);
+ if(S.hour){/* the hourglass: golden sand gathered in the lower bulb, a thread of it falling */g.fillStyle='#ffd45a';g.beginPath();g.ellipse(50,92,24,14,0,Math.PI,TAU);g.fill();g.fillStyle='#fff2b0';g.fillRect(49,60,2,22)}
+ g.fillStyle=rpptHex('#ffffff',.35);g.beginPath();g.ellipse(50,lv,40,4.2,0,0,TAU);g.fill();g.strokeStyle=rpptHex(lt,.9);g.lineWidth=2;g.beginPath();g.ellipse(50,lv,40,4.2,0,0,Math.PI);g.stroke();
+ /* the darker right half */
+ g.fillStyle='rgba(18,8,31,.24)';g.beginPath();g.ellipse(S.cx+S.r*1.15,S.cy+4,S.r*.95,S.r*1.6,0,0,TAU);g.fill();
+ /* bubbles */
+ g.fillStyle=rpptHex('#ffffff',.55);for(const [bx,by,br] of[[42,lv+12,2.6],[56,lv+20,1.8],[46,lv+26,1.4],[60,lv+8,1.2]]){if(by<94){g.beginPath();g.arc(bx,by,br,0,TAU);g.fill()}}
+ g.restore();
+ /* the mark */
+ rpptMark(g,k,S.mk[0],S.mk[1],k==='quick'?.9:1);
+ /* highlight (upper left) */
+ g.save();g.clip(body);g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=4;g.beginPath();
+ if(k==='quick'||k==='gild'){const x=k==='quick'?40.5:32;g.moveTo(x,48);g.lineTo(x,72)}else{g.arc(S.cx,S.cy,S.r-7,Math.PI*1.08,Math.PI*1.42)}g.stroke();
+ g.fillStyle='rgba(255,255,255,.9)';g.beginPath();g.arc(k==='quick'?41:S.cx-S.r*.38,k==='quick'?78:S.cy+S.r*.05,2.2,0,TAU);g.fill();g.restore();
+ /* the neck ring */
+ if(k!=='fire'){const nr=new Path2D();const y=k==='seer'?31:k==='hour'||k==='quick'?31:k==='gild'?33:36;nr.roundRect(40,y,20,5,2.5);g.lineWidth=2.4;g.strokeStyle=RPPTO;g.stroke(nr);g.fillStyle='#ffd45a';g.fill(nr)}
+ rpptCork(g,k,o);
+ /* a sparkle */
+ if(!o.plain){g.fillStyle='#ffffff';const s=new Path2D('M78 26L80 31L85 33L80 35L78 40L76 35L71 33L76 31Z');g.globalAlpha=.9;g.fill(s);g.globalAlpha=1}
+ g.restore()}
+function rpptCv(k,px,o){const key=k+'|'+px+'|'+(o&&o.plain?1:0)+(o&&o.nospark?1:0);let c=RPPTC.get(key);if(c)return c;c=document.createElement('canvas');c.width=c.height=px;const g=c.getContext('2d');g.scale(px/100,px/100);try{rpptPaint(g,k,o)}catch(e){console.error(e)}RPPTC.set(key,c);return c}
+const RPPTU=new Map();
+function rpptURL(k,px){const key=k+'|'+px;let u=RPPTU.get(key);if(u)return u;try{u=rpptCv(k,px).toDataURL()}catch(e){u=''}RPPTU.set(key,u);return u}
+const rpptIco=(k,px,cls)=>`<img alt="" class="${cls||''}" src="${rpptURL(k,px||64)}" width="${px||64}" height="${px||64}" draggable="false">`;
+/* the satchel (an icon for the hub button, the results and the board) */
+const RPPT_SATCHEL='<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 11c0-5 3-8 8-8s8 3 8 8" fill="none" stroke="#12081f" stroke-width="4.4"/><path d="M8 11c0-5 3-8 8-8s8 3 8 8" fill="none" stroke="#c98a4a" stroke-width="2"/><path d="M4 12h24l-2 15c-.3 2-2 3-4 3H10c-2 0-3.7-1-4-3z" fill="#a8683a" stroke="#12081f" stroke-width="2.4" stroke-linejoin="round"/><path d="M4 12h24l-1 6H5z" fill="#c88a4a" stroke="#12081f" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="18" r="3" fill="#ffd45a" stroke="#12081f" stroke-width="1.8"/><path d="M8 22c2 4 4 5 8 5" stroke="#7a4a22" stroke-width="1.6" fill="none"/></svg>';
+/* ---------- battle sprites (baked) ---------- */
+function rpptSpr(key,w,h,fn){let c=RPPTC.get('S:'+key);if(c)return c;c=document.createElement('canvas');c.width=Math.ceil(w);c.height=Math.ceil(h);const g=c.getContext('2d');try{fn(g,w,h)}catch(e){console.error(e)}RPPTC.set('S:'+key,c);return c}
+/* frost on the ground where a Frostbite Flask shattered (r = 110 px, squashed like the map's ground) */
+const rpptFrostG=r=>rpptSpr('frostg'+r,r*2+40,r*RPFX.sq*2+60,(g,w,h)=>{const cx=w/2,cy=h/2+10,ry=r*RPFX.sq;
+ let gr=g.createRadialGradient(cx,cy,0,cx,cy,r);gr.addColorStop(0,'rgba(232,248,255,.55)');gr.addColorStop(.7,'rgba(160,220,255,.32)');gr.addColorStop(1,'rgba(120,200,255,0)');g.save();g.translate(cx,cy);g.scale(1,RPFX.sq);g.fillStyle=gr;g.beginPath();g.arc(0,0,r,0,TAU);g.fill();g.restore();
+ g.strokeStyle='rgba(232,248,255,.85)';g.lineWidth=2.5;g.setLineDash([12,9]);g.beginPath();g.ellipse(cx,cy,r*.92,ry*.92,0,0,TAU);g.stroke();g.setLineDash([]);
+ /* ice crystals around the rim */
+ for(let i=0;i<11;i++){const a=i/11*TAU+.3,x=cx+Math.cos(a)*r*.78,y=cy+Math.sin(a)*ry*.78,s=7+((i*37)%9);g.save();g.translate(x,y);
+  const p=new Path2D(`M0 ${-s*1.6}L${s*.5} 0L0 ${s*.3}L${-s*.5} 0Z`);g.lineJoin='round';g.lineWidth=2.4;g.strokeStyle=RPPTO;g.stroke(p);g.fillStyle=i%2?'#d8f4ff':'#9fdcff';g.fill(p);g.fillStyle='#ffffffcc';g.fillRect(-1,-s*1.1,1.6,s*.8);g.restore()}});
+/* an ice block over a frozen monster (w x h around its body) */
+const rpptIce=()=>rpptSpr('ice',96,110,(g,w,h)=>{const p=new Path2D();p.roundRect(6,6,w-12,h-12,16);g.lineJoin='round';g.lineWidth=4;g.strokeStyle=RPPTO;g.stroke(p);
+ let gr=g.createLinearGradient(0,0,w,h);gr.addColorStop(0,'rgba(232,248,255,.62)');gr.addColorStop(.5,'rgba(150,215,255,.4)');gr.addColorStop(1,'rgba(90,160,240,.5)');g.fillStyle=gr;g.fill(p);
+ g.strokeStyle='rgba(255,255,255,.95)';g.lineWidth=4;g.beginPath();g.moveTo(18,24);g.lineTo(18,58);g.moveTo(26,18);g.lineTo(44,18);g.stroke();
+ g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=2;g.beginPath();g.moveTo(w-24,h-30);g.lineTo(w-38,h-50);g.lineTo(w-30,h-62);g.moveTo(w-38,h-50);g.lineTo(w-52,h-46);g.stroke();
+ g.fillStyle='rgba(18,8,31,.14)';g.fillRect(w*.58,10,w*.32,h-20)});
+/* a scorch for the Dragonfire Bomb's burning ground */
+const rpptScorch=r=>rpptSpr('scorch'+r,r*2+20,r*RPFX.sq*2+20,(g,w,h)=>{const cx=w/2,cy=h/2;g.save();g.translate(cx,cy);g.scale(1,RPFX.sq);
+ let gr=g.createRadialGradient(0,0,0,0,0,r);gr.addColorStop(0,'rgba(40,10,6,.62)');gr.addColorStop(.6,'rgba(70,20,8,.42)');gr.addColorStop(1,'rgba(70,20,8,0)');g.fillStyle=gr;g.beginPath();g.arc(0,0,r,0,TAU);g.fill();
+ for(let i=0;i<26;i++){const a=i*2.4,d=r*(.15+((i*53)%70)/100);g.fillStyle=i%3?'rgba(255,138,42,.85)':'rgba(255,214,120,.9)';g.beginPath();g.arc(Math.cos(a)*d,Math.sin(a)*d,1.6+(i%3),0,TAU);g.fill()}g.restore()});
+/* one flame tongue (drawn several times, flickering, over a scorch) */
+const rpptFlame=()=>rpptSpr('flame',40,60,(g,w,h)=>{g.lineJoin='round';const p=new Path2D('M20 4C28 16 36 24 36 38C36 50 29 57 20 57C11 57 4 50 4 38C4 30 9 25 11 18C14 24 16 26 17 27C17 18 18 10 20 4Z');
+ g.lineWidth=3;g.strokeStyle=RPPTO;g.stroke(p);let gr=g.createLinearGradient(0,4,0,57);gr.addColorStop(0,'#ffd27a');gr.addColorStop(.5,'#ff8a2a');gr.addColorStop(1,'#d8401a');g.fillStyle=gr;g.fill(p);
+ const q=new Path2D('M20 26C25 34 28 38 28 44C28 50 24 53 20 53C16 53 12 50 12 44C12 38 16 34 20 26Z');g.fillStyle='#fff2a8';g.fill(q)});
+/* a soft round glow in a colour (additive) */
+const rpptGlow=col=>rpptSpr('glow'+col,128,128,(g)=>{const gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,rpptHex(col,.75));gr.addColorStop(.4,rpptHex(col,.3));gr.addColorStop(1,rpptHex(col,0));g.fillStyle=gr;g.fillRect(0,0,128,128)});
+/* the shards of a shattered bottle (one sprite per potion) */
+const rpptShard=k=>rpptSpr('shard'+k,16,16,(g)=>{const p=new Path2D('M3 3L13 6L8 13Z');g.lineJoin='round';g.lineWidth=2;g.strokeStyle=RPPTO;g.stroke(p);g.fillStyle=rpptMix((RPPD[k]||RPPD.fury).col,'#ffffff',.45);g.fill(p)});
+/* ---------- the Apothecary room ---------- */
+const RPPTR={x:0,y:0,cx:300,cy:648,cw:600,ch:780};
+function rpptRoom(){return rpptSpr('room',1600,900,(g)=>{g.lineJoin='round';g.lineCap='round';const O=RPPTO;
+ const L=(p,f,w)=>{g.lineWidth=w||3;g.strokeStyle=O;g.stroke(p);if(f){g.fillStyle=f;g.fill(p)}};
+ /* the wall: warm dark stone */
+ let gr=g.createLinearGradient(0,0,0,900);gr.addColorStop(0,'#1d1230');gr.addColorStop(.6,'#2a1a38');gr.addColorStop(1,'#1a0f22');g.fillStyle=gr;g.fillRect(0,0,1600,900);
+ let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+ for(let row=0;row<14;row++){const y=row*56-10,off=row%2?40:0;for(let x=-80+off;x<1640;x+=118){const w=104+rnd()*10,h=48;const p=new Path2D();p.roundRect(x+rnd()*4,y+rnd()*3,w,h,10);
+   g.fillStyle=`rgba(${70+rnd()*30|0},${48+rnd()*20|0},${80+rnd()*26|0},.42)`;g.fill(p);g.lineWidth=2.4;g.strokeStyle='rgba(12,6,22,.55)';g.stroke(p);g.strokeStyle='rgba(255,220,180,.06)';g.beginPath();g.moveTo(x+10,y+6);g.lineTo(x+w-12,y+6);g.stroke()}}
+ /* warm candle light pooling in the room */
+ const pool=(x,y,r,c,a)=>{const q=g.createRadialGradient(x,y,0,x,y,r);q.addColorStop(0,rpptHex(c,a));q.addColorStop(1,rpptHex(c,0));g.fillStyle=q;g.fillRect(x-r,y-r,r*2,r*2)};
+ pool(300,600,520,'#ff9a3a',.28);pool(120,280,260,'#ffb04a',.16);pool(520,330,230,'#ffb04a',.14);pool(1500,200,300,'#ffb04a',.1);
+ /* the arched window: night sky, moon, stars, a mullion */
+ {const x=58,y=96,w=220,h=300;const arch=new Path2D();arch.moveTo(x,y+h);arch.lineTo(x,y+w/2);arch.arc(x+w/2,y+w/2,w/2,Math.PI,0);arch.lineTo(x+w,y+h);arch.closePath();
+  const fr=new Path2D();fr.moveTo(x-18,y+h+16);fr.lineTo(x-18,y+w/2);fr.arc(x+w/2,y+w/2,w/2+18,Math.PI,0);fr.lineTo(x+w+18,y+h+16);fr.closePath();L(fr,'#4a3a5a',4);
+  g.fillStyle='rgba(255,255,255,.08)';g.fill(fr);
+  gr=g.createLinearGradient(0,y,0,y+h);gr.addColorStop(0,'#0e1a4a');gr.addColorStop(1,'#3a2a7a');L(arch,gr,4);
+  g.save();g.clip(arch);for(let i=0;i<40;i++){g.fillStyle=`rgba(255,248,232,${.4+rnd()*.6})`;g.fillRect(x+rnd()*w,y+rnd()*h*.8,1.6+rnd()*1.6,1.6+rnd()*1.6)}
+  pool(x+150,y+86,90,'#fff4c0',.35);const m=new Path2D();m.arc(x+150,y+86,30,0,TAU);L(m,'#fff4d0',3);g.fillStyle='#e8dcb0';for(const [a,b,r] of[[-8,-6,6],[9,8,4],[4,-12,3]]){g.beginPath();g.arc(x+150+a,y+86+b,r,0,TAU);g.fill()}
+  /* distant hills and a tower */
+  const hl=new Path2D();hl.moveTo(x,y+h);hl.lineTo(x,y+h-50);hl.quadraticCurveTo(x+70,y+h-96,x+130,y+h-60);hl.quadraticCurveTo(x+180,y+h-90,x+w,y+h-66);hl.lineTo(x+w,y+h);hl.closePath();g.fillStyle='#1a1440';g.fill(hl);
+  g.fillStyle='#120c30';g.fillRect(x+40,y+h-120,18,70);g.beginPath();g.moveTo(x+34,y+h-120);g.lineTo(x+49,y+h-148);g.lineTo(x+64,y+h-120);g.fill();g.fillStyle='#ffd45a';g.fillRect(x+46,y+h-108,5,7);g.restore();
+  g.lineWidth=7;g.strokeStyle='#4a3a5a';g.beginPath();g.moveTo(x+w/2,y);g.lineTo(x+w/2,y+h);g.moveTo(x,y+h*.52);g.lineTo(x+w,y+h*.52);g.stroke();g.lineWidth=2.4;g.strokeStyle=O;g.stroke();
+  /* the sill with a pot of herbs */
+  const sl=new Path2D();sl.roundRect(x-30,y+h+8,w+60,20,6);L(sl,'#6a4a5a',3);g.fillStyle='rgba(255,255,255,.12)';g.fillRect(x-26,y+h+11,w+52,4);
+  const pt=new Path2D();pt.moveTo(x+164,y+h+8);pt.lineTo(x+168,y+h-18);pt.lineTo(x+200,y+h-18);pt.lineTo(x+204,y+h+8);pt.closePath();L(pt,'#b8603a',2.6);
+  for(let i=0;i<6;i++){const lf=new Path2D();const bx=x+184+(i-2.5)*5;lf.moveTo(bx,y+h-18);lf.quadraticCurveTo(bx+(i-2.5)*6,y+h-46,bx+(i-2.5)*9,y+h-56-((i*7)%10));g.lineWidth=5;g.strokeStyle=O;g.stroke(lf);g.lineWidth=3;g.strokeStyle=i%2?'#5aeb8a':'#3ab86a';g.stroke(lf)}}
+ /* the shelves with bottles */
+ const shelf=(x,y,w)=>{const s=new Path2D();s.roundRect(x,y,w,16,4);L(s,'#7a4a2a',3);g.fillStyle='#a8683a';g.fillRect(x+3,y+3,w-6,4);
+  for(const bx of[x+18,x+w-30]){const b=new Path2D();b.moveTo(bx,y+16);b.lineTo(bx+12,y+16);b.lineTo(bx+6,y+40);b.closePath();L(b,'#5a3420',2.4)}};
+ const jars=(x,y,w,n,s)=>{for(let i=0;i<n;i++){const k=RPPT_ORDER[(i*5+Math.floor(y))%8],sz=(s||46)*(.82+((i*31+Math.floor(x))%5)*.06),bx=x+48+i*(w-96)/Math.max(1,n-1)-sz/2;g.drawImage(rpptCv(k,Math.round(sz),{plain:1,nospark:1}),bx,y-sz*.92)}};
+ shelf(330,210,250);jars(330,210,250,5,48);shelf(330,380,250);jars(330,380,250,4,58);
+ shelf(1370,150,210);jars(1370,150,210,4,46);
+ /* books and a skull on the low shelf */
+ for(let i=0;i<4;i++){const b=new Path2D();b.roundRect(1380+i*16,64+(i%2)*6,14,86-(i%2)*6,3);L(b,['#7a3a5a','#3a5a8a','#5a8a3a','#8a5a2a'][i],2.4);g.fillStyle='#ffd45a';g.fillRect(1382+i*16,80,10,3)}
+ /* hanging herbs from a beam */
+ {const bm=new Path2D();bm.roundRect(300,52,1300,22,6);L(bm,'#5a3420',3);g.fillStyle='#7a4a2a';g.fillRect(304,56,1292,5);
+  for(let i=0;i<5;i++){const x=340+i*56;g.strokeStyle=O;g.lineWidth=3;g.beginPath();g.moveTo(x,74);g.lineTo(x,96+(i%2)*14);g.stroke();
+   for(let j=0;j<7;j++){const lf=new Path2D();const a=(j-3)*.32,ly=96+(i%2)*14;lf.moveTo(x,ly);lf.quadraticCurveTo(x+Math.sin(a)*14,ly+14,x+Math.sin(a)*22,ly+36+(j%3)*6);g.lineWidth=6;g.strokeStyle=O;g.stroke(lf);g.lineWidth=3.4;g.strokeStyle=['#6ab84a','#8a7ac8','#c8a04a','#5ab87a','#b86a8a'][i];g.stroke(lf)}
+   const tie=new Path2D();tie.roundRect(x-6,92+(i%2)*14,12,7,3);L(tie,'#c84a3a',2)}}
+ /* the floor: wooden planks */
+ {gr=g.createLinearGradient(0,720,0,900);gr.addColorStop(0,'#4a2a1a');gr.addColorStop(1,'#2a160c');g.fillStyle=gr;g.fillRect(0,720,1600,180);
+  g.strokeStyle='rgba(12,6,10,.6)';g.lineWidth=3;g.beginPath();g.moveTo(0,720);g.lineTo(1600,720);for(let y=752;y<900;y+=36){g.moveTo(0,y);g.lineTo(1600,y)}g.stroke();
+  g.lineWidth=2;for(let y=720,r=0;y<900;y+=36,r++)for(let x=(r%2)*90;x<1600;x+=180){g.beginPath();g.moveTo(x,y);g.lineTo(x,y+36);g.stroke()}
+  g.fillStyle='rgba(255,180,90,.06)';g.fillRect(0,722,1600,6);pool(300,760,360,'#ff8a2a',.22)}
+ /* the workbench at the left with a mortar, a book, scrolls */
+ {const tb=new Path2D();tb.roundRect(20,590,150,22,6);L(tb,'#8a5a32',3);g.fillStyle='#b8783a';g.fillRect(24,594,142,5);
+  for(const lx of[32,148]){const l=new Path2D();l.roundRect(lx,610,12,110,3);L(l,'#6a3e22',2.6)}
+  const bk=new Path2D();bk.moveTo(40,590);bk.lineTo(44,566);bk.lineTo(98,560);bk.lineTo(102,586);bk.closePath();L(bk,'#7a3a5a',2.6);g.fillStyle='#f4ecd8';g.beginPath();g.moveTo(48,584);g.lineTo(51,568);g.lineTo(96,563);g.lineTo(98,582);g.closePath();g.fill();
+  g.strokeStyle='#8a7a6a';g.lineWidth=1.4;for(let i=0;i<4;i++){g.beginPath();g.moveTo(55,572+i*3.4);g.lineTo(92,568+i*3.4);g.stroke()}
+  const mt=new Path2D();mt.moveTo(116,568);mt.quadraticCurveTo(118,592,136,592);mt.quadraticCurveTo(154,592,156,568);mt.closePath();L(mt,'#a8a0b8',2.6);g.lineWidth=7;g.strokeStyle=O;g.beginPath();g.moveTo(140,572);g.lineTo(160,546);g.stroke();g.lineWidth=4;g.strokeStyle='#c8b89a';g.stroke()}
+ /* the cauldron on its fire (the liquid, fire and bubbles are live) */
+ {const cx=RPPTR.cx,cy=RPPTR.cy;
+  /* stones of the fire pit */
+  for(let i=0;i<9;i++){const a=Math.PI*(.05+i*.11),x=cx+Math.cos(a)*150,y=cy+92+Math.sin(a)*22;const s=new Path2D();s.ellipse(x,y,22,13,0,0,TAU);L(s,i%2?'#6a6078':'#584e66',2.6)}
+  /* legs */
+  for(const lx of[-92,86]){const l=new Path2D();l.moveTo(cx+lx,cy+40);l.lineTo(cx+lx-6*Math.sign(lx),cy+104);l.lineTo(cx+lx+12*Math.sign(lx),cy+104);l.closePath();L(l,'#2a2440',3)}
+  /* the pot */
+  const pot=new Path2D();pot.moveTo(cx-136,cy-52);pot.bezierCurveTo(cx-150,cy+40,cx-90,cy+96,cx,cy+96);pot.bezierCurveTo(cx+90,cy+96,cx+150,cy+40,cx+136,cy-52);pot.closePath();
+  gr=g.createLinearGradient(cx-140,0,cx+140,0);gr.addColorStop(0,'#4a4466');gr.addColorStop(.4,'#2e2a48');gr.addColorStop(1,'#16122a');L(pot,gr,4);
+  g.save();g.clip(pot);g.strokeStyle='rgba(255,255,255,.22)';g.lineWidth=7;g.beginPath();g.arc(cx-30,cy-20,104,Math.PI*.62,Math.PI*.95);g.stroke();
+  g.fillStyle='rgba(255,140,60,.18)';g.beginPath();g.ellipse(cx,cy+110,150,60,0,0,TAU);g.fill();g.restore();
+  /* rivets and a band */
+  g.lineWidth=3;g.strokeStyle=O;g.beginPath();g.moveTo(cx-142,cy-4);g.quadraticCurveTo(cx,cy+18,cx+142,cy-4);g.stroke();g.strokeStyle='#6a6488';g.lineWidth=1.6;g.stroke();
+  for(let i=-3;i<=3;i++){g.fillStyle='#8a84a8';g.beginPath();g.arc(cx+i*38,cy+8-Math.abs(i)*3,3.2,0,TAU);g.fill();g.lineWidth=1.4;g.strokeStyle=O;g.stroke()}
+  /* handles */
+  for(const s of[-1,1]){g.lineWidth=9;g.strokeStyle=O;g.beginPath();g.arc(cx+s*146,cy-26,16,s<0?Math.PI*.5:-Math.PI*.5,s<0?Math.PI*1.5:Math.PI*.5);g.stroke();g.lineWidth=4.5;g.strokeStyle='#5a5478';g.stroke()}
+  /* the rim (front lip drawn live over the liquid) */
+  const rim=new Path2D();rim.ellipse(cx,cy-52,146,30,0,0,TAU);L(rim,'#3a3458',4)}
+ /* a candle cluster on the floor right of the cauldron and on the shelves (flames live) */
+ const candle=(x,y,h,w)=>{const c=new Path2D();c.roundRect(x-w/2,y-h,w,h,[w/2,w/2,3,3]);L(c,'#f4ecd8',2.6);g.fillStyle='#d8ccb0';g.fillRect(x+w*.12,y-h+4,w*.3,h-6);g.strokeStyle=O;g.lineWidth=2;g.beginPath();g.moveTo(x,y-h);g.lineTo(x,y-h-6);g.stroke();
+  const d=new Path2D();d.moveTo(x-w/2,y-h+6);d.quadraticCurveTo(x-w/2-3,y-h+14,x-w/2+1,y-h+16);g.lineWidth=3;g.strokeStyle='#f4ecd8';g.stroke(d)};
+ for(const c of RPPTR_C)candle(c[0],c[1],c[2],c[3]);
+ /* a rug under the cauldron */
+ {const rg=new Path2D();rg.ellipse(300,800,250,52,0,0,TAU);g.fillStyle='rgba(122,42,58,.55)';g.fill(rg);g.setLineDash([10,8]);g.lineWidth=3;g.strokeStyle='rgba(255,212,90,.45)';g.beginPath();g.ellipse(300,800,226,44,0,0,TAU);g.stroke();g.setLineDash([])}
+ /* a soft vignette */
+ gr=g.createRadialGradient(800,450,300,800,450,980);gr.addColorStop(0,'rgba(8,4,16,0)');gr.addColorStop(1,'rgba(8,4,16,.55)');g.fillStyle=gr;g.fillRect(0,0,1600,900)})}
+/* candles: x, y (base), height, width */
+const RPPTR_C=[[470,640,46,16],[500,650,30,14],[530,646,38,14],[352,210,26,12],[556,210,34,12],[1388,150,24,12],[80,590,30,13]];
+/* the moving parts of the room: drawn on a canvas covering x 0..600, y 0..780 of the stage */
+function rpptRoomLive(g,t,st){const cx=RPPTR.cx,cy=RPPTR.cy,col=st&&st.col||'#7aff9a',u=st&&st.u||0,rm=st&&st.rm,lite=st&&st.lite;g.clearRect(0,0,RPPTR.cw,RPPTR.ch);
+ g.save();g.lineJoin='round';
+ /* the fire under the pot */
+ for(let i=0;i<7;i++){const x=cx-80+i*27,s=.9+.35*Math.sin(t*(7+i)+i*2)+(u>0?.35:0),fl=rpptFlame();g.save();g.translate(x,cy+108);g.scale(s*.9,s*(1+.12*Math.sin(t*11+i)));g.drawImage(fl,-20,-56);g.restore()}
+ g.globalCompositeOperation='lighter';g.globalAlpha=.55+.15*Math.sin(t*5);g.drawImage(rpptGlow('#ff8a2a'),cx-130,cy+40,260,130);g.globalAlpha=1;g.globalCompositeOperation='source-over';
+ /* the liquid */
+ const lq=new Path2D();lq.ellipse(cx,cy-50,132,24,0,0,TAU);const base=u>0?rpptMix('#5aeb8a',col,Math.min(1,u*1.6)):col;
+ let gr=g.createLinearGradient(0,cy-74,0,cy-26);gr.addColorStop(0,rpptMix(base,'#ffffff',.35));gr.addColorStop(1,rpptMix(base,'#12081f',.25));g.fillStyle=gr;g.fill(lq);
+ g.save();g.clip(lq);const nb=rm?3:lite?6:10+Math.round(u*14);for(let i=0;i<nb;i++){const ph=(t*(.5+u*1.6)+i*.37)%1,x=cx-110+((i*67)%220),y=cy-46-ph*10,r=(4+(i%4)*2.4)*(1-ph*.4)*(1+u*.5);
+   g.globalAlpha=1-ph;g.strokeStyle=RPPTO;g.lineWidth=2;g.fillStyle=rpptMix(base,'#ffffff',.55);g.beginPath();g.arc(x,y,r,0,TAU);g.fill();g.stroke()}g.globalAlpha=1;
+  g.fillStyle='rgba(255,255,255,.28)';g.beginPath();g.ellipse(cx-40,cy-58,46,6,-.05,0,TAU);g.fill();g.restore();
+ /* the front lip of the rim over the liquid */
+ g.lineWidth=11;g.strokeStyle=RPPTO;g.beginPath();g.ellipse(cx,cy-52,146,30,0,.06,Math.PI-.06);g.stroke();g.lineWidth=6;g.strokeStyle='#4a4466';g.stroke();g.lineWidth=2;g.strokeStyle='rgba(255,255,255,.25)';g.beginPath();g.ellipse(cx,cy-50,146,30,0,.5,1.2);g.stroke();
+ /* glow and steam */
+ g.globalCompositeOperation='lighter';g.globalAlpha=.4+u*.5;g.drawImage(rpptGlow(base),cx-170,cy-150,340,180);g.globalAlpha=1;g.globalCompositeOperation='source-over';
+ if(!rm){const ns=lite?3:6;for(let i=0;i<ns;i++){const ph=(t*.22+i/ns)%1,x=cx-60+i*24+Math.sin(t+i)*16,y=cy-70-ph*190,r=18+ph*30;g.globalAlpha=(1-ph)*.22;g.fillStyle='#e8e0ff';g.beginPath();g.arc(x,y,r,0,TAU);g.fill()}g.globalAlpha=1}
+ /* sparkles rising while brewing */
+ if(u>0&&!rm){for(let i=0;i<10;i++){const ph=(t*1.4+i*.13)%1,x=cx-90+((i*41)%180)+Math.sin(t*3+i)*10,y=cy-60-ph*160;g.globalAlpha=1-ph;g.fillStyle=i%2?'#ffffff':rpptMix(col,'#ffffff',.4);g.save();g.translate(x,y);g.rotate(t*2+i);g.fillRect(-3,-3,6,6);g.restore()}g.globalAlpha=1}
+ /* candle flames */
+ for(const [x,y,h] of RPPTR_C){if(x>RPPTR.cw||y>RPPTR.ch)continue;const fy=y-h-6,s=1+.12*Math.sin(t*9+x)+(rm?0:.06*Math.sin(t*23+y));
+  g.globalCompositeOperation='lighter';g.globalAlpha=.6;g.drawImage(rpptGlow('#ffb04a'),x-36,fy-44,72,72);g.globalCompositeOperation='source-over';g.globalAlpha=1;
+  g.save();g.translate(x,fy);g.scale(.42*s,.42*s*(1+.1*Math.sin(t*13+x)));g.drawImage(rpptFlame(),-20,-56);g.restore()}
+ /* drifting motes */
+ if(!rm&&!lite)for(let i=0;i<9;i++){const ph=(t*.05+i*.111)%1,x=40+((i*137)%520)+Math.sin(t*.7+i)*20,y=720-ph*640;g.globalAlpha=Math.sin(ph*Math.PI)*.7;g.fillStyle='#ffd27a';g.fillRect(x,y,2.4,2.4)}
+ g.globalAlpha=1;g.restore()}
+/* ===== RUNESTONE TOWER DEFENSE 10.3: Potions in battle and the Apothecary (99j, after 99i; prefix rppt) =====
+   Battle (RPX.pt): the satchel's potions on a belt above the abilities (keys 4 / 5 / 6 or a click), one use per slot, a shared cooldown
+   (RPPTX.cd) after any potion, none before wave 1 or in its first RPPTX.lock s. Drinks: the bottle pops over the castle, a coloured wave
+   rolls over the map and a buff chip with a timer appears above the belt. Throws: aimed like the Slow Field with a range ring (press the
+   key again to throw at the biggest crowd; Esc or right-click cancels); the bottle arcs from the castle and shatters.
+   Effects, and the rules they follow:
+   - Fury Draught: damage from towers (rpqDmOf(src): the tower or a projectile carrying it) x(1+k). The outermost rpHurt wrapper, so the
+     Siren shields, guards, marks and armor still apply inside.
+   - Quicksilver Tonic: each tower's fire routine runs on a clock (1+k) times faster (the outermost rpFire wrapper passes dt x (1+k)):
+     reloads, beams, swarms and throws all speed up; a jammed tower is not sped up (the jam runs its normal course) and Overcharge
+     keeps its own length.
+   - Frostbite Flask: monsters within r freeze (stun) for dur; bosses get a bossK slow instead (never over a stronger slow); a venting
+     Steam Golem (slow-immune) is not frozen or slowed; hidden monsters (dive, glimmer, leap: e.hide) are not hit.
+   - Dragonfire Bomb: dmg to every monster within r (ground and air, through armor), then burning ground (burn per s, ground only) for
+     burnT s. Hidden monsters take nothing (98b's rpHurt rule). The damage is booked as potion damage (R.pt.dmg, "Potions" on the
+     results), not on a tower; R.rpqTot includes it.
+   - Elixir of Mending: +1 castle health per dur/heal s, never above RPT.HP (refused at full health).
+   - Hourglass Brew: every visible monster moves k slower for dur s (bosses k x bossK), never over a stronger slow, never while venting.
+   - Gilded Tonic: kills pay +k of their supply bounty (coins unchanged).
+   - Seer's Tincture: towers ignore fog and hiding (98b's rpTarget veil, 98p's rpiaVeil and 98b's rpHurt rule are lifted for towers:
+     hidden and fogged monsters are visible during each tower's fire routine and tower damage reaches them) and their range is
+     x(1+rng) during the fire routine (the Glowcap bonus stacks).
+   Drinks of one kind never stack: a second refreshes the time. Effects tick in game time (game speed applies, pauses stop them).
+   Damage meter: rpqDmAdd books potion damage on R.pt.dmg. Results: a "Potions used" cell and a "Potions" damage bar; the Championship
+   board shows a satchel mark (content field p = potions used in the best run; only sent when > 0, so older entries are unchanged).
+   Rune Typing: a word on every potion that can be used now (typing it uses the potion; throws go to the biggest crowd). */
+const RPPTF={wave:1.15,pop:1.1,aura:66,shatter:.5,wordKeys:['p0','p1','p2']};
+const RPPT_SRC={fire:{rppt:'fire'},frost:{rppt:'frost'}};
+const rpptR=()=>{const R=RPX;return R&&R.pt?R:null};
+const rpptAct=(R,k)=>!!(R&&R.pt&&R.pt.fx[k]&&R.pt.fx[k].t<R.pt.fx[k].d);
+const rpptLite=R=>!!(R&&(R.lite||R.rm||(typeof RPG==='object'&&RPG&&RPG.off)));
+function rpptSfx(k){try{switch(k){
+ case'uncork':beep(620,.04,'square',.12);setTimeout(()=>beep(1240,.05,'triangle',.18),40);break;
+ case'glug':[330,262,294,247].forEach((f,i)=>setTimeout(()=>beep(f,.07,'sine',.25),80+i*80));break;
+ case'wave':beep(392,.12,'triangle',.3);setTimeout(()=>beep(523,.14,'triangle',.3),90);setTimeout(()=>beep(784,.24,'sine',.25),190);break;
+ case'throw':beep(500,.05,'triangle',.12);setTimeout(()=>beep(380,.08,'triangle',.1),60);break;
+ case'shatter':[2600,3100,2200,3600].forEach((f,i)=>setTimeout(()=>beep(f+Math.random()*300,.03,'square',.07),i*28));break;
+ case'freeze':beep(1800,.06,'sine',.16);setTimeout(()=>beep(2400,.08,'sine',.14),70);setTimeout(()=>beep(1200,.18,'triangle',.12),150);break;
+ case'boom':beep(80,.25,'sawtooth',.35);setTimeout(()=>beep(140,.18,'sawtooth',.22),60);break;
+ case'heal':beep(880,.05,'sine',.14);break;
+ case'brew':beep(200+Math.random()*90,.05,'sine',.1);break;
+ case'brewed':[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.09,'triangle',.3),i*70));break;
+ case'clink':beep(1568,.05,'triangle',.18);setTimeout(()=>beep(2093,.08,'sine',.14),50);break;
+ case'ready':beep(988,.05,'sine',.2);setTimeout(()=>beep(1319,.08,'sine',.2),60);break;
+ case'no':rpSfx('no');break}}catch(e){}}
+/* ---------- battle state ---------- */
+function rpptInit(R,sl){R.pt={sl:sl||rpptLoad(),cd:0,w1:null,fx:{},fly:[],gr:[],burns:[],waves:[],pops:[],used:[],dmg:0,gold:0,heal:0,frz:0,aim:-1,vh:null}}
+const rpptHas=R=>!!(R&&R.pt&&R.pt.sl.some(s=>!s.empty));
+/* seconds until potions may be used at all: before wave 1 (Infinity) and its first RPPTX.lock s */
+function rpptLock(R){if(!R||!R.pt)return Infinity;if(R.wave<1||R.pt.w1==null)return Infinity;return Math.max(0,RPPTX.lock-(R.time-R.pt.w1))}/* calling wave 2 early does not lift it */
+/* why slot i cannot be used now ('' = it can) */
+function rpptWhy(R,i){const s=R&&R.pt&&R.pt.sl[i];if(!s||s.empty)return s&&s.short?`No ${RPPD[s.k].n} in stock`:'This slot is empty';if(s.used)return`${RPPD[s.k].sh} already used this battle`;
+ if(R.over||R.wst==='done')return'The battle is over';const L=rpptLock(R);if(L===Infinity)return`Potions open ${RPPTX.lock} s into wave 1`;if(L>0)return`Potions open in ${Math.ceil(L)} s`;
+ if(R.pt.cd>0)return`Potions ready in ${Math.ceil(R.pt.cd)} s`;if(s.k==='mend'&&R.hp>=RPT.HP)return'The castle is at full health';return''}
+/* a key or a click on slot i */
+function rpptPress(i){const R=rpptR();if(!R||R.pause||R.over)return false;const s=R.pt.sl[i];if(!s||s.empty){rpptSfx('no');if(s&&s.short)rpToast(rpptWhy(R,i),1.6,'#e8c8ff');return false}
+ const D=RPPD[s.k];if(D.kind==='throw'&&R.aim==='pot'&&R.pt.aim===i)return rpptUse(i,true);/* pressed again while aiming: the biggest crowd */
+ return rpptUse(i)}
+function rpptUse(i,arg){const R=rpptR();if(!R||R.pause||R.over)return false;const s=R.pt.sl[i],why=rpptWhy(R,i);
+ if(why){rpptSfx('no');rpToast(why,1.6,'#e8c8ff');if(R.aim==='pot'){R.aim=null;R.pt.aim=-1}return false}const D=RPPD[s.k];
+ if(D.kind==='throw'){let pt=arg&&arg.x!==undefined?arg:null;if(!pt&&arg===true){pt=rpptCrowd(R,D.r,s.k==='fire');if(!pt){rpptSfx('no');rpToast('No monsters to throw at yet',1.4,'#e8c8ff');R.aim=null;R.pt.aim=-1;return false}}
+  if(!pt){R.aim='pot';R.pt.aim=i;R.place=null;R.ghost=null;R.selPad=null;R.sel=null;R.hover=null;
+   rpToast(`Click near the road to throw the ${D.n} (press ${RPPTX.keys[i]} again for the biggest crowd)`,3,'#e8c8ff');rpptTip('throw');return false}
+  if(R.G.dRoad(pt.x,pt.y)>D.r+30){rpptSfx('no');rpToast('Throw it near the road',1.2,'#e8c8ff');return false}
+  R.aim=null;R.pt.aim=-1;if(R.toast&&/^Click near the road/.test(R.toast.txt))R.toast=null;rpptSpendSlot(R,s);const c=rpCastC(R);R.pt.fly.push({k:s.k,x0:c.x,y0:c.y-70,x1:pt.x,y1:pt.y,t:0,d:RPPTX.fly,h:150+Math.hypot(pt.x-c.x,pt.y-c.y)*.12});rpptSfx('throw');
+  rpptBeltFx(i,'go');return true}
+ /* drinks */
+ if(R.aim==='pot'){R.aim=null;R.pt.aim=-1}
+ rpptSpendSlot(R,s);const F=R.pt.fx[s.k];R.pt.fx[s.k]={t:0,d:D.dur,n:0,re:!!(F&&F.t<F.d)};
+ const c=rpCastC(R);R.pt.pops.push({k:s.k,x:c.x,y:c.y-40,t:0,d:RPPTF.pop});R.pt.waves.push({k:s.k,x:c.x,y:c.y,t:0,d:RPPTF.wave});
+ rpptSfx('uncork');rpptSfx('glug');setTimeout(()=>rpptSfx('wave'),260);
+ rpText(c.x,c.y-205,`${D.sh.toUpperCase()}!`,D.col,30);try{if(!rpptLite(R))ptBurst(R.fx,c.x,c.y-110,22,[D.col,D.c2,'#ffffff'],{v:260,s:4.5,k:'star'})}catch(e){}
+ if(s.k==='seer')R.pt.vh=R.foes.filter(e=>!e.dead&&(e.hide||e.fogd));rpptBeltFx(i,'go');return true}
+function rpptSpendSlot(R,s){s.used=1;rpptSpend(s.k);R.pt.cd=RPPTX.cd;R.pt.used.push(s.k);if(RPH)RPH.ppt=null}
+/* the point where a throw catches the most monsters (the bomb's fire favours ground monsters), a little towards the castle end */
+function rpptCrowd(R,r,groundW){let best=null,bv=0;const L=R.foes.filter(e=>!e.dead&&e.s>=0&&!e.hide);if(!L.length)return null;const P=L.map(e=>rpPos(R,e));
+ for(let i=0;i<L.length;i++){const p=P[i];let v=0;for(let j=0;j<L.length;j++){const q=P[j];if(rpD2(p.x,p.y,q.x,q.y)<r*r*.8)v+=(groundW&&L[j].air?.6:1)*(L[j].boss?2:1)+L[j].s/rpLen(R,L[j])*.3}if(v>bv){bv=v;best={x:p.x,y:p.y}}}return best}
+/* ---------- per step: the cooldown, flights, landings, burning ground, drinks ---------- */
+function rpptPre(R,dt){const T=R.pt;if(R.wst!=='done'&&R.wave>0&&T.cd>0){T.cd=Math.max(0,T.cd-dt);if(T.cd===0&&T.sl.some(s=>!s.empty&&!s.used)){rpptSfx('ready');rpptBeltFx(-1,'rdy')}}
+ /* Hourglass: a slow on every visible monster (the engine applies it this step; 98b clears it on a venting golem) */
+ if(rpptAct(R,'hour')){const D=RPPD.hour;for(const e of R.foes){if(e.dead||e.hide||e.vent>0)continue;const k=e.boss?D.k*D.bossK:D.k;if(!(e.slowT>0)||e.slowK<=k){e.slowK=k;e.slowT=Math.max(e.slowT||0,dt*1.5)}e.ptHg=.25}}
+ /* Seer's Tincture: the monsters the towers may see this step */
+ T.vh=rpptAct(R,'seer')?R.foes.filter(e=>!e.dead&&(e.hide||e.fogd)):null}
+function rpptPost(R,dt){const T=R.pt;
+ for(const k in T.fx){const F=T.fx[k];if(F.t>=F.d)continue;F.t=Math.min(F.d,F.t+dt);
+  if(k==='mend'){const D=RPPD.mend,want=Math.min(D.heal,Math.floor(F.t/F.d*D.heal+1e-6));while(F.n<want){F.n++;if(R.hp<RPT.HP&&R.wst!=='done'){R.hp++;T.heal++;const c=rpCastC(R);rpText(c.x+(Math.random()-.5)*60,c.y-50,'+1','#7dffb0',24);rpptSfx('heal');try{if(!rpptLite(R))ptBurst(R.fx,c.x,c.y-30,6,['#7dffb0','#ffffff'],{v:120,s:3.5,up:1,k:'star'})}catch(e){}}}}}
+ for(const f of T.fly){f.t+=dt;if(f.t>=f.d&&!f.done){f.done=1;rpptLand(R,f)}}T.fly=T.fly.filter(f=>!f.done);
+ for(const b of T.burns){b.t+=dt;if(b.t<b.d)for(const e of R.foes){if(e.dead||e.air||e.s<0||e.hide)continue;const p=rpPos(R,e);if(rpD2(p.x,p.y,b.x,b.y)<b.r*b.r)rpHurt(e,b.dps*dt,99,RPPT_SRC.fire)}}T.burns=T.burns.filter(b=>b.t<b.d);
+ for(const g of T.gr)g.t+=dt;T.gr=T.gr.filter(g=>g.t<g.d);
+ for(const e of R.foes){if(e.ptFz>0)e.ptFz=e.stun>0?Math.max(0,e.ptFz-dt):0;if(e.ptHg>0)e.ptHg-=dt;if(e.ptSl>0)e.ptSl-=dt}}
+/* the frame clocks (visual only: real time, so they read the same at every game speed) */
+function rpptFrame(R,dt){const T=R.pt;for(const w of T.waves)w.t+=dt;T.waves=T.waves.filter(w=>w.t<w.d);for(const p of T.pops)p.t+=dt;T.pops=T.pops.filter(p=>p.t<p.d)}
+function rpptLand(R,f){const D=RPPD[f.k],x=f.x1,y=f.y1;let n=0;const lite=rpptLite(R);
+ const hits=R.foes.filter(e=>{if(e.dead||e.s<0||e.hide)return false;const p=rpPos(R,e);return rpD2(p.x,p.y,x,y)<D.r*D.r});
+ if(f.k==='frost'){for(const e of hits){if(e.boss){e.slowK=Math.max(e.slowK||0,D.bossK);e.slowT=Math.max(e.slowT||0,D.dur);e.ptSl=D.dur;n++;continue}
+   if(e.vent>0){const p=rpPos(R,e);rpText(p.x,p.y-70,'Immune','#c8d4e8',18);continue}e.stun=Math.max(e.stun||0,D.dur);e.ptFz=Math.max(e.ptFz||0,D.dur);n++}
+  R.pt.frz+=n;R.pt.gr.push({k:'frost',x,y,t:0,d:D.dur+.8});rpptSfx('freeze');
+  try{if(!lite)ptBurst(R.fx,x,y-10,26,['#ffffff','#d8f4ff','#9fdcff'],{v:300,s:4,k:'star'})}catch(e){}}
+ else if(f.k==='fire'){for(const e of hits){rpHurt(e,D.dmg,99,RPPT_SRC.fire);n++}
+  R.pt.burns.push({x,y,r:D.r,t:0,d:D.burnT,dps:D.burn});R.pt.gr.push({k:'fire',x,y,t:0,d:D.burnT+.6});if(!lite)R.shake=Math.max(R.shake||0,10);rpptSfx('boom');
+  try{if(!lite){ptBurst(R.fx,x,y-14,30,['#fff2a8','#ffb04a','#ff6a1a','#3a1a14'],{v:380,s:5,up:1,g:380});ptBurst(R.fx,x,y-20,10,['#ffd27a'],{v:160,s:3,k:'glow'})}}catch(e){}}
+ R.pt.gr.push({k:'splash',c:f.k,x,y,t:0,d:RPPTF.shatter});rpRing(x,y,D.col,D.r*1.15,7);rpptSfx('shatter');
+ try{if(!R.rm)ptBurst(R.fx,x,y-8,lite?6:16,[rpptMix(D.col,'#ffffff',.45),D.col,'#ffffff'],{v:240,s:3,k:'dust',up:1,g:420})}catch(e){}
+ if(n)rpText(x,y-60,f.k==='frost'?`Frozen ×${n}`:`${D.dmg} ×${n}`,D.col,22)}
+/* ---------- hooks: the effects ---------- */
+/* rpqDmAdd (99e): potion damage goes on the potions, not on a tower or the unattributed hazards */
+{const a0=rpqDmAdd;rpqDmAdd=function(src,v){const R=RPX;if(src&&src.rppt&&R&&R.pt){if(v>0){R.rpqTot=(R.rpqTot||0)+v;R.pt.dmg+=v}return}return a0.apply(this,arguments)}}
+/* Fury (tower damage) and Seer (tower damage reaches hidden monsters) */
+{const h0=rpHurt;rpHurt=function(e,dmg,ap,src){const R=RPX;if(!R||!R.pt||!e||e.dead||!src||src.rppt)return h0.apply(this,arguments);
+ const fu=rpptAct(R,'fury'),se=rpptAct(R,'seer')&&e.hide;if(!fu&&!se)return h0.apply(this,arguments);const tw=rpqDmOf(src);if(!tw)return h0.apply(this,arguments);
+ if(fu)dmg*=1+RPPD.fury.k;if(!se)return h0.call(this,e,dmg,ap,src);const hd=e.hide;e.hide=0;try{return h0.call(this,e,dmg,ap,src)}finally{if(!e.dead)e.hide=hd}}}
+/* Quicksilver (a faster fire clock) and Seer (no veil, more range) around every tower's fire routine */
+{const f0=rpFire;rpFire=function(R,tw,dt){if(!R||!R.pt||!tw)return f0.apply(this,arguments);const qu=rpptAct(R,'quick')&&!(tw.jam>0),se=rpptAct(R,'seer');if(!qu&&!se)return f0.apply(this,arguments);
+ const t=this,a=Array.from(arguments);const o0=tw.over||0;if(qu)a[2]=dt*(1+RPPD.quick.k);
+ let L=null,T=null,i=-1,r0=0;if(se){L=R.pt.vh;if(L&&L.length){for(const e of L){e._ptH=e.hide;e._ptF=e.fogd;e.hide=0;e.fogd=0}}else L=null;T=RP_TW[tw.type];i=(tw.tier||1)-1;if(T&&T.range&&T.range[i]){r0=T.range[i];T.range[i]=r0*(1+RPPD.seer.rng)}else T=null}
+ try{return f0.apply(t,a)}finally{if(qu&&o0>0)tw.over=Math.max(0,o0-dt);if(T)T.range[i]=r0;if(L)for(const e of L){if(e._ptH!==undefined){if(!e.dead){e.hide=e._ptH;e.fogd=e._ptF}delete e._ptH;delete e._ptF}}}}}
+/* 98p's veil for puddles, craters and stars (no tower): lifted while Seer's Tincture works */
+if(typeof rpiaVeil==='function'){const v0=rpiaVeil;rpiaVeil=function(R,tw,fog,fn){if(R&&R.pt&&!tw&&rpptAct(R,'seer'))return fn();return v0.apply(this,arguments)}}
+/* Gilded Tonic: kills pay more supply (coins unchanged) */
+{const k0=rpKillFoe;rpKillFoe=function(e,src){const R=RPX,was=!e||e.dead;const r=k0.apply(this,arguments);
+ try{if(!was&&e.dead&&!e.leak&&R&&R.pt&&rpptAct(R,'gild')&&e.bounty>0){const x=Math.round(e.bounty*RPPD.gild.k);if(x>0){R.supply+=x;R.pt.gold+=x;const p=rpPos(R,e);rpText(p.x+22,p.y-(e.air?92:62),`+${x}`,'#ffe27a',e.boss?28:16)}}}catch(x){console.error(x)}return r}}
+/* the step: our pre and post around the whole engine step */
+{const s0=rpStep;rpStep=function(R,dt){if(!R||!R.pt)return s0.apply(this,arguments);try{rpptPre(R,dt)}catch(e){console.error(e)}const r=s0.apply(this,arguments);try{rpptPost(R,dt)}catch(e){console.error(e)}return r}}
+{const u0=rpUpdate;rpUpdate=function(dt){const R=RPX;const r=u0.apply(this,arguments);try{if(R&&R.pt&&!R.pause)rpptFrame(R,Math.min(dt||0,.05))}catch(e){}return r}}
+/* wave 1's start opens the lock clock */
+{const w0=rpWaveStart;rpWaveStart=function(){const R=RPX,n0=R?R.wave:0;const r=w0.apply(this,arguments);try{if(R&&R.pt&&R.wave>=1&&n0<1&&R.pt.w1==null){R.pt.w1=R.time}}catch(e){}return r}}
+/* a new battle: the satchel's potions (Rune Typing gets its potion words only when there are any) */
+const rpptKeysOff=()=>{try{const K=RPTY.keys;for(const w of RPPTF.wordKeys){const j=K.indexOf(w);if(j>=0)K.splice(j,1)}}catch(e){}};
+{const s0=rpStart;rpStart=function(){const sl=(()=>{try{return rpptLoad()}catch(e){return[]}})(),has=sl.some(s=>!s.empty);
+ rpptKeysOff();if(has)try{RPTY.keys.push(...RPPTF.wordKeys)}catch(e){}
+ const r=s0.apply(this,arguments);try{if(RPX){rpptInit(RPX,sl);if(RPX.ty)for(const w of RPPTF.wordKeys)delete RPX.ty.w[w];rpptBelt()}}catch(e){console.error(e)}return r}}
+{const l0=rpLeave;rpLeave=function(){rpptKeysOff();return l0.apply(this,arguments)}}
+/* ---------- input ---------- */
+{const k0=rpKeyDown;window.removeEventListener('keydown',rpKeyDown,true);rpKeyDown=function(e){const R=RPX;
+ if(R&&R.pt&&S.rp&&S.mode==='ramparts'&&!R.pause&&!R.over&&!e.ctrlKey&&!e.metaKey&&!e.altKey){const i=RPPTX.keys.indexOf(e.key);if(i>=0){e.preventDefault();e.stopImmediatePropagation();if(!e.repeat)rpptPress(i);return}}
+ return k0.apply(this,arguments)};window.addEventListener('keydown',rpKeyDown,true)}
+{const c0=rpClick;rpClick=function(x,y,btn,touch){const R=RPX;if(R&&R.pt&&R.aim==='pot'&&!R.pause&&!R.over&&R.wst!=='done'){if(btn===2){R.aim=null;R.pt.aim=-1;return}const i=R.pt.aim;if(i>=0)rpptUse(i,{x,y});return}return c0.apply(this,arguments)}}
+/* ---------- drawing ---------- */
+const rpptE=(c,x,y,rx,ry)=>{c.beginPath();c.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),0,0,TAU)};
+/* ground: frost, scorch and flames, splashes, and the rings under buffed towers */
+{const a0=rpAmbient;rpAmbient=function(c,R){const r=a0.apply(this,arguments);try{if(R&&R.pt)rpptGround(c,R)}catch(e){console.error(e)}return r}}
+function rpptGround(c,R){const T=R.pt,t=R.t,lite=rpptLite(R);
+ for(const g of T.gr){const D=RPPD[g.k==='splash'?g.c:g.k],u=g.t/g.d,a=Math.min(1,g.t/.12)*Math.min(1,(g.d-g.t)/.5);if(a<=0)continue;c.save();c.globalAlpha=a;
+  if(g.k==='frost'){const s=rpptFrostG(D.r);c.drawImage(s,Math.round(g.x-s.width/2),Math.round(g.y-s.height/2-10))}
+  else if(g.k==='fire'){const s=rpptScorch(D.r);c.drawImage(s,Math.round(g.x-s.width/2),Math.round(g.y-s.height/2));const fl=rpptFlame(),n=lite?4:8,on=g.t<g.d-.6?1:Math.max(0,(g.d-g.t)/.6);
+   if(!lite){const gw=rpptBurnGlow(D.r);c.globalCompositeOperation='lighter';c.globalAlpha=a*on*(.5+.1*Math.sin(t*7));c.drawImage(gw,Math.round(g.x-gw.width/2),Math.round(g.y-gw.height/2));c.globalCompositeOperation='source-over';c.globalAlpha=a}
+   c.globalAlpha=a*on*.85;c.strokeStyle='#ff8a2a';c.lineWidth=3;rpptE(c,g.x,g.y,D.r,D.r*RPFX.sq);c.stroke();c.globalAlpha=a;
+   for(let i=0;i<n;i++){const an=i*2.39996,dd=D.r*(.1+(i*37%70)/100),fx=g.x+Math.cos(an)*dd,fy=g.y+Math.sin(an)*dd*RPFX.sq,k=(.78+.22*Math.sin(t*9+i*1.7))*on;if(k<=.02)continue;
+    c.setTransform(RS*k*.85,0,0,RS*k*(.95+.18*Math.sin(t*13+i)),RS*fx,RS*fy);c.drawImage(fl,-20,-56)}c.setTransform(RS,0,0,RS,0,0)}
+  else if(g.k==='splash'){const v=.4+.6*rpEase(Math.min(1,u*2.5));c.fillStyle=rpptHex(D.col,.45*(1-u));rpptE(c,g.x,g.y,D.r*v,D.r*RPFX.sq*v);c.fill()}
+  c.restore()}
+ /* a ring under every built tower for each tower buff (one baked sprite per set of buffs) */
+ const B=['fury','quick','seer'].filter(k=>rpptAct(R,k));if(B.length){const S=rpptAura(B),w=S.width,h=S.height;c.save();
+  for(const p of R.pads){const tw=p.tw;if(!tw||tw.build<1)continue;c.drawImage(S,Math.round(p.x-w/2),Math.round(p.y+6-h/2));
+   if(!lite&&Math.random()<.04){const D=RPPD[B[Math.floor(Math.random()*B.length)]];try{ptBurst(R.fx,p.x+(Math.random()-.5)*60,p.y-10,1,[D.col,D.c2],{v:60,s:3,up:1,g:-60,k:'star'})}catch(e){}}}
+  c.restore()}}
+const rpptBurnGlow=r=>rpptSpr('bglow'+r,Math.round(r*2.2),Math.round(r*1.4),(g,w,h)=>{g.drawImage(rpptGlow('#ff7a1a'),0,0,w,h)});
+function rpptAura(B){return rpptSpr('aura'+B.join(','),2*(RPPTF.aura+11*B.length)+16,(2*(RPPTF.aura+11*B.length)+16)*RPFX.sq+8,(g,w,h)=>{g.globalAlpha=.85;B.forEach((k,j)=>{const rr=RPPTF.aura+j*11;
+  g.strokeStyle=RPPTO;g.lineWidth=6;rpptE(g,w/2,h/2,rr,rr*RPFX.sq);g.stroke();g.strokeStyle=RPPD[k].col;g.lineWidth=3;g.stroke();g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=1.2;rpptE(g,w/2,h/2-1,rr,rr*RPFX.sq);g.stroke()})})}
+/* monsters: a ring while slowed by the Hourglass (or a boss chilled by the Frostbite), the Seer's eye on hidden / fogged ones, an ice block while frozen */
+{const d0=rpFoeDraw;rpFoeDraw=function(c,R,e,q){const T=R&&R.pt;if(!T||e.dead)return d0.apply(this,arguments);
+ if(e.ptHg>0||e.ptSl>0){c.save();c.globalAlpha=.8;c.strokeStyle=e.ptSl>0?'#9fdcff':RPPD.hour.col;c.lineWidth=3;c.setLineDash([6,5]);c.lineDashOffset=-R.t*20;rpptE(c,q.x,q.y+2,e.boss?44:22,(e.boss?44:22)*RPFX.sq);c.stroke();c.restore()}
+ const r=d0.apply(this,arguments);
+ if(e.ptHg>0&&!e.hide){/* a little clock over a monster the Hourglass holds back */const h=(RPMOB[e.id]?RPMOB[e.id].h:50)+(e.air?44:8)+(e.hp<e.mx?14:6),x=q.x+(e.boss?52:22),y=q.y-h;c.save();c.globalAlpha=.95;c.lineWidth=2;c.strokeStyle=RPPTO;c.fillStyle='#2a1f6a';c.beginPath();c.arc(x,y,6.5,0,TAU);c.fill();c.stroke();
+  c.strokeStyle=RPPD.hour.col;c.lineWidth=1.6;c.beginPath();c.arc(x,y,4.6,0,TAU);c.stroke();const a=-R.t*1.4;c.strokeStyle='#ecdcff';c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.cos(a)*3.6,y+Math.sin(a)*3.6);c.moveTo(x,y);c.lineTo(x,y-3);c.stroke();c.restore()}
+ if(T.vh&&(e.hide||e.fogd)){const h=(RPMOB[e.id]?RPMOB[e.id].h:50)+(e.air?44:8);c.save();c.globalAlpha=.9;c.strokeStyle=RPPD.seer.col;c.lineWidth=2.5;c.setLineDash([5,5]);rpptE(c,q.x,q.y+2,26,26*RPFX.sq);c.stroke();c.setLineDash([]);
+  c.translate(q.x,q.y-h-14);c.fillStyle=RPPTO;rpptE(c,0,0,11,7);c.fill();c.fillStyle='#e8fffb';rpptE(c,0,0,9,5);c.fill();c.fillStyle='#16a894';c.beginPath();c.arc(0,0,3.4,0,TAU);c.fill();c.restore()}
+ if(e.ptFz>0){const M=RPMOB[e.id]||{h:50,w:40},w=Math.max(40,Math.min(130,(M.w||40)*1.15)),h=Math.max(46,Math.min(140,(M.h||50)*1.05)),a=Math.min(1,e.ptFz/.35);const s=rpptIce();
+  c.save();c.globalAlpha=.9*a;c.drawImage(s,q.x-w/2,q.y-(e.air?40:0)-h+6,w,h);c.restore()}
+ return r}}
+/* top layer (under the round banner): the coloured waves, the drink pops over the castle, bottles in flight, the aim preview */
+{const b0=rpBannerDraw;rpBannerDraw=function(c,R){try{if(R&&R.pt)rpptTop(c,R)}catch(e){console.error(e)}return b0.apply(this,arguments)}}
+function rpptTop(c,R){const T=R.pt,t=R.t;c.save();
+ for(const w of T.waves){const D=RPPD[w.k],u=w.t/w.d;if(R.rm){c.globalAlpha=.16*(1-u);c.fillStyle=D.col;c.fillRect(0,0,1600,900);continue}
+  const rr=60+rpEase(u)*1900;c.globalAlpha=(1-u)*.42;c.strokeStyle=D.col;c.lineWidth=90*(1-u*.5);rpptE(c,w.x,w.y,rr,rr*.62);c.stroke();
+  c.globalAlpha=(1-u)*.9;c.strokeStyle=rpptMix(D.col,'#ffffff',.5);c.lineWidth=5;rpptE(c,w.x,w.y,rr+40,(rr+40)*.62);c.stroke();
+  if(u<.35){c.globalAlpha=.14*(1-u/.35);c.fillStyle=D.col;c.fillRect(0,0,1600,900)}}
+ for(const p of T.pops){const u=p.t/p.d,D=RPPD[p.k],s=rpptCv(p.k,96);const up=R.rm?1:rpOver(Math.min(1,u/.25)),tilt=R.rm?0:u<.3?0:Math.min(1,(u-.3)/.3)*-1.9,a=u>.8?(1-u)/.2:1;
+  c.save();c.globalAlpha=a;c.translate(p.x,p.y-90*up);c.rotate(tilt);c.drawImage(s,-48,-60,96,96);c.restore();
+  if(u>.18&&u<.6&&!R.rm){/* the cork flies off */const v=(u-.18)/.42;c.save();c.globalAlpha=1-v;c.translate(p.x+34*v,p.y-160-70*v+90*v*v);c.rotate(v*8);c.fillStyle='#a8703a';c.strokeStyle=RPPTO;c.lineWidth=2;c.beginPath();c.roundRect(-5,-6,10,12,3);c.fill();c.stroke();c.restore()}
+  if(u>.35&&u<.85&&!R.rm){/* the potion pours */c.save();c.globalAlpha=Math.min(1,(1-u)*1.4);c.fillStyle=D.col;c.strokeStyle=RPPTO;c.lineWidth=1.5;for(let i=0;i<5;i++){const v=((u-.35)*3+i*.2)%1;c.beginPath();c.arc(p.x-34-v*16,p.y-150+v*90,4.5-v*2,0,TAU);c.fill();c.stroke()}c.restore()}}
+ for(const f of T.fly){const u=Math.min(1,f.t/f.d),x=f.x0+(f.x1-f.x0)*u,gy=f.y0+(f.y1-f.y0)*u,y=gy-Math.sin(u*Math.PI)*f.h;
+  c.save();c.globalAlpha=.3*u;c.fillStyle='#12081f';rpptE(c,x,gy+70*(1-u),14+8*u,6+3*u);c.fill();c.restore();
+  c.save();c.translate(x,y);c.rotate(R.rm?0:u*TAU*1.5);c.drawImage(rpptCv(f.k,64),-32,-36,64,64);c.restore()}
+ /* aiming a throw */
+ if(R.aim==='pot'&&T.aim>=0&&R.my>=0&&T.sl[T.aim]&&!T.sl[T.aim].empty){const s=T.sl[T.aim],D=RPPD[s.k],ok=R.G.dRoad(R.mx,R.my)<=D.r+30;c.globalAlpha=1;
+  c.fillStyle=rpptHex(ok?D.col:'#ff5a6a',.16);rpptE(c,R.mx,R.my,D.r,D.r*RPFX.sq);c.fill();c.setLineDash([12,8]);c.lineDashOffset=-t*30;c.lineWidth=3;c.strokeStyle=ok?D.col:'#ff6a7a';c.stroke();c.setLineDash([]);
+  if(ok){for(const e of R.foes){if(e.dead||e.s<0||e.hide)continue;const q=rpPos(R,e);if(rpD2(q.x,q.y,R.mx,R.my)<D.r*D.r){c.strokeStyle=D.col;c.lineWidth=2.5;rpptE(c,q.x,q.y+2,18,18*RPFX.sq);c.stroke()}}}
+  /* the dotted arc from the castle */const c0=rpCastC(R),x0=c0.x,y0=c0.y-70,hh=150+Math.hypot(R.mx-x0,R.my-y0)*.12;c.fillStyle=rpptHex('#ffffff',.7);
+  for(let i=1;i<14;i++){const u=i/14,x=x0+(R.mx-x0)*u,y=y0+(R.my-y0)*u-Math.sin(u*Math.PI)*hh;c.beginPath();c.arc(x,y,2.6,0,TAU);c.fill()}
+  c.globalAlpha=.95;c.drawImage(rpptCv(s.k,48),R.mx-24,R.my-D.r*RPFX.sq-46,48,48)}
+ c.restore()}
+/* while aiming a potion, no pad hover glow under the cursor */
+{const d0=rpDraw;rpDraw=function(){const R=RPX;if(R&&R.aim==='pot')R.hover=null;return d0.apply(this,arguments)}}
+/* ---------- the belt (HUD) ---------- */
+function rpptBelt(){const R=RPX,h=$('rphud');if(!R||!R.pt||!h)return;let b=$('rpptb');if(!rpptHas(R)){if(b)b.remove();h.classList.remove('rpptOn');return}
+ if(!b){b=document.createElement('div');b.id='rpptb';b.className='rpptb';h.appendChild(b)}h.classList.add('rpptOn');
+ const slot=(s,i)=>{if(s.empty)return `<button class="rppts empty${s.short?' short':''}" data-i="${i}" aria-label="${s.short?`${esc(RPPD[s.k].n)}: none in stock`:'Empty potion slot'}"><span class="rpptsi">${s.short?rpptIco(s.k,46,'rpptgh'):''}</span><kbd>${RPPTX.keys[i]}</kbd><em>${s.short?'None left':'Empty'}</em><span class="rptip"><b>Slot ${i+1} · ${RPPTX.keys[i]}</b>${s.short?`No ${esc(RPPD[s.k].n)} left in stock. Brew more in the Apothecary.`:'Fill it in the Apothecary on the map screen.'}</span></button>`;
+  const D=RPPD[s.k];return `<button class="rppts" data-i="${i}" style="--c:${D.col}" aria-label="${esc(D.n)}, key ${RPPTX.keys[i]}"><span class="rpptsi">${rpptIco(s.k,52)}</span><i class="rpptcd"></i><b class="rpptcn"></b><kbd>${RPPTX.keys[i]}</kbd><em>${esc(D.sh)}</em><u class="rpptst"></u>
+   <span class="rptip"><b>${esc(D.n)} · ${RPPTX.keys[i]}</b>${esc(D.desc)}${D.kind==='throw'?' Press, then click near the road (press again for the biggest crowd).':''}<i>One use · ${RPPTX.cd} s shared cooldown</i></span></button>`};
+ b.innerHTML=`<div class="rpptch" id="rpptch"></div><div class="rpptbelt"><span class="rpptbg2" title="Your satchel">${RPPT_SATCHEL}</span>${R.pt.sl.map(slot).join('')}</div>`;
+ b.querySelectorAll('.rppts').forEach(x=>{x.onclick=e=>{e.stopPropagation();rpptPress(+x.dataset.i)};x.onmousedown=e=>e.preventDefault()});
+ if(RPH){RPH.ppt=null;RPH.pptc=null;RPH.pptf=null}rpptTick(true)}
+function rpptTick(force){const R=RPX,b=$('rpptb');if(!R||!R.pt||!b)return;const C=RPH||{},T=R.pt,L=rpptLock(R),cdT=L===Infinity?0:L>0?L:T.cd,cdD=L>0&&L!==Infinity?RPPTX.lock:RPPTX.cd;
+ const st=rpptSave().st;
+ const key=T.sl.map((s,i)=>`${s.used?1:0}${R.aim==='pot'&&T.aim===i?1:0}`).join('')+'|'+Math.ceil(cdT)+'|'+(L===Infinity?1:0)+'|'+(R.hp>=RPT.HP?1:0)+'|'+(R.wst==='done'?1:0)+'|'+T.sl.map(s=>st[s.k]||0).join(',');
+ if(force||C.ppt!==key){C.ppt=key;b.querySelectorAll('.rppts:not(.empty)').forEach(x=>{const i=+x.dataset.i,s=T.sl[i],why=rpptWhy(R,i);
+   x.classList.toggle('used',!!s.used);x.classList.toggle('aim',R.aim==='pot'&&T.aim===i);x.classList.toggle('lock',!s.used&&L===Infinity);x.classList.toggle('cd',!s.used&&L!==Infinity&&cdT>0);x.classList.toggle('no',!s.used&&!!why&&!(cdT>0)&&L!==Infinity);
+   rpSetText(x.querySelector('.rpptcn'),s.used||L===Infinity?'':cdT>0?String(Math.ceil(cdT)):'');rpSetText(x.querySelector('.rpptst'),s.used?'':`×${st[s.k]||0}`);rpSetText(x.querySelector('em'),s.used?'Used':RPPD[s.k].sh)})}
+ /* the shade sweeps down as the cooldown (or the lock) runs out */
+ const f=L===Infinity?1:Math.max(0,Math.min(1,cdT/cdD));if(C.pptf!==f){C.pptf=f;b.querySelectorAll('.rppts:not(.empty) .rpptcd').forEach(x=>x.style.transform=`scaleY(${f})`)}
+ /* buff chips */
+ const ch=$('rpptch');if(ch){const A=RPPT_ORDER.filter(k=>RPPD[k].kind==='drink'&&rpptAct(R,k));const ck=A.join(',');
+  if(C.pptc!==ck){C.pptc=ck;const have=new Set([...ch.children].filter(x=>!x.classList.contains('out')).map(x=>x.dataset.k));for(const x of[...ch.children])if(!A.includes(x.dataset.k)&&!x.classList.contains('out')){x.classList.add('out');setTimeout(()=>x.remove(),R.rm?0:260)}
+   for(const k of A)if(!have.has(k)){const D=RPPD[k],d=document.createElement('span');d.className='rpptchip';d.dataset.k=k;d.style.setProperty('--c',D.col);d.innerHTML=`${rpptIco(k,26)}<b>${esc(D.sh)}</b><i></i><s><u></u></s>`;d.title=D.n+': '+D.desc;ch.appendChild(d)}}
+  for(const x of ch.children){const F=T.fx[x.dataset.k];if(!F||x.classList.contains('out'))continue;const left=Math.max(0,F.d-F.t),s=Math.ceil(left)+' s';const i=x.querySelector('i');if(i.textContent!==s)i.textContent=s;
+   const u=x.querySelector('u'),v=(left/F.d).toFixed(3);if(u.dataset.v!==v){u.dataset.v=v;u.style.transform=`scaleX(${v})`}}}
+ if(!C.pptTip&&L<=0&&R.wst==='run'&&!R.tut){C.pptTip=1;try{rpptTip('belt')}catch(e){}}
+ try{rpptTyTick(R)}catch(e){console.error(e)}}
+/* a quick animation on a slot (go: used; rdy: the cooldown ended) */
+function rpptBeltFx(i,k){const b=$('rpptb');if(!b)return;if(k==='go'){const x=b.querySelector(`.rppts[data-i="${i}"]`);if(x){x.classList.remove('go');void x.offsetWidth;x.classList.add('go')}}
+ else if(k==='rdy'){b.querySelectorAll('.rppts:not(.used):not(.empty)').forEach(x=>{x.classList.remove('rdy');void x.offsetWidth;x.classList.add('rdy')})}}
+{const h0=rpHudOn;rpHudOn=function(){const r=h0.apply(this,arguments);try{rpptBelt()}catch(e){console.error(e)}return r}}
+{const t0=rpHudTick;rpHudTick=function(){const r=t0.apply(this,arguments);try{const h=$('rphud');if(RPX&&RPX.pt&&h&&!h.hidden)rpptTick()}catch(e){console.error(e)}return r}}
+/* the info panel keeps clear of the belt and its chips */
+{const i0=rpInfoBuild;rpInfoBuild=function(R,tw,el){const r=i0.apply(this,arguments);try{const b=$('rpptb');if(b&&el&&!el.hidden){const top=b.offsetTop+(b.querySelector('.rpptbelt')||b).offsetTop-44,l=el.offsetLeft,hh=el.offsetHeight;
+  if(l<b.offsetLeft+b.offsetWidth+8&&el.offsetTop+hh>top)el.style.top=Math.max(76,Math.round(top-hh))+'px'}}catch(e){console.error(e)}return r}}
+/* ---------- first-time tips ---------- */
+try{Object.assign(RP_TUT,{potbelt:{t:'Potions',p:`Your satchel hangs on your belt. Press 4, 5 or 6 (or click a bottle) to use a potion. Each slot works once per battle, and potions share a ${RPPTX.cd} s cooldown.`,at:'pot'},
+ potthrow:{t:'Throwing a potion',p:'Click near the road to throw it. Press the key again to throw at the biggest crowd; right-click or Esc puts it away.',at:'pot'}})}catch(e){}
+function rpptTip(k){const R=RPX;if(!R||!R.pt)return;const p=rpptSave();if(p.tip[k])return;p.tip[k]=1;try{save()}catch(e){}try{rpTut(k==='belt'?'potbelt':'potthrow')}catch(e){}}
+/* ---------- Rune Typing: a word on every potion that can be used now ---------- */
+function rpptTyTick(R){const T=R.ty,b=$('rpptb');if(!T)return;const on=!!T.on;
+ for(let i=0;i<RPPTX.slots;i++){const k=RPPTF.wordKeys[i],s=R.pt.sl[i];const ok=on&&s&&!s.empty&&!rpptWhy(R,i);
+  if(ok&&!T.w[k]&&RPTY.keys.includes(k))T.w[k]=rptyWord(R,k);else if(!ok&&T.w[k]){if(T.k===k){T.k=null;T.buf=''}delete T.w[k]}}
+ if(!b)return;for(let i=0;i<RPPTX.slots;i++){const k=RPPTF.wordKeys[i],x=b.querySelector(`.rppts[data-i="${i}"]`);if(!x)continue;let el=x.querySelector('.rpptyw');const w=on?T.w[k]:'';
+  x.classList.toggle('wd',!!w);if(!w){if(el)el.remove();continue}if(!el){el=document.createElement('span');el.className='rptyw rpptyw ready';el.dataset.k=k;el.innerHTML='<span class="rptyl"></span>';x.appendChild(el)}
+  const n=T.k===k?T.buf.length:0,v=w+'|'+n;if(el.dataset.v!==v){el.dataset.v=v;const l=el.querySelector('.rptyl');l.innerHTML=`<b>${esc(w.slice(0,n))}</b>${esc(w.slice(n))}`;el.classList.toggle('typing',n>0);
+   if(el.dataset.w!==w){el.dataset.w=w;let fs=14;l.style.fontSize=fs+'px';while(fs>10&&el.offsetWidth>74){fs-=.5;l.style.fontSize=fs+'px'}}}
+  el.classList.toggle('dim',!!T.k&&T.k!==k)}}
+if(typeof rptyDone==='function'){const d0=rptyDone;rptyDone=function(k){const i=RPPTF.wordKeys.indexOf(k),R=RPX;if(i<0||!R||!R.pt)return d0.apply(this,arguments);const T=R.ty;
+ T.buf='';T.k=null;T.n++;T.streak++;T.best=Math.max(T.best,T.streak);const s=R.pt.sl[i],ok=rpptUse(i,s&&RPPD[s.k]&&RPPD[s.k].kind==='throw'?true:undefined);delete T.w[k];
+ try{rptySfx(ok?'cast':'charge')}catch(e){}try{rptyPaint(true)}catch(e){}rpptTyTick(R);
+ const x=$('rpptb')&&$('rpptb').querySelector(`.rppts[data-i="${i}"]`);if(x&&ok){const f=document.createElement('span');f.className='rptyf go rpptyf';f.textContent='USED!';x.appendChild(f);setTimeout(()=>f.remove(),900)}}}
+/* ---------- results: potions used, potion damage ---------- */
+const rpptResOf=R=>({used:R.pt.used.slice(),dmg:Math.round(R.pt.dmg),gold:R.pt.gold,heal:R.pt.heal,frz:R.pt.frz,had:rpptHas(R)});
+{const f0=rpFinish;rpFinish=function(){const R=RPX;try{if(R&&R.pt&&!R.over)R.ptRes=rpptResOf(R)}catch(e){}return f0.apply(this,arguments)}}
+{const f0=rpFinishEndless;rpFinishEndless=function(){const R=RPX;try{if(R&&R.pt&&!R.over)R.ptRes=rpptResOf(R)}catch(e){}return f0.apply(this,arguments)}}
+function rpptResPost(){const R=RPX,Q=R&&R.ptRes,box=ov.querySelector('.rpres');if(!Q||!box||!Q.had||box.querySelector('.rpptres'))return;
+ const res=box.querySelector('.res');if(res){const d=document.createElement('div');d.className='rpptres';const ic=Q.used.map(k=>rpptIco(k,26)).join('');
+  d.innerHTML=`<b>${Q.used.length}${ic?`<span>${ic}</span>`:''}</b>Potions used`;d.title=Q.used.length?Q.used.map(k=>RPPD[k].n).join(', '):'No potions used';res.appendChild(d)}
+ /* the Championship card: a satchel mark when this run used potions (the board entry carries it too) */
+ const lb=box.querySelector('.rplbrs small');if(lb&&Q.used.length&&!lb.querySelector('.rpptlb')){lb.insertAdjacentHTML('beforeend',` · <i class="rpptlb" title="This run used ${Q.used.length} potion${Q.used.length>1?'s':''}; your board entry shows the satchel">${RPPT_SATCHEL}<u>${Q.used.length}</u></i>`)}
+ /* the "Potions" bar in the damage list (99e draws the towers' bars from R.result.rpq) */
+ const ul=box.querySelector('.rpqbars ul'),D=R.result&&R.result.rpq;if(ul&&D&&Q.dmg>0){const lis=[...ul.children],top=D.types.slice(0,lis.length);
+  const all=top.map((b,i)=>({li:lis[i],d:b.d})).concat([{pot:1,d:Q.dmg}]).sort((a,b)=>b.d-a.d).slice(0,4),mx=all[0].d||1;
+  if(all.some(x=>x.pot)){ul.innerHTML='';all.forEach((x,i)=>{let li=x.li;if(x.pot){li=document.createElement('li');li.className='rpptbar';li.style.setProperty('--c','#c88aff');li.innerHTML=`${rpptIco(Q.used.includes('fire')?'fire':'frost',48)}<b>Potions</b><i><s></s></i><em>${rpqFmt(Q.dmg)}</em>`}
+    const s=li.querySelector('i>s');if(s){s.style.setProperty('--f',(x.d/mx).toFixed(3));s.style.setProperty('--d',(.9+i*.12).toFixed(2)+'s')}ul.appendChild(li)})}
+  const tot=box.querySelector('.rpqbars>small>b');if(tot)tot.textContent=rpqFmt(D.tot+Q.dmg)}}
+{const r0=rpResult;rpResult=function(){const out=r0.apply(this,arguments);try{rpptResPost()}catch(e){console.error(e)}return out}}
+{const r0=rpResultEndless;rpResultEndless=function(){const out=r0.apply(this,arguments);try{rpptResPost()}catch(e){console.error(e)}return out}}
+/* ---------- the Championship: the satchel mark (p = potions used in the best run; sent only when > 0) ---------- */
+if(typeof rpLbMine==='function'){
+ {const f0=rpFinishEndless;rpFinishEndless=function(){const R=RPX;let b0=0;try{b0=rpLbSt().best}catch(e){}const r=f0.apply(this,arguments);
+  try{if(R&&R.map&&R.map.endless){const L=rpLbSt();if(L.best>b0){const n=R.ptRes?R.ptRes.used.length:0;if(n>0)L.bp=n;else delete L.bp;try{save()}catch(e){}}}}catch(e){}return r}}
+ {const m0=rpLbMine;rpLbMine=function(){const o=m0.apply(this,arguments);try{const L=rpLbSt();if(L.bp>0&&L.bp<=RPPTX.slots&&o&&o.w>0)o.p=L.bp|0}catch(e){}return o}}
+ {const c0=rpLbCheck;rpLbCheck=function(ev){const r=c0.apply(this,arguments);try{if(r&&!r.hide){const c=JSON.parse(ev.content);if(Number.isInteger(c.p)&&c.p>=1&&c.p<=RPPTX.slots)r.p=c.p}}catch(e){}return r}}
+ {const w0=rpLbRow;rpLbRow=function(e){let h=w0.apply(this,arguments);try{const p=e.me?(rpLbSt().bp|0):e.p|0;if(p>0)h=h.replace('</small></span>',`</small><i class="rpptlb" title="Used ${p} potion${p>1?'s':''} in this run">${RPPT_SATCHEL}<u>${p}</u></i></span>`)}catch(x){}return h}}}
+/* ===================== the Apothecary (hub: a top-bar button) =====================
+   A candle-lit room (99i rpptRoom, baked once; rpptRoomLive on a 600 x 780 canvas at slow 2): the cauldron on the left, the potion shelf
+   (eight cards: art, effect, stock pips, the price, hold-to-brew or the lock reason, + to add to the satchel; the art can be dragged onto a
+   slot) and the satchel (three slots, click a filled one to empty it). Hold-to-brew: RPPTX.hold ms (letting go cancels; Enter / Space held
+   on the focused button also brews); the cauldron takes the potion's colour and boils harder, then a bottle leaps out and drops into the
+   card's stock. The first visit gives the gift (one Fury Draught, one Frostbite Flask) with a little ceremony. */
+const RPPTA={col:'#5aeb8a',u:0,rm:false,lite:false};
+let RPPTSEL=null;
+function rpptShop(back){back=back||(()=>rampartsMenu(title));const p=rpptSave();const first=!p.seen;p.seen=1;try{save()}catch(e){}
+ RPPTA.rm=rpRM();RPPTA.lite=(()=>{try{return PFM()==='low'}catch(e){return false}})();RPPTA.u=0;RPPTA.col='#5aeb8a';
+ const card=k=>{const D=RPPD[k],open=rpptOpen(k),n=p.st[k]||0;return `<div class="rpptcard${open?'':' lock'}" data-k="${k}" style="--c:${D.col}">
+   <span class="rpptart" data-k="${k}" title="${open?'Drag me into the satchel':''}"><i class="rpptped"></i>${rpptIco(k,84)}</span>
+   ${open?`<button class="rpptadd" data-k="${k}" aria-label="Add the ${esc(D.n)} to the satchel" title="Add to the satchel">+</button>`:''}<em class="rpptin" data-k="${k}"></em>
+   <b class="rpptn">${esc(D.n)}</b><span class="rppttag">${D.kind==='throw'?'Throw':'Drink'} · ${esc(D.tag)}</span><p title="${esc(D.desc)}">${esc(D.cd||D.desc)}</p>
+   ${open?`<span class="rpptstk" data-k="${k}">${rpptPips(n)}<em>${n} / ${RPPTX.cap}</em></span>
+   <button class="rpptbrew" data-k="${k}"><i class="rpptfill"></i><span class="rpptbt">Hold to brew</span><b>${RPI.coin}${cmn(D.cost)}</b></button>`
+   :`<div class="rpptlk">${RPI.lock}<span>${esc(rpptLockWhy(k))}</span>${D.stars?`<i><s style="transform:scaleX(${Math.min(1,rpStarN()/D.stars).toFixed(3)})"></s></i>`:''}</div>`}</div>`};
+S.mode='title';S.view='ramparts';
+ show(`<div class="rpptx${RPPTA.rm?' rpptrm':''}" id="rpptx"><canvas class="rpptbg" id="rpptbg" width="1600" height="900"></canvas><canvas class="rpptlv" id="rpptlv" width="${RPPTR.cw}" height="${RPPTR.ch}"></canvas>
+  <div class="rpptop"><button class="rpbk" id="rpptback" aria-label="Back (Esc)">‹ Back</button><span class="rppttl"><b>Apothecary</b><small>Brew potions with coins · carry three into battle</small></span></div>
+  <div class="rpptcoin" id="rpptcoin" title="Your coins">${RPI.coin}<b id="rpptg">${cmn(P.gold||0)}</b></div>
+  <div class="rpptbl" id="rpptbl" aria-live="polite"></div>
+  <div class="rppthint"><b>How it works</b><span>Hold <em>Brew</em> to brew a potion with coins (up to ${RPPTX.cap} of each). Pick three for your satchel with <em>+</em> or drag a bottle onto a slot.</span></div>
+  <section class="rpptshelf"><h2>Potion shelf</h2><div class="rpptgrid">${RPPT_ORDER.map(card).join('')}</div></section>
+  <section class="rpptsat" id="rpptsat"><div class="rpptsh"><b>${RPPT_SATCHEL}Satchel</b><small>Your next battle</small></div><div class="rpptslots" id="rpptslots"></div>
+   <ul class="rpptrules"><li>Keys 4 · 5 · 6 in battle</li><li>Each slot works once</li><li>${RPPTX.cd} s between potions</li><li>Wave 1: none for ${RPPTX.lock} s</li></ul></section></div>`,'rpx rpptxx');
+ S.back=()=>{rpptHoldStop();back()};$('rpptback').onclick=()=>{rpptHoldStop();back()};
+ {const bg=$('rpptbg').getContext('2d');try{bg.drawImage(rpptRoom(),0,0)}catch(e){console.error(e)}}
+ {const lv=$('rpptlv'),g=lv.getContext('2d');const t0=performance.now();const fn=()=>{try{rpptRoomLive(g,(performance.now()-t0)/1000,RPPTA)}catch(e){}};fn();if(!RPPTA.rm)LIVE.push({cv:lv,fn,slow:2})}
+ rpptSatPaint();rpptInPaint();
+ const root=$('rpptx');
+ root.querySelectorAll('.rpptadd').forEach(b=>b.onclick=()=>{const k=b.dataset.k,i=rpptSatAdd(k);if(i>=0){rpptSfx('clink');rpptSatPaint(i);rpptInPaint();rpptFlyTo(rpptIco(k,64),b.closest('.rpptcard').querySelector('.rpptart'),$('rpptslots').children[i])}});
+ root.querySelectorAll('.rpptbrew').forEach(b=>rpptHoldWire(b));
+ root.querySelectorAll('.rpptcard:not(.lock) .rpptart').forEach(a=>rpptDragWire(a));
+ for(const k of RPPT_ORDER)rpptCardPaint(k);
+ if(!p.gift)setTimeout(()=>{try{if($('rpptx'))rpptGiftShow()}catch(e){console.error(e)}},first?450:200)}
+const rpptPips=n=>`<span class="rpptpips">${Array.from({length:RPPTX.cap},(_,i)=>`<i class="${i<n?'on':''}"></i>`).join('')}</span>`;
+/* a card's stock, price state and satchel count */
+function rpptCardPaint(k,pop){const c=document.querySelector(`.rpptcard[data-k="${k}"]`);if(!c||c.classList.contains('lock'))return;const n=rpptStock(k),cb=rpptCanBrew(k);
+ const st=c.querySelector('.rpptstk');if(st){st.innerHTML=`${rpptPips(n)}<em>${n} / ${RPPTX.cap}</em>`;if(pop){const pi=st.querySelectorAll('.rpptpips i')[n-1];if(pi&&!RPPTA.rm){pi.classList.add('pop')}}}
+ const b=c.querySelector('.rpptbrew');if(b){b.classList.toggle('no',!cb.ok);b.setAttribute('aria-label',cb.ok?`Hold to brew the ${RPPD[k].n} for ${RPPD[k].cost} coins`:cb.why);b.querySelector('.rpptbt').textContent=cb.ok?'Hold to brew':n>=RPPTX.cap?'Stock full':'Not enough coins';b.title=cb.ok?'Hold to brew':cb.why}
+ c.classList.toggle('full',n>=RPPTX.cap)}
+function rpptInPaint(){const p=rpptSave();document.querySelectorAll('.rpptin').forEach(e=>{const k=e.dataset.k,n=p.sat.filter(x=>x===k).length;e.textContent=n?`In satchel${n>1?' ×'+n:''}`:'';e.hidden=!n})}
+/* the satchel's three slots */
+function rpptSatPaint(pop){const el=$('rpptslots');if(!el)return;const p=rpptSave(),use={};
+ el.innerHTML=p.sat.map((k,i)=>{if(!k)return `<button class="rpptslot empty" data-i="${i}" aria-label="Empty slot ${i+1}"><kbd>${RPPTX.keys[i]}</kbd><span class="rpptsle">+</span><small>Empty</small></button>`;
+  use[k]=(use[k]||0)+1;const D=RPPD[k],short=use[k]>(p.st[k]||0);
+  return `<button class="rpptslot${short?' short':''}" data-i="${i}" style="--c:${D.col}" aria-label="${esc(D.n)} in slot ${i+1}; click to take it out" title="Click to take it out"><kbd>${RPPTX.keys[i]}</kbd>${rpptIco(k,64)}<span><b>${esc(D.sh)}</b><small>${short?'Brew more':D.kind==='throw'?'Throw':'Drink'}</small></span><i class="rpptx_" aria-hidden="true">×</i></button>`}).join('');
+ try{requestAnimationFrame(()=>el.querySelectorAll('.rpptslot span b').forEach(b=>{try{rpuFit(b,15)}catch(e){}}))}catch(e){}
+ el.querySelectorAll('.rpptslot').forEach(b=>b.onclick=()=>{const i=+b.dataset.i;if(rpptSave().sat[i]){rpptSatSet(i,'');rpptSfx('clink');rpptSatPaint();rpptInPaint()}});
+ if(pop!=null&&!RPPTA.rm){const b=el.children[pop];if(b){b.classList.add('pop')}}}
+/* hold-to-brew */
+let RPPTH=null;
+function rpptHoldStop(){const H=RPPTH;if(!H)return;RPPTH=null;cancelAnimationFrame(H.raf);try{H.fill.style.transform='scaleX(0)';H.b.classList.remove('hold')}catch(e){}RPPTA.u=0;const bl=$('rpptbl');if(bl){bl.classList.remove('on')}}
+function rpptHoldWire(b){const k=b.dataset.k;
+ const start=()=>{if(RPPTH)return;const cb=rpptCanBrew(k);if(!cb.ok){rpptSfx('no');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
+  const H={b,k,t0:performance.now(),fill:b.querySelector('.rpptfill'),raf:0,tick:0};RPPTH=H;b.classList.add('hold');RPPTA.col=RPPD[k].col;
+  const bl=$('rpptbl');if(bl){bl.innerHTML=`${rpptIco(k,30)}<span>Brewing ${esc(RPPD[k].n)}…</span>`;bl.classList.add('on')}
+  const step=()=>{if(RPPTH!==H||!b.isConnected){if(RPPTH===H)rpptHoldStop();return}const u=Math.min(1,(performance.now()-H.t0)/RPPTX.hold);H.fill.style.transform=`scaleX(${u.toFixed(3)})`;RPPTA.u=u;
+   const tk=Math.floor(u*6);if(tk>H.tick){H.tick=tk;rpptSfx('brew')}
+   if(u>=1){rpptHoldStop();rpptBrewDone(k,b);return}H.raf=requestAnimationFrame(step)};H.raf=requestAnimationFrame(step)};
+ b.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();start()});for(const ev of['pointerup','pointerleave','pointercancel'])b.addEventListener(ev,()=>{if(RPPTH&&RPPTH.b===b)rpptHoldStop()});
+ b.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')){e.preventDefault();e.stopPropagation();if(!e.repeat)start()}});
+ b.addEventListener('keyup',e=>{if((e.key==='Enter'||e.key===' ')&&RPPTH&&RPPTH.b===b)rpptHoldStop()});b.onclick=e=>e.preventDefault()}
+function rpptBrewDone(k,b){const ok=rpptBrew(k);if(!ok){rpptSfx('no');rpptCardPaint(k);return}rpptSfx('brewed');
+ const g=$('rpptg');if(g){g.textContent=cmn(P.gold||0);const c=$('rpptcoin');c.classList.remove('spend');void c.offsetWidth;c.classList.add('spend');
+  const m=document.createElement('span');m.className='rpptminus';m.textContent='-'+cmn(RPPD[k].cost);c.appendChild(m);setTimeout(()=>m.remove(),1100)}
+ /* the bottle leaps out of the cauldron and drops into the card's stock */
+ const card=b.closest('.rpptcard'),dst=card&&card.querySelector('.rpptstk');const done=()=>{for(const kk of RPPT_ORDER)rpptCardPaint(kk,kk===k);rpptSatPaint()};
+ if(RPPTA.rm||!dst){done();return}
+ const root=$('rpptx'),img=document.createElement('img');img.src=rpptURL(k,96);img.className='rpptflyb';img.alt='';root.appendChild(img);
+ const sc=rpptScale(),rb=root.getBoundingClientRect(),q=dst.getBoundingClientRect(),x0=RPPTR.cx-48,y0=RPPTR.cy-120,x1=(q.left-rb.left)/sc+q.width/sc/2-48,y1=(q.top-rb.top)/sc-70;
+ img.style.left=x0+'px';img.style.top=y0+'px';
+ const a=img.animate([{transform:'translate(0,40px) scale(.3) rotate(0deg)',opacity:0},{transform:'translate(0,-150px) scale(1.15) rotate(-20deg)',opacity:1,offset:.28},
+  {transform:`translate(${(x1-x0)*.55}px,${Math.min(-230,(y1-y0)*.5-220)}px) scale(1) rotate(200deg)`,offset:.62},{transform:`translate(${x1-x0}px,${y1-y0}px) scale(.7) rotate(360deg)`,opacity:1}],{duration:1050,easing:'cubic-bezier(.3,.1,.4,1)',fill:'forwards'});
+ /* a splash out of the cauldron */
+ for(let i=0;i<10;i++){const d=document.createElement('i');d.className='rpptdrop';d.style.left=(RPPTR.cx+(Math.random()-.5)*120)+'px';d.style.top=(RPPTR.cy-60)+'px';d.style.background=RPPD[k].col;root.appendChild(d);
+  d.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${(Math.random()-.5)*160}px,${-60-Math.random()*120}px) scale(.6)`,opacity:1,offset:.5},{transform:`translate(${(Math.random()-.5)*220}px,40px) scale(.3)`,opacity:0}],{duration:700+Math.random()*300,easing:'ease-out',fill:'forwards'}).onfinish=()=>d.remove()}
+ a.onfinish=()=>{img.remove();done();rpptSfx('clink');if(card){card.classList.remove('got');void card.offsetWidth;card.classList.add('got')}}}
+const rpptScale=()=>{const r=$('rpptx')||ov;const q=r.getBoundingClientRect();return q.width/1600||1};
+/* a small bottle flying from one element to another (adding to the satchel) */
+function rpptFlyTo(html,from,to){if(RPPTA.rm||!from||!to)return;const root=$('rpptx');if(!root)return;const sc=rpptScale(),rb=root.getBoundingClientRect(),a=from.getBoundingClientRect(),b=to.getBoundingClientRect();
+ const w=document.createElement('span');w.className='rpptflys';w.innerHTML=html;root.appendChild(w);const x0=(a.left-rb.left)/sc+a.width/sc/2-32,y0=(a.top-rb.top)/sc+a.height/sc/2-32,x1=(b.left-rb.left)/sc+b.width/sc/2-32,y1=(b.top-rb.top)/sc+b.height/sc/2-32;
+ w.style.left=x0+'px';w.style.top=y0+'px';w.animate([{transform:'translate(0,0) scale(1)'},{transform:`translate(${(x1-x0)/2}px,${Math.min(y1,y0)-y0-120}px) scale(1.1) rotate(-160deg)`,offset:.5},{transform:`translate(${x1-x0}px,${y1-y0}px) scale(.8) rotate(-360deg)`,opacity:.2}],{duration:560,easing:'ease-in-out',fill:'forwards'}).onfinish=()=>w.remove()}
+/* dragging a bottle onto a satchel slot */
+function rpptDragWire(a){const k=a.dataset.k;let st=null;
+ a.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();st={x:e.clientX,y:e.clientY,g:null};try{a.setPointerCapture(e.pointerId)}catch(x){}});
+ a.addEventListener('pointermove',e=>{if(!st)return;const root=$('rpptx');if(!root)return;const sc=rpptScale(),rb=root.getBoundingClientRect();
+  if(!st.g&&Math.hypot(e.clientX-st.x,e.clientY-st.y)>6){st.g=document.createElement('span');st.g.className='rpptdrag';st.g.innerHTML=rpptIco(k,72);root.appendChild(st.g);root.classList.add('dragging')}
+  if(st.g){st.g.style.left=((e.clientX-rb.left)/sc-36)+'px';st.g.style.top=((e.clientY-rb.top)/sc-36)+'px';const over=document.elementsFromPoint(e.clientX,e.clientY).find(x=>x.classList&&x.classList.contains('rpptslot'));
+   document.querySelectorAll('.rpptslot.over').forEach(x=>{if(x!==over)x.classList.remove('over')});if(over)over.classList.add('over')}});
+ const end=e=>{if(!st)return;const g=st.g;st=null;const root=$('rpptx');if(root)root.classList.remove('dragging');document.querySelectorAll('.rpptslot.over').forEach(x=>x.classList.remove('over'));
+  if(!g){/* a plain click on the art: add it */const i=rpptSatAdd(k);if(i>=0){rpptSfx('clink');rpptSatPaint(i);rpptInPaint()}return}g.remove();
+  const over=e&&e.clientX!=null?document.elementsFromPoint(e.clientX,e.clientY).find(x=>x.classList&&x.classList.contains('rpptslot')):null;
+  if(over){const i=+over.dataset.i;if(rpptSatSet(i,k)){rpptSfx('clink');rpptSatPaint(i);rpptInPaint()}}};
+ a.addEventListener('pointerup',end);a.addEventListener('pointercancel',()=>{if(st&&st.g)st.g.remove();st=null;const root=$('rpptx');if(root)root.classList.remove('dragging')})}
+/* the first-time gift */
+function rpptGiftShow(){const root=$('rpptx');if(!root||rpptSave().gift||root.querySelector('.rpptgift'))return;const d=document.createElement('div');d.className='rpptgift';
+ d.innerHTML=`<div class="rpptgc" role="dialog" aria-label="A gift from the Apothecary"><small>WELCOME TO THE APOTHECARY</small><h3>A gift for you</h3><div class="rpptgb"><span>${rpptIco('fury',110)}<b>Fury Draught</b><em>${esc(RPPD.fury.tag)}</em></span><span>${rpptIco('frost',110)}<b>Frostbite Flask</b><em>${esc(RPPD.frost.tag)}</em></span></div>
+  <p>Two potions to start with, already in your satchel. Use them in battle with the keys 4 and 5.</p><button class="rpptgo" id="rpptgo">Take them</button></div>`;root.appendChild(d);
+ rpptSfx('brewed');const b=$('rpptgo');b.focus();b.onclick=()=>{rpptGift();rpptSfx('clink');const imgs=[...d.querySelectorAll('.rpptgb img')];d.classList.add('out');
+  setTimeout(()=>{d.remove();rpptSatPaint();rpptInPaint();for(const k of RPPT_ORDER)rpptCardPaint(k);const sl=$('rpptslots');if(sl&&!RPPTA.rm)[...sl.children].forEach((x,i)=>{if(rpptSave().sat[i]){x.classList.add('pop')}})},RPPTA.rm?0:320)}}
+/* Esc closes the gift card first; keys in the Apothecary */
+if(!window.__rpptKeys){window.__rpptKeys=1;window.addEventListener('keydown',e=>{try{if(!$('rpptx'))return;const g=document.querySelector('.rpptgift');if(g&&(e.key==='Escape'||e.key==='Enter')){e.preventDefault();e.stopImmediatePropagation();const b=$('rpptgo');if(b)b.click();return}}catch(x){}},true)}
+/* ---------- the hub: an Apothecary button in the top bar ---------- */
+{const m0=rampartsMenu;rampartsMenu=function(){const r=m0.apply(this,arguments);try{const top=ov.querySelector('.rphtop');if(top&&!$('rphpt')){const p=rpptSave(),badge=!p.gift?'<em class="rpptnew">Gift</em>':'';
+  const sat=p.sat.map(k=>k?`<i style="--c:${RPPD[k].col}"></i>`:'<i></i>').join('');
+  top.insertAdjacentHTML('beforeend',`<button class="rpbk rpbkpt" id="rphpt" aria-label="Apothecary: brew potions and fill your satchel"><i class="rpbki">${rpptIco('fury',30)}</i>Apothecary<span class="rpptdots" aria-hidden="true">${sat}</span>${badge}</button>`);
+  $('rphpt').onclick=()=>{try{rpSfx('key',2)}catch(e){}rpptShop()}}}catch(e){console.error(e)}return r}}
+/* ---------- How to Play ---------- */
+{const h0=rpHowTo;rpHowTo=function(){const r=h0.apply(this,arguments);try{const w=ov.querySelector('#rpmod .rphw');if(w&&!w.querySelector('.rppthow'))w.insertAdjacentHTML('beforeend',`<div class="rppthow"><p><b>Potions.</b> Brew them in the Apothecary (the button at the top of the map screen) with coins, up to ${RPPTX.cap} of each, and put three in your satchel. In battle press 4, 5 or 6 or click a bottle on the belt: drinks work on the whole map for a few seconds; throws are aimed like the Slow Field (press the key again to throw at the biggest crowd). Each slot works once per battle, potions share a ${RPPTX.cd} s cooldown, none can be used in the first ${RPPTX.lock} s of wave 1, and a potion you use is gone, won or lost. The same rules apply in the Wonderland Championship.</p>
+  <div class="rpptht">${RPPT_ORDER.map(k=>{const D=RPPD[k];return `<span style="--c:${D.col}">${rpptIco(k,40)}<b>${esc(D.n)}</b><small>${esc(D.desc)}${rpptOpen(k)?'':` <i>${esc(rpptLockWhy(k))}.</i>`}</small></span>`}).join('')}</div></div>`)}catch(e){console.error(e)}return r}}
+/* ---------- DEV › Cheats ---------- */
+if(typeof dvxHTML==='function'){const h0=dvxHTML;dvxHTML=function(){let h=h0.apply(this,arguments);try{h+=`<div class="dvx"><h5>Tower Defense: potions</h5><div class="dvrow">${dvBtn('x:pt5','Fill every potion (5 each)')}${dvBtn('x:ptsat','Satchel: Fury, Frostbite, Dragonfire')}${dvBtn('x:pt0','Clear potions and gift')}${dvBtn('x:ptcd','Potions ready now (in battle)')}</div></div>`}catch(e){}return h}}
+if(typeof dvxAct==='function'){const a0=dvxAct;dvxAct=function(a){if(!/^pt(5|sat|0|cd)$/.test(a))return a0.apply(this,arguments);const p=rpptSave();
+ if(a==='pt5'){for(const k of RPPT_ORDER)p.st[k]=RPPTX.cap;dvxMsg('Five of every potion in stock (locked ones too).')}
+ else if(a==='ptsat'){p.sat=['fury','frost',rpptOpen('fire')?'fire':'quick'];for(const k of p.sat)p.st[k]=Math.max(p.st[k]||0,1);dvxMsg('Satchel filled.')}
+ else if(a==='pt0'){const r=RPP();r.pot={};rpptSave();dvxMsg('Potions, satchel, gift and potion tips cleared.')}
+ else if(a==='ptcd'){const R=RPX;if(R&&R.pt){R.pt.cd=0;if(R.pt.w1==null)R.pt.w1=-1e9;else R.pt.w1=R.time-RPPTX.lock;for(const s of R.pt.sl)s.used=0;dvxMsg('Potions ready.')}else dvxMsg('Start a battle first.')}
+ try{save()}catch(e){}try{devRender()}catch(e){}}}
+/* ---------- styles ---------- */
+{const st=document.createElement('style');st.textContent=`
+.rpptb{position:absolute;left:14px;bottom:126px;z-index:3;display:flex;flex-direction:column;align-items:flex-start;gap:4px;pointer-events:none}
+.rph.rptyon .rpptb{bottom:236px}
+.rpptbelt{position:relative;display:flex;align-items:center;gap:18px;height:40px;margin-top:12px;padding:0 18px 0 46px;border-radius:20px;background:linear-gradient(180deg,#a8683a,#7a4422 60%,#5a301a);border:2.5px solid #12081f;box-shadow:inset 0 2px 0 #e8b07a66,inset 0 -3px 0 #3a1a0c88,0 6px 14px #0009;pointer-events:auto}
+.rpptbelt::before{content:'';position:absolute;inset:4px 7px;border-radius:15px;border:1.5px dashed #ffd6a066;pointer-events:none}
+.rpptbg2{position:absolute;left:3px;top:50%;width:36px;height:36px;box-sizing:border-box;margin-top:-18px;border-radius:50%;background:radial-gradient(circle at 50% 35%,#3a2c86,#140c38);border:2px solid #ffd45a;box-shadow:0 0 0 2px #12081f;display:grid;place-items:center}.rpptbg2 svg{width:24px;height:24px;display:block}
+.rph .rppts{position:relative;width:58px;height:58px;padding:0;margin:0;border-radius:50%;border:3px solid var(--c,#5a4ca0);background:radial-gradient(circle at 50% 35%,#3a2c86,#140c38);box-shadow:0 0 0 2.5px #12081f,0 6px 12px #000a;display:grid;place-items:center;cursor:pointer;transition:transform .14s cubic-bezier(.3,1.5,.5,1);overflow:visible;color:#fff8e8}
+.rppts .rpptsi{position:relative;z-index:1;width:52px;height:52px;display:grid;place-items:center;pointer-events:none}.rppts .rpptsi img{width:52px;height:52px;display:block}
+.rppts:hover{transform:translateY(-3px)}.rppts:active{transform:scale(.92)}
+.rpptcd{position:absolute;inset:0;border-radius:50%;background:#0a0618c8;transform-origin:50% 100%;transform:scaleY(0);z-index:2;pointer-events:none}
+.rpptcn{position:absolute;inset:0;display:grid;place-items:center;z-index:3;font:800 20px var(--ui);color:#fff8e8;text-shadow:0 2px 0 #12081f;pointer-events:none}
+.rppts kbd{position:absolute;left:-7px;top:-7px;z-index:4;width:22px;height:22px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;background:#12081f;border:2px solid #ffd45a;color:#ffd45a;font:800 12px var(--ui)}
+.rppts em{position:absolute;left:50%;bottom:-10px;transform:translateX(-50%);z-index:4;padding:0 7px;border-radius:8px;background:#12081f;font:700 10.5px/16px var(--ui);font-style:normal;color:#fff8e8;white-space:nowrap;transition:opacity .15s}
+.rppts .rpptst{position:absolute;right:-9px;top:-7px;z-index:4;min-width:22px;height:18px;padding:0 4px;box-sizing:border-box;border-radius:9px;background:#2a1f6a;border:2px solid #12081f;font:800 10.5px/14px var(--ui);color:#e8e0ff;text-decoration:none;text-align:center}
+.rppts .rpptst:empty{display:none}
+.rppts.used{border-color:#4a3e80;cursor:default}.rppts.used .rpptsi{opacity:.25}.rppts.used em{color:#9f93c8}.rppts.used:hover{transform:none}
+.rppts.lock .rpptsi,.rppts.no .rpptsi{opacity:.6}.rppts.cd{border-color:#7a6ad8}
+.rppts.aim{transform:translateY(-6px)}.rppts.aim::before{content:'';position:absolute;inset:-8px;border-radius:50%;border:3px solid #fff6c0;animation:rpAbP 1s ease-in-out infinite}
+.rppts.go{animation:rpptGo .5s cubic-bezier(.3,1.5,.5,1)}@keyframes rpptGo{30%{transform:scale(1.22) rotate(-8deg)}}
+.rppts.rdy{animation:rpRdy .5s cubic-bezier(.3,1.5,.5,1)}
+.rph .rppts.empty{border:2.5px dashed #8a7ac8;background:#140c38b0;cursor:default}.rppts.empty .rpptsi img{opacity:.32}.rppts.empty em{color:#a99be0}.rppts.empty:hover{transform:none}
+.rppts.short{border-color:#ff6a7a}
+.rph .rppts .rptip{left:-12px;right:auto;transform:none;bottom:calc(100% + 18px);width:250px;z-index:12}
+.rppts:hover .rptip{opacity:1}
+.rppts .rptip i{display:block;margin-top:4px;font:700 11px var(--ui);font-style:normal;color:#c4badf}
+.rpptch{display:flex;gap:6px;pointer-events:auto;min-height:0;transition:opacity .18s}
+.rpptchip{position:relative;display:flex;align-items:center;gap:4px;height:30px;box-sizing:border-box;padding:0 9px 0 2px;border-radius:15px;background:linear-gradient(180deg,#2a1f6a,#160e40);border:2px solid var(--c);box-shadow:0 0 0 2px #12081f,0 4px 10px #0008;overflow:hidden;animation:rpptChip .4s cubic-bezier(.3,1.5,.5,1);cursor:help}
+.rpptchip img{width:26px;height:26px;display:block}
+.rpptchip b{font:800 12px var(--ui);color:#fff8e8;white-space:nowrap}
+.rpptchip i{font:800 12px var(--ui);font-style:normal;color:var(--c);min-width:26px;text-align:right;white-space:nowrap}
+.rpptchip s{position:absolute;left:10px;right:10px;bottom:2px;height:3px;border-radius:2px;background:#ffffff1a;text-decoration:none;overflow:hidden}
+.rpptchip u{position:absolute;inset:0;background:var(--c);transform-origin:0 50%}
+.rpptchip.out{animation:rpptChipO .26s ease forwards}
+@keyframes rpptChip{from{opacity:0;transform:translateY(10px) scale(.7)}}@keyframes rpptChipO{to{opacity:0;transform:scale(.7)}}
+.rph:has(#rpring:not([hidden])) .rpptch{opacity:.15;pointer-events:none}
+.rph .rpptyw{bottom:auto;top:calc(100% + 3px);height:24px;min-width:50px;padding:0 6px;z-index:6}
+.rppts.wd em{opacity:0}
+.rpptyf{bottom:calc(100% + 6px)}
+.rptut.at-pot{left:16px;bottom:186px}.rptut.at-pot::after{left:110px;bottom:-11px}
+.rph.rptyon .rptut.at-pot{bottom:306px}
+.rph.rpptOn .rptut.at-abil{bottom:196px}
+.rph.rpptOn.rptyon .rptut.at-abil{bottom:316px}
+.rprm .rppts.go,.rprm .rppts.rdy,.rprm .rpptchip,.rprm .rppts.aim::before{animation:none}
+/* results and the board */
+.rpres .res .rpptres b{display:flex;align-items:center;gap:6px}.rpptres b span{display:flex;gap:1px}.rpptres b img{width:24px;height:24px;display:block}
+.rpqbars li.rpptbar img{width:20px;height:20px}
+.rpptlb{display:inline-flex;align-items:center;gap:2px;margin-left:6px;vertical-align:-3px;font-style:normal}.rpptlb svg{width:16px;height:16px}.rpptlb u{text-decoration:none;font:800 11px var(--ui);color:#ffd45a}
+/* the hub button */
+#ov .rphub .rpbkpt{position:relative}.rpbkpt .rpbki img{width:32px;height:32px;margin:-4px;display:block}
+.rpptdots{display:flex;gap:3px;margin-left:2px}.rpptdots i{width:8px;height:8px;border-radius:50%;background:#1a1248;box-shadow:0 0 0 1.5px #6a5ac8}.rpptdots i[style]{background:var(--c);box-shadow:0 0 0 1.5px #12081f}
+.rpptnew{position:absolute;right:-10px;top:-11px;padding:2px 8px;border-radius:9px;background:#e8364e;color:#fff;font:800 11px var(--ui);font-style:normal;box-shadow:0 0 0 2px #12081f;animation:rpptNew 1.8s ease-in-out infinite}
+@keyframes rpptNew{50%{transform:translateY(-3px) scale(1.06)}}
+/* How to Play */
+.rppthow .rpptht{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;margin:4px 0 8px}
+.rpptht span{display:grid;grid-template-columns:40px 1fr;column-gap:8px;align-items:center}
+.rpptht img{grid-row:span 2;width:40px;height:40px}.rpptht b{font:800 13px var(--ui);color:#ffd45a}.rpptht small{font:500 11.5px/1.3 var(--ui);color:#d8d0f0}.rpptht small i{color:#a99be0;font-style:normal}
+/* the Apothecary */
+.rpptx{position:absolute;inset:0;width:1600px;height:900px;overflow:hidden;font-family:var(--ui);color:#fff8e8;user-select:none}
+.rpptbg{position:absolute;left:0;top:0;width:1600px;height:900px}
+.rpptlv{position:absolute;left:0;top:0;width:${RPPTR.cw}px;height:${RPPTR.ch}px;pointer-events:none}
+.rpptop{position:absolute;left:26px;top:20px;display:flex;align-items:center;gap:18px;z-index:3}
+#ov .rpptx .rpbk{display:flex;align-items:center;gap:8px;height:48px;margin:0;padding:0 20px;border-radius:14px;border:2px solid #6a5ac8;background:linear-gradient(180deg,#2a2070f0,#160f46f2);color:#fff8e8;font:700 18px var(--ui);box-shadow:0 0 0 2px #12081f,0 6px 14px #0008;cursor:pointer}
+.rppttl{display:flex;flex-direction:column;gap:4px}.rppttl b{font:400 50px/1.2 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 3px 0 #12081f,0 0 18px #ff9a3a55}.rppttl small{font:600 14px var(--ui);color:#f0dcc0;text-shadow:0 2px 0 #12081f}
+.rpptcoin{position:absolute;right:26px;top:22px;display:flex;align-items:center;gap:8px;height:46px;box-sizing:border-box;padding:0 18px 0 10px;border-radius:23px;background:linear-gradient(180deg,#2a2070f0,#160f46f2);border:2px solid #c99a3a;box-shadow:0 0 0 2px #12081f,0 6px 14px #0008;z-index:3}
+.rpptcoin svg{width:28px;height:28px}.rpptcoin b{font:800 22px var(--ui);color:#ffd45a}
+.rpptcoin.spend{animation:rpptSpend .5s cubic-bezier(.3,1.5,.5,1)}@keyframes rpptSpend{30%{transform:scale(.9)}}
+.rpptminus{position:absolute;right:16px;top:calc(100% + 2px);font:800 18px var(--ui);color:#ff9aa8;animation:rpptUp 1.1s ease-out forwards;text-shadow:0 2px 0 #12081f;pointer-events:none}
+@keyframes rpptUp{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(22px)}}
+.rpptbl{position:absolute;left:${RPPTR.cx}px;top:430px;translate:-50% 0;display:flex;align-items:center;gap:6px;padding:4px 16px 4px 6px;border-radius:20px;background:#12081fe0;border:2px solid #ffd45a;font:800 15px var(--ui);color:#fff8e8;opacity:0;transform:translateY(8px);transition:opacity .18s,transform .25s cubic-bezier(.3,1.5,.5,1);pointer-events:none;z-index:3;white-space:nowrap}
+.rpptbl.on{opacity:1;transform:none}.rpptbl img{width:30px;height:30px}
+.rppthint{position:absolute;left:24px;top:800px;width:560px;height:84px;box-sizing:border-box;padding:10px 18px;border-radius:18px;background:#120a26e8;border:2px solid #5a4ca0;box-shadow:0 0 0 2px #12081f;display:flex;flex-direction:column;justify-content:center;gap:3px;font:600 13.5px/1.35 var(--ui);color:#e8e0ff;z-index:2}
+.rppthint b{font:800 11px var(--ui);letter-spacing:.16em;text-transform:uppercase;color:#9fe8ff}.rppthint em{font-style:normal;color:#ffd45a;font-weight:800}
+.rpptshelf{position:absolute;left:612px;top:86px;width:964px;height:640px;box-sizing:border-box;padding:10px 16px 16px;border-radius:22px;background:linear-gradient(180deg,#221a5cf2,#110b34f6);border:2px solid #5a4ca0;box-shadow:0 0 0 2px #12081f,0 18px 40px #000a,inset 0 1px 0 #ffffff22;z-index:2}
+.rpptshelf h2{margin:0 0 8px 6px;font:400 30px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 2px 0 #12081f}
+.rpptgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px;height:calc(100% - 40px)}
+.rpptcard{position:relative;display:flex;flex-direction:column;align-items:center;min-height:0;padding:8px 12px 12px;border-radius:18px;background:linear-gradient(180deg,#30267a,#1a1248);border:2px solid #4a3e90;box-shadow:inset 0 1px 0 #ffffff20,0 4px 0 #0c0828;text-align:center;box-sizing:border-box}
+.rpptcard.full{border-color:#6a5ac8}
+.rpptart{position:relative;width:100px;height:86px;flex:0 0 86px;display:grid;place-items:center;cursor:grab;touch-action:none}
+.rpptart img{position:relative;width:84px;height:84px;transition:transform .22s cubic-bezier(.3,1.5,.5,1)}
+.rpptcard:not(.lock):hover .rpptart img{transform:translateY(-5px) rotate(-5deg)}
+.rpptped{position:absolute;left:4px;right:4px;top:4px;bottom:-4px;border-radius:50%;background:radial-gradient(circle at 50% 58%,var(--c),transparent 64%);opacity:.34;pointer-events:none}
+.rpptn{font:400 23px/1.05 'Pirata One',Georgia,serif;color:#ffd45a;margin-top:2px;white-space:nowrap;text-shadow:0 2px 0 #12081f}
+.rppttag{margin-top:4px;padding:2px 9px;border-radius:9px;background:#12081f;border:1.5px solid var(--c);font:800 10.5px/1.3 var(--ui);color:#fff8e8;white-space:nowrap}
+.rpptcard p{margin:6px 0 0;font:500 12px/1.32 var(--ui);color:#d8d0f0;flex:1 1 auto;min-height:0}
+.rpptstk{display:flex;align-items:center;gap:8px;margin:2px 0 7px}
+.rpptpips{display:flex;gap:4px}.rpptpips i{width:10px;height:14px;box-sizing:border-box;border-radius:3px 3px 5px 5px;background:#12081f;border:1.5px solid #4a3e90}
+.rpptpips i.on{background:var(--c);border-color:#12081f;box-shadow:inset 0 3px 0 #ffffff77}
+.rpptpips i.pop{animation:rpptPip .55s cubic-bezier(.3,1.5,.5,1)}@keyframes rpptPip{40%{transform:scale(1.6)}}
+.rpptstk em{font:800 12px var(--ui);font-style:normal;color:#c4badf}
+.rpptbrew{position:relative;overflow:hidden;width:100%;height:40px;flex:0 0 40px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 12px;border:none;border-radius:12px;background:linear-gradient(180deg,#fff0a8,#ffd45a 45%,#e8a426);color:#3a1a04;font:800 14px var(--ui);box-shadow:0 0 0 2px #12081f,0 4px 0 #8a4a0a;cursor:pointer;touch-action:none;transition:transform .1s}
+.rpptbrew span,.rpptbrew b{position:relative;z-index:1;white-space:nowrap}
+.rpptbrew b{display:flex;align-items:center;gap:4px;font:800 15px var(--ui)}.rpptbrew b svg{width:18px;height:18px}
+.rpptfill{position:absolute;inset:0;background:linear-gradient(90deg,#ffffffb0,#fff8e0);transform-origin:0 50%;transform:scaleX(0);pointer-events:none}
+.rpptbrew.hold{transform:translateY(2px);box-shadow:0 0 0 2px #12081f,0 2px 0 #8a4a0a}
+.rpptbrew.no{background:linear-gradient(180deg,#3a2f7a,#241a58);color:#a99be0;box-shadow:0 0 0 2px #12081f,0 4px 0 #0c0828;cursor:not-allowed}
+.rpptbrew.shake{animation:rpptShake .32s}@keyframes rpptShake{25%{transform:translateX(-6px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+.rpptbrew:focus-visible,.rpptadd:focus-visible,.rpptslot:focus-visible{outline:3px solid #fff8e8;outline-offset:2px}
+.rpptadd{position:absolute;right:9px;top:9px;width:34px;height:34px;box-sizing:border-box;border-radius:50%;border:2px solid #ffd45a;background:#2a1f6a;color:#ffd45a;font:800 22px/1 var(--ui);box-shadow:0 0 0 2px #12081f;cursor:pointer;display:grid;place-items:center;padding:0 0 2px;transition:transform .14s cubic-bezier(.3,1.5,.5,1);z-index:2}
+.rpptadd:hover{transform:scale(1.12)}.rpptadd:active{transform:scale(.9)}
+.rpptin{position:absolute;left:9px;top:11px;padding:2px 7px;border-radius:8px;background:#3a2a10;border:1.5px solid #ffd45a;font:800 10px/1.3 var(--ui);font-style:normal;color:#ffd45a;white-space:nowrap;z-index:2}
+.rpptin[hidden]{display:none}
+.rpptcard.lock{background:linear-gradient(180deg,#1e1846,#120c30);border-color:#2e2660}
+.rpptcard.lock .rpptart{cursor:default}.rpptcard.lock .rpptart img{opacity:.35}.rpptcard.lock .rpptped{opacity:.08}.rpptcard.lock .rpptn{color:#a99be0}.rpptcard.lock p{color:#8a80b0}.rpptcard.lock .rppttag{border-color:#4a3e90;color:#a99be0}
+.rpptlk{width:100%;display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 8px 7px;border-radius:12px;background:#0c0824;border:1.5px dashed #4a3e90;font:700 11.5px/1.3 var(--ui);color:#c4badf;box-sizing:border-box}
+.rpptlk svg{width:18px;height:18px}.rpptlk i{display:block;width:80%;height:5px;border-radius:3px;background:#2a1f6a;overflow:hidden}.rpptlk s{display:block;height:100%;background:#ffd45a;transform-origin:0 50%}
+.rpptcard.got{animation:rpptGot .5s cubic-bezier(.3,1.5,.5,1)}@keyframes rpptGot{35%{transform:scale(1.04)}}
+.rpptsat{position:absolute;left:612px;top:738px;width:964px;height:146px;box-sizing:border-box;display:flex;align-items:center;gap:18px;padding:0 22px;border-radius:22px;background:linear-gradient(180deg,#8a5432,#5e341c 60%,#4a2814);border:3px solid #12081f;box-shadow:inset 0 2px 0 #e8b07a66,0 14px 30px #000a;z-index:2}
+.rpptsat::before{content:'';position:absolute;inset:7px;border-radius:16px;border:2px dashed #ffd6a055;pointer-events:none}
+.rpptsh{display:flex;flex-direction:column;gap:3px;width:134px;flex:0 0 134px}
+.rpptsh b{display:flex;align-items:center;gap:6px;font:400 32px/1.1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 2px 0 #12081f}.rpptsh b svg{width:36px;height:36px;flex:0 0 36px}
+.rpptsh small{font:700 12.5px var(--ui);color:#f4dcc0;padding-left:2px}
+.rpptslots{display:flex;gap:16px;flex:1;min-width:0}
+.rpptslot{position:relative;flex:1 1 0;min-width:0;height:100px;display:flex;align-items:center;gap:6px;padding:0 10px 0 8px;border-radius:16px;border:3px solid var(--c,#ffd45a);background:linear-gradient(180deg,#2e2470,#1a1248);box-shadow:0 0 0 2.5px #12081f,inset 0 1px 0 #ffffff22;color:#fff8e8;cursor:pointer;text-align:left;transition:transform .14s cubic-bezier(.3,1.5,.5,1)}
+.rpptslot:hover{transform:translateY(-3px)}
+.rpptslot img{width:58px;height:58px;flex:0 0 58px}
+.rpptslot span{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}.rpptslot span b{display:block;font:400 23px/1.1 'Pirata One',Georgia,serif;color:#ffd45a;white-space:nowrap;overflow:hidden;padding-right:2px}.rpptslot span small{font:700 11.5px var(--ui);color:#c4badf;margin-top:3px;white-space:nowrap}
+.rpptslot kbd{position:absolute;left:-9px;top:-9px;width:24px;height:24px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;background:#12081f;border:2px solid #ffd45a;color:#ffd45a;font:800 12px var(--ui)}
+.rpptslot .rpptx_{position:absolute;right:9px;top:5px;font:800 17px var(--ui);font-style:normal;color:#c4badf;opacity:0;transition:opacity .15s}
+.rpptslot:hover .rpptx_{opacity:1}
+.rpptslot.empty{border:2.5px dashed #c8946a;background:#2a160c99;justify-content:center;flex-direction:column;gap:0;cursor:default;text-align:center}.rpptslot.empty:hover{transform:none}
+.rpptslot.empty .rpptsle{flex:0 0 auto;display:block;font:800 30px/1 var(--ui);color:#e8c89a}.rpptslot.empty small{font:700 12px var(--ui);color:#e8c89a}
+.rpptslot.short{border-color:#ff6a7a}.rpptslot.short span small{color:#ff9aa8}
+.rpptslot.over{transform:scale(1.05);border-color:#fff8e8}
+.rpptslot.pop{animation:rpptGot .5s cubic-bezier(.3,1.5,.5,1)}
+.rpptrules{list-style:none;margin:0;padding:0;flex:0 0 150px;display:flex;flex-direction:column;gap:4px;font:700 12px var(--ui);color:#f4dcc0}
+.rpptrules li::before{content:'✦ ';color:#ffd45a}
+.rpptx.dragging .rpptslot{border-color:#fff2b0}
+.rpptflyb{position:absolute;width:96px;height:96px;z-index:8;pointer-events:none}
+.rpptdrop{position:absolute;width:12px;height:12px;box-sizing:border-box;border-radius:50%;border:2px solid #12081f;z-index:7;pointer-events:none}
+.rpptflys{position:absolute;width:64px;height:64px;z-index:8;pointer-events:none}.rpptflys img{width:64px;height:64px;display:block}
+.rpptdrag{position:absolute;width:72px;height:72px;z-index:9;pointer-events:none}.rpptdrag img{width:72px;height:72px;display:block}
+.rpptgift{position:absolute;inset:0;z-index:20;display:grid;place-items:center;background:#08041ab8;animation:rpptFade .25s}
+.rpptgift.out{animation:rpptFadeO .3s forwards}@keyframes rpptFade{from{opacity:0}}@keyframes rpptFadeO{to{opacity:0}}
+.rpptgc{width:580px;box-sizing:border-box;padding:22px 30px 26px;border-radius:24px;background:linear-gradient(180deg,#2e2270,#160c40);border:3px solid #ffd45a;box-shadow:0 0 0 3px #12081f,0 24px 60px #000c;text-align:center;animation:rpptPopIn .5s cubic-bezier(.3,1.5,.5,1)}
+@keyframes rpptPopIn{from{opacity:0;transform:scale(.8) translateY(20px)}}
+.rpptgc small{font:800 11px var(--ui);letter-spacing:.3em;color:#9fe8ff}.rpptgc h3{margin:4px 0 8px;font:400 46px/1 'Pirata One',Georgia,serif;color:#ffd45a;text-shadow:0 3px 0 #12081f}
+.rpptgb{display:flex;justify-content:center;gap:46px}.rpptgb span{display:flex;flex-direction:column;align-items:center;animation:rpptBob 2.4s ease-in-out infinite}.rpptgb span:nth-child(2){animation-delay:-1.2s}
+@keyframes rpptBob{50%{transform:translateY(-8px)}}
+.rpptgb b{font:400 24px 'Pirata One',Georgia,serif;color:#fff8e8}.rpptgb em{font:800 11.5px var(--ui);font-style:normal;color:#c4badf}
+.rpptgc p{margin:12px 0 16px;font:600 15px/1.4 var(--ui);color:#e8e0ff}
+.rpptgo{padding:10px 36px;border:none;border-radius:14px;background:linear-gradient(180deg,#fff0a8,#ffd45a 45%,#e8a426);color:#3a1a04;font:800 19px var(--ui);box-shadow:0 0 0 2px #12081f,0 4px 0 #8a4a0a;cursor:pointer}
+.rpptrm *,.rpptrm *::before{animation:none!important;transition:none!important}
+@media (prefers-reduced-motion:reduce){.rpptx *,.rpptnew,.rppts,.rpptchip{animation:none!important}}
+`;document.head.appendChild(st)}
+/* Seer's Tincture on Shipwreck Cove: the fog banks thin out while it works (the towers see through them) */
+if(typeof rpw2aWreckTop==='function'){const w0=rpw2aWreckTop;rpw2aWreckTop=function(c,R){if(!R||!R.pt||!rpptAct(R,'seer')||!R.fog||!R.fog.length)return w0.apply(this,arguments);
+ const F=R.fog,t=R.t;try{for(let i=0;i<F.length;i++){const f=F[i],w=f.rx*2.5,h=f.ry*2.7;c.globalAlpha=.3;c.drawImage(rpw2aFogSpr(i%2),f.x-w/2,f.y-h/2,w,h);c.globalAlpha=.55;c.strokeStyle=RPPD.seer.col;c.lineWidth=2;c.setLineDash([8,8]);c.lineDashOffset=-t*16;rpptE(c,f.x,f.y,f.rx,f.ry);c.stroke();c.setLineDash([])}c.globalAlpha=1}catch(e){}
+ R.fog=[];try{return w0.apply(this,arguments)}finally{R.fog=F}}}
+/* the pause menu's key list names the potion keys when the battle has potions */
+{const p0=rpPauseMenu;rpPauseMenu=function(){const r=p0.apply(this,arguments);try{const R=RPX,h=ov.querySelector('.rppause .rpph');if(h&&rpptHas(R)&&!h.querySelector('.rpptph')){const s=document.createElement('span');s.className='rpptph';
+  const left=R.pt.sl.filter(x=>!x.empty&&!x.used).length;s.innerHTML=`<kbd>4</kbd><kbd>5</kbd><kbd>6</kbd> use a potion (${left} left in your satchel)`;const sp=h.querySelector('span:last-child');if(sp)sp.before(s);else h.appendChild(s)}}catch(e){console.error(e)}return r}}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

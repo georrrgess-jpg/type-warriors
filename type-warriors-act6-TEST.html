@@ -63501,7 +63501,7 @@ try{RP_TW.moon.dmg=[40,59,88,134,200]}catch(e){}
    UPDATE_10_3_PLAN.md. Eight potions are brewed between battles with coins (a coin sink) and carried into battle in a three-slot satchel.
    In battle each slot is used once: drinks work on the whole map for a few seconds, throws are aimed like the Slow Field.
    Rules (RPPTX): three slots, one use each; a shared cooldown after any potion; none in the first seconds of wave 1; at most RPPTX.cap
-   of each potion in stock; a first-time gift (one Fury Draught, one Frostbite Flask) when the Witch’s Cauldron is first opened; drinks of the
+   of each potion in stock; a first-time gift (one Damage Potion, one Freeze Potion) when the Witch’s Cauldron is first opened; drinks of the
    same kind never stack (a second one refreshes the time); a potion is spent the moment it is used, won or lost.
    Save P.rp.pot (rpptSave repairs it every time it is read):
      st  {id: 0..cap}        stock
@@ -63517,21 +63517,21 @@ const RPPT_ORDER=['fury','quick','frost','fire','mend','hour','gild','seer'];
 /* numbers: the plan's start values, tuned by the balance test (t_potbal103.py; HANDOFF 10.3): Frostbite 110 px / 2.5 s -> 120 px / 3 s,
    Hourglass 35% / 6 s -> 40% / 8 s, Gilded +50% / 20 s / 350 -> +25% / 12 s / 400, Seer's 15 s / +15% -> 18 s / +20% */
 const RPPD={
- fury:{n:'Fury Draught',sh:'Fury',col:'#ff4a5a',c2:'#ffb0a0',kind:'drink',dur:12,k:.25,cost:300,
+ fury:{n:'Damage Potion',sh:'Damage',col:'#ff4a5a',c2:'#ffb0a0',kind:'drink',dur:12,k:.25,cost:300,
   desc:'Every tower deals +25% damage for 12 s.',cd:'Every tower deals +25% damage for 12 s.',tag:'+25% damage'},
- quick:{n:'Quicksilver Tonic',sh:'Quicksilver',col:'#cfe2f4',c2:'#ffffff',kind:'drink',dur:10,k:.3,cost:300,
+ quick:{n:'Speed Potion',sh:'Speed',col:'#cfe2f4',c2:'#ffffff',kind:'drink',dur:10,k:.3,cost:300,
   desc:'Every tower fires 30% faster for 10 s.',cd:'Every tower fires 30% faster for 10 s.',tag:'+30% fire rate'},
- frost:{n:'Frostbite Flask',sh:'Frostbite',col:'#5ab8ff',c2:'#d8f4ff',kind:'throw',r:120,dur:3,bossK:.5,cost:350,
+ frost:{n:'Freeze Potion',sh:'Freeze',col:'#5ab8ff',c2:'#d8f4ff',kind:'throw',r:120,dur:3,bossK:.5,cost:350,
   desc:'Throw it: monsters within 120 px freeze for 3 s. Bosses are slowed by half instead.',cd:'Monsters within 120 px freeze for 3 s. Bosses slow down instead.',tag:'Freeze 3 s'},
- fire:{n:'Dragonfire Bomb',sh:'Dragonfire',col:'#ff8a2a',c2:'#ffd27a',kind:'throw',r:90,dmg:260,burn:40,burnT:5,cost:400,stars:6,
+ fire:{n:'Fire Bomb',sh:'Fire',col:'#ff8a2a',c2:'#ffd27a',kind:'throw',r:90,dmg:260,burn:40,burnT:5,cost:400,stars:6,
   desc:'Throw it: 260 damage within 90 px, then the ground burns for 5 s (40 per second).',cd:'260 damage within 90 px, then 5 s of burning ground.',tag:'260 blast + fire'},
- mend:{n:'Elixir of Mending',sh:'Mending',col:'#5aeb8a',c2:'#d8ffe0',kind:'drink',heal:5,dur:5,cost:450,stars:12,
+ mend:{n:'Heal Potion',sh:'Heal',col:'#5aeb8a',c2:'#d8ffe0',kind:'drink',heal:5,dur:5,cost:450,stars:12,
   desc:'The castle regains 5 health over 5 s (never above its maximum).',cd:'The castle regains 5 health over 5 s.',tag:'+5 health'},
- hour:{n:'Hourglass Brew',sh:'Hourglass',col:'#b47aff',c2:'#ecdcff',kind:'drink',k:.4,dur:8,bossK:.5,cost:500,stars:18,
+ hour:{n:'Slow Potion',sh:'Slow',col:'#b47aff',c2:'#ecdcff',kind:'drink',k:.4,dur:8,bossK:.5,cost:500,stars:18,
   desc:'Every monster on the map moves 40% slower for 8 s (bosses half as much).',cd:'Every monster moves 40% slower for 8 s.',tag:'-40% speed'},
- gild:{n:'Gilded Tonic',sh:'Gilded',col:'#ffd45a',c2:'#fff4c0',kind:'drink',k:.25,dur:12,cost:400,world:2,
+ gild:{n:'Supply Potion',sh:'Supply',col:'#ffd45a',c2:'#fff4c0',kind:'drink',k:.25,dur:12,cost:400,world:2,
   desc:'Kills give +25% supply for 12 s (coins unchanged).',cd:'Kills give +25% supply for 12 s.',tag:'+25% supply'},
- seer:{n:"Seer's Tincture",sh:'Seer',col:'#3ae0c8',c2:'#c8fff4',kind:'drink',dur:18,rng:.2,cost:400,world:3,
+ seer:{n:'Sight Potion',sh:'Sight',col:'#3ae0c8',c2:'#c8fff4',kind:'drink',dur:18,rng:.2,cost:400,world:3,
   desc:'For 18 s towers see through fog and hiding (dive, glimmer, leap) and gain +20% range.',cd:'For 18 s towers see through fog and hiding, +20% range.',tag:'True sight'}};
 const RPPTX={slots:3,cap:5,cd:20,lock:10,hold:900,fly:.55,keys:['4','5','6']};
 const rpptOk=k=>typeof k==='string'&&Object.prototype.hasOwnProperty.call(RPPD,k);
@@ -63565,7 +63565,7 @@ function rpptSatSet(i,k){const p=rpptSave();if(!(i>=0&&i<RPPTX.slots))return fal
  if(!rpptOk(k)||!rpptOpen(k))return false;p.sat[i]=k;try{save()}catch(e){}return true}
 /* add to the first empty slot (or replace the last one when full); returns the slot used */
 function rpptSatAdd(k){const p=rpptSave();if(!rpptOk(k)||!rpptOpen(k))return-1;let i=p.sat.indexOf('');if(i<0)i=RPPTX.slots-1;rpptSatSet(i,k);return i}
-/* the first-time gift: one Fury Draught and one Frostbite Flask, put in the satchel */
+/* the first-time gift: one Damage Potion and one Freeze Potion, put in the satchel */
 function rpptGift(){const p=rpptSave();if(p.gift)return false;p.gift=1;for(const k of['fury','frost']){p.st[k]=Math.min(RPPTX.cap,(p.st[k]||0)+1);if(!p.sat.includes(k)){const i=p.sat.indexOf('');if(i>=0)p.sat[i]=k}}try{save()}catch(e){}return true}
 /* what a battle takes: the satchel's kinds, as far as the stock covers them (two slots of one kind need two in stock) */
 function rpptLoad(){const p=rpptSave(),use={},out=[];for(let i=0;i<RPPTX.slots;i++){const k=p.sat[i];if(k&&rpptOpen(k)&&(use[k]||0)<(p.st[k]||0)){use[k]=(use[k]||0)+1;out.push({k,i,used:0})}else out.push({k:k||'',i,used:0,empty:1,short:!!k})}return out}
@@ -63666,7 +63666,7 @@ const rpptIco=(k,px,cls)=>`<img alt="" class="${cls||''}" src="${rpptURL(k,px||6
 const RPPT_SATCHEL='<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 11c0-5 3-8 8-8s8 3 8 8" fill="none" stroke="#12081f" stroke-width="4.4"/><path d="M8 11c0-5 3-8 8-8s8 3 8 8" fill="none" stroke="#c98a4a" stroke-width="2"/><path d="M4 12h24l-2 15c-.3 2-2 3-4 3H10c-2 0-3.7-1-4-3z" fill="#a8683a" stroke="#12081f" stroke-width="2.4" stroke-linejoin="round"/><path d="M4 12h24l-1 6H5z" fill="#c88a4a" stroke="#12081f" stroke-width="2.2" stroke-linejoin="round"/><circle cx="16" cy="18" r="3" fill="#ffd45a" stroke="#12081f" stroke-width="1.8"/><path d="M8 22c2 4 4 5 8 5" stroke="#7a4a22" stroke-width="1.6" fill="none"/></svg>';
 /* ---------- battle sprites (baked) ---------- */
 function rpptSpr(key,w,h,fn){let c=RPPTC.get('S:'+key);if(c)return c;c=document.createElement('canvas');c.width=Math.ceil(w);c.height=Math.ceil(h);const g=c.getContext('2d');try{fn(g,w,h)}catch(e){console.error(e)}RPPTC.set('S:'+key,c);return c}
-/* frost on the ground where a Frostbite Flask shattered (r = 110 px, squashed like the map's ground) */
+/* frost on the ground where a Freeze Potion shattered (r = 110 px, squashed like the map's ground) */
 const rpptFrostG=r=>rpptSpr('frostg'+r,r*2+40,r*RPFX.sq*2+60,(g,w,h)=>{const cx=w/2,cy=h/2+10,ry=r*RPFX.sq;
  let gr=g.createRadialGradient(cx,cy,0,cx,cy,r);gr.addColorStop(0,'rgba(232,248,255,.55)');gr.addColorStop(.7,'rgba(160,220,255,.32)');gr.addColorStop(1,'rgba(120,200,255,0)');g.save();g.translate(cx,cy);g.scale(1,RPFX.sq);g.fillStyle=gr;g.beginPath();g.arc(0,0,r,0,TAU);g.fill();g.restore();
  g.strokeStyle='rgba(232,248,255,.85)';g.lineWidth=2.5;g.setLineDash([12,9]);g.beginPath();g.ellipse(cx,cy,r*.92,ry*.92,0,0,TAU);g.stroke();g.setLineDash([]);
@@ -63679,7 +63679,7 @@ const rpptIce=()=>rpptSpr('ice',96,110,(g,w,h)=>{const p=new Path2D();p.roundRec
  g.strokeStyle='rgba(255,255,255,.95)';g.lineWidth=4;g.beginPath();g.moveTo(18,24);g.lineTo(18,58);g.moveTo(26,18);g.lineTo(44,18);g.stroke();
  g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=2;g.beginPath();g.moveTo(w-24,h-30);g.lineTo(w-38,h-50);g.lineTo(w-30,h-62);g.moveTo(w-38,h-50);g.lineTo(w-52,h-46);g.stroke();
  g.fillStyle='rgba(18,8,31,.14)';g.fillRect(w*.58,10,w*.32,h-20)});
-/* a scorch for the Dragonfire Bomb's burning ground */
+/* a scorch for the Fire Bomb's burning ground */
 const rpptScorch=r=>rpptSpr('scorch'+r,r*2+20,r*RPFX.sq*2+20,(g,w,h)=>{const cx=w/2,cy=h/2;g.save();g.translate(cx,cy);g.scale(1,RPFX.sq);
  let gr=g.createRadialGradient(0,0,0,0,0,r);gr.addColorStop(0,'rgba(40,10,6,.62)');gr.addColorStop(.6,'rgba(70,20,8,.42)');gr.addColorStop(1,'rgba(70,20,8,0)');g.fillStyle=gr;g.beginPath();g.arc(0,0,r,0,TAU);g.fill();
  for(let i=0;i<26;i++){const a=i*2.4,d=r*(.15+((i*53)%70)/100);g.fillStyle=i%3?'rgba(255,138,42,.85)':'rgba(255,214,120,.9)';g.beginPath();g.arc(Math.cos(a)*d,Math.sin(a)*d,1.6+(i%3),0,TAU);g.fill()}g.restore()});
@@ -63802,20 +63802,20 @@ function rpptRoomLive(g,t,st){const cx=RPPTR.cx,cy=RPPTR.cy,col=st&&st.col||'#7a
    rolls over the map and a buff chip with a timer appears above the belt. Throws: aimed like the Slow Field with a range ring (press the
    key again to throw at the biggest crowd; Esc or right-click cancels); the bottle arcs from the castle and shatters.
    Effects, and the rules they follow:
-   - Fury Draught: damage from towers (rpqDmOf(src): the tower or a projectile carrying it) x(1+k). The outermost rpHurt wrapper, so the
+   - Damage Potion: damage from towers (rpqDmOf(src): the tower or a projectile carrying it) x(1+k). The outermost rpHurt wrapper, so the
      Siren shields, guards, marks and armor still apply inside.
-   - Quicksilver Tonic: each tower's fire routine runs on a clock (1+k) times faster (the outermost rpFire wrapper passes dt x (1+k)):
+   - Speed Potion: each tower's fire routine runs on a clock (1+k) times faster (the outermost rpFire wrapper passes dt x (1+k)):
      reloads, beams, swarms and throws all speed up; a jammed tower is not sped up (the jam runs its normal course) and Overcharge
      keeps its own length.
-   - Frostbite Flask: monsters within r freeze (stun) for dur; bosses get a bossK slow instead (never over a stronger slow); a venting
+   - Freeze Potion: monsters within r freeze (stun) for dur; bosses get a bossK slow instead (never over a stronger slow); a venting
      Steam Golem (slow-immune) is not frozen or slowed; hidden monsters (dive, glimmer, leap: e.hide) are not hit.
-   - Dragonfire Bomb: dmg to every monster within r (ground and air, through armor), then burning ground (burn per s, ground only) for
+   - Fire Bomb: dmg to every monster within r (ground and air, through armor), then burning ground (burn per s, ground only) for
      burnT s. Hidden monsters take nothing (98b's rpHurt rule). The damage is booked as potion damage (R.pt.dmg, "Potions" on the
      results), not on a tower; R.rpqTot includes it.
-   - Elixir of Mending: +1 castle health per dur/heal s, never above RPT.HP (refused at full health).
-   - Hourglass Brew: every visible monster moves k slower for dur s (bosses k x bossK), never over a stronger slow, never while venting.
-   - Gilded Tonic: kills pay +k of their supply bounty (coins unchanged).
-   - Seer's Tincture: towers ignore fog and hiding (98b's rpTarget veil, 98p's rpiaVeil and 98b's rpHurt rule are lifted for towers:
+   - Heal Potion: +1 castle health per dur/heal s, never above RPT.HP (refused at full health).
+   - Slow Potion: every visible monster moves k slower for dur s (bosses k x bossK), never over a stronger slow, never while venting.
+   - Supply Potion: kills pay +k of their supply bounty (coins unchanged).
+   - Sight Potion: towers ignore fog and hiding (98b's rpTarget veil, 98p's rpiaVeil and 98b's rpHurt rule are lifted for towers:
      hidden and fogged monsters are visible during each tower's fire routine and tower damage reaches them) and their range is
      x(1+rng) during the fire routine (the Glowcap bonus stacks).
    Drinks of one kind never stack: a second refreshes the time. Effects tick in game time (game speed applies, pauses stop them).
@@ -63877,7 +63877,7 @@ function rpptCrowd(R,r,groundW){let best=null,bv=0;const L=R.foes.filter(e=>!e.d
 function rpptPre(R,dt){const T=R.pt;if(R.wst!=='done'&&R.wave>0&&T.cd>0){T.cd=Math.max(0,T.cd-dt);if(T.cd===0&&T.sl.some(s=>!s.empty&&!s.used)){rpptSfx('ready');rpptBeltFx(-1,'rdy')}}
  /* Hourglass: a slow on every visible monster (the engine applies it this step; 98b clears it on a venting golem) */
  if(rpptAct(R,'hour')){const D=RPPD.hour;for(const e of R.foes){if(e.dead||e.hide||e.vent>0)continue;const k=e.boss?D.k*D.bossK:D.k;if(!(e.slowT>0)||e.slowK<=k){e.slowK=k;e.slowT=Math.max(e.slowT||0,dt*1.5)}e.ptHg=.25}}
- /* Seer's Tincture: the monsters the towers may see this step */
+ /* Sight Potion: the monsters the towers may see this step */
  T.vh=rpptAct(R,'seer')?R.foes.filter(e=>!e.dead&&(e.hide||e.fogd)):null}
 function rpptPost(R,dt){const T=R.pt;
  for(const k in T.fx){const F=T.fx[k];if(F.t>=F.d)continue;F.t=Math.min(F.d,F.t+dt);
@@ -63912,9 +63912,9 @@ function rpptLand(R,f){const D=RPPD[f.k],x=f.x1,y=f.y1;let n=0;const lite=rpptLi
  const t=this,a=Array.from(arguments);const o0=tw.over||0;if(qu)a[2]=dt*(1+RPPD.quick.k);
  let L=null,T=null,i=-1,r0=0;if(se){L=R.pt.vh;if(L&&L.length){for(const e of L){e._ptH=e.hide;e._ptF=e.fogd;e.hide=0;e.fogd=0}}else L=null;T=RP_TW[tw.type];i=(tw.tier||1)-1;if(T&&T.range&&T.range[i]){r0=T.range[i];T.range[i]=r0*(1+RPPD.seer.rng)}else T=null}
  try{return f0.apply(t,a)}finally{if(qu&&o0>0)tw.over=Math.max(0,o0-dt);if(T)T.range[i]=r0;if(L)for(const e of L){if(e._ptH!==undefined){if(!e.dead){e.hide=e._ptH;e.fogd=e._ptF}delete e._ptH;delete e._ptF}}}}}
-/* 98p's veil for puddles, craters and stars (no tower): lifted while Seer's Tincture works */
+/* 98p's veil for puddles, craters and stars (no tower): lifted while Sight Potion works */
 if(typeof rpiaVeil==='function'){const v0=rpiaVeil;rpiaVeil=function(R,tw,fog,fn){if(R&&R.pt&&!tw&&rpptAct(R,'seer'))return fn();return v0.apply(this,arguments)}}
-/* Gilded Tonic: kills pay more supply (coins unchanged) */
+/* Supply Potion: kills pay more supply (coins unchanged) */
 {const k0=rpKillFoe;rpKillFoe=function(e,src){const R=RPX,was=!e||e.dead;const r=k0.apply(this,arguments);
  try{if(!was&&e.dead&&!e.leak&&R&&R.pt&&rpptAct(R,'gild')&&e.bounty>0){const x=Math.round(e.bounty*RPPD.gild.k);if(x>0){R.supply+=x;R.pt.gold+=x;const p=rpPos(R,e);rpText(p.x+22,p.y-(e.air?92:62),`+${x}`,'#ffe27a',e.boss?28:16)}}}catch(x){console.error(x)}return r}}
 /* the step: our pre and post around the whole engine step */
@@ -64069,7 +64069,7 @@ if(typeof rpLbMine==='function'){
    (eight cards: art, effect, stock pips, the price, hold-to-brew or the lock reason, + to add to the satchel; the art can be dragged onto a
    slot) and the satchel (three slots, click a filled one to empty it). Hold-to-brew: RPPTX.hold ms (letting go cancels; Enter / Space held
    on the focused button also brews); the cauldron takes the potion's colour and boils harder, then a bottle leaps out and drops into the
-   card's stock. The first visit gives the gift (one Fury Draught, one Frostbite Flask) with a little ceremony. */
+   card's stock. The first visit gives the gift (one Damage Potion, one Freeze Potion) with a little ceremony. */
 const RPPTA={col:'#5aeb8a',u:0,rm:false,lite:false};
 let RPPTSEL=null;
 function rpptShop(back){back=back||(()=>rampartsMenu(title));const p=rpptSave();const first=!p.seen;p.seen=1;try{save()}catch(e){}
@@ -64162,7 +64162,7 @@ function rpptDragWire(a){const k=a.dataset.k;let st=null;
  a.addEventListener('pointerup',end);a.addEventListener('pointercancel',()=>{if(st&&st.g)st.g.remove();st=null;const root=$('rpptx');if(root)root.classList.remove('dragging')})}
 /* the first-time gift */
 function rpptGiftShow(){const root=$('rpptx');if(!root||rpptSave().gift||root.querySelector('.rpptgift'))return;const d=document.createElement('div');d.className='rpptgift';
- d.innerHTML=`<div class="rpptgc" role="dialog" aria-label="A gift from the Witch’s Cauldron"><small>WELCOME TO THE WITCH’S CAULDRON</small><h3>A gift for you</h3><div class="rpptgb"><span>${rpptIco('fury',110)}<b>Fury Draught</b><em>${esc(RPPD.fury.tag)}</em></span><span>${rpptIco('frost',110)}<b>Frostbite Flask</b><em>${esc(RPPD.frost.tag)}</em></span></div>
+ d.innerHTML=`<div class="rpptgc" role="dialog" aria-label="A gift from the Witch’s Cauldron"><small>WELCOME TO THE WITCH’S CAULDRON</small><h3>A gift for you</h3><div class="rpptgb"><span>${rpptIco('fury',110)}<b>Damage Potion</b><em>${esc(RPPD.fury.tag)}</em></span><span>${rpptIco('frost',110)}<b>Freeze Potion</b><em>${esc(RPPD.frost.tag)}</em></span></div>
   <p>Two potions to start with, already in your satchel. Use them in battle with the keys 4 and 5.</p><button class="rpptgo" id="rpptgo">Take them</button></div>`;root.appendChild(d);
  rpptSfx('brewed');const b=$('rpptgo');b.focus();b.onclick=()=>{rpptGift();rpptSfx('clink');const imgs=[...d.querySelectorAll('.rpptgb img')];d.classList.add('out');
   setTimeout(()=>{d.remove();rpptSatPaint();rpptInPaint();for(const k of RPPT_ORDER)rpptCardPaint(k);const sl=$('rpptslots');if(sl&&!RPPTA.rm)[...sl.children].forEach((x,i)=>{if(rpptSave().sat[i]){x.classList.add('pop')}})},RPPTA.rm?0:320)}}
@@ -64329,7 +64329,7 @@ if(typeof dvxAct==='function'){const a0=dvxAct;dvxAct=function(a){if(!/^pt(5|sat
 .rpptrm *,.rpptrm *::before{animation:none!important;transition:none!important}
 @media (prefers-reduced-motion:reduce){.rpptx *,.rpptnew,.rppts,.rpptchip{animation:none!important}}
 `;document.head.appendChild(st)}
-/* Seer's Tincture on Shipwreck Cove: the fog banks thin out while it works (the towers see through them) */
+/* Sight Potion on Shipwreck Cove: the fog banks thin out while it works (the towers see through them) */
 if(typeof rpw2aWreckTop==='function'){const w0=rpw2aWreckTop;rpw2aWreckTop=function(c,R){if(!R||!R.pt||!rpptAct(R,'seer')||!R.fog||!R.fog.length)return w0.apply(this,arguments);
  const F=R.fog,t=R.t;try{for(let i=0;i<F.length;i++){const f=F[i],w=f.rx*2.5,h=f.ry*2.7;c.globalAlpha=.3;c.drawImage(rpw2aFogSpr(i%2),f.x-w/2,f.y-h/2,w,h);c.globalAlpha=.55;c.strokeStyle=RPPD.seer.col;c.lineWidth=2;c.setLineDash([8,8]);c.lineDashOffset=-t*16;rpptE(c,f.x,f.y,f.rx,f.ry);c.stroke();c.setLineDash([])}c.globalAlpha=1}catch(e){}
  R.fog=[];try{return w0.apply(this,arguments)}finally{R.fog=F}}}

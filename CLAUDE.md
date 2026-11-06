@@ -51,7 +51,7 @@ springy animations. New art should sit next to the fishing mode without looking 
   `tools/wr/touch.py` must report no overlaps.
 - Tower defense (Ramparts) changes: `python3 t_ramparts.py` (about 57 checks plus a bot that plays every map and the endless Wonderland; `--quick` for map 1 only).
 - The Wonderland Championship has its own season calendar (`rpSeason`/`rpSeasonEnd`/`rpSeaStart` in 95j): season 1 ends 11 Nov 2026 21:00 UTC, then six-week seasons; Wildcard Ranked keeps `rkSeason`.
-- Championship or Dragon Roost changes: `PYTHONPATH=../../pylib python3 t_rpboard.py` (28 checks, starts its own local relays).
+- Championship or Dragon Roost changes: `PYTHONPATH=../../pylib python3 t_rpboard.py` (29 checks, starts its own local relays and keeps the page off the public ones).
 - Tidecaller, tower bar/ring, pads, Wonderland curve or menu transitions: `python3 t_ui92.py` (15 checks).
 - Tidecaller balance, waves and health: `python3 t_td96.py` (13 checks); Tidecaller aim, twin jet, swept wave, push-back cap and the leads of other towers: `python3 t_td97.py` (13 checks).
 - Thunder Mortar (the eighth tower, 9.8): `python3 t_td98.py` (18 checks: targeting, dead zone, splash, craters, cluster, barrage, art, info panel, frame cost, a Wonderland wave).

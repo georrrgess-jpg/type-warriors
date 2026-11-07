@@ -65770,8 +65770,11 @@ function flcDraw(){const q=S.cr2,t=Math.max(0,q.t),c=ctx,cx=W/2,by=GY-30,T=q.tie
  /* once the result text is up, darken the lower half so it reads */
  if(q.done){const a=Math.min(1,(q.t-q.E)/.6),g=c.createLinearGradient(0,590,0,780);g.addColorStop(0,'rgba(4,2,12,0)');g.addColorStop(.55,'rgba(4,2,12,'+(.82*a).toFixed(3)+')');g.addColorStop(1,'rgba(4,2,12,'+(.92*a).toFixed(3)+')');c.save();c.fillStyle=g;c.fillRect(0,590,W,H-590);c.restore()}}
 /* the prize: gear art, a purse, acorns, an XP star or a companion's glowing shape */
+/* 10.4b: the item's kind ('a' armor / 'w' weapon). flcPrep reuses q.k for the lighting scale, so the kind lives in q.kd
+   (before this, every armor prize drew nothing and its Equip button called the weapon setter) */
+function flcKd(q){const r=q.res||{};if(q.kd==='a'||q.kd==='w')return q.kd;if(r.kind==='a'||r.kind==='w')return r.kind;return AR[q.id]&&!WP[q.id]?'a':'w'}
 function flcPrizeImg(q){if(q.img)return q.img;const cv=flcCv(260,260),g=cv.getContext('2d'),r=q.res;
- try{if(r.k==='relic')art(cv,q.k==='a'?'a':'w',q.id,0);
+ try{if(r.k==='relic')art(cv,flcKd(q),q.id,0);
   else if(r.k==='coin')flcCoinPile(g,130,190,1.7,0);
   else if(r.k==='xp')flcXpStar(g,130,130,1.6,0);
   else if(r.k==='ac'){flcAcorn(g,96,150,1.9,-.3);flcAcorn(g,164,150,1.9,.3);flcAcorn(g,130,118,2.1,0)}
@@ -65780,8 +65783,8 @@ function flcPrizeImg(q){if(q.img)return q.img;const cv=flcCv(260,260),g=cv.getCo
    if(!ok){g.save();g.translate(130,130);g.scale(4,4);flcMaplePath(g,24);g.fillStyle='#1a0c08';g.fill();g.restore()}
    g.globalCompositeOperation='source-atop';const rq=g.createRadialGradient(130,90,10,130,130,150);rq.addColorStop(0,'#ffe9a8');rq.addColorStop(.35,'#3a1a0a');rq.addColorStop(1,'#1a0c08');g.fillStyle=rq;g.fillRect(0,0,260,260);g.globalCompositeOperation='source-over'}}catch(e){}
  return q.img=cv}
-function flcPrize(c,q,t,cx,by,tc,fire){const T=q.tier,O=q.O,hot=T>=4,u=sstep(O+.3,O+.3+(hot?1.6:1.1),t),y=lerp(by-170,by-430,u)+Math.sin(S.t*2)*(u>.98?8:0),sc=lerp(.4,1.3,u);
- if(T>=3&&q.res.k==='relic'){try{art(flcPrizeImg(q),q.k==='a'?'a':'w',q.id,S.t)}catch(e){}}
+function flcPrize(c,q,t,cx,by,tc,fire){const T=q.tier,O=q.O,hot=T>=4,u=sstep(O+.3,O+.3+(hot?1.6:1.1),t),y=lerp(by-170,by-398,u)+Math.sin(S.t*2)*(u>.98?6:0),sc=lerp(.4,1.15,u);/* 10.4b: lower and a little smaller so the rarity word clears the wreath */
+ if(T>=3&&q.res.k==='relic'){try{art(flcPrizeImg(q),flcKd(q),q.id,S.t)}catch(e){}}
  c.save();c.translate(cx,y);c.scale(sc,sc);c.save();c.globalCompositeOperation='lighter';flcGlow(c,0,0,hot?320:240,tc,.5);c.restore();
  /* a wreath of leaves turns round the prize */
  const nw=T>=4?34:28;c.save();c.rotate(S.t*.2);c.strokeStyle='#ffd27a';c.globalAlpha=.7;c.lineWidth=4;c.beginPath();c.arc(0,0,156,0,TAU);c.stroke();c.globalAlpha=1;for(let i=0;i<nw;i++){const a=i/nw*TAU,rr=i%2?150:164;flcLeaf(c,Math.cos(a)*rr,Math.sin(a)*rr,i%2?40:48,a+Math.PI/2+(i%3-1)*.35,(i*5+T)%12,1)}c.restore();
@@ -65791,7 +65794,7 @@ function flcPrize(c,q,t,cx,by,tc,fire){const T=q.tier,O=q.O,hot=T>=4,u=sstep(O+.
  c.restore()}
 /* the rarity name: letters drop in with a bounce, each landing shakes loose a little leaf */
 function flcTitle(c,q,post,cx){const T=q.tier,word=flcRar(T).toUpperCase(),size=[54,60,74,90,114,138][T],start=T>=5?1.0:T>=4?.7:.45,col=flcTC(q);
- c.save();c.font='400 '+size+'px "Pirata One",Georgia,serif';c.textAlign='center';c.textBaseline='middle';const sp=size*.16,ws=[...word].map(ch=>c.measureText(ch).width+sp),tot=ws.reduce((a,b)=>a+b,0);let x=cx-tot/2;const ty=100;
+ c.save();c.font='400 '+size+'px "Pirata One",Georgia,serif';c.textAlign='center';c.textBaseline='middle';const sp=size*.16,ws=[...word].map(ch=>c.measureText(ch).width+sp),tot=ws.reduce((a,b)=>a+b,0);let x=cx-tot/2;const ty=Math.round(22+size*.5);
  for(let i=0;i<word.length;i++){const u=Math.max(0,Math.min(1,(post-start-i*.08)/.42));if(u>0){const e=u<.6?Math.pow(u/.6,2):1+Math.sin((u-.6)/.4*Math.PI)*-.08*(1-u),yy=ty-(1-Math.min(1,u/.6))*140;
    const fc=T>=5?hsx(20+Math.sin(S.t*2+i*.6)*22,100,58+Math.sin(S.t*3+i)*8):col;c.save();c.translate(x+ws[i]/2,yy);c.scale(1,u<.6?1:e);c.lineJoin='round';c.lineWidth=T>=4?10:6;c.strokeStyle=FLO;c.strokeText(word[i],0,0);c.fillStyle=fc;c.fillText(word[i],0,0);
    c.fillStyle='#ffffff55';c.fillText(word[i],-1,-2);c.fillStyle=fc;c.globalAlpha=.85;c.fillText(word[i],0,0);c.restore();
@@ -65800,7 +65803,7 @@ function flcTitle(c,q,post,cx){const T=q.tier,word=flcRar(T).toUpperCase(),size=
 
 /* ---------- start, skip, result, end ---------- */
 function flcStart(){if(S.cr2&&S.mode==='crate')return;const r0=crateRoll('f');if(!r0)return;const{kind,id,it,dup}=r0,tier=r0.fl.tier;
- S.mode='crate';S.cr2={k:kind,ck:'f',id,it,dup,pf:0,t:-.06,fired:{},done:false,tier,O:FLCT.O[tier],E:FLCT.O[tier]+FLCT.D[tier],fx:[],rings:[],fl:0,shk:0,bolts:[],acc:0,acc2:0,acc3:0,last:performance.now(),res:r0.fl,stars:[]};
+ S.mode='crate';S.cr2={k:kind,kd:kind,ck:'f',id,it,dup,pf:0,t:-.06,fired:{},done:false,tier,O:FLCT.O[tier],E:FLCT.O[tier]+FLCT.D[tier],fx:[],rings:[],fl:0,shk:0,bolts:[],acc:0,acc2:0,acc3:0,last:performance.now(),res:r0.fl,stars:[]};
  flcPrep(S.cr2);show('<button class="sm" id="sk">Skip</button>','clear');$('sk').onclick=crateSkip;try{flcAudio(S.cr2)}catch(e){}
  try{dkRefreshBadges()}catch(e){}}
 function flcSkip(){const q=S.cr2;if(!q||q.done)return;
@@ -65821,10 +65824,10 @@ function flcResult(){const q=S.cr2,it=q.it,r=q.res,T=q.tier;if(T<4&&axOn()){cons
  else if(r.k==='xp')line=`<b style="color:#8ad8ff">+${r.n} XP</b>.`;
  else if(r.k==='ac')line=`<b style="color:#ffb46a">+${r.n} acorns</b> for the Harvest Market.`;
  else if(r.k==='pet')line=`${esc(it.n)} joins your companions.`;
- show(`<div class="flcres" style="--c:${flcTC(q)}"><div style="margin-top:auto"></div><h2 class="${cls}" style="${cls?'':`color:${it.col}`}">${it.r}: ${esc(it.n)}</h2><p>${esc(it.d)}${r.k==='relic'&&q.k!=='a'&&it.p&&it.p!=='knight'&&PATHS[it.p]?` &middot; ${PATHS[it.p].n} path`:''}</p><p>${line}</p>
+ show(`<div class="flcres" style="--c:${flcTC(q)}"><div style="margin-top:auto"></div><h2 class="${cls}" style="${cls?'':`color:${it.col}`}">${it.r}: ${esc(it.n)}</h2><p>${esc(it.d)}${r.k==='relic'&&flcKd(q)!=='a'&&it.p&&it.p!=='knight'&&PATHS[it.p]?` &middot; ${PATHS[it.p].n} path`:''}</p><p>${line}</p>
  <div class="row">${r.k==='relic'?'<button id="a">Equip</button>':''}${more?`<button class="sm${r.k==='relic'?'':' gd'}" id="m">Open another</button>`:''}${(P.fcr|0)>=10?'<button class="sm gd" id="m10">Open 10</button>':''}<button class="sm" id="b">Back</button></div></div>`,'clear');
  try{achCheck()}catch(e){}flcPendRun();
- if($('a'))$('a').onclick=()=>{if(q.k==='a'){P.armor=q.id;save()}else setWeapon(q.id);crateEnd();FLC.ret=null;title()};
+ if($('a'))$('a').onclick=()=>{if(flcKd(q)==='a'){P.armor=q.id;save()}else setWeapon(q.id);crateEnd();FLC.ret=null;title()};
  if(more)$('m').onclick=()=>{crateEnd();flcStart()};if($('m10'))$('m10').onclick=()=>{crateEnd();flcBatch(10)};$('b').onclick=()=>{crateEnd();flcBack()}}
 /* open several at once: roll them all, then show every pull */
 function flcIcon(r,res){const cv=flcCv(200,200),g=cv.getContext('2d');try{
@@ -68124,33 +68127,43 @@ FLRD.flrturkey=(g,t,o)=>{const lg=(o&&o.lg)||0,u=flrCy(t,5.2),disp=u>2.9&&u<4.4?
  g.restore()};
 
 /* 7. Gourd Golem: squash legs, a great red pumpkin chest, crookneck arms and a pale gourd head. A little gourd keeps rolling off its shoulder. */
-FLRD.flrgourd=(g,t,o)=>{const lg=(o&&o.lg)||0,s=Math.sin(t*3.2),b=Math.abs(Math.cos(t*3.2))*2.4,u=flrCy(t,7);g.save();g.lineJoin='round';g.lineCap='round';
- /* one gourd: big ones get a gradient and ribs, small ones a flat fill with a highlight (cheaper per frame) */
- const sq=(x,y,rx,ry,c,rib,rot)=>{g.save();g.translate(x,y);if(rot)g.rotate(rot);g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);const big=rx>=20;g.fillStyle=big?rgr(g,-rx*.3,-ry*.35,ry*.1,Math.max(rx,ry)*1.1,shade(c,.3),shade(c,-.25)):c;g.fill();g.strokeStyle=FLRO;g.lineWidth=1.8;g.stroke();
+/* 10.4b: the Gourd Golem was the costliest walker to raster (about 30 gradient and ribbed gourds and strokes a frame); its torso
+   (the chest pumpkin, its highlight and main vine), its shoulders and its head are now baked once at 3x and only blitted, while the
+   parts that move (legs, arms, tendrils, leaves, the rolling gourd, the eyes) are still drawn live. It looks the same. */
+const FLRB3={};
+function flrB3(key,w,h,ox,oy,draw){let c=FLRB3[key];if(c)return c;c=document.createElement('canvas');c.width=w*3;c.height=h*3;const g=c.getContext('2d');g.setTransform(3,0,0,3,ox*3,oy*3);g.lineJoin='round';g.lineCap='round';try{draw(g)}catch(e){console.error('flrB3 '+key,e)}c.ox=ox;c.oy=oy;c.lw=w;c.lh=h;return FLRB3[key]=c}
+const flrB3d=(g,c,x,y)=>g.drawImage(c,x-c.ox,y-c.oy,c.lw,c.lh);
+/* one gourd: big ones get a gradient and ribs, small ones a flat fill with a highlight */
+function flrGsq(g,x,y,rx,ry,c,rib,rot){g.save();g.translate(x,y);if(rot)g.rotate(rot);g.beginPath();g.ellipse(0,0,rx,ry,0,0,TAU);const big=rx>=20;g.fillStyle=big?rgr(g,-rx*.3,-ry*.35,ry*.1,Math.max(rx,ry)*1.1,shade(c,.3),shade(c,-.25)):c;g.fill();g.strokeStyle=FLRO;g.lineWidth=1.8;g.stroke();
   if(!big){g.fillStyle='#ffffff2a';g.beginPath();g.ellipse(-rx*.3,-ry*.4,rx*.4,ry*.22,-.3,0,TAU);g.fill()}
-  if(rib){g.strokeStyle=shade(c,-.45)+'aa';g.lineWidth=1.3;g.beginPath();for(let i=1;i<rib;i++){const k=i/rib*2-1,ex=Math.abs(k)*rx*.92+.1;g.moveTo(0,-ry*.96);g.ellipse(0,0,ex,ry*.96,0,k<0?-Math.PI*.5:-Math.PI*.5,k<0?-Math.PI*1.5:Math.PI*.5,k<0)}g.stroke()}g.restore()};
+  if(rib){g.strokeStyle=shade(c,-.45)+'aa';g.lineWidth=1.3;g.beginPath();for(let i=1;i<rib;i++){const k=i/rib*2-1,ex=Math.abs(k)*rx*.92+.1;g.moveTo(0,-ry*.96);g.ellipse(0,0,ex,ry*.96,0,k<0?-Math.PI*.5:-Math.PI*.5,k<0?-Math.PI*1.5:Math.PI*.5,k<0)}g.stroke()}g.restore()}
+const flrGolemTorso=()=>flrB3('gtorso',100,80,50,118,g=>{flrGsq(g,0,-78,42,32,'#c8501e',7);g.fillStyle='#ffffff22';g.beginPath();g.ellipse(-12,-96,16,6,-.2,0,TAU);g.fill();
+  g.strokeStyle='#2a4a1a';g.lineWidth=4.4;g.beginPath();g.moveTo(-36,-104);g.bezierCurveTo(-10,-90,10,-70,38,-62);g.stroke();g.strokeStyle='#4a7a2a';g.lineWidth=1.8;g.stroke()});
+const flrGolemShoulders=()=>flrB3('gshoul',104,34,52,121,g=>{flrGsq(g,-36,-104,14,12,'#2a4e2a',4);flrGsq(g,34,-106,14,12,'#2e542c',4)});
+const flrGolemHead=()=>flrB3('ghead',60,58,28,34,g=>{flrGsq(g,0,0,23,18,'#e8e0c8',6);
+  g.beginPath();g.moveTo(-20,-4);g.quadraticCurveTo(-10,-10,-1,-6);g.lineTo(-1,-3);g.quadraticCurveTo(-10,-6,-20,-1);g.closePath();g.fillStyle='#6a5a3a';g.fill();
+  limb(g,2,-17,5,-26,4,'#5a4a22');g.strokeStyle='#4a7a2a';g.lineWidth=1.8;g.beginPath();g.moveTo(5,-24);g.bezierCurveTo(14,-30,16,-20,10,-19);g.stroke()});
+FLRD.flrgourd=(g,t,o)=>{const lg=(o&&o.lg)||0,s=Math.sin(t*3.2),b=Math.abs(Math.cos(t*3.2))*2.4,u=flrCy(t,7);g.save();g.lineJoin='round';g.lineCap='round';
+ const sq=(x,y,rx,ry,c,rib,rot)=>flrGsq(g,x,y,rx,ry,c,rib,rot);
  /* legs: acorn squash */
  sq(-18+s*5,-22,15,22,'#2e5a2e',5,s*.12);sq(-18+s*5+2,-5,17,7,'#3a6a32',0);sq(20-s*5,-22,15,22,'#2a5228',5,-s*.12);sq(20-s*5+2,-5,17,7,'#355e2e',0);
  g.translate(0,-b);
  /* back arm (crookneck) */
  const catchUp=u>4.5&&u<5.7?Math.sin((u-4.5)/1.2*Math.PI):0;g.save();g.translate(38,-98);g.rotate(.25-catchUp*.5+s*.05);sq(0,22,9,24,'#e8c03a',0,.08);sq(2,50,13,12,'#b8a030',4);g.restore();
- /* chest: a deep red Cinderella pumpkin */
- sq(0,-78,42,32,'#c8501e',7);g.fillStyle='#ffffff22';g.beginPath();g.ellipse(-12,-96,16,6,-.2,0,TAU);g.fill();
- /* vines wrapping it, with tendrils that curl */
- g.strokeStyle='#2a4a1a';g.lineWidth=4.4;g.beginPath();g.moveTo(-36,-104);g.bezierCurveTo(-10,-90,10,-70,38,-62);g.stroke();g.strokeStyle='#4a7a2a';g.lineWidth=1.8;g.stroke();
+ /* chest: a deep red Cinderella pumpkin with its vine (baked) */
+ flrB3d(g,flrGolemTorso(),0,0);
+ /* tendrils that curl */
  for(let i=0;i<3;i++){const x=-24+i*24,y=-96+i*14,c=.6+.4*Math.sin(t*1.6+i*2);g.strokeStyle='#5a8a2e';g.lineWidth=1.4;g.beginPath();for(let k=0;k<=14;k++){const a=k/14*TAU*1.4*c,r=7-k*.42;k?g.lineTo(x+Math.cos(a)*r,y-4-Math.sin(a)*r):g.moveTo(x+r,y-4)}g.stroke()}
  for(const [x,y,r] of[[-30,-100,.2],[14,-74,-.5],[34,-64,.8]]){g.save();g.translate(x,y);g.rotate(r+Math.sin(t*2+x)*.08);g.beginPath();g.moveTo(0,0);for(let i=0;i<=5;i++){const a=-Math.PI*.9+i/5*Math.PI*.8,rr=i%2?12:8;g.lineTo(Math.cos(a)*rr,Math.sin(a)*rr)}g.closePath();flrFO(g,'#3a6a2a',1.2);g.restore()}
- /* shoulders */
- sq(-36,-104,14,12,'#2a4e2a',4);sq(34,-106,14,12,'#2e542c',4);
+ /* shoulders (baked) */
+ flrB3d(g,flrGolemShoulders(),0,0);
  /* the small gourd: rocks on the shoulder, rolls down the arm, is tossed back up */
  {let gx=32,gy=-124,rot=Math.sin(t*3)*.25;if(u>4&&u<4.6){const k=(u-4)/.6;gx=32+k*12;gy=-124+k*76+Math.sin(k*Math.PI)*-6;rot=k*8}else if(u>=4.6&&u<5.7){gx=44;gy=-50-catchUp*12;rot=0}else if(u>=5.7&&u<6.3){const k=(u-5.7)/.6;gx=44-k*12;gy=-60+(-124+60)*k-Math.sin(k*Math.PI)*30;rot=-k*9}
   g.save();g.translate(gx,gy);g.rotate(rot);g.beginPath();g.ellipse(0,0,7,8.4,0,0,TAU);g.fillStyle='#e8d070';g.fill();g.strokeStyle=FLRO;g.lineWidth=1.3;g.stroke();g.strokeStyle='#4a8a3a';g.lineWidth=2.2;for(const x of[-3.4,0,3.4]){g.beginPath();g.moveTo(x*.6,-7.6);g.quadraticCurveTo(x*1.3,0,x*.6,7.6);g.stroke()}limb(g,0,-8,1.4,-11.5,2,'#5a4a22');g.restore()}
- /* head: a pale gourd with glowing knots for eyes and a crack of a mouth */
- g.save();g.translate(-6-lg*6,-128+Math.sin(t*1.6)*1.2);g.rotate(-lg*.1);sq(0,0,23,18,'#e8e0c8',6);
- g.beginPath();g.moveTo(-20,-4);g.quadraticCurveTo(-10,-10,-1,-6);g.lineTo(-1,-3);g.quadraticCurveTo(-10,-6,-20,-1);g.closePath();g.fillStyle='#6a5a3a';g.fill();
+ /* head: a pale gourd (baked) with glowing knots for eyes and a crack of a mouth */
+ g.save();g.translate(-6-lg*6,-128+Math.sin(t*1.6)*1.2);g.rotate(-lg*.1);flrB3d(g,flrGolemHead(),0,0);
  const ef=.7+.3*Math.sin(t*4.4);for(const [x,y] of[[-14,0],[-4,-1]]){ell(g,x,y,4.4,3.6,'#2a1608');glow(g,x,y,10,'#ffa030'+flrA(.6*ef));ell(g,x-.6,y,2,1.8,'#ffd060')}
- g.beginPath();g.moveTo(-18,8);g.lineTo(-13,6);g.lineTo(-9,10);g.lineTo(-4,6.5);g.lineTo(0,10);g.lineTo(3,7.4);g.strokeStyle='#ff8a2a';g.lineWidth=2.4;g.stroke();g.strokeStyle='#2a1608';g.lineWidth=1;g.stroke();
- limb(g,2,-17,5,-26,4,'#5a4a22');g.strokeStyle='#4a7a2a';g.lineWidth=1.8;g.beginPath();g.moveTo(5,-24);g.bezierCurveTo(14,-30,16,-20,10,-19);g.stroke();g.restore();
+ g.beginPath();g.moveTo(-18,8);g.lineTo(-13,6);g.lineTo(-9,10);g.lineTo(-4,6.5);g.lineTo(0,10);g.lineTo(3,7.4);g.strokeStyle='#ff8a2a';g.lineWidth=2.4;g.stroke();g.strokeStyle='#2a1608';g.lineWidth=1;g.stroke();g.restore();
  /* front arm: a warty fist that swings on the lunge */
  g.save();g.translate(-36,-98);g.rotate(-.35-lg*.9+s*.06);sq(0,20,9,22,'#d8b030',0,-.05);g.save();g.translate(0,46);sq(0,0,15,13,'#8aa03a',4);g.fillStyle='#5a7a2a';for(const [x,y] of[[-6,-4],[5,-6],[-2,5],[7,3]]){g.beginPath();g.arc(x,y,2.2,0,TAU);g.fill()}g.restore();g.restore();
  g.restore()};
@@ -68183,17 +68196,24 @@ FLRD.flrwraith=(g,t,o)=>{const lg=(o&&o.lg)||0,bob=Math.sin(t*1.8)*6,u=flrCy(t,6
  g.restore()};
 
 /* 9. Hay-Bale Roller: a round bale that rolls itself to battle with a scowl in the straw. A field mouse runs on top to keep its footing. */
+/* the bale's straw (spirals, stalks, outline and rim), baked at 3x (the walker is drawn up to about 1.5x, times the render scale) */
+let FLR_BALE=null;
+function flrBaleSpr(){if(FLR_BALE)return FLR_BALE;const c=document.createElement('canvas');c.width=c.height=444;const g=c.getContext('2d');g.setTransform(3,0,0,3,222,222);g.lineJoin='round';g.lineCap='round';const R=60;
+ g.save();g.beginPath();g.arc(0,0,R-1,0,TAU);g.clip();
+ g.strokeStyle='#9a6a1a';g.lineWidth=2.6;g.beginPath();for(let k=0;k<=72;k++){const a=k/72*TAU*4.2,r=4+k/72*54;k?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r)}g.stroke();
+ g.strokeStyle='#f8e08a';g.lineWidth=1.1;g.beginPath();for(let k=0;k<=72;k++){const a=k/72*TAU*4.2+.5,r=6+k/72*54;k?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r)}g.stroke();
+ g.strokeStyle='#c8962a';g.lineWidth=1;for(let i=0;i<10;i++){const a=i*.63,r=20+(i*13)%30;g.beginPath();g.moveTo(Math.cos(a)*r,Math.sin(a)*r);g.lineTo(Math.cos(a+.2)*(r+8),Math.sin(a+.2)*(r+8));g.stroke()}g.restore();
+ g.beginPath();g.arc(0,0,R,0,TAU);g.strokeStyle=FLRO;g.lineWidth=2.2;g.stroke();
+ for(let i=0;i<16;i++){const a=i/16*TAU,l=6+(i*5)%6;g.strokeStyle=i%2?'#f0d070':'#c8962a';g.lineWidth=2;g.beginPath();g.moveTo(Math.cos(a)*(R-2),Math.sin(a)*(R-2));g.lineTo(Math.cos(a+.08)*(R+l),Math.sin(a+.08)*(R+l));g.stroke()}
+ return FLR_BALE=c}
 FLRD.flrbale=(g,t,o)=>{const lg=(o&&o.lg)||0,rot=-t*1.6-lg*.8,R=60,cy=-61,u=flrCy(t,6.6);g.save();g.lineJoin='round';g.lineCap='round';g.translate(-lg*8,0);
  /* dust and straw kicked up behind */
  for(let i=0;i<3;i++){const k=flrCy(t*1.1+i*.33,1);g.globalAlpha=(1-k)*.5;ell(g,40+k*40,-8-k*14,8+k*10,5+k*6,'#c8a868')}g.globalAlpha=1;
  /* the bale */
- g.beginPath();g.arc(0,cy,R,0,TAU);g.fillStyle=rgr(g,-14,cy-16,6,R+6,'#f0cc60','#a8781e');g.fill();
- g.save();g.beginPath();g.arc(0,cy,R-1,0,TAU);g.clip();g.translate(0,cy);g.rotate(rot);
- g.strokeStyle='#9a6a1a';g.lineWidth=2.6;g.beginPath();for(let k=0;k<=72;k++){const a=k/72*TAU*4.2,r=4+k/72*54;k?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r)}g.stroke();
- g.strokeStyle='#f8e08a';g.lineWidth=1.1;g.beginPath();for(let k=0;k<=72;k++){const a=k/72*TAU*4.2+.5,r=6+k/72*54;k?g.lineTo(Math.cos(a)*r,Math.sin(a)*r):g.moveTo(Math.cos(a)*r,Math.sin(a)*r)}g.stroke();
- g.strokeStyle='#c8962a';g.lineWidth=1;for(let i=0;i<10;i++){const a=i*.63,r=20+(i*13)%30;g.beginPath();g.moveTo(Math.cos(a)*r,Math.sin(a)*r);g.lineTo(Math.cos(a+.2)*(r+8),Math.sin(a+.2)*(r+8));g.stroke()}g.restore();
- g.beginPath();g.arc(0,cy,R,0,TAU);g.strokeStyle=FLRO;g.lineWidth=2.2;g.stroke();
- for(let i=0;i<16;i++){const a=i/16*TAU+rot,l=6+(i*5)%6;g.strokeStyle=i%2?'#f0d070':'#c8962a';g.lineWidth=2;g.beginPath();g.moveTo(Math.cos(a)*(R-2),cy+Math.sin(a)*(R-2));g.lineTo(Math.cos(a+.08)*(R+l),cy+Math.sin(a+.08)*(R+l));g.stroke()}
+ /* 10.4b: the rolling bale (gradient disc, two spirals clipped to it, straws, rim) is baked once and only rotated per frame; drawn live
+    it was the costliest walker to raster (a clip, two 72-point spirals and 26 strokes every frame) */
+ g.beginPath();g.arc(0,cy,R,0,TAU);g.fillStyle=rgr(g,-14,cy-16,6,R+6,'#f0cc60','#a8781e');g.fill();/* the light stays put while the straw rolls */
+ {const B=flrBaleSpr();g.save();g.translate(0,cy);g.rotate(rot);g.drawImage(B,-74,-74,148,148);g.restore()}
  /* the scowl peering out of the straw */
  g.beginPath();g.ellipse(-26,cy-6,22,18,-.1,0,TAU);g.fillStyle='#4a2e0ecc';g.fill();
  const bl=flrCy(t,4.1)<.1?.12:1;for(const [x,y] of[[-36,cy-10],[-20,cy-12]]){ell(g,x,y,5.4,4.6*bl,'#fff4d0');if(bl>.5)ell(g,x-2,y+.6,2.4,2.6,'#1a0c04')}
@@ -68380,12 +68400,20 @@ function flrMoon(c,d,t){const [x,y,r,col,gl]=d.flmoon;const o=flrSpr('moon'+d.fl
   g.strokeStyle='#fff6d0aa';g.lineWidth=2;g.beginPath();g.arc(0,0,r-1,Math.PI*1.05,Math.PI*1.6);g.stroke()});
  flrBlit(c,o,x,y);
  /* a thin cloud drifting across the face and a skein of geese now and then */
- const cl=flrSpr('mcl',520,60,260,30,g=>{for(let i=0;i<7;i++){g.fillStyle='#2a1a3a'+flrA(.35+.1*(i%3));g.beginPath();g.ellipse(-220+i*72,Math.sin(i*1.7)*6,90,9+(i%3)*3,0,0,TAU);g.fill()}});
- c.globalAlpha=.85;flrBlit(c,cl,x+((t*9)%900)-450,y+r*.35);c.globalAlpha=1;
+ /* 10.4b: the cloud fits its sprite (its ends were cut off square), thins out toward both ends, has a moonlit upper edge, and fades
+    in and out at the ends of its drift instead of jumping back across the moon */
+ const cl=flrSpr('mcl2',720,64,360,32,g=>{for(let i=0;i<9;i++){const u=(i-4)/4,a=.42*(1-u*u*.75),cx=u*250,rx=95-Math.abs(u)*30,ry=8+(1-Math.abs(u))*6+(i%2)*2,cy=Math.sin(i*1.7)*5;
+   g.fillStyle='#24142e'+flrA(a);g.beginPath();g.ellipse(cx,cy,rx,ry,0,0,TAU);g.fill();g.fillStyle='#ffd8a0'+flrA(a*.22);g.beginPath();g.ellipse(cx,cy-ry*.55,rx*.8,ry*.35,0,0,TAU);g.fill()}});
+ {const u=((t*9)%900)/900;c.globalAlpha=.9*Math.min(1,Math.sin(u*Math.PI)*2.2);flrBlit(c,cl,x+u*900-450,y+r*.35);c.globalAlpha=1}
  const gk=flrCy(t,26);if(gk<9){const gx=W+120-gk/9*(W+400),gy=y-r*.9+gk*6;c.fillStyle='#120a1c';for(let i=0;i<7;i++){const j=i-3,bx=gx+Math.abs(j)*22,by=gy+j*11,f=Math.sin(t*9+i)*4;c.beginPath();c.moveTo(bx-7,by);c.quadraticCurveTo(bx,by-3-f,bx+9,by-1-f*1.4);c.quadraticCurveTo(bx+2,by+1,bx-7,by);c.fill()}}}
 
 /* ---------- far layers: hills, a barn and silo; corn rows and a lookout; a farmhouse and a cider mill ---------- */
-function flrHills(key,d,cols,amp,base,deco){return flrSpr(key,1600,520,0,520,g=>{cols.forEach((col,k)=>{g.beginPath();g.moveTo(0,0);for(let x=0;x<=1600;x+=16)g.lineTo(x,-base[k]-flrHill(x,k+1,k*1.7,amp[k],amp[k]*.3));g.lineTo(1600,0);g.closePath();g.fillStyle=col;g.fill();if(deco)deco(g,k)})})}
+/* 10.4b: the baked strip is trimmed to its painted rows once (its top 150-200 px were empty but still blended across the full width
+   every frame) */
+function flrTrim(o){if(o.trim)return o;o.trim=1;try{const c=o.c,g=c.getContext('2d',{willReadFrequently:true}),d=g.getImageData(0,0,c.width,c.height).data,w=c.width;let top=0;
+  scan:for(;top<c.height;top++){for(let x=3;x<w*4;x+=16)if(d[top*w*4+x]>0)break scan}top=Math.max(0,top-2);if(top<8)return o;
+  const n=document.createElement('canvas');n.width=w;n.height=c.height-top;n.getContext('2d').drawImage(c,0,-top);const lt=top/o.s;o.c=n;o.h-=lt;o.oy-=lt}catch(e){}return o}
+function flrHills(key,d,cols,amp,base,deco){return flrTrim(flrSpr(key,1600,520,0,520,g=>{cols.forEach((col,k)=>{g.beginPath();g.moveTo(0,0);for(let x=0;x<=1600;x+=16)g.lineTo(x,-base[k]-flrHill(x,k+1,k*1.7,amp[k],amp[k]*.3));g.lineTo(1600,0);g.closePath();g.fillStyle=col;g.fill();if(deco)deco(g,k)})}))}
 const flrBarn=(g,x,y,s,col,win)=>{g.save();g.translate(x,y);g.scale(s,s);
  g.beginPath();g.moveTo(-60,0);g.lineTo(-60,-62);g.lineTo(-44,-92);g.lineTo(0,-112);g.lineTo(44,-92);g.lineTo(60,-62);g.lineTo(60,0);g.closePath();g.fillStyle=col;g.fill();g.strokeStyle=FLRO;g.lineWidth=2.4;g.stroke();
  g.strokeStyle=shade(col,.25);g.lineWidth=2;for(let i=-50;i<=50;i+=10){g.beginPath();g.moveTo(i,-2);g.lineTo(i,-60);g.stroke()}
@@ -68497,6 +68525,42 @@ const FLRLV=[
  {i:45,n:'The Corn Maze',z:0,tint:'#ffd04a',sky:SCN[45].sky,wx:'flrleaves',prop:'',m:['flrscare','flrcrow','flrwraith'],b:'bflrking',bn:'The Scarecrow King',bl:'the scarecrow king',pl:'the corn maze',hue:0,blurb:'Walls of corn, lanterns on poles and signs that lie.',a:'#ffd04a'},
  {i:46,n:'The Moonlit Orchard',z:0,tint:'#ff6a4a',sky:SCN[46].sky,wx:'flrleaves',prop:'',m:['flracorn','flrturkey','flrbale'],b:'bflrgobble',bn:'The Wild Hunt Gobbler',bl:'the wild hunt gobbler',pl:'the moonlit orchard',hue:0,blurb:'Apple trees heavy with fruit, cider barrels and the wild hunt.',a:'#ff6a4a'}];
 const flrThumb=(i,w,h)=>{try{return sceneShot(FLRLV[(i||0)%3],w||640,h||480,'flr')}catch(e){return''}};
+
+/* 10.4b: the level-change sweep without shadow blur. The Endless blend (70b bgBlend) strokes its wall of light and two shockwave rings
+   with shadowBlur 40 / 18 / 24; with the rings spanning the whole screen that blur cost most of the frame on machines without a fast GPU
+   (measured in software rendering: 84 ms a frame during the 5.4 s sweep, 35 ms without the blur). The Rush draws the same sweep with
+   the blur replaced by wider, fainter strokes under the bright ones, and at most 300 sparks. Other modes keep 70b as it is. */
+function flrBlend(L){const en=!S.camp&&!S.prac&&!S.rift&&!S.dc&&S.mode!=='title'&&S.mode!=='crate';
+ if(en&&S.bgL&&S.bgL!==L){S.bgx={from:S.bgL,to:L,t0:S.t,p:[],rings:[{t:0},{t:.35}],sh:0};if(ST.shake)S.shake=Math.max(S.shake||0,12);bgxSfx()}
+ if(en)S.bgL=L;
+ const x=S.bgx;
+ if(!x||S.t-x.t0>=BGX_DUR||S.t<x.t0){S.bgx=null;zoneBG(L.z,S.t,L);return}
+ const c=ctx,u=(S.t-x.t0)/BGX_DUR,e=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2,t=S.t;
+ const seam=-260+e*(W+520),F=x.to.a||'#ffd76a',O=x.from.a||'#ffffff';
+ const edge=y=>seam+Math.sin(y*.011+t*2.6)*46+Math.sin(y*.029-t*4.8)*20+(y-H*.5)*.16;
+ zoneBG(x.from.z,t,x.from);
+ /* feathered reveal of the new world behind the wall of light */
+ const clipTo=off=>{c.beginPath();c.moveTo(-60,-30);for(let y=-30;y<=H+30;y+=30)c.lineTo(edge(y)+off,y);c.lineTo(-60,H+30);c.closePath();c.clip()};
+ [[-90,1],[-45,.34],[0,.4],[45,.5]].forEach(([off,a])=>{c.save();clipTo(off);c.globalAlpha=a;zoneBG(x.to.z,t,x.to);c.restore()});
+ /* the wall of light */
+ c.save();c.globalCompositeOperation='lighter';
+ for(let y=0;y<=H;y+=60){const ex=edge(y);glow(c,ex,y,150,F+'66');glow(c,ex+40,y,90,'#ffffff55')}
+ c.lineJoin='round';const path=()=>{c.beginPath();for(let y=-30;y<=H+30;y+=20){const ex=edge(y);y===-30?c.moveTo(ex,y):c.lineTo(ex,y)}};
+ c.strokeStyle=F;path();c.globalAlpha=.12;c.lineWidth=96;c.stroke();c.globalAlpha=.2;c.lineWidth=58;c.stroke();c.globalAlpha=.7;c.lineWidth=26;c.stroke();
+ c.strokeStyle='#fff';path();c.globalAlpha=.3;c.lineWidth=18;c.stroke();c.globalAlpha=.95;c.lineWidth=7;c.stroke();
+ c.lineWidth=2.4;c.strokeStyle=O;c.globalAlpha=.8;c.save();c.translate(-34,0);path();c.stroke();c.restore();c.save();c.translate(36,0);c.strokeStyle=F;path();c.stroke();c.restore();
+ /* light beams streaming off the wall */
+ c.globalAlpha=.5;for(let i=0;i<9;i++){const y=(i*173+t*90*(i%2?1:-1))%(H+200)-100,ex=edge(y),len=260+Math.sin(t*3+i)*120;const g=c.createLinearGradient(ex,0,ex+len,0);g.addColorStop(0,'#ffffffaa');g.addColorStop(1,'#ffffff00');c.fillStyle=g;c.fillRect(ex,y-2.5,len,5)}
+ c.restore();
+ /* sparks and shockwaves */
+ const dt=Math.min(.05,Math.max(0,t-(x.lt||t)));x.lt=t;
+ for(let i=0;i<4+Math.sin(u*Math.PI)*8;i++){const y=Math.random()*H;x.p.push({x:edge(y),y,vx:60+Math.random()*320,vy:-120-Math.random()*200,l:.8+Math.random()*1,s:2+Math.random()*4,c:Math.random()<.5?F:Math.random()<.5?'#fff':O,a:Math.random()<.35})}
+ c.save();c.globalCompositeOperation='lighter';for(const p of x.p){p.l-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=80*dt;c.globalAlpha=Math.max(0,Math.min(1,p.l*1.3));c.fillStyle=p.c;if(p.a)mS(c,p.x,p.y,p.s*1.8,p.c);else c.fillRect(p.x,p.y,p.s,p.s)}c.restore();x.p=x.p.filter(p=>p.l>0);if(x.p.length>300)x.p.length=300;
+ c.save();c.globalCompositeOperation='lighter';for(const r of x.rings){const k=(t-x.t0-r.t)/1.8;if(k<=0||k>=1)continue;const rr=k*1500;c.strokeStyle=F;c.beginPath();c.ellipse(KX+60,GY-120,rr,rr*.5,0,0,TAU);c.globalAlpha=(1-k)*.22;c.lineWidth=30+(1-k)*30;c.stroke();c.globalAlpha=(1-k)*.8;c.lineWidth=4+(1-k)*14;c.stroke()}c.restore();
+ /* colour wash at the moment of crossing */
+ const w=Math.max(0,1-Math.abs(u-.5)*4);if(w>0){c.save();c.globalCompositeOperation='lighter';c.globalAlpha=w*.28;c.fillStyle=F;c.fillRect(-30,-30,W+60,H+60);c.restore()}
+ if(ST.shake&&Math.abs(u-.5)<.04&&!x.sh){x.sh=1;S.shake=Math.max(S.shake||0,10)}}
+{const b0=bgBlend;bgBlend=function(L){if(S&&S.flr)return flrBlend(L);return b0.apply(this,arguments)}}
 /* ===== UPDATE 10.4, HARVEST MOON RUSH: the mode (99r3, prefix flr) =====
    A limited-time Endless variant for the Harvest Festival, built the way Monster Mash is (84c): it runs on the normal Endless engine
    (levels, rounds, bosses, boons, boon swaps, crates) with the Monster Mash hooks (S.gy is set too, so the per-letter pill drawing, the
@@ -68528,9 +68592,10 @@ function flrB(){if(!P)return{best:0,lv:0,runs:0,ac:0,ch:0,ms:[],pa:0,pc:0,tip:{}
 {const l0=load;load=function(){const r=l0.apply(this,arguments);try{if(P&&P.flrb!==undefined)flrB()}catch(e){}return r}}
 /* ---------- the twists ---------- */
 const FLRT={
- flgust:{n:'Gusty Wind',d:'Gusts sweep the field and tumble the letters out of line. The next letter always holds still.',c:'#a8e0ff'},
- flleaf:{n:'Leaf Piles',d:'Fallen leaves cover part of every word. They blow away when you reach them, or once the monster is halfway.',c:'#ffa040'},
- flcrow:{n:'Thieving Crows',d:'A crow perches on one letter. Type it and the crow steals it, so type that letter again.',c:'#c8a8ff'}};
+ flgust:{n:'Gusty Wind',d:'Gusts sweep the field and tumble the letters out of line. The next letter always holds still.',c:'#a8e0ff',s:'Gusts tumble the letters. The next letter holds still.'},
+ flleaf:{n:'Leaf Piles',d:'Fallen leaves cover part of every word. They blow away when you reach them, or once the monster is halfway.',c:'#ffa040',s:'Leaves hide letters until you reach them, or halfway.'},
+ flcrow:{n:'Thieving Crows',d:'A crow perches on one letter. Type it and the crow steals it, so type that letter again.',c:'#c8a8ff',s:'Type a crow\'s letter and it steals it. Type it again.'}};
+/* 10.4b: s is the short line for the level banner (the full sentence ran 1,050-1,200 px wide, into the twist chip as it slid in) */
 const FLR_SEQ=['flgust','flcrow','flleaf'];/* Pumpkin Patch: gusts; Corn Maze: the crows; Moonlit Orchard: the leaves */
 for(const k of FLR_SEQ)GYC[k]={n:FLRT[k].n,d:FLRT[k].d,c:FLRT[k].c,ic:'✦'};/* so the Monster Mash round-start hook can read them */
 {const g0=gyCurseFor;gyCurseFor=function(lv){return S&&S.flr?[FLR_SEQ[(Math.max(1,lv)-1)%3]]:g0.apply(this,arguments)}}
@@ -68550,7 +68615,9 @@ function flrGustStep(dt){const G=S.flrG||(S.flrG={t0:-99,dur:1.5,next:2.4,warn:0
 /* how far a gust has pushed letter i of e (0 when calm) */
 function flrGustOff(e,i,cx){const G=S.flrG;if(!G)return null;const u=(S.t-G.t0)/G.dur;if(!(u>0&&u<1.2))return null;const xn=Math.max(0,Math.min(1,cx/W)),q=u*1.35-(1-xn)*.35;if(q<=0||q>=1)return null;
  const env=Math.sin(q*Math.PI),k=(lvOf(S.wave)>=4?1.2:1)*(flrRM()?.6:1),h1=flrHash((e.ph*1e3)|0,i),h2=flrHash(i+7,(e.ph*517)|0);
- return{dx:-env*(3+h1*7)*k,dy:env*(h1<.5?-1:1)*(6+h2*8)*k,r:flrRM()?0:env*(h2-.5)*.85*k}}
+ /* 10.4b: the letters bob up and down inside the tag and tilt, but barely drift sideways, so they never leave the tag or slide over a
+    neighbour (at 3-10 px sideways and 6-14 px up or down they left the tag and two letters could read as one, "rn" as "m") */
+ return{dx:-env*(1+h1*2.2)*k,dy:env*(h1<.5?-Math.min(9.5,(5.5+h2*4)*k):Math.min(7.5,(4.5+h2*3)*k)),r:flrRM()?0:env*(h2-.5)*.9*k}}
 /* ---------- per-letter drawing for word pills (the pill calls gyPillChar while S.gy is set) ---------- */
 let FLRPW=13.4;
 {const p0=gyPillChar;gyPillChar=function(e,i,ch,cx,cy,col,tgt){if(!S.flr)return p0.apply(this,arguments);return flrPillChar(e,i,ch,cx,cy,col,tgt)}}
@@ -68558,20 +68625,30 @@ function flrPillChar(e,i,ch,cx,cy,col,tgt){const c=ctx,typed=i<e.i,next=tgt&&i==
  /* leaf pile: the covered letters are not drawn; the pile is drawn once over its slots */
  if(e.fp&&!e.fpr&&i>=e.fp[0]&&i<=e.fp[1]){if(i===e.fp[0])flrPileDraw(e,cx,cy,pw);return i}
  let fill=typed?col:'#fff',sc=1,a=1;
- if(e.fcD&&e.fcD.includes(i)&&!typed){fill=next?'#ffe08a':'#ffc860'}else if(e.fcs&&e.fcs.includes(i)&&!typed)fill='#dcc8ff';
+ if(e.fcD&&e.fcD.includes(i)&&!typed){fill=next?'#ffe08a':'#ffc860'}else if(e.fcs&&e.fcs.includes(i)&&!typed)fill='#cfb2ff';
  if(e.fpr&&i>=e.fp[0]&&i<=e.fp[1]){const u=Math.min(1,(S.t-e.fpr)/.32);sc=.6+.4*flrSm(u);a=u;if(!typed&&u<1)fill='#ffe0a8'}
- let off=null;if(flrTw()==='flgust'&&!typed&&!next)off=flrGustOff(e,i,cx);
+ /* 10.4b: the first untyped letter of every word holds still, not only on the target, so each word can still be picked out by its start */
+ let off=null;if(flrTw()==='flgust'&&!typed&&i!==e.i)off=flrGustOff(e,i,cx);
  const ga=c.globalAlpha;if(a<1)c.globalAlpha=ga*a;c.fillStyle=fill;
  if(off||sc!==1){c.save();c.translate(cx+pw/2+(off?off.dx:0),cy+(off?off.dy:0));if(off)c.rotate(off.r);if(sc!==1)c.scale(sc,sc);c.fillText(ch,-pw/2,0);c.restore()}else c.fillText(ch,cx,cy);
  if(a<1)c.globalAlpha=ga;
  /* a crow perched on its letter, waiting */
- if(e.fcs&&e.fcs.includes(i)&&!(e.fcD&&e.fcD.includes(i))&&!typed){const o=flrPerchSpr(flrCy(S.t+e.ph,3.4)<.35?1:0);const bob=Math.abs(Math.sin(S.t*2+e.ph+i))*1.4;c.globalAlpha=ga;flrBlit(c,o,cx+pw/2+4,cy-19-bob)}
+ if(e.fcs&&e.fcs.includes(i)&&!(e.fcD&&e.fcD.includes(i))&&!typed){const o=flrPerchSpr(flrCy(S.t+e.ph,3.4)<.35?1:0);const bob=Math.abs(Math.sin(S.t*2+e.ph+i))*1.4;c.globalAlpha=ga;flrBlit(c,o,cx+pw/2-2,cy-19-bob)/* 10.4b: feet over the letter (they sat 7 px to its right) */}
  return i}
 /* the baked perched crow (two frames: quiet and cawing) and the leaf piles */
-function flrPerchSpr(caw){return flrSpr('pcrow'+caw,56,44,28,38,g=>{const q=g.createRadialGradient(0,-12,2,0,-12,24);q.addColorStop(0,'#d8c0ff66');q.addColorStop(1,'#d8c0ff00');g.fillStyle=q;g.fillRect(-28,-38,56,44);flrCrow(g,1,-9,.95,null,caw,true)})}
-function flrPileSpr(n){return flrSpr('pile'+n,n*16+22,48,(n*16+22)/2,34,g=>{const w=n*16+12;g.beginPath();g.moveTo(-w/2,6);g.quadraticCurveTo(-w/2+2,-16,0,-20);g.quadraticCurveTo(w/2-2,-16,w/2,6);g.closePath();g.fillStyle='#4a200e';g.fill();g.strokeStyle=FLRO;g.lineWidth=1.6;g.stroke();
- for(let k=0;k<n*5+3;k++){const L=flrLeaf(k%6),x=(flrHash(k,n)-.5)*(w-6),y=2-flrHash(n,k+3)*20*(1-Math.abs(x)/w*1.4);g.save();g.translate(x,y);g.rotate(flrHash(k+5,n)*TAU);g.drawImage(L.c,-12,-12,24,24);g.restore()}})}
-function flrPileDraw(e,cx,cy,pw){const n=e.fp[1]-e.fp[0]+1,o=flrPileSpr(n),c=ctx,mid=cx+n*pw/2;c.save();c.translate(mid,cy+9);c.rotate(Math.sin(S.t*3+e.ph)*.03);flrBlit(c,o,0,0);c.restore()}
+/* 10.4b: a moonlit lavender rim around the crow (baked: the crow's silhouette tinted and stamped at eight offsets under it), so the dark
+   crow reads against the dark sky and the corn instead of vanishing */
+function flrPerchSpr(caw){return flrSpr('pcrow'+caw,56,44,28,38,g=>{const q=g.createRadialGradient(0,-12,2,0,-12,24);q.addColorStop(0,'#d8c0ff80');q.addColorStop(1,'#d8c0ff00');g.fillStyle=q;g.fillRect(-28,-38,56,44);
+ const t=document.createElement('canvas');t.width=112;t.height=88;const h=t.getContext('2d');h.setTransform(2,0,0,2,56,76);h.lineJoin='round';flrCrow(h,1,-9,.95,null,caw,true);h.setTransform(1,0,0,1,0,0);h.globalCompositeOperation='source-in';h.fillStyle='#d6c2ff';h.fillRect(0,0,112,88);
+ for(let k=0;k<8;k++){const a=k*TAU/8;g.drawImage(t,-28+Math.cos(a)*1.3,-38+Math.sin(a)*1.3,56,44)}flrCrow(g,1,-9,.95,null,caw,true)})}
+/* 10.4b: the pile fits its own letter slots (n x the letter pitch) and stays inside the tag: the old pile was n*16+22 px wide and
+   48 tall, so it half-covered the letters on either side (a visible letter hidden) and hung out of the tag */
+function flrPileSpr(n,pw){pw=pw||13.4;const w=n*pw+2,key='pile'+n+'_'+Math.round(pw*10);return flrSpr(key,w+8,40,(w+8)/2,22,g=>{
+ const mound=()=>{g.beginPath();g.moveTo(-w/2,13);g.bezierCurveTo(-w/2,-4,-w*.3,-15,0,-15);g.bezierCurveTo(w*.3,-15,w/2,-4,w/2,13);g.closePath()};
+ mound();g.fillStyle=vgr(g,-15,13,'#7a3a16','#3a180a');g.fill();g.save();mound();g.clip();
+ for(let k=0;k<n*7+4;k++){const L=flrLeaf(k%6),x=(flrHash(k,n)-.5)*(w-4),y=10-flrHash(n,k+3)*24*(1-Math.abs(x)/w*1.2);g.save();g.translate(x,y);g.rotate(flrHash(k+5,n)*TAU);g.drawImage(L.c,-8,-8,16,16);g.restore()}
+ g.restore();mound();g.strokeStyle=FLRO;g.lineWidth=1.6;g.stroke();g.strokeStyle='#ffc86055';g.lineWidth=1;g.beginPath();g.moveTo(-w*.32,-9);g.quadraticCurveTo(0,-15.5,w*.32,-9);g.stroke()})}
+function flrPileDraw(e,cx,cy,pw){const n=e.fp[1]-e.fp[0]+1,o=flrPileSpr(n,pw),c=ctx,mid=cx+n*pw/2;c.save();c.translate(mid,cy+2);c.rotate(Math.sin(S.t*3+e.ph)*.015);flrBlit(c,o,0,0);c.restore()}
 /* ---------- the run's moving extras: leaves blown off piles, stolen letters, acorn and chest pickups ---------- */
 function flrFx(o){const L=S.flrFx||(S.flrFx=[]);if(L.length<120)L.push(Object.assign({t:0},o))}
 function flrFxStep(dt){const L=S.flrFx;if(!L||!L.length)return;for(const f of L){f.t+=dt;if(f.vx!=null){f.x+=f.vx*dt;f.y+=f.vy*dt;f.vy+=(f.gr||0)*dt;f.r=(f.r||0)+(f.vr||0)*dt}}S.flrFx=L.filter(f=>f.t<f.ml)}
@@ -68580,7 +68657,7 @@ function flrFxDraw(c){const L=S.flrFx;if(!L||!L.length)return;c.save();
   if(f.k==='leaf'){c.globalAlpha=1-u*u;flrLeafAt(c,f.n,f.x,f.y,.8,f.r,Math.cos(f.t*9+f.n))}
   else if(f.k==='crow'){/* the crow flies off with the letter in its beak */const e1=flrSm(Math.min(1,u*1.3)),x=f.x+e1*240,y=f.y-e1*170-Math.sin(u*Math.PI)*30;c.globalAlpha=Math.min(1,(1-u)*3);flrCrow(c,x,y,.9,Math.sin(f.t*26),0,false);
    c.font='bold 22px ui-monospace,Menlo,Consolas,monospace';c.textAlign='center';c.textBaseline='middle';c.lineWidth=4;c.strokeStyle=FLRO;c.strokeText(f.ch,x-22,y+4);c.fillStyle='#ffc860';c.fillText(f.ch,x-22,y+4);
-   if(u<.3){c.globalAlpha=(.3-u)/.3;c.strokeStyle='#ffe8a0';c.lineWidth=2;for(let i=0;i<5;i++){const a=i*TAU/5;c.beginPath();c.moveTo(f.x+Math.cos(a)*8,f.y+Math.sin(a)*8);c.lineTo(f.x+Math.cos(a)*(16+u*40),f.y+Math.sin(a)*(16+u*40));c.stroke()}}}
+   if(u<.3){c.globalAlpha=(.3-u)/.3;c.strokeStyle='#ffe8a0';c.lineWidth=2;for(let i=0;i<5;i++){const a=i*TAU/5;c.beginPath();c.moveTo(f.x-22+Math.cos(a)*8,f.y+4+Math.sin(a)*8);c.lineTo(f.x-22+Math.cos(a)*(16+u*40),f.y+4+Math.sin(a)*(16+u*40));c.stroke()}}}
   else if(f.k==='acorn'||f.k==='chest'){const e1=flrSm(u),x=f.x+(f.tx-f.x)*e1,y=f.y+(f.ty-f.y)*e1-Math.sin(u*Math.PI)*(f.k==='chest'?160:90);c.globalAlpha=u>.9?(1-u)*10:1;c.save();c.translate(x,y);c.rotate(f.k==='acorn'?f.t*8:Math.sin(f.t*6)*.2);const s=f.k==='chest'?1.5-u*.5:1;c.scale(s,s);flrBlit(c,f.k==='chest'?flrChestIco():flrAcornIco(),0,0);c.restore()}
   else if(f.k==='ring'){c.globalAlpha=(1-u)*.8;c.strokeStyle=f.c;c.lineWidth=4*(1-u)+1;c.beginPath();c.arc(f.x,f.y,10+u*(f.r||80),0,TAU);c.stroke()}}
  c.restore()}
@@ -68595,7 +68672,7 @@ function flrChestIco(){return flrSpr('ichest',44,40,22,22,g=>{g.beginPath();g.ro
 /* the twist icons for the HUD chip and the mode page */
 function flrTwIco(k){return flrSpr('itw'+k,36,36,18,18,g=>{g.beginPath();g.arc(0,0,16,0,TAU);g.fillStyle=FLRT[k].c+'40';g.fill();g.strokeStyle=FLRT[k].c+'aa';g.lineWidth=1.4;g.stroke();if(k==='flgust'){g.strokeStyle='#d8f0ff';g.lineWidth=2.6;for(const [y,l] of[[-7,22],[0,28],[7,18]]){g.beginPath();g.moveTo(-14,y);g.lineTo(-14+l*.6,y);g.arc(-14+l*.6,y-4,4,Math.PI/2,-Math.PI*.9,true);g.stroke()}flrLeafAt(g,1,10,8,.42,.6,1)}
  else if(k==='flleaf'){for(let i=0;i<5;i++)flrLeafAt(g,i,(i-2)*5,4-Math.abs(i-2)*3,.62,i*1.3,1)}
- else flrCrow(g,1,3,.78,null,1,true)})}
+ else{/* 10.4b: a pale moon behind the crow, which was dark on dark */g.beginPath();g.arc(4,-4,10.5,0,TAU);g.fillStyle='#e6dafc';g.fill();g.strokeStyle=FLRO;g.lineWidth=1.2;g.stroke();flrCrow(g,1,3,.78,null,1,true)}})}
 /* ---------- sound (synthesised, like the rest of the game) ---------- */
 function flrSfx(k){try{if(!axOn())return;const n=ac.currentTime;
  if(k==='gust'){cNoise(sg,n,1.5,.07,{type:'bandpass',f1:380,f2:1500,q:.9,a:.45});cNoise(sg,n+.2,1.1,.035,{type:'highpass',f1:2400,f2:900,a:.3})}
@@ -68611,9 +68688,11 @@ function flrSfx(k){try{if(!axOn())return;const n=ac.currentTime;
 {const a0=modeAfter;modeAfter=function(kind){if(kind==='flr')return;return a0.apply(this,arguments)}}
 {const sw=startWave;startWave=function(){const r=sw.apply(this,arguments);
   if(S.flr){const lv=lvOf(S.wave),k=FLR_SEQ[(lv-1)%3],q=FLRT[k],L=FLRLV[(lv-1)%3];S.gyc=[k];S.gyLv=lv;S.flrG={t0:-99,dur:1.5,next:2.6,warn:0,n:(S.flrG&&S.flrG.n)||0};
-   if(S.round===1){S.ban={t:4.2,txt:'Level '+lv+': '+L.n,c:q.c,sub:q.n+': '+q.d};
+   if(S.round===1){S.ban={t:4.2,txt:'Level '+lv+': '+L.n,c:L.a,sub:q.n+': '+q.s};/* 10.4b: the level title in the field's own colour (the twist colour made the Pumpkin Patch title ice blue) */
     const B=flrB(),m=FLRPAY.ms.find(x=>x.lv===lv);if(m&&!B.ms.includes(lv)&&!S.flrM.includes(lv)){S.flrM.push(lv);S.flrMT=S.t+4.4;flrSfx('mile')}
-    if(!flrB().tip[k]){flrB().tip[k]=1;S.tip={t:5.2,txt:q.n+': '+q.d}}}
+    /* 10.4b: the first time, the banner (which already carries the twist's description) stays a second longer; the tip box that
+     repeated the same sentence right above it is gone */
+    if(!flrB().tip[k]){flrB().tip[k]=1;S.ban.t=5.2}}
    else if(S.round===5){S.ban.sub=(S.ban.sub?S.ban.sub+'. ':'')+'No twist this round.'}}
   return r}}
 {const sb=shieldBreak;shieldBreak=function(t){sb.apply(this,arguments);t.fd=0;t.fp=null;t.fpr=null;t.fcs=null;t.fcD=null}}
@@ -68627,7 +68706,7 @@ function flrSfx(k){try{if(!axOn())return;const n=ac.currentTime;
 function flrPileBurst(e){try{const g=pillGeom(e),pw=typeof PW==='number'?PW:13.4,x0=g.x+14+e.fp[0]*pw,n=e.fp[1]-e.fp[0]+1,cy=g.y+g.h/2;for(let i=0;i<n*4+2;i++)flrFx({k:'leaf',n:i%6,x:x0+Math.random()*n*pw,y:cy+4,vx:-60+Math.random()*260,vy:-180-Math.random()*160,gr:420,vr:(Math.random()-.5)*12,r:Math.random()*6,ml:.9+Math.random()*.4});if(S.t-(S.flrRs||-9)>.25){S.flrRs=S.t;flrSfx('rustle')}}catch(x){}}
 /* Thieving Crows: typing the crow's letter lets the crow steal it, and the cursor steps back onto it */
 {const k0=key;key=function(c){const t=S&&S.flr&&S.mode==='play'?S.tgt:null,i0=t?t.i:-1;const r=k0.apply(this,arguments);
- try{if(t&&t.fcs&&S.en.includes(t)&&t.i>i0){for(const ci of t.fcs){if(i0<=ci&&t.i>ci&&!t.fcD.includes(ci)&&ci<t.w.length-1){t.fcD.push(ci);t.i=ci;const g=pillGeom(t),pw=typeof PW==='number'?PW:13.4;flrFx({k:'crow',x:g.x+14+ci*pw+pw/2,y:g.y+g.h/2-6,ch:t.w[ci],ml:1.15});flrSfx('caw');S.flrSt=(S.flrSt||0)+1;break}}}}catch(x){}
+ try{if(t&&t.fcs&&S.en.includes(t)&&t.i>i0){for(const ci of t.fcs){if(i0<=ci&&t.i>ci&&!t.fcD.includes(ci)&&ci<t.w.length-1){t.fcD.push(ci);t.i=ci;const g=pillGeom(t),pw=typeof PW==='number'?PW:13.4;flrFx({k:'crow',x:g.x+14+ci*pw+pw/2+22,y:g.y+g.h/2-4,ch:t.w[ci],ml:1.15})/* 10.4b: the stolen letter starts on its own slot (it started 22 px left, over the letter before) */;flrSfx('caw');S.flrSt=(S.flrSt||0)+1;break}}}}catch(x){}
  return r}}
 /* harvest words: the themed list first, the general list only fills a length gap */
 const FLRW=('acorn acorns apple apples orchard cider harvest pumpkin pumpkins gourd gourds squash maple maples leaf leaves autumn fall corn cornfield cornstalk scarecrow straw hay haystack hayride bale bales barn barnyard tractor wagon cart field fields farm farmer farmhouse plow furrow reap reaper sickle wheat grain barley oats rye sheaf sheaves mill miller flour bread loaf pie pies crust pecan pecans walnut chestnut hazelnut nuts squirrel turkey turkeys gobble gobbler feather feathers feast feasting banquet table supper dinner gravy stuffing cranberry cranberries yam yams potato potatoes carrot carrots turnip parsnip beet beets onion cabbage pear pears plum plums grape grapes vine vines vineyard basket baskets bushel crate barrel barrels jar jam jelly honey cinnamon nutmeg clove ginger spice spiced cocoa cozy sweater scarf mitten mittens quilt blanket hearth fireside ember embers candle lantern lanterns moon moonlight moonlit twilight dusk dawn frost frosty chill chilly breeze gust gusty wind windy amber golden russet crimson scarlet copper bronze rust ochre maize kernel kernels husk husks cob cobs popcorn hayloft silo stable pasture meadow hedge hedgerow thicket grove oak oaks pinecone bough branch branches twig twigs bark root roots mushroom fern moss crow crows raven owl owls goose geese flock migrate rabbit hare deer fox foxes badger hedgehog chipmunk mouse thanks thankful gratitude grateful blessing family friends gather gathering together share plenty bounty bountiful abundance cornucopia horn festival fair parade pilgrim maze sunflower sunflowers hollow fruit ripe ripen picking cellar pantry kettle oven baker baking roast roasted butter biscuit muffin cobbler crumble sauce soup stew porridge oatmeal syrup caramel toffee fudge pudding nutcracker rake raking bonfire smoke woodpile firewood axe cabin porch rocking chair').split(/\s+/).filter((w,i,a)=>w.length>=3&&w.length<=12&&/^[a-z]+$/.test(w)&&a.indexOf(w)===i);
@@ -68691,6 +68770,25 @@ const flrSvgChest=(s)=>`<svg class="flric" viewBox="0 0 44 40" width="${s}" heig
 /* 10.4 merge: the milestone note sits low in the field, above the Fury bar, so it never covers a boss sentence or a word tag
    (at y 250 it hid the start of a boss sentence) */
 function flrMileY(){try{return (typeof H==='number'?H:900)-185}catch(e){return 715}}
+/* 10.4b: Esc on the results goes Home, as on every other results screen (overKey looks for #hm; the Rush's Home button is #flrhm, so
+   Esc did nothing there) */
+{const k0=overKey;overKey=function(e){try{if(S&&S.flr&&e&&e.key==='Escape'&&!e.repeat&&ov.className.indexOf('hide')<0&&performance.now()-SHOWT>=900&&!$('hm')&&$('flrhm')&&document.querySelector('.flrov')){e.preventDefault();$('flrhm').click();return true}}catch(x){}return k0.apply(this,arguments)}}
+/* 10.4b: word tags never sit on top of each other. Walkers stop within the same 80 px in front of the hero and a boss calls its minions
+   in pairs from one spot, so two tags could cover each other for the rest of a fight (seen in play: two Acorn Knights a pixel apart, their
+   words unreadable). Every tick the tags are laid out from the hero outward and a tag that would overlap one already placed eases up
+   by one tag height (at most two steps), and back down once the way is clear. Bosses keep their place. */
+const FLR_PG0=pillGeom;
+{const g0=pillGeom;pillGeom=function(e){const g=g0.apply(this,arguments);if(S&&S.flr&&e&&e.flrPy>0&&!e.boss)g.y=Math.max(70,g.y-e.flrPy);return g}}
+function flrTagStep(dt){const P2=[],L=[];for(const e of S.en){if(!e.w)continue;if(e.boss){P2.push(FLR_PG0(e));continue}if(e.x<W+60)L.push(e);else e.flrPy=0}
+ L.sort((a,b)=>a.x-b.x);
+ for(const e of L){const g=FLR_PG0(e);let off=0;for(let k=0;k<2;k++){const y=g.y-off;if(!P2.some(p=>g.x<p.x+p.w+4&&g.x+g.w+4>p.x&&y<p.y+p.h+3&&y+g.h+3>p.y))break;off+=g.h+5}
+  {const y=g.y-off;if(P2.some(p=>g.x<p.x+p.w+4&&g.x+g.w+4>p.x&&y<p.y+p.h+3&&y+g.h+3>p.y))off=0}/* no clear row within two steps: stay put */
+  P2.push({x:g.x,y:g.y-off,w:g.w,h:g.h});const cur=e.flrPy||0;e.flrPy=Math.abs(off-cur)<.5?off:cur+(off-cur)*Math.min(1,dt*9)}}
+{const mt=modeTick;modeTick=function(dt){const r=mt.apply(this,arguments);try{if(S.flr&&S.mode==='play')flrTagStep(dt)}catch(x){}return r}}
+/* 10.4b: one title per new field. The Endless scenery blend (70b) writes "THE WAR PUSHES ON" and the field's name at y 128-184 while the
+   level banner slides in over the same spot with the same name, so two titles stacked on each other; in the Rush the wall of light still
+   sweeps the old field away, and the banner alone names the new one */
+{const b0=bgxOver;bgxOver=function(){if(S&&S.flr)return;return b0.apply(this,arguments)}}
 /* ===== UPDATE 10.4, HARVEST MOON RUSH: the mode page and the ways in (99r4, prefix flr) =====
    flrMenu(back) opens the page, in the style of the Monster Mash page (84e) but with the three fields as cards (scene, twist, boss),
    the payout, the milestone track and the run records. Reached from Play › Choose a mode › Events (a card at the top while the festival

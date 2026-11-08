@@ -64117,7 +64117,7 @@ function rpptSatPaint(pop){const el=$('rpptslots');if(!el)return;const p=rpptSav
  if(pop!=null&&!RPPTA.rm){const b=el.children[pop];if(b){b.classList.add('pop')}}}
 /* hold-to-brew */
 let RPPTH=null;
-function rpptHoldStop(){const H=RPPTH;if(!H)return;RPPTH=null;cancelAnimationFrame(H.raf);try{H.fill.style.transform='scaleX(0)';H.b.classList.remove('hold')}catch(e){}RPPTA.u=0;const bl=$('rpptbl');if(bl){bl.classList.remove('on')}}
+function rpptHoldStop(){const H=RPPTH;if(!H)return;RPPTH=null;cancelAnimationFrame(H.raf);try{H.fill.style.transform='scaleX(0)';H.b.classList.remove('hold')}catch(e){}RPPTA.u=0;/* 10.4c: the cauldron went back to its own colour once the brew is over (it kept the last potion's colour) */setTimeout(()=>{if(!RPPTH)RPPTA.col='#5aeb8a'},900);const bl=$('rpptbl');if(bl){bl.classList.remove('on')}}
 function rpptHoldWire(b){const k=b.dataset.k;
  const start=()=>{if(RPPTH)return;const cb=rpptCanBrew(k);if(!cb.ok){rpptSfx('no');b.classList.remove('shake');void b.offsetWidth;b.classList.add('shake');return}
   const H={b,k,t0:performance.now(),fill:b.querySelector('.rpptfill'),raf:0,tick:0};RPPTH=H;b.classList.add('hold');RPPTA.col=RPPD[k].col;
@@ -64598,6 +64598,7 @@ HWH.florch=(g,K,c,hx,hy,face)=>{const {t}=c,hair='#5a3418',bd='#6a3c1c';
 /* Rare: a russet ranger hood crowned with a circlet of maple leaves */
 HWH.flmaple=(g,K,c,hx,hy,face)=>{const {t,T}=c,hd='#6a2414';
  arBev(g,[hx-16,hy+21,hx-22,hy+2,hx-17,hy-15,hx-4,hy-23,hx+10,hy-20,hx+17.4,hy-8,hx+14.6,hy+4,hx+10,hy+12,hx+12,hy+22],hd,{sm:1,ow:1.3,tex:(g2,b)=>{g2.strokeStyle='#00000026';g2.lineWidth=1;for(let i=0;i<4;i++){g2.beginPath();g2.moveTo(hx-14+i*3,hy+20);g2.quadraticCurveTo(hx-19+i*3,hy,hx-12+i*5,hy-18);g2.stroke()}}});
+ g.save();g.lineCap='round';g.strokeStyle='#ffb07a88';g.lineWidth=1.3;g.beginPath();g.moveTo(hx-19.4,hy+1);g.quadraticCurveTo(hx-19.6,hy-12,hx-8,hy-20.4);g.stroke();g.strokeStyle='#ffd8a044';g.lineWidth=.8;g.beginPath();g.moveTo(hx-16,hy+12);g.quadraticCurveTo(hx-19,hy+8,hx-19.6,hy+3);g.stroke();g.restore();
  face(hx+5,hy+2.2,11,12.6);
  g.save();g.beginPath();g.ellipse(hx+5,hy+2.2,11,12.6,0,0,TAU);g.clip();g.fillStyle='#1a060488';g.fillRect(hx-8,hy-12,28,9);g.restore();
  {const p=.7+.3*Math.sin(t*2.4);g.save();g.globalCompositeOperation='lighter';glow(g,hx+9.6,hy+1,6,'#ffa04a'+flgA(.3*p));g.restore()}
@@ -64613,6 +64614,7 @@ HWH.flcob=(g,K,c,hx,hy)=>{const {t,acc}=c,sw=Math.sin(t*1.6)*.06;
   arBev(g,hwTube(pts,u=>w*Math.sin(Math.PI*Math.min(1,u*.98+.06))+.3),col,{sm:1,ow:1.2});g.strokeStyle='#ffffff44';g.lineWidth=.7;g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.stroke()}
  g.strokeStyle='#e8a868';g.lineWidth=.8;for(let i=0;i<7;i++){const a0=-1.9+i*.12;g.beginPath();g.moveTo(hx+3,hy-23);g.quadraticCurveTo(hx+3+Math.cos(a0)*10,hy-30,hx-6+Math.cos(a0)*16+Math.sin(t*2+i)*1.4,hy-24+i*1.4);g.stroke()}
  arBevE(g,hx+3,hy-4,14.4,20,'#ecc244',{ow:1.3,tex:(g2,b)=>{let r=0;for(let y=b[1];y<b[3]+3;y+=3.3,r++)for(let x=b[0]+(r%2)*1.6;x<b[2]+3;x+=3.2){g2.fillStyle=(r+x|0)%5?'#f6d058':'#d8a830';g2.beginPath();g2.ellipse(x,y,1.4,1.5,0,0,TAU);g2.fill();g2.fillStyle='#ffffffaa';g2.fillRect(x-.8,y-1,.7,.6)}g2.fillStyle=hgr(g2,b[0],b[2],'#ffffff26','#00000048');g2.fillRect(b[0],b[1],b[2]-b[0],b[3]-b[1])}});
+ g.save();g.lineCap='round';g.strokeStyle='#fff6c8bb';g.lineWidth=1.5;g.beginPath();g.ellipse(hx+3,hy-4,12.4,18.2,0,Math.PI*1.05,Math.PI*1.45);g.stroke();g.strokeStyle='#7a5a1055';g.lineWidth=2.2;g.beginPath();g.ellipse(hx+3,hy-4,12.6,18.4,0,Math.PI*.05,Math.PI*.6);g.stroke();g.restore();
  /* the visor: a dark slit and a nasal bar, two amber eyes */
  arBev(g,[hx+3,hy-4,hx+18,hy-5.4,hx+17.6,hy-1,hx+3,hy-.4],'#1a1206',{ow:1.1});arBev(g,[hx+9.4,hy-5,hx+12.6,hy-5,hx+12.4,hy+9,hx+9.6,hy+9],'#3a2a0c',{ow:1});
  {const p=.75+.25*Math.sin(t*3);g.globalAlpha=p;eye(g,hx+15.4,hy-2.8,1.6,acc);eye(g,hx+6.6,hy-2.6,1.3,acc);g.globalAlpha=1}
@@ -64622,6 +64624,8 @@ HWH.flcob=(g,K,c,hx,hy)=>{const {t,acc}=c,sw=Math.sin(t*1.6)*.06;
 /* Legendary: a burnt-gold harvest helm with a crescent visor, wheat fanned behind like a halo */
 HWH.flmoon=(g,K,c,hx,hy)=>{const {t,T,M,D,acc}=c;
  arBevE(g,hx+2,hy-1,15.8,17,M,{edge:T,ew:1.6});
+ g.save();g.lineCap='round';g.strokeStyle='#fff0c8cc';g.lineWidth=1.6;g.beginPath();g.ellipse(hx+2,hy-1,13.4,15,0,Math.PI*1.08,Math.PI*1.5);g.stroke();g.strokeStyle='#fff0c866';g.lineWidth=.9;g.beginPath();g.ellipse(hx+2,hy-1,13.4,15,0,Math.PI*1.56,Math.PI*1.66);g.stroke();
+ g.strokeStyle='#2a0e0466';g.lineWidth=2;g.beginPath();g.ellipse(hx+2,hy-1,13.6,15.2,0,Math.PI*.12,Math.PI*.72);g.stroke();g.fillStyle='#00000018';for(const [x,y,r] of[[-6,2,2.4],[-1,-5,1.6],[-9,-3,1.4]]){g.beginPath();g.arc(hx+x,hy+y,r,0,TAU);g.fill()}g.restore();
  arBev(g,[hx-14,hy-6,hx+17,hy-8,hx+17.6,hy-12.4,hx-13.4,hy-11],T,{ow:1.1,tex:(g2,b)=>{g2.strokeStyle='#8a5a1a99';g2.lineWidth=.7;g2.beginPath();for(let x=b[0]+2;x<b[2];x+=3.4){g2.moveTo(x,b[3]);g2.lineTo(x+1.6,b[1])}g2.stroke()}});
  arBev(g,[hx+5,hy-7,hx+15,hy-8.4,hx+19.6,hy-3.6,hx+20.4,hy+5,hx+16.6,hy+13.4,hx+10,hy+16.6,hx+5,hy+12.6],shade(M,.1),{sm:1,edge:T,ew:1.5});
  {const p=.7+.3*Math.sin(t*2.6);g.save();g.globalCompositeOperation='lighter';glow(g,hx+13,hy-1,10,acc+flgA(.5*p));g.restore();
@@ -64652,6 +64656,8 @@ function flgCrownSpr(){if(FLG_CR)return FLG_CR;const k=4,c=document.createElemen
 /* Mythic: the Feastlord's golden great helm under a harvest crown of gilded leaves, acorns and a cranberry gem */
 HWH.flfeast=(g,K,c,hx,hy)=>{const {t,T,M,acc}=c,G='#f2c24a';
  arBevE(g,hx+2,hy-.6,15.8,17,M,{edge:'#fff0b0',ew:1.6,tex:(g2,b)=>{g2.strokeStyle='#8a5a1a66';g2.lineWidth=.7;g2.beginPath();g2.moveTo(hx-12,hy+4);g2.quadraticCurveTo(hx-6,hy-2,hx-9,hy-10);g2.moveTo(hx-9,hy+8);g2.quadraticCurveTo(hx-2,hy+2,hx-4,hy-8);g2.stroke()}});
+ g.save();g.lineCap='round';g.strokeStyle='#fff8d8dd';g.lineWidth=1.8;g.beginPath();g.ellipse(hx+2,hy-.6,13.4,15,0,Math.PI*1.06,Math.PI*1.5);g.stroke();g.strokeStyle='#8a5a1a88';g.lineWidth=2;g.beginPath();g.ellipse(hx+2,hy-.6,13.6,15.2,0,Math.PI*.1,Math.PI*.7);g.stroke();
+ g.strokeStyle='#fff0b0aa';g.lineWidth=1;g.beginPath();g.moveTo(hx-3,hy-15);g.quadraticCurveTo(hx-5,hy,hx-3,hy+14);g.stroke();g.restore();
  arBev(g,[hx+3.6,hy-9.6,hx+13.6,hy-10.8,hx+19.4,hy-5.6,hx+20.8,hy+3.6,hx+17.6,hy+12.6,hx+10.6,hy+17,hx+4.4,hy+13.4],shade(M,.12),{sm:1,edge:'#fff0b0',ew:1.5});
  g.strokeStyle='#fff6d0aa';g.lineWidth=1;g.beginPath();g.moveTo(hx+14.4,hy-9.6);g.quadraticCurveTo(hx+17.4,hy+2,hx+14.6,hy+14);g.stroke();
  {const p=.75+.25*Math.sin(t*3.1);g.save();g.globalCompositeOperation='lighter';glow(g,hx+13,hy-2,11,'#ffb040'+flgA(.55*p));g.restore();
@@ -64774,7 +64780,8 @@ function flgDown(g){try{const m=g.getTransform();if(m.a*m.d-m.b*m.c<=0)return Ma
 
 /* Common: Hayfork, a farmhand's pitchfork bound with twine, a straw bundle and a corn-husk doll */
 WNEW.fl_fork=(g,L,t,X)=>{g.shadowBlur=0;const wood='#7a5a32',P=[];for(let i=0;i<=16;i++){const u=i/16;P.push([-L*.22+u*L*.92,Math.sin(u*5+.6)*1.1])}
- rib(g,P,u=>2.5-u*.3,wood);
+ rib(g,P,u=>2.9-u*.35,wood);
+ g.strokeStyle='#d0a868aa';g.lineWidth=.8;g.beginPath();P.forEach((q,i)=>i?g.lineTo(q[0],q[1]-1.1):g.moveTo(q[0],q[1]-1.1));g.stroke();
  for(const u of[.32,.6]){const x=-L*.22+u*L*.92;ell(g,x,Math.sin(u*5+.6)*1.1,1.6,2.2,shade(wood,-.3))}
  wrapG(g,-L*.06,L*.1,0,3.1,'#4a3418');
  const hx=L*.7;
@@ -64783,8 +64790,8 @@ WNEW.fl_fork=(g,L,t,X)=>{g.shadowBlur=0;const wood='#7a5a32',P=[];for(let i=0;i<
  g.fillStyle='#a8322a';g.fillRect(hx-L*.13,-3.6,3,7.2);g.strokeStyle='#5a120e';g.lineWidth=.8;g.strokeRect(hx-L*.13,-3.6,3,7.2);
  /* the iron head: crosspiece and three tines */
  const T=[[-7.2,-1],[0,0],[7.2,1]];g.lineCap='round';
- for(const [y0,s] of T){g.strokeStyle='#12081f';g.lineWidth=3.6;g.beginPath();g.moveTo(hx,y0);g.bezierCurveTo(hx+L*.08,y0+s*2.6,hx+L*.2,y0+s*1.4,hx+L*.34,y0+s*.4);g.stroke();
-  g.strokeStyle='#8a8e98';g.lineWidth=2.2;g.stroke();g.strokeStyle='#d8dce4aa';g.lineWidth=.8;g.beginPath();g.moveTo(hx+2,y0-.6);g.bezierCurveTo(hx+L*.08,y0+s*2.6-.6,hx+L*.2,y0+s*1.4-.6,hx+L*.31,y0+s*.4-.5);g.stroke()}
+ for(const [y0,s] of T){g.strokeStyle='#12081f';g.lineWidth=4.6;g.beginPath();g.moveTo(hx,y0);g.bezierCurveTo(hx+L*.08,y0+s*2.6,hx+L*.2,y0+s*1.4,hx+L*.37,y0+s*.4);g.stroke();
+  g.strokeStyle='#9aa0ac';g.lineWidth=3;g.stroke();g.strokeStyle='#5a5e6a';g.lineWidth=1;g.beginPath();g.moveTo(hx+2,y0+.9);g.bezierCurveTo(hx+L*.08,y0+s*2.6+.9,hx+L*.2,y0+s*1.4+.9,hx+L*.35,y0+s*.4+.8);g.stroke();g.strokeStyle='#f0f4fa';g.lineWidth=.9;g.beginPath();g.moveTo(hx+2,y0-.7);g.bezierCurveTo(hx+L*.08,y0+s*2.6-.7,hx+L*.2,y0+s*1.4-.7,hx+L*.34,y0+s*.4-.6);g.stroke();ell(g,hx+L*.37,y0+s*.4,1.3,1.3,'#e8ecf4')}
  arBev(g,[hx-2.6,-8.6,hx+3,-8.6,hx+3,8.6,hx-2.6,8.6],'#5a5e68',{ow:1.1});
  g.strokeStyle='#c8a068';g.lineWidth=1;for(let i=0;i<4;i++){g.beginPath();g.moveTo(hx-4+i*1.2,-4);g.lineTo(hx-3+i*1.2,4);g.stroke()}
  /* a corn-husk doll swinging on twine */
@@ -64816,7 +64823,7 @@ WNEW.fl_pin=(g,L,t,X)=>{g.shadowBlur=0;const wd='#d8a868',x0=L*.16,x1=L*.8,R=6.6
  for(let i=0;i<4;i++){const u=(t*.4+i/4)%1;g.globalAlpha=Math.sin(u*Math.PI)*.75;g.fillStyle='#fff8ec';g.fillRect(x0+L*(.1+i*.15)+Math.sin(u*5+i)*2,R+1+u*18,1.1,1.1)}g.globalAlpha=1};
 
 /* Rare: Maple Longbow, maple-red limbs carved with veins, leaves tied at the tips, a leaf that drifts away */
-WNEW.fl_maple=(g,L,t,X)=>{g.shadowBlur=0;wBow(g,L,t,{c:'#c4542a',lw:3.3,grip:'#3a5a22',str:'#f4e6c0',sw:1.1,nock:'#e8b04a',head:'#e8eefc',
+WNEW.fl_maple=(g,L,t,X)=>{g.shadowBlur=0;wBow(g,L,t,{c:'#c4542a',lw:3.8,grip:'#3a5a22',str:'#f4e6c0',sw:1.2,nock:'#e8b04a',head:'#ffd27a',
  back:(g,G,h,bw)=>{g.save();g.globalCompositeOperation='lighter';glow(g,0,bw*.1,L*.44,'#ff8a2a26');g.restore()},
  limb:(g,G,h,bw,gy)=>{for(const s of[-1,1]){for(const u of[.2,.38,.56]){const p=G.at(u,s);g.strokeStyle='#ffd8a066';g.lineWidth=.7;g.beginPath();g.moveTo(p.x-p.nx*1.6,p.y-p.ny*1.6);g.lineTo(p.x+p.nx*1.6+p.tx*2*s,p.y+p.ny*1.6+p.ty*2*s);g.stroke()}
    const e=G.at(.04,s);for(let k=0;k<2;k++)flgMaple(g,e.x+s*(1.6+k*2.4),e.y+3.4+k*2.6,3.4-k*.6,s*.7+Math.sin(t*2.6+k+s)*.25+k*.6,k?'#f0a030':'#d8441a',{ow:.8})}
@@ -64826,6 +64833,7 @@ WNEW.fl_maple=(g,L,t,X)=>{g.shadowBlur=0;wBow(g,L,t,{c:'#c4542a',lw:3.3,grip:'#3
 /* Epic: Acorn Flail, an oak haft, an iron chain that hangs to the ground and a great iron-capped acorn with an amber glow */
 WNEW.fl_acorn=(g,L,t,X)=>{g.shadowBlur=0;const oak='#6a4424';
  const P=[];for(let i=0;i<=10;i++){const u=i/10;P.push([-L*.2+u*L*.66,Math.sin(u*4)*.6])}rib(g,P,u=>2.9-u*.2,oak);
+ g.strokeStyle='#c08a4aaa';g.lineWidth=.8;g.beginPath();P.forEach((q,i)=>i?g.lineTo(q[0],q[1]-1.2):g.moveTo(q[0],q[1]-1.2));g.stroke();
  wrapG(g,-L*.16,L*.08,0,3.4,'#3a1e0e');for(const x of[L*.12,L*.3,L*.44]){g.fillStyle=metal(g,-4,4,'#7a7e88');g.beginPath();g.roundRect(x-1.6,-3.8,3.2,7.6,1.2);g.fill();g.strokeStyle='#12081fcc';g.lineWidth=.9;g.stroke()}
  /* oak leaves at the grip */
  for(const [a,s] of[[2.5,1],[1.9,-1]]){g.save();g.translate(L*.11,0);g.rotate(a+Math.sin(t*1.8+s)*.08);g.beginPath();g.moveTo(0,0);for(let k=1;k<=4;k++){const x=k*3.1,w=3.4-Math.abs(k-2.4)*.5;g.quadraticCurveTo(x-1.6,-w-1.4,x,-w*.55)}g.quadraticCurveTo(14.6,0,12.4,.6);for(let k=4;k>=1;k--){const x=k*3.1,w=3.4-Math.abs(k-2.4)*.5;g.quadraticCurveTo(x+1.6,w+1.4,x-1.6,w*.55)}g.closePath();
@@ -64836,7 +64844,7 @@ WNEW.fl_acorn=(g,L,t,X)=>{g.shadowBlur=0;const oak='#6a4424';
  const a=flgDown(g)+Math.sin(t*2.1)*.32-.25,n=6,cl=L*.06;let px=ex+3,py=0;
  for(let i=0;i<n;i++){const aa=a+Math.sin(t*2.1-i*.3)*.06*i,nx=px+Math.cos(aa)*cl,ny=py+Math.sin(aa)*cl;g.save();g.translate((px+nx)/2,(py+ny)/2);g.rotate(aa);g.strokeStyle='#12081f';g.lineWidth=2.6;g.beginPath();g.ellipse(0,0,cl*.62,i%2?1.2:2.2,0,0,TAU);g.stroke();g.strokeStyle=i%2?'#8a8e98':'#aeb2bc';g.lineWidth=1.3;g.stroke();g.restore();px=nx;py=ny}
  /* the acorn head: its cap hangs from the chain */
- {const r=9.6;g.save();g.translate(px+Math.cos(a)*r*1.3,py+Math.sin(a)*r*1.3);g.rotate(a-Math.PI/2);
+ {const r=10.6;g.save();g.translate(px+Math.cos(a)*r*1.3,py+Math.sin(a)*r*1.3);g.rotate(a-Math.PI/2);
   g.save();g.globalCompositeOperation='lighter';glow(g,0,r*.4,r*3,'#ffa83a'+flgA(.32+.12*Math.sin(t*3)));g.restore();
   flgAcorn(g,0,0,r,0,{nut:'#7a3e14',nut2:'#e8a050',cap:'#5a5a62',ow:1.2});
   for(let i=0;i<5;i++){const aa=Math.PI*(1.12+i*.19),sx=Math.cos(aa)*r*1.02,sy=Math.sin(aa)*r*.62-r*.2;poly(g,[sx-1.7,sy+.6,sx+Math.cos(aa)*4.6,sy+Math.sin(aa)*4.2,sx+1.7,sy+.6],'#d8dce4','#12081fcc',.8)}
@@ -64860,6 +64868,9 @@ WNEW.fl_glaive=(g,L,t,X)=>{g.shadowBlur=0;const pu=.75+.25*Math.sin(t*3);
  g.fillStyle='#ffffffcc';for(let i=0;i<12;i++){const u=rnd(i*5.3),v=rnd(i*2.9);g.fillRect(b0+4+u*L*.42,-L*.12*u+v*6-2,1,1)}
  {const sp=((t*.6)%1)*L*.7;g.strokeStyle='#ffffff55';g.lineWidth=2;g.beginPath();g.moveTo(b0+sp,-12);g.lineTo(b0+sp-6,10);g.stroke()}g.restore();
  bl();g.strokeStyle='#12081fdd';g.lineWidth=1.2;g.stroke();
+ /* a crimson tassel with a gold bead, swaying under the collar */
+ {const tx=L*.46,a=flgDown(g)+Math.sin(t*2.4)*.22,ca=Math.cos(a),sa=Math.sin(a);g.strokeStyle='#e6b93e';g.lineWidth=1.1;g.beginPath();g.moveTo(tx,3);g.lineTo(tx+ca*4,3+sa*4);g.stroke();ell(g,tx+ca*5,3+sa*5,1.7,1.7,'#e6b93e');
+  for(let k=-1;k<=1;k++){g.strokeStyle=k?'#d8203a':'#ff5a70';g.lineWidth=1.5;g.beginPath();g.moveTo(tx+ca*6,3+sa*6);g.lineTo(tx+ca*13+Math.cos(a+1.57)*k*2.2,3+sa*13+Math.sin(a+1.57)*k*2.2);g.stroke()}}
  /* cranberry cluster and two leaves at the collar */
  for(const [a,s] of[[-2.2,1],[-1.2,-1]]){g.save();g.translate(b0-1,-2);g.rotate(a);arBev(g,[0,-1.8,5,-3,10,0,5,3,0,1.8],s>0?'#3a6a2a':'#4a7a2a',{sm:1,ow:.9});g.restore()}
  g.save();g.globalCompositeOperation='lighter';glow(g,b0-2,1,12,'#ff3050'+flgA(.4*pu));g.restore();
@@ -64899,7 +64910,7 @@ WNEW.fl_horn=(g,L,t,X)=>{g.shadowBlur=0;const pu=.8+.2*Math.sin(t*3.2),hx=L*.82;
  g.save();g.translate(m[0],m[1]);g.rotate(ma);g.globalCompositeOperation='lighter';glow(g,2,0,HD.mw*2.2,'#ffd86a'+flgA(.5*pu));g.restore();
  /* fruit-light spills from the mouth and falls toward the ground */
  const dn=flgDown(g);for(let i=0;i<5;i++){const u=(t*.42+i/5)%1,k=FLG_FRUIT[i%FLG_FRUIT.length],sx=m[0]+ox*6,sy=m[1]+oy*6,fx=sx+ox*u*10+Math.cos(dn)*u*u*L*.46+Math.sin(i*2.1)*u*6,fy=sy+oy*u*10+Math.sin(dn)*u*u*L*.46;
-  g.globalAlpha=Math.min(1,Math.sin(u*Math.PI)*1.6);g.save();g.globalCompositeOperation='lighter';glow(g,fx,fy,10,['#ff5a3a','#c8e04a','#b06aff','#ff9a2a','#ffe08a','#ffc040'][i%6]+'88');g.restore();flgFruit(g,k,fx,fy,.85,t,t*2+i)}g.globalAlpha=1;
+  g.globalAlpha=Math.min(1,Math.sin(u*Math.PI)*1.6);g.save();g.globalCompositeOperation='lighter';glow(g,fx,fy,10,['#ff5a3a','#c8e04a','#b06aff','#ff9a2a','#ffe08a','#ffc040'][i%6]+'88');g.restore();flgFruitImg(g,k,fx,fy,.85,t*2+i)}g.globalAlpha=1;
  /* a cranberry gem where horn meets haft, and sparkles */
  gem(g,hx-3.4,0,2.8,'#e81e3a');
  for(let i=0;i<4;i++){const u=(t*.6+i/4)%1,x=hx-L*.1+i*L*.08,y=-L*.26-u*10,s=(1-u)*2.2+.6;g.globalAlpha=Math.sin(u*Math.PI);g.fillStyle='#fff6c8';g.fillRect(x-.5,y-s*1.6,1,s*3.2);g.fillRect(x-s*1.6,y-.5,s*3.2,1)}g.globalAlpha=1};
@@ -65930,7 +65941,7 @@ function flcMiniLive(cv,moonX){const g=cv.getContext('2d'),w=cv.width,h=cv.heigh
 function flcHubHTML(){const n=P.fcr|0,left=Math.max(0,FLC_PITY-(P.fcpity|0)),on=flcSell();
  return `<div class="flcb${n?' has':' e'}" id="flcb"><canvas class="flcbg" width="1060" height="500" aria-hidden="true"></canvas>
  <div class="flcbl"><canvas width="440" height="300" data-fcc="1"></canvas>${n?`<span class="flccnt">${n}</span>`:''}</div>
- <div class="flcbm"><div class="flctop"><span class="flclt">LIMITED TIME</span><small>${on?flLeft():'The harvest is in'}</small></div><b class="flcn">Harvest Chest</b>
+ <div class="flcbm"><div class="flctop"><span class="flclt${on?'':' end'}">${on?'LIMITED TIME':'FESTIVAL OVER'}</span><small>${on?flLeft():'Your chests and relics are yours to keep'}</small></div><b class="flcn">Harvest Chest</b>
   <p>Twelve harvest relics, a full armor set and a weapon for every rarity. Smaller pulls are gold, XP or acorns, and two harvest companions hide inside. Buy chests in the Shop or the Harvest Market, or win them in Harvest Moon Rush.</p>
   ${flcPie()}<div class="flcpt"><span>Epic or better guaranteed in <b>${left}</b> chest${left===1?'':'s'}</span><i style="--w:${Math.min(100,(FLC_PITY-left)/FLC_PITY*100)}%"></i></div></div>
  <div class="flcbr"><span class="flcown">You own ${n}</span><button class="flcopen" id="flcop" ${n?'':'disabled'}>Open</button>${n>=10?'<button class="sm gd" id="flcop10" title="Open ten at once">Open 10</button>':''}${n?'':`<small>${on?'Buy one in the Shop or the Harvest Market':'The harvest is in'}</small>`}${on?`<button class="sm" id="flcbuy">Buy · <i class="coin"></i>${price('f').toLocaleString()}</button>`:''}</div>
@@ -65957,6 +65968,7 @@ function flcHub(){FLC.ret=crateHub;
  LIVE.push({cv:cc,fn:t=>{if(fb.classList.contains('flcoff'))return;hv+=((fb._h?1:0)-hv)*.2;if(hv<.02&&(fr++%2))return;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,cc.width,cc.height);NCX.hov=hv;try{flcChest(g,cc.width/2+4,cc.height-22-hv*5,1.8,hv*(.19+.02*Math.sin(t*2.2)),t)}catch(e){}NCX.hov=0}});
  const op=$('flcop');if(op)op.onclick=()=>{if(P.fcr>0){fb.classList.add('opening');FLC.ret=crateHub;flcStart()}};
  if($('flcop10'))$('flcop10').onclick=()=>{FLC.ret=crateHub;flcBatch(10)};
+ try{if(op&&!op.disabled&&FLC.tab==='f')op.focus({preventScroll:true})}catch(e){}
  if($('flcbuy'))$('flcbuy').onclick=()=>{SHX.sel='f';shop()};
  $('flcview').onclick=()=>{SHX.sel=flcSell()?'f':SHX.sel;shop();flcCollection()}}
 
@@ -65966,7 +65978,7 @@ function flcShopDeco(){FLC.ret=()=>shop();const shl=$('shl');if(!shl)return;
  const row=shl.querySelector('.shr[data-k="f"]');if(row){row.classList.add('flcr');const rb=document.createElement('span');rb.className='flcrib';rb.textContent='LIMITED';row.appendChild(rb)}
  if(SHOP.length>5)shl.classList.add('flc6');
  if(!flcShow()&&!(flcGearBuy()&&flShopOn()))return;const gy=$('shgy');const box=document.createElement('div');box.className='flcsh2';box.id='flcsh2';
- box.innerHTML=`<div class="flcshb${flcSell()?'':' off'}" id="flcshb"><canvas width="400" height="150" id="flcshc" aria-hidden="true"></canvas><div class="flcsht"><div><span class="flclt">LIMITED TIME</span><span class="flcdays">${flcSell()?flLeft():'The harvest is in'}</span></div><b class="flctxt">Harvest Collection</b><small>Mythic harvest gear · ${flcCount()} / 12 relics found</small></div><button class="flcshbt" id="flcshbt">View ${shIco.arrow}</button></div>`;
+ box.innerHTML=`<div class="flcshb${flcSell()?'':' off'}" id="flcshb"><canvas width="400" height="150" id="flcshc" aria-hidden="true"></canvas><div class="flcsht"><div><span class="flclt${flcSell()?'':' end'}">${flcSell()?'LIMITED TIME':'FESTIVAL OVER'}</span><span class="flcdays">${flcSell()?flLeft():'The harvest is in'}</span></div><b class="flctxt">Harvest Collection</b><small>Mythic harvest gear · ${flcCount()} / 12 relics found</small></div><button class="flcshbt" id="flcshbt">View ${shIco.arrow}</button></div>`;
  if(gy){gy.before(box);box.appendChild(gy);box.classList.add('two')}else{const sp=$('shp');sp.insertBefore(box,sp.querySelector('.shmod'))}
  if(getComputedStyle(shl).flexDirection==='row')box.style.gridRow='4';
  flcMiniLive($('flcshc'),.75);const cc=$('flcshc'),g=cc.getContext('2d');{const f0=LIVE[LIVE.length-1].fn;LIVE[LIVE.length-1].fn=t=>{f0(t);try{flcChest(g,cc.width*.5,cc.height-6,.72,0,t)}catch(e){}}}
@@ -66002,9 +66014,9 @@ function flcBuyM(w){const M=flcMy(),A=AR[M.a],Wp=WP[M.w];if(!A||!Wp)return;
 function flcCollection(note){if(typeof note!=='string')note='';let m=$('shmod');if(!m){shop();m=$('shmod')}if(!m)return;const gb=flcGearBuy(),on=gb?flShopOn():flcSell(),grace=on&&!flOn(),g=P.gold,M=flcMy(),A=AR[M.a],Wp=WP[M.w],oa=!!(A&&P.ownA[M.a]),ow=!!(Wp&&P.own[M.w]),save2=FL.price.a+FL.price.w-FL.price.b,ready=!!(A&&Wp);
  const btn=(w,pr,owned,part)=>{if(gb){const why=flgWhyNot(w);owned=why==='owned';part=why==='part'}const can=gb?!flgWhyNot(w):on&&ready&&!owned&&!part&&g>=pr;return `<button class="flcbuy${owned?' own':''}" data-fb="${w}" ${can?'':'disabled'}>${owned?'✓ Owned':part?'Part owned':!on?'Festival over':!ready?'Coming soon':g<pr?`<span><i class="coin"></i>${pr.toLocaleString()}</span><small>need ${(pr-g).toLocaleString()} more</small>`:`<span><i class="coin"></i>${pr.toLocaleString()}</span>`}</button>`};
  const card=(w,nm,sub,desc,prev,pr,owned,part)=>`<div class="flcc${owned?' own':''}${w==='b'?' bun':''}" data-w="${w}" style="--i:${'awb'.indexOf(w)}"><div class="flccp">${prev}<i class="flcglow"></i>${w==='b'?`<span class="flcsave">SAVE ${save2.toLocaleString()}</span>`:''}</div><b>${esc(nm)}</b><em>${sub}</em><small>${esc(desc)}</small>${btn(w,pr,owned,part)}</div>`;
- const AB=(typeof GAB!=='undefined'&&GAB[FL.ab.k])||{},abD=AB.d||'Every correct word fills a harvest meter. When it is full, a cornucopia bursts over the field.',abS=String(AB.set||'Set bonus: wear both Mythic relics and the meter fills faster and the burst hits harder.').replace('Set bonus: ','');
+ const AB=(typeof GAB!=='undefined'&&GAB[FL.ab.k])||{},abD=AB.d||'Every correct word fills a harvest meter. When it is full, a cornucopia bursts over the field.',abS=String(AB.set||'Set bonus: wear both Mythic relics and the meter fills faster and the burst hits harder.').replace('Set bonus: ','').replace(/^[a-z]/,c=>c.toUpperCase());
  m.innerHTML=`<div class="shmc wide flcwin" id="flcwin"><button class="shx" aria-label="Close">×</button>
-  <div class="flchd"><canvas id="flcsc" width="1100" height="210" aria-hidden="true"></canvas><div class="flcht"><div><span class="flclt">LIMITED TIME</span><span class="flcdays">${on?flLeft():'The harvest is in'}</span></div><h3 class="flctxt">Harvest Collection</h3><p>${grace?`The festival is over, but the Mythic relics are sold until ${new Date(FL.end+FL.grace-1).toLocaleDateString('en-GB',{day:'numeric',month:'long'})}.`:on?'Mythic harvest relics, sold until the festival ends on 1 December.':'The festival is over. These relics are no longer sold.'}</p></div></div>
+  <div class="flchd"><canvas id="flcsc" width="1100" height="210" aria-hidden="true"></canvas><div class="flcht"><div><span class="flclt${on?'':' end'}">${on?'LIMITED TIME':'FESTIVAL OVER'}</span><span class="flcdays">${on?flLeft():'The harvest is in'}</span></div><h3 class="flctxt">Harvest Collection</h3><p>${grace?`The festival is over, but the Mythic relics are sold until ${new Date(FL.end+FL.grace-1).toLocaleDateString('en-GB',{day:'numeric',month:'long'})}.`:on?'Mythic harvest relics, sold until the festival ends on 1 December.':'The festival is over. These relics are no longer sold.'}</p></div></div>
   ${note?`<div class="flcnote">${esc(note)}</div>`:''}
   <div class="flcg">${card('a',A?A.n:FL.gearN[M.a],'Mythic armor set',A?A.d:'',`<canvas width="200" height="250" data-flcv="a:${M.a}"></canvas>`,FL.price.a,oa,0)}
    ${card('w',Wp?Wp.n:FL.gearN[M.w],'Mythic weapon',Wp?Wp.d:'',`<canvas width="200" height="250" data-flcv="w:${M.w}"></canvas>`,FL.price.w,ow,0)}
@@ -66012,7 +66024,11 @@ function flcCollection(note){if(typeof note!=='string')note='';let m=$('shmod');
   <div class="flcab"><span class="flcic"></span><div><b>Ability: ${esc(FL.ab.n)}</b><span>${esc(abD)}</span></div><div class="flcset"><b>Set bonus</b><span>${esc(abS)}</span></div></div>
   <div class="flccol"><div class="flccolh"><b>Harvest Chest relics</b><span>${flcCount()} / 12 found · open Harvest Chests from the Shop, the Harvest Market or Harvest Moon Rush · you own ${P.fcr|0}</span></div>${flcStrip()}</div></div>`;
  m.classList.add('on');m.querySelector('.shx').onclick=shClose;m.onclick=e=>{if(e.target===m)shClose()};flcThumbs(m);
- m.querySelectorAll('[data-fb]').forEach(b=>b.onclick=()=>flcBuyM(b.dataset.fb));
+ /* 10.4c: a purchase of 100,000 gold or more asks once: the first tap arms the button ("Tap again to buy"), the second buys; a double click does not */
+ m.querySelectorAll('[data-fb]').forEach(b=>b.onclick=()=>{const now=performance.now();if(b.classList.contains('arm')){if(now-b._at<280)return;clearTimeout(b._t);b.classList.remove('arm');flcBuyM(b.dataset.fb);return}
+  b._lab=b.innerHTML;b._at=now;b.classList.add('arm');b.innerHTML='<span>Tap again to buy</span>';try{beep(660,.05,'triangle',.4)}catch(e){}
+  b._t=setTimeout(()=>{if(b.isConnected&&b.classList.contains('arm')){b.classList.remove('arm');b.innerHTML=b._lab}},3600)});
+ try{const f=m.querySelector('[data-fb]:not(:disabled)')||m.querySelector('.shx');if(f)f.focus({preventScroll:true})}catch(e){}
  const sc=$('flcsc');flcMiniLive(sc,.86);{const L=LIVE[LIVE.length-1],f0=L.fn,sg2=sc.getContext('2d');L.fn=t=>{f0(t);try{flcScarecrow(sg2,sc.width*.065,sc.height+34,.6,Math.sin(t*.4)*.5,t,{});flcLantern(sg2,sc.width*.15,sc.height+12,.66,1,'#ffc070',t,Math.sin(t*1.6)*.05);flcLantern(sg2,sc.width*.93,sc.height+12,.66,1,'#ffc070',t+2,Math.sin(t*1.4)*.05)}catch(e){}}}
  m.querySelectorAll('canvas[data-flcv]').forEach((c,i)=>{const [k,id]=c.dataset.flcv.split(':'),cd=c.closest('.flcc');let fr=0;
   if(!(k==='a'?AR:WP)[id]){const gg=c.getContext('2d');gg.clearRect(0,0,c.width,c.height);k==='a'?flcPumpkin(gg,c.width/2,c.height*.6,c.width*.3,{carve:1,glow:1}):flcHorn(gg,c.width*.62,c.height*.55,c.width/300,0,1);return}
@@ -66021,7 +66037,7 @@ function flcCollection(note){if(typeof note!=='string')note='';let m=$('shmod');
 
 /* ---------- catalog › Crates ---------- */
 {const c0=catalog;catalog=function(back,tab){const r=c0.apply(this,arguments);try{if((tab||catalog.tab)==='Crates'&&flcShow()){const grid=ov.querySelector('.bgrid.c');if(grid&&!grid.querySelector('[data-c="f"]')){const d=document.createElement('div');d.className='mcd cr';d.style.borderColor='#ff9a3a';
-  d.innerHTML=`<canvas width="150" height="120" data-c="f"></canvas><b style="color:#ff9a3a">Harvest Chest</b><small>LIMITED TIME. Harvest Festival, 6 November to 1 December. Bought in the Shop or the Harvest Market and won in Harvest Moon Rush. Holds the twelve harvest relics, gold, XP, acorns and two companions. Legendary and Mythic odds are a secret.</small><span>You own ${P.fcr|0}</span>`;
+  d.innerHTML=`<canvas width="150" height="120" data-c="f"></canvas><b style="color:#ff9a3a">Harvest Chest</b><small>${flcSell()?'LIMITED TIME':'FESTIVAL OVER'}. Harvest Festival, 6 November to 1 December. ${flcSell()?'Bought in the Shop or the Harvest Market and won in Harvest Moon Rush.':'No longer sold, but chests you hold can still be opened.'} Holds the twelve harvest relics, gold, XP, acorns and two companions. Legendary and Mythic odds are a secret.</small><span>You own ${P.fcr|0}</span>`;
   const hc=grid.querySelector('[data-c="h"]');(hc?hc.closest('.mcd'):grid.lastElementChild).after(d);const c=d.querySelector('canvas');try{flcChest(c.getContext('2d'),c.width/2,c.height-8,.62,0,0)}catch(e){}}}}catch(e){}return r}}
 
 /* ---------- dock badges count the chests ---------- */
@@ -66056,7 +66072,7 @@ if(typeof dvxAct==='function'){const a0=dvxAct;dvxAct=function(a){
 #flctoast{position:absolute;right:26px;top:92px;z-index:99990;display:flex;align-items:center;gap:10px;padding:6px 18px 6px 6px;border-radius:16px;background:linear-gradient(180deg,#3a1e12f2,#1e0e08f6);border:2px solid #ffb04a;box-shadow:0 10px 24px #000a;color:#fff4dc;pointer-events:none;opacity:0;transform:translateX(24px) scale(.92);transition:opacity .25s,transform .35s cubic-bezier(.3,1.6,.5,1)}
 #flctoast.on{opacity:1;transform:none}#flctoast canvas{width:72px;height:54px;flex:none}#flctoast b{display:block;font:400 26px/1.2 'Pirata One',Georgia,serif;color:#ffd27a}#flctoast small{display:block;margin-top:3px;font:600 13px/1.3 var(--ui);color:#f0d8c0}
 .flctxt{text-shadow:none!important;background:linear-gradient(180deg,#fffbe0,#ffd45a 42%,#ff9a3a 78%,#e8602a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#ffb04a;filter:drop-shadow(0 3px 0 #3a1406) drop-shadow(0 0 14px #ff9a3a88)}
-.flclt{display:inline-block;padding:3px 10px;border-radius:10px;font:800 11px var(--ui);letter-spacing:1.2px;color:#2a1006;background:linear-gradient(180deg,#ffd27a,#ff8a3a)}
+.flclt.end{background:linear-gradient(180deg,#d8c8b8,#8a7868)}.flclt{display:inline-block;padding:3px 10px;border-radius:10px;font:800 11px var(--ui);letter-spacing:1.2px;color:#2a1006;background:linear-gradient(180deg,#ffd27a,#ff8a3a)}
 /* crates menu banner */
 .flctabs{display:flex;justify-content:center;gap:10px;margin:2px auto 10px}
 .flctab{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:8px;padding:7px 16px;border-radius:22px;font:700 15px var(--ui);color:#e8dcff;background:#1a1236;border:2px solid #3a3070;transition:transform .15s,border-color .15s,background .15s}
@@ -66099,19 +66115,19 @@ if(typeof dvxAct==='function'){const a0=dvxAct;dvxAct=function(a){
 .flcshbt{all:unset;box-sizing:border-box;cursor:pointer;flex:none;display:flex;align-items:center;gap:6px;padding:10px 14px;border-radius:14px;font:700 15px var(--ui);color:#fff;background:linear-gradient(180deg,#a8501e,#6a2a0e);border:1.5px solid #ffb04a;box-shadow:0 5px 0 #3a1406}.flcshbt svg{width:16px;height:16px}.flcshbt:hover{filter:brightness(1.12)}
 .shmc.flcodds{border-color:#ff9a3a}.shmc.flcodds h3{color:#ffc46a}.flcodds .flcpie{margin:8px 0}.shig span.flcx{font-style:italic;border-style:dashed}
 /* the Harvest Collection window */
-.shmod:has(.flcwin){inset:58px -8px 50px}
+.shmod:has(.flcwin){inset:10px -8px 14px}
 .shmc.flcwin{padding:0;width:min(1120px,96%);background:linear-gradient(180deg,#1e0e10,#0e0608);border:2px solid #ff9a3a88;box-shadow:0 0 0 2px #ffd27a33,0 24px 60px #000e}
 .flcwin .shx{color:#ffe9c8;text-shadow:0 2px 6px #000}
-.flchd{position:relative;aspect-ratio:1100/210;overflow:hidden;border-radius:16px 16px 0 0}.flchd canvas{position:absolute;inset:0;width:100%;height:100%}
+.flchd{position:relative;aspect-ratio:1100/132;overflow:hidden;border-radius:16px 16px 0 0}.flchd canvas{position:absolute;inset:0;width:100%;height:100%}
 .flchd::after{content:"";position:absolute;left:0;right:0;bottom:0;height:28px;background:linear-gradient(transparent,#1e0e10)}
-.flcht{position:absolute;left:0;right:0;top:14px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:1;text-align:center}.flcht>div{display:flex;gap:8px;align-items:center}
-.flcht h3{margin:0 0 4px;font:400 64px/1.18 'Pirata One',Georgia,serif}.flcht p{margin:0;font:500 16px var(--ui);color:#fff0e0;text-shadow:0 2px 6px #000}
+.flcht{position:absolute;left:0;right:0;top:8px;display:flex;flex-direction:column;align-items:center;gap:4px;z-index:1;text-align:center}.flcht>div{display:flex;gap:8px;align-items:center}
+.flcht h3{margin:0 0 2px;font:400 48px/1.05 'Pirata One',Georgia,serif}.flcht p{margin:0;padding:1px 14px;border-radius:10px;background:#12081fb8;font:500 15px var(--ui);color:#fff0e0;text-shadow:0 2px 6px #000}
 .flcnote{margin:8px 24px 0;padding:10px 16px;border-radius:12px;background:#2a1a08e6;border:1.5px solid #ffb04aaa;font:600 15px var(--ui);color:#ffe8c0;text-align:center;animation:flcin .4s ease both}
-.flcg{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:16px;padding:16px 24px 6px}
-.flcc{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 14px 14px;border-radius:18px;text-align:center;background:radial-gradient(ellipse at 50% 30%,#3a1e14,#160a0a 70%);border:2px solid #ff9a3a66;box-shadow:0 10px 24px #000a;transition:transform .25s,border-color .25s;animation:flcin .55s cubic-bezier(.2,1.2,.4,1) calc(.1s + var(--i)*.09s) both}
+.flcg{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:14px;padding:8px 24px 4px}
+.flcc{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 12px 12px;border-radius:18px;text-align:center;background:radial-gradient(ellipse at 50% 30%,#3a1e14,#160a0a 70%);border:2px solid #ff9a3a66;box-shadow:0 10px 24px #000a;transition:transform .25s,border-color .25s;animation:flcin .55s cubic-bezier(.2,1.2,.4,1) calc(.1s + var(--i)*.09s) both}
 .flcc:hover{transform:translateY(-6px);border-color:#ffd27a}.flcc.bun{border-color:#ffd45a88}.flcc.own{border-color:#ffd27a}.flcc.own::before{content:'OWNED';position:absolute;top:10px;right:10px;padding:3px 9px;border-radius:10px;font:800 11px var(--ui);letter-spacing:1px;color:#2a1006;background:#ffd27a}
-.flccp{position:relative;display:flex;justify-content:center;align-items:flex-end;height:170px;width:100%}.flccp canvas{height:170px;width:136px;position:relative;z-index:1;transition:transform .35s cubic-bezier(.3,1.6,.5,1)}.flcc:hover .flccp canvas{transform:scale(1.07)}
-.flcpair{display:flex;gap:4px;position:relative;z-index:1}.flcpair canvas{height:150px;width:118px}
+.flccp{position:relative;display:flex;justify-content:center;align-items:flex-end;height:116px;width:100%}.flccp canvas{height:116px;width:93px;position:relative;z-index:1;transition:transform .35s cubic-bezier(.3,1.6,.5,1)}.flcc:hover .flccp canvas{transform:scale(1.07)}
+.flcpair{display:flex;gap:4px;position:relative;z-index:1}.flcpair canvas{height:104px;width:82px}
 .flcglow{position:absolute;left:50%;bottom:8px;width:70%;height:40px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(#ffb04a66,transparent 70%);animation:flcgl 2.6s ease-in-out infinite}@keyframes flcgl{50%{opacity:.5;transform:translateX(-50%) scale(1.15)}}
 .flcsave{position:absolute;top:2px;left:50%;transform:translateX(-50%) rotate(-4deg);z-index:2;padding:4px 12px;border-radius:10px;font:800 13px var(--ui);letter-spacing:1px;color:#2a1406;background:linear-gradient(180deg,#fff0a0,#f0a820);box-shadow:0 4px 10px #000a}
 .flcc b{font:400 30px/1.05 'Pirata One',Georgia,serif;color:#ffc46a}.flcc.bun b{color:#ffe27a}.flcc em{font:800 12px var(--ui);font-style:normal;letter-spacing:1.4px;text-transform:uppercase;color:#ff9a6a}
@@ -66120,19 +66136,20 @@ if(typeof dvxAct==='function'){const a0=dvxAct;dvxAct=function(a){
 .flcbuy .coin{width:22px;height:22px;margin-right:6px;vertical-align:-3px}.flcbuy small{font:700 11px var(--ui);color:#ffdede;min-height:0}
 .flcbuy:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08)}.flcbuy:active:not(:disabled){transform:translateY(3px);box-shadow:0 2px 0 #7a4a08}
 .flcbuy:disabled{cursor:default;font-size:18px;color:#f0e8e0;background:linear-gradient(180deg,#5a4440,#3a2a26);border-color:#8a706a;box-shadow:0 4px 0 #1a0e0c}
+.flcbuy.arm{font-size:17px;color:#fff;background:linear-gradient(180deg,#e8683a,#a8341a);border-color:#ffe0c0;box-shadow:0 5px 0 #4a1408,0 8px 18px #000a}.flcbuy.arm small{color:#ffe8d8}
 .flcbuy.own,.flcbuy.own:disabled{font-size:20px;color:#2a1006;background:linear-gradient(180deg,#ffe9b0,#ffc04a);border-color:#fff4d0;box-shadow:0 4px 0 #7a4a08}
 .flcc.bought{animation:flcbt .9s cubic-bezier(.3,1.6,.5,1)}@keyframes flcbt{30%{transform:scale(1.06)}}
 .flcsp{position:absolute;left:50%;top:40%;width:14px;height:12px;z-index:3;pointer-events:none;border-radius:2px 8px;background:linear-gradient(135deg,#ffd27a,#e8402a);animation:flcsp 1.1s ease-out forwards}
 @keyframes flcsp{to{transform:translate(var(--dx),var(--dy)) rotate(var(--r)) scale(.3);opacity:0}}
-.flcab{display:flex;align-items:center;gap:16px;margin:10px 24px 0;padding:12px 18px;border-radius:14px;background:linear-gradient(90deg,#3a1a0a,#1e0e14);border:1.5px solid #ffb04a66;animation:flcin .5s ease .35s both}
-.flcic{flex:none;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff4c0,#ffb04a 60%,#c8641a)}.flcab>div{display:flex;flex-direction:column;gap:2px;flex:1}.flcab b{font:400 24px 'Pirata One',Georgia,serif;color:#ffd8a0}.flcab span{font:500 13px/1.4 var(--ui);color:#f0dccc}
+.flcab{display:flex;align-items:center;gap:16px;margin:8px 24px 0;padding:8px 16px;border-radius:14px;background:linear-gradient(90deg,#3a1a0a,#1e0e14);border:1.5px solid #ffb04a66;animation:flcin .5s ease .35s both}
+.flcic{flex:none;width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff4c0,#ffb04a 60%,#c8641a)}.flcab>div{display:flex;flex-direction:column;gap:2px;flex:1}.flcab b{font:400 24px 'Pirata One',Georgia,serif;color:#ffd8a0}.flcab span{font:500 12.5px/1.35 var(--ui);color:#f0dccc}
 .flcab .flcset{flex:.8;padding-left:16px;border-left:1px solid #ffb04a44}.flcset b{color:#ffe27a!important}
-.flccol{margin:12px 24px 20px;padding:12px 16px;border-radius:14px;background:#0a0606aa;border:1px solid #ffffff1a;animation:flcin .5s ease .45s both}
-.flccolh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:8px}.flccolh b{font:400 24px 'Pirata One',Georgia,serif;color:#ffe0c0}.flccolh span{font:600 13px var(--ui);color:#d8b8a0;text-align:right}
+.flccol{margin:8px 24px 12px;padding:6px 14px 8px;border-radius:14px;background:#0a0606aa;border:1px solid #ffffff1a;animation:flcin .5s ease .45s both}
+.flccolh{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px}.flccolh b{font:400 24px 'Pirata One',Georgia,serif;color:#ffe0c0}.flccolh span{font:600 13px var(--ui);color:#d8b8a0;text-align:right}
 .flccol .flcst{justify-content:center}
 /* result screens */
 .flcres{display:flex;flex-direction:column;align-items:center;min-height:100%}.flcres h2{font-size:58px;line-height:1.2;margin-bottom:10px}.flcpet{justify-content:center}.flcpet canvas{width:260px;height:260px}.flcres p{max-width:820px}
-.flcbat .cbs span b{color:#ffd27a}
+.flcbat .cbs span b{color:#ffd27a}.flcbat .row{margin-top:14px}
 @media (prefers-reduced-motion:reduce){.flcb,.flcc,.flcab,.flccol,.flcnote,.flcglow,#flctoast{animation:none!important;transition:none!important}}
 `;document.head.appendChild(st)}
 flcShopSync();
@@ -66226,7 +66243,7 @@ function flpEggsHTML(){const n=flpEggN(),own=petOwned('flturkey'),shop=flpBuyOpe
  const lab=!shop?'Festival over':own?'Already hatched':!can?'One egg at a time':need>0?`Need ${need.toLocaleString()} more gold`:'Buy';
  const dis=!shop||!can||need>0;
  const left=typeof flLeft==='function'?flLeft():'',save=Math.min(1,P.gold/pr);
- const info=`<div class="phx-row phx-save flp-sv${!dis?' ok':''}"><span class="phx-svi flp-svi">${FLP_LEAF}</span><div class="phx-rt"><b>${shop?'Harvest Festival only':'The festival has ended'}</b><small>${shop?`${esc(left)} · also sold for acorns in the Harvest Market`:'Eggs you still hold can be hatched any time.'}</small>${shop&&!own?`<span class="ptbar phx-svb"><i style="width:${save*100}%"></i></span>`:''}</div></div>`;
+ const info=`<div class="phx-row phx-save flp-sv${!dis?' ok':''}"><span class="phx-svi flp-svi">${FLP_LEAF}</span><div class="phx-rt"><b>${shop?'Harvest Festival only':'The festival has ended'}</b><small>${shop?`${esc(left)} · also sold for acorns in the Harvest Market`:'Eggs you still hold can be hatched any time.'}</small>${shop&&!own?`<span class="ptbar phx-svb"><i style="width:${save*100}%"></i></span>`:''}</div>${shop&&!own&&typeof fleMarket==='function'?'<button class="ptsoft flp-mk" id="flpmk" title="Buy the egg with acorns at the Harvest Market">Market ›</button>':''}</div>`;
  return `<div class="phx phx2 phx3 phx4 phx-kh"><section class="ptp phx-inv"><div class="ptph"><h3>Your Eggs</h3></div><div class="phx-cards" role="radiogroup" aria-label="Egg type">${['r','l','m','h'].map(flpEggCard).join('')}</div></section>
   <section class="phx-show"><canvas id="phxcv" aria-hidden="true"></canvas><div class="phx-tt"><h3>${FLPC.egg} Egg</h3><span class="ptbg ptbg-m">MYTHIC</span><p class="phx-tag">Laid under the harvest moon, warm as a hearth.</p></div>
    <div class="phx-pool"><p>${own?'<b>Thunderplume</b> is already in your hall':'Hatches <b>Thunderplume, the Harvest Turkey</b> <em>(guaranteed)</em>'}</p><div class="phx-pl"><span class="${own?'own':''}" title="${own?'Thunderplume (owned)':'Undiscovered'}"><canvas width="56" height="48" data-pl="flturkey"></canvas></span></div><button class="ptsoft phx-vc" id="phxvc">View companion ›</button></div></section>
@@ -66250,6 +66267,7 @@ function flpEggsBind(){const cv=$('phxcv');if(cv&&typeof flpEggStage==='function
  const by=$('phxby');if(by&&!by.disabled){let armed=0,tm=0;const lab=by.innerHTML;by.onclick=()=>{if(PTX.busy)return;if(!armed){armed=1;by.classList.add('arm');by.innerHTML=`Confirm purchase • ${PTICO.coin}${FLPC.price.toLocaleString()}`;ptBeep(520,.04,.25);tm=setTimeout(()=>{if(!by.isConnected)return;armed=0;by.classList.remove('arm');by.innerHTML=lab},3200);return}
   clearTimeout(tm);PTX.busy=1;by.disabled=true;const ok=flpEggBuy();PTX.busy=0;if(ok){ptTone(523,.3,.12);ptTone(784,.4,.1,'sine',.08);ptTone(1046,.5,.08,'sine',.16);ccToast(`${FLPC.egg} Egg added to your inventory.`);petHall('Eggs');const n=$('phxn');if(n)n.animate([{transform:'scale(1.5)',color:'#ffd45a'},{transform:'scale(1)'}],{duration:500,easing:'cubic-bezier(.3,1.6,.5,1)'});const c=ov.querySelector('.phx-c[data-egg="h"]');if(c)c.classList.add('got')}else petHall('Eggs')}}
  const vc=$('phxvc');if(vc)vc.onclick=()=>{PTX.sel='flturkey';petHall('Pets')};
+ const mk=$('flpmk');if(mk)mk.onclick=()=>{ptBeep(560);fleMarket()};
  const sv=ov.querySelector('.flp-sv .phx-svb i');if(sv&&!ptRM())sv.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:900,easing:'cubic-bezier(.2,1,.3,1)'})}
 /* arrow keys cycle through all four eggs */
 function flpEggKeys(){const ord=[...ov.querySelectorAll('.phx-c[data-egg]')].map(b=>b.dataset.egg);if(!ord.includes('h'))return;
@@ -66330,6 +66348,9 @@ function flpGale(p){petSpend();petAnim('ability',1.5);let n=0;const pj=S.pj.filt
 .phx-kh .phx-tt h3{color:#ffe0a0;text-shadow:0 3px 0 #3a1406,0 0 22px #ff8a2a88}
 .flp-hatch{background:linear-gradient(180deg,#fff0a0,#ffb43a 55%,#d8641a)!important;color:#2a1006!important;box-shadow:0 4px 0 #7a2e0a!important}
 .flp-sv .flp-svi{background:#4a2410;color:#ffb43a}.flp-sv.ok{border-color:#ffb43a!important}
+.flp-mk{flex:none;margin-left:auto;align-self:center;white-space:nowrap}
+/* 10.4c: at a small window the Hall switches to two columns (87c, max-width 1100px); the Pets stage then runs under the dock, so its name label sits higher */
+@media (max-width:1100px){.pt-Pets .ptnm{bottom:34px}}
 .phx-ab-h{border-color:#8a4a24}.phx-ab-h .phx-abh i{color:#ffb43a}.phx-ab-h .phx-facts svg{width:13px;height:13px}
 .flp-new{color:#ffe0a0!important;background:#5a2410!important;border-color:#ffb43a66!important}
 .phx-c.got{animation:flpgot .6s cubic-bezier(.3,1.6,.5,1)}@keyframes flpgot{40%{transform:scale(1.05)}}
@@ -67562,21 +67583,22 @@ function fleBoardBake(w,h){const k='board'+w+'x'+h;if(FLA[k])return FLA[k];const
    Home: the events card shows the festival (with a Halloween button while Halloween lasts), falling leaves drift over the home
    screen (not with reduced motion or Performance mode, and switchable in the festival), Choose a mode's Events lists it all. */
 const FLU={rev:null,conf:null};
-const fleWal=()=>`<span class="flewal" id="flewal" title="Your acorns">${fleIco('acorn',30)}<b id="flewaln">${fleAcorns().toLocaleString()}</b><span>acorns</span></span>`;
+const FLE_WALT='Acorns are the festival money. Earn them in every game mode, with Gratitude tasks and Calendar presents, and spend them at the Harvest Market. Tap to see how it works.';
+const fleWal=()=>`<span class="flewal" id="flewal" role="button" tabindex="0" title="${FLE_WALT}">${fleIco('acorn',30)}<b id="flewaln">${fleAcorns().toLocaleString()}</b><span>acorns</span></span>`;
 function fleTag(){if(flOn())return`HARVEST FESTIVAL &bull; ${esc(flLeft()).toUpperCase()}`;if(!flShopOn())return'THE HARVEST FESTIVAL HAS ENDED';const d=Math.max(0,Math.ceil((FL.end+FL.grace-flNow())/864e5));return`THE HARVEST IS IN &bull; MARKET OPEN ${d} MORE DAY${d===1?'':'S'}`}
 const fleTop=(back,lab)=>`<header class="fletop"><button class="fleback" id="fleback">${typeof TV_ICON==='object'?TV_ICON.back:'‹'}<span>${lab||'Back'}</span></button><span class="fleev">${fleIco('leaf',32)}<b>${fleTag()}</b></span><span class="flesp"></span>${flShopOn()?fleWal():''}<button class="fleic" id="flehelp" aria-label="How the Harvest Festival works" title="How it works">${typeof TV_ICON==='object'?TV_ICON.help:'?'}</button></header>`;
 function fleLiveCv(id,fn,slow){const c=$(id);if(!c)return;const g=c.getContext('2d');const d=t=>{try{fn(g,c,t)}catch(e){}};d(2.5);if(!fleRM())LIVE.push({cv:c,fn:d,slow:slow||2})}
 function fleClosed(){show(`<section class="fle flehub">${fleTop()}<div class="flegone"><h2>The Harvest Festival is over</h2><p>Thank you for celebrating! The festival ran from 6 November to 1 December, and the market stayed open a week for leftover acorns.</p><button class="flebig" id="flegone">Back to the home screen</button></div></section>`,'m');S.back=title;$('fleback').onclick=title;$('flegone').onclick=title;$('flehelp').onclick=fleHow}
 
 /* ---------- the festival hub ---------- */
-function fleHub(){if(!P)return;S.mode='title';S.view='menu';if(!flShopOn())return fleClosed();const f=FLP(),e=f.fe;if(!e.seen){e.seen=1;save()}
+function fleHub(){if(!P)return;S.mode='title';S.view='menu';if(!flShopOn())return fleClosed();const f=FLP(),e=f.fe,first=!e.seen;if(first){e.seen=1;save()}
  const on=flOn(),G=on?fleGT():null,D=fleToday(),note=e.note;if(note){e.note='';save()}
  const task=(k,i)=>{const T=FLE_TK[k],n=T.n,p=G.p[i],dn=p>=n,cl=G.c[i],rw=FLE.gtRw[T.t],col=FLE_TCOL[T.ic]||'#ffd45a';
   return `<div class="flegt${dn?' done':''}${cl?' got':''}" style="--c:${col}"><span class="flegti">${fleTGlyph(T.ic,28)}</span><div class="flegtx"><em>${['Easy','Medium','Hard'][T.t]}</em><b>${esc(T.x)}</b><i class="flebar"><u style="width:${(Math.min(1,p/n)*100).toFixed(1)}%"></u></i><small>${cl?'Thank you!':dn?'Done! Claim your acorns':n>1?`${p.toLocaleString()} / ${n.toLocaleString()}`:'Not yet'}</small></div>${cl?`<span class="flegtok">${typeof TV_ICON==='object'?TV_ICON.check:'✓'}</span>`:dn?`<button class="flecl" data-fle-cl="${i}">${fleIco('acorn',20)}Claim +${rw}</button>`:`<span class="flegtr">${fleIco('acorn',20)}+${rw}</span>`}</div>`};
  const calN=fleCalN(),ready=fleCalReady(),fcr=P[FL.chest.cnt]|0,rush=typeof flrMenu==='function',rushOn=rush&&(typeof flrOn!=='function'||flrOn());
  const panel=on?`<div class="flegth"><h3>Gratitude</h3><small>New tasks in ${fleTaskLeft()}</small></div><div class="flegts">${G.k.map(task).join('')}</div>
    <div class="flegtb${G.b?' got':''}">${fleIco('leaf2',22)}<span>${G.b?'All three done today: bonus paid':`Finish all three today: <b>+${FLE.gtBonus}</b> bonus acorns`}</span></div>
-   <div class="flebag" title="Play acorns pay in full up to the daily bag, then a quarter"><span>Today's acorn bag</span><i class="flebar"><u style="width:${(Math.min(1,D.play/FLE.bag)*100).toFixed(1)}%"></u></i><b>${Math.min(D.play,FLE.bag)} / ${FLE.bag}</b></div>`
+   <div class="flebag" title="Acorns from playing pay in full up to the daily bag, then a quarter. Gratitude tasks and presents do not count toward it."><span>Acorns from play today</span><i class="flebar"><u style="width:${(Math.min(1,D.play/FLE.bag)*100).toFixed(1)}%"></u></i><b>${Math.min(D.play,FLE.bag)} / ${FLE.bag}</b></div>`
   :`<div class="flegth"><h3>The harvest is in</h3></div><p class="flegrace">Thank you for celebrating! The festival ended on 1 December. Hazel keeps the market open a few more days so you can spend your leftover acorns.</p>
    <div class="flesum"><span>${fleIco('acorn',26)}<b>${e.tot.toLocaleString()}</b>acorns gathered</span><span>${fleIco('gift',26)}<b>${calN} / 21</b>presents opened</span><span>${fleIco('leaf',26)}<b>${e.gtN}</b>Gratitude tasks</span><span>${fleIco('chest',26)}<b>${Object.values(e.buy).reduce((a,b)=>a+b,0)}</b>market buys</span></div>
    <button class="flebig" id="flegomk">${fleIco('acorn',26)}Spend ${f.ac.toLocaleString()} acorns at the market</button>`;
@@ -67584,14 +67606,14 @@ function fleHub(){if(!P)return;S.mode='title';S.view='menu';if(!flShopOn())retur
  ${note?`<p class="flenote" role="status">${esc(note)}</p>`:''}
  <div class="flemain"><canvas id="flescene" width="1320" height="500" aria-label="A harvest table under a rising orange moon, with lanterns, pumpkins and your hero"></canvas>
   <div class="flehero"><div class="flekick"><span>TYPE WARRIORS</span><em class="flelt">${on?'LIMITED TIME':'THANK YOU'}</em></div><h2>Harvest Festival</h2>
-   <p>Gather acorns in every mode, open a present each day until Thanksgiving and spend your harvest at the market.</p>
-   <div class="flestats"><span><b>${e.tot.toLocaleString()}</b> acorns gathered</span><span><b>${calN} / 21</b> presents</span><span><b>${e.gtN}</b> tasks done</span>${!fleLite()||e.lv?`<button class="flelv" id="flelv" aria-pressed="${e.lv?'true':'false'}" title="Falling leaves on the home screen">${fleIco('leaf3',18)}Leaves ${e.lv?'on':'off'}</button>`:''}</div></div>
+   <p>${on?'Gather acorns in every mode, open a present each day until Thanksgiving and spend your harvest at the market.':`The festival is over, but Hazel keeps the market open until ${new Date(FL.end+FL.grace-1).toLocaleDateString('en-GB',{day:'numeric',month:'long'})}. Spend your leftover acorns before the stall closes.`}</p>
+   <div class="flestats">${on?`<span><b>${e.tot.toLocaleString()}</b> acorns gathered</span><span><b>${calN} / 21</b> presents</span><span><b>${e.gtN}</b> tasks done</span>`:''}${!fleLite()||e.lv?`<button class="flelv" id="flelv" aria-pressed="${e.lv?'true':'false'}" title="Falling leaves on the home screen">${fleIco('leaf3',18)}Leaves ${e.lv?'on':'off'}</button>`:''}</div></div>
   <aside class="flepanel" aria-label="Gratitude tasks">${panel}</aside></div>
  <div class="flerow">
   <button class="fletile fletcal${ready?' hot':''}" id="flecalb"><canvas width="132" height="100" data-fle-tile="cal" aria-hidden="true"></canvas><div><b>Harvest Calendar</b><small>${!on?'Closed with the festival':ready?"Today's present is ready!":fleCalNow()>26?'Catch up on missed presents':fleCalNow()<6?'Opens on 6 November':`${calN} of 21 presents opened`}</small></div>${ready?'<em>Open</em>':''}</button>
   <button class="fletile flemkt" id="flemktb"><canvas width="132" height="100" data-fle-tile="mkt" aria-hidden="true"></canvas><div><b>Harvest Market</b><small>Chests, companions, the Golden Harvest Egg</small></div></button>
   <button class="fletile flerush" id="flerushb" ${rushOn?'':'disabled'}><canvas width="132" height="100" data-fle-tile="rush" aria-hidden="true"></canvas><div><b>Harvest Moon Rush</b><small>${rushOn?'The festival’s own Endless run':rush?'Closed':'Opens soon'}</small></div></button>
-  <button class="fletile flechest" id="flechestb" ${typeof flcOpenUI==='function'?'':'disabled'}><canvas width="132" height="100" data-fle-tile="chest" aria-hidden="true"></canvas><div><b>Harvest Chest</b><small>${fcr?`${fcr} to open`:'Win them in the festival'}</small></div>${fcr?`<em>${fcr}</em>`:''}</button>
+  <button class="fletile flechest" id="flechestb" ${typeof flcOpenUI==='function'?'':'disabled'}><canvas width="132" height="100" data-fle-tile="chest" aria-hidden="true"></canvas><div><b>Harvest Chest</b><small>${fcr?`${fcr} to open`:on?'Win or buy them in the festival':'None to open right now'}</small></div>${fcr?`<em>${fcr}</em>`:''}</button>
  </div></section>`,'m');
  S.back=title;$('fleback').onclick=title;$('flehelp').onclick=fleHow;
  $('flecalb').onclick=()=>{fleSnd('tap');fleCal()};$('flemktb').onclick=()=>{fleSnd('tap');fleMarket()};
@@ -67600,6 +67622,10 @@ function fleHub(){if(!P)return;S.mode='title';S.view='menu';if(!flShopOn())retur
  if($('flelv'))$('flelv').onclick=()=>{e.lv=e.lv?0:1;save();fleSnd('tap');const b=$('flelv');b.setAttribute('aria-pressed',e.lv?'true':'false');b.lastChild.textContent='Leaves '+(e.lv?'on':'off')};
  ov.querySelectorAll('[data-fle-cl]').forEach(b=>b.onclick=()=>{const i=+b.dataset.fleCl,G0=fleGT(),hadB=G0.b,n=fleClaimTask(i);if(n){fleSnd('claim');const row=b.closest('.flegt');fleBurst(b);const bon=!hadB&&fleGT().b;setTimeout(()=>{fleHub();fleWalPop();if(bon)fleToast(FLE.gtBonus,'All three Gratitude tasks')},420);if(row)row.classList.add('pop')}});
  fleLiveCv('flescene',fleHubPaint,2);
+ /* 10.4c: the first visit explains acorns once (not under test automation unless window.FLE_NEWS is set) */
+ if(first&&on&&(!navigator.webdriver||window.FLE_NEWS))setTimeout(()=>{if($('flescene')&&!$('flehow'))fleHow()},800);
+ /* 10.4c: the keyboard starts on the next useful action: a task to claim, today's present, or the market */
+ try{const f=ov.querySelector('.flecl')||ov.querySelector('.fletcal.hot')||ov.querySelector('#flegomk');if(f)f.focus({preventScroll:true})}catch(x){}
  ov.querySelectorAll('canvas[data-fle-tile]').forEach(c=>{const k=c.dataset.fleTile,g=c.getContext('2d');const d=t=>{try{fleTilePaint(g,c,k,t)}catch(x){}};d(2.5);if(!fleRM()&&(k==='cal'||k==='chest'||k==='rush'))LIVE.push({cv:c,fn:d,slow:3})})}
 
 /* ---------- the Harvest Calendar ---------- */
@@ -67625,8 +67651,9 @@ function fleCal(){if(!P)return;S.mode='title';S.view='menu';if(!flShopOn())retur
  function calNTxt(){return `<b>${fleCalN()} / 21</b> presents opened${!on?' · the calendar closed with the festival':now<6?' · opens on 6 November':''}`}
  S.back=fleHub;$('fleback').onclick=fleHub;$('flehelp').onclick=fleHow;
  const bg=$('flecalbg');if(bg){const g=bg.getContext('2d');g.drawImage(fleBoardBake(bg.width,bg.height),0,0)}
- ov.querySelectorAll('[data-fle-day]').forEach(b=>b.onclick=()=>fleCalTap(+b.dataset.fleDay,b))}
-function fleCalTap(d,b){const st=fleCalSt(d);if(!flOn())return;if(st==='lock'||st==='got'){b.classList.remove('nope');void b.offsetWidth;b.classList.add('nope');fleSnd('no');return}
+ ov.querySelectorAll('[data-fle-day]').forEach(b=>b.onclick=()=>fleCalTap(+b.dataset.fleDay,b));
+ try{const f=ov.querySelector('.flecd.today')||ov.querySelector('.flecd.miss');if(f)f.focus({preventScroll:true})}catch(x){}}
+function fleCalTap(d,b){const st=fleCalSt(d);if(!flOn()){fleMsg('The calendar closed with the festival.');return}if(st==='lock'||st==='got'){b.classList.remove('nope');void b.offsetWidth;b.classList.add('nope');fleSnd('no');fleMsg(st==='got'?`You already opened the ${d} November present.`:`The ${d} November present opens on ${d} November. Come back then!`);return}
  if(st==='miss'&&!b.classList.contains('confirm')){if(fleAcorns()<FLE.catchUp){fleSnd('no');fleMsg(`Catching up a missed present costs ${FLE.catchUp} acorns. You have ${fleAcorns()}.`);return}
   b.classList.add('confirm');const cu=b.querySelector('.flecu');if(cu)cu.innerHTML=`${fleIco('acorn',14)} Pay ${FLE.catchUp}?`;fleSnd('tap');setTimeout(()=>{if(b.isConnected){b.classList.remove('confirm');if(cu)cu.innerHTML=`${fleIco('acorn',14)} ${FLE_CAL[d].feast?'Catch up · ':''}${FLE.catchUp}`}},3500);return}
  if(FLE_CAL[d].feast&&!fleFeastEarned()&&!b.classList.contains('sure')&&FLE_DAYS.some(x=>x<26&&fleCalSt(x)==='miss')){b.classList.add('sure');fleMsg('Open the missed presents first (catch them up) to win the Golden Harvest Egg at the feast. Tap the feast again to open it anyway.');setTimeout(()=>b.classList.remove('sure'),5000);return}
@@ -67671,17 +67698,22 @@ function fleMkRefresh(){const a=fleAcorns(),n=$('flewaln');if(n)n.textContent=a.
     :s2==='ok'?'Buy':s2==='own'?(q==='title'?(eqT?'Equipped':'Equip'):q==='trail'?(eqR?'Equipped':'Equip'):q==='keep'?(FLP().fe.lv?'Leaves on':'Leaves off'):`${ck} Owned`)
     :s2==='poor'?`${(p2-a).toLocaleString()} more`:s2==='closed'?'Closed':'Coming soon';
    if(multi)b.title=s2==='ok'?'':s2==='poor'?`${(p2-a).toLocaleString()} more acorns`:s2==='closed'?'Market closed':'Coming soon'})})}
-function fleBuyTap(k,b){const st=fleMkSt(k),B=fleBty();
+function fleBuyTap(k,b){/* 10.4c: a double click does not buy twice (or buy and unequip): taps within 0.3 s of a purchase are ignored */if(b._fleT&&performance.now()-b._fleT<300)return;const st=fleMkSt(k),B=fleBty();
  if(st==='own'){if(k==='title'){B.title=B.title==='harvesthero'?'':'harvesthero';if(B.title)P.ttl=''}else if(k==='trail')B.trail=B.trail==='flleaf'?'':'flleaf';else if(k==='keep'){const e=FLP().fe;e.lv=e.lv?0:1}save();fleSnd('tap');return fleMkRefresh()}
  if(st!=='ok'){fleSnd('no');return}const pr=FLE.price[k];
  if(pr>=1000&&!b.classList.contains('confirm')){b.classList.add('confirm');b.innerHTML=`Confirm ${fleIco('acorn',18)}${pr.toLocaleString()}`;fleSnd('tap');clearTimeout(FLU.conf);FLU.conf=setTimeout(()=>{if(b.isConnected)fleMkRefresh()},4000);return}
  clearTimeout(FLU.conf);if(!fleBuy(k)){fleSnd('no');return fleMkRefresh()}
- const it=fleItem(k),card=b.closest('.flemi');fleSnd('buy');fleBurst(card);if(card){card.classList.remove('bought');void card.offsetWidth;card.classList.add('bought')}fleWalPop();
+ b._fleT=performance.now();const it=fleItem(k),card=b.closest('.flemi');fleSnd('buy');fleBurst(card);if(card){card.classList.remove('bought');void card.offsetWidth;card.classList.add('bought')}fleWalPop();
  const msg=k==='egg'?'The Golden Harvest Egg is yours!':k==='chest'?'A Harvest Chest was added.':k==='chest5'?'Five Harvest Chests were added.':k==='squir'?'Acorn Scamp joins your companions!':k==='fox'?'Emberleaf joins your companions!':k==='trail'?'Falling Leaves is your letter trail now.':k==='title'?'You are now the Harvest Hero.':'The Autumn Keepsake is yours: leaves will keep falling on your home screen.';
  const nt=$('flemknote');if(nt){nt.hidden=false;nt.textContent=msg}fleMkRefresh();
  if(k==='egg'&&typeof flpEgg==='function')fleAsk(msg,'Hatch it now',()=>{try{flpEgg()}catch(x){console.error(x)}});
  else if((k==='chest'||k==='chest5')&&typeof flcOpenUI==='function')fleAsk(msg,'Open it now',()=>flcOpenUI())}
 /* a small "now or later" card over the market */
+/* the "now or later" card and the message strip belong to the screen they were shown on: Esc closes the card, and any new screen clears both */
+{const s0=show;show=function(){try{const a=$('fleask');if(a)a.remove();const m=$('flemsg');if(m)m.remove();const hx=$('flehx');if(hx)hx.click()}catch(e){}return s0.apply(this,arguments)}}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const a=document.getElementById('fleask');if(a){e.preventDefault();e.stopPropagation();a.remove()}}},true);
+document.addEventListener('click',e=>{const w=e.target.closest&&e.target.closest('#flewal');if(w&&!document.getElementById('flehow'))fleHow()});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target&&e.target.id==='flewal'&&!document.getElementById('flehow')){e.preventDefault();fleHow()}});
 function fleAsk(msg,yes,fn){const o=$('fleask');if(o)o.remove();const d=document.createElement('div');d.id='fleask';d.setAttribute('role','dialog');d.setAttribute('aria-label',msg);
  d.innerHTML=`<b>${esc(msg)}</b><div><button class="flebig" id="fleasky">${esc(yes)}</button><button class="flebig sec" id="fleaskn">Later</button></div>`;(document.getElementById('wrap')||document.body).appendChild(d);
  const close=()=>{d.classList.add('out');setTimeout(()=>d.remove(),180)};d.querySelector('#fleasky').onclick=()=>{close();fn()};d.querySelector('#fleaskn').onclick=close;setTimeout(()=>{try{d.querySelector('#fleasky').focus({preventScroll:true})}catch(x){}},40)}
@@ -67762,7 +67794,7 @@ try{HELP.Modes.unshift(['Harvest Festival','A limited event from 6 November to 1
 .fleic{width:48px;padding:0;justify-content:center}.fleback:hover,.fleic:hover{background:#241a5c;border-color:#7a6ad0;transform:translateY(-2px)}.fleback:active,.fleic:active{transform:scale(.94)}
 .fleev{display:flex;align-items:center;gap:10px;color:#ffc65a}.fleev b{font:700 15px var(--ui,Poppins,sans-serif);letter-spacing:.14em}
 .flewal{display:flex;align-items:center;gap:10px;height:52px;padding:0 24px 0 14px;border-radius:99px;background:linear-gradient(180deg,#2a1a30,#170f2c);border:2px solid #c8862c;color:#f4e2c0;font:500 17px var(--ui,Poppins,sans-serif);box-shadow:0 0 18px #ff9a3a26}.flewal b{font:800 27px var(--ui,Poppins,sans-serif);color:#fff}
-.flewal.pop{animation:flepop .5s cubic-bezier(.3,1.6,.5,1)}@keyframes flepop{40%{transform:scale(1.12)}}
+.flewal{cursor:pointer}.flewal:hover{border-color:#ffd27a}.flewal:focus-visible{outline:3px solid #ffd45a;outline-offset:2px}.flewal.pop{animation:flepop .5s cubic-bezier(.3,1.6,.5,1)}@keyframes flepop{40%{transform:scale(1.12)}}
 .flelt{display:inline-block;padding:3px 10px;border-radius:99px;background:linear-gradient(90deg,#e8562a,#ff9a3a);color:#fff;font:800 11px var(--ui,Poppins,sans-serif);font-style:normal;letter-spacing:.12em}
 .flenote{margin:0;padding:10px 16px;border-radius:14px;background:#2a1a10;border:1.5px solid #c8862c;color:#ffe0a8;font:600 15px var(--ui,Poppins,sans-serif)}
 .flebig{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:10px;height:52px;padding:0 26px;border-radius:15px;background:linear-gradient(180deg,#ffe07a,#f7b21f 55%,#eb9810);color:#2a1700;font:800 17px var(--ui,Poppins,sans-serif);box-shadow:0 5px 0 #8a5a08;transition:transform .16s cubic-bezier(.3,1.5,.5,1)}

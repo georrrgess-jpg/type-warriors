@@ -69026,6 +69026,1318 @@ const UPD89_B="The HARVEST FESTIVAL has arrived, and it runs from 6 November to 
 UPDATES.push({id:'u-8.9',ts:Date.UTC(2026,10,9,12,0),tag:'New',h:'8.9 The Harvest Festival is OUT!',b:UPD89_B+'\n\nP.S. The harvest moon is rising... whisper it in Settings \u203a Data \u203a Cheat codes: harvestmoon',img:UPD89_IMG,alt:UPD89_ALT});
 {const b0=bellInner;bellInner=function(){let h=b0.apply(this,arguments);try{if(BELL_TAB==='u')h=h.replace('harvestmoon','<span class="blsec" title="Try it in Settings \u203a Data \u203a Cheat codes">harvestmoon</span>')}catch(e){}return h}}
 CC_BUILTIN.push({text:'HARVESTMOON',type:'gold',n:2500,id:'',max:0,used:0,builtin:1});
+/* ===== 99u: The Great Turkey Trot (10.5), data. Pure data and repairs, no DOM; also loads in plain node (tools/gtt/rtp.js).
+   GTT constants, the 12 runners, going and weather, commentary templates, the save normaliser gttNorm() and the race card gttCard(seed). ===== */
+const GTT={rtp:.95,coRtp:.93,cap:20000,maxBet:5000,maxTotal:5000,minBet:10,maxBets:3,len:1000,hz:30,runners:6,acorn:{win:5,perDay:10},
+ minMult:1.10,maxWin:40,maxExact:150,minP:.006,maxOfferedP:.9,photoGap:.06,coLast:.9,coRuns:300,priceRuns:4000,minRet:.88};
+/* stats: spd = speed multiplier near 1; sta 0..1 (fades late when low); kick 0..1 (late burst); gate 0..1 (quick away);
+   focus 0..1 (resists pies); mud -1..1 (-1 loves firm, +1 loves mud); wild 0..1 (variance); gust = how much a gust slows it (1 = average); wx = small hidden speed bonus or penalty per weather (the form guide shows it, the card does not). */
+const GTT_RUN=[
+ {id:'gravy',n:'Gravy Train',style:'front',spd:1.0250,sta:.34,kick:.12,gate:.86,focus:.60,mud:0,wild:.45,gust:1,wx:{clear:.006,wind:-.002,drizzle:-.004},col:['#b5651d','#f2c14e'],silk:['#d62839','#f7ede2'],jockey:{n:'Pip',kind:'goblin'},tip:'Fast away, can tire'},
+ {id:'comet',n:'Cranberry Comet',style:'close',spd:1.0027,sta:.74,kick:.92,gate:.28,focus:.60,mud:.2,wild:.50,gust:1,wx:{drizzle:.003},col:['#8c2f39','#ff6b6b'],silk:['#9d0208','#ffd6a5'],jockey:{n:'Zip',kind:'imp'},tip:'Saves a big late kick'},
+ {id:'gobbles',n:'Sir Gobblesworth',style:'stalk',spd:1.0120,sta:.66,kick:.40,gate:.55,focus:.88,mud:0,wild:.14,gust:1,wx:{wind:.002},col:['#5c4033','#9aa5b1'],silk:['#3a5a8a','#e8c547'],jockey:{n:'Sir Ned',kind:'skel'},tip:'Steady, rarely makes mistakes'},
+ {id:'spice',n:'Pumpkin Spice',style:'front',spd:1.0128,sta:.50,kick:.20,gate:.70,focus:.12,mud:0,wild:.50,gust:1,wx:{clear:.008,wind:-.003,drizzle:-.003},col:['#d2691e','#f4a259'],silk:['#f77f00','#3d2b1f'],jockey:{n:'Gourdo',kind:'slime'},tip:'Easily distracted by pies'},
+ {id:'willie',n:'Wishbone Willie',style:'close',spd:0.9976,sta:.70,kick:.76,gate:.35,focus:.55,mud:1,wild:.40,gust:1,wx:{drizzle:.004},col:['#6b4f3a','#c9b79c'],silk:['#2d6a4f','#d8f3dc'],jockey:{n:'Mossy',kind:'moss'},tip:'Loves a muddy track'},
+ {id:'butter',n:'Butterball Bolt',style:'stalk',spd:1.0163,sta:.60,kick:.34,gate:.48,focus:.60,mud:.8,wild:.24,gust:.4,wx:{wind:.003},col:['#e9c46a','#f4e3b2'],silk:['#264653','#e9c46a'],jockey:{n:'Boulder',kind:'golem'},tip:'Strong but heavy on a firm track'},
+ {id:'maple',n:'Maple Mayhem',style:'front',spd:1.0148,sta:.44,kick:.24,gate:.76,focus:.40,mud:0,wild:1,gust:1,wx:{wind:.008,clear:-.002},col:['#a4161a','#e5383b'],silk:['#ba181b','#fcbf49'],jockey:{n:'Spark',kind:'bat'},tip:'Wild: big bursts, big stumbles'},
+ {id:'drum',n:'Drumstick Dash',style:'stalk',spd:1.0028,sta:.56,kick:.30,gate:.98,focus:.65,mud:-.1,wild:.30,gust:1,wx:{clear:.003,wind:.005,drizzle:-.004},col:['#7f5539','#ddb892'],silk:['#00b4d8','#caf0f8'],jockey:{n:'Tick',kind:'wisp'},tip:'Quick in the gate'},
+ {id:'annie',n:'Acorn Annie',style:'close',spd:0.9975,sta:.80,kick:.70,gate:.55,focus:.70,mud:.1,wild:.60,gust:2.5,wx:{clear:.004},col:['#9c6644','#e6ccb2'],silk:['#7b2cbf','#e0aaff'],jockey:{n:'Nutmeg',kind:'frost'},tip:'Small and nimble, hates gusts'},
+ {id:'stuff',n:'Stuffing Stampede',style:'front',spd:0.9984,sta:.96,kick:.10,gate:.60,focus:.60,mud:0,wild:.30,gust:1,wx:{drizzle:.007,wind:.004,clear:-.003},col:['#bc8a5f','#8b5e34'],silk:['#588157','#dad7cd'],jockey:{n:'Crumb',kind:'ghost'},tip:'Keeps going when others fade'},
+ {id:'hank',n:'Hayride Hank',style:'stalk',spd:1.0056,sta:.70,kick:.35,gate:.45,focus:.90,mud:-1,wild:.20,gust:1,wx:{clear:.003,drizzle:-.005},col:['#6c584c','#adc178'],silk:['#bc6c25','#fefae0'],jockey:{n:'Old Jeb',kind:'zombie'},tip:'Old pro, loves a firm track'},
+ {id:'duchess',n:'Duchess Thunderplume',style:'close',spd:1.0042,sta:.86,kick:1,gate:.10,focus:.50,mud:0,wild:.35,gust:1,wx:{drizzle:.003,wind:.002,clear:-.002},col:['#3c1f6b','#d4af37'],silk:['#5a189a','#ffd60a'],jockey:{n:'Regina',kind:'witch'},tip:'Slow to start, huge finish'}];
+const GTT_IDX={};GTT_RUN.forEach((r,i)=>{GTT_IDX[r.id]=i});
+const GTT_GOING={firm:{n:'Firm',desc:'Hard, fast ground'},good:{n:'Good',desc:'Ideal ground'},muddy:{n:'Muddy',desc:'Heavy, sticky ground'}};
+const GTT_WEATHER={clear:{n:'Clear',desc:'Sunny harvest evening'},wind:{n:'Windy',desc:'Gusts across the track'},drizzle:{n:'Drizzle',desc:'Soft rain, softer ground'}};
+/* Commentary templates per event kind. {n} = the turkey, {m} = another turkey (the one passed / beaten), {j} = the jockey. gttSayFmt(tpl,vars) fills them. */
+const GTT_SAY={
+ gate:['And they are off!','The gate snaps open!','Away they go at the Great Turkey Trot!'],
+ lead:['{n} takes the lead!','{n} goes to the front!','{n} is bossing the field now!','{j} sends {n} into the lead!'],
+ pass:['{n} sweeps past {m}!','{n} edges ahead of {m}!','{n} overtakes {m}!'],
+ kick:['Here comes {n} on the outside!','{n} is finding a big late kick!','{j} asks {n} for everything!','{n} is flying home!'],
+ stumble:['{n} trips over a hay bale!','Oh no, {n} stumbles on the hay!','{n} loses ground over the hay bale!'],
+ burst:['{n} snaps up a corn kernel and bursts away!','Corn power for {n}!','{n} finds a sudden burst of speed!'],
+ pie:['{n} stops to stare at a pie!','{j} cannot stop {n} gawping at a pie!','{n} is distracted by a pie on the fence!'],
+ gust:['A gust sweeps across the track!','Leaves everywhere as a gust hits the field!','A big gust slows the whole field!'],
+ gustAnnie:['The gust is hurting little {n}!'],
+ mid:['Halfway, and {n} leads from {m}.','At the halfway mark it is {n} from {m}.'],
+ close:['{n} and {m} are neck and neck!','{n} and {m} are locked together!'],
+ final:['Into the final stretch! {n} leads!','Down the final straight it is {n}!','Only a furlong to go and {n} is in front!'],
+ photo:['Too close to call! A photo finish!','They hit the line together! The judges need the photo!'],
+ win:['{n} wins the Great Turkey Trot!','{n} takes it! What a turkey!','Victory for {n} and {j}!'],
+ last:['{n} brings up the rear.','{n} is trailing the field.']};
+function gttSayFmt(t,v){v=v||{};return String(t).replace(/\{(\w)\}/g,(_,k)=>v[k]==null?'':v[k])}
+function gttHash(s){s=(s^0x9E3779B9)|0;s=Math.imul(s^(s>>>16),0x85ebca6b);s=Math.imul(s^(s>>>13),0xc2b2ae35);return(s^(s>>>16))>>>0}
+function gttCard(seed){
+ seed=(seed|0);let s=gttHash(seed^0x7a11)|0;const rnd=()=>{s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296};
+ const ids=GTT_RUN.map(r=>r.id);for(let i=ids.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));const q=ids[i];ids[i]=ids[j];ids[j]=q}
+ const u=rnd(),w=u<.55?'clear':u<.75?'wind':'drizzle',g=rnd();
+ const going=w==='drizzle'?(g<.5?'muddy':g<.9?'good':'firm'):(g<.17?'muddy':g<.67?'good':'firm');
+ return{seed,no:(gttHash(seed)%99)+1,field:ids.slice(0,GTT.runners),going,weather:w}}
+/* ---- save normaliser: repairs P.gtt (or the object given) in place of a broken save; a malformed pend is dropped ---- */
+function gttInt(v,lo,hi,d){v=Math.floor(Number(v));return Number.isFinite(v)?Math.min(hi,Math.max(lo,v)):d}
+function gttBetOk(b){
+ if(!b||typeof b!=='object')return null;const k=b.k;if(k!=='win'&&k!=='top2'&&k!=='top3'&&k!=='exact')return null;
+ const a=Number(b.a),st=Number(b.stake),m=Number(b.mult);if(!Number.isInteger(a)||a<0||a>=GTT.runners)return null;
+ if(!Number.isFinite(st)||st<GTT.minBet||st>GTT.maxBet)return null;if(!Number.isFinite(m)||m<GTT.minMult||m>GTT.maxExact)return null;
+ const o={k,a,stake:Math.floor(st),mult:Math.round(m*100)/100};
+ if(k==='exact'){const c=Number(b.b);if(!Number.isInteger(c)||c<0||c>=GTT.runners||c===a)return null;o.b=c}return o}
+function gttNorm(g){
+ const useP=g===undefined&&typeof P!=='undefined'&&P&&typeof P==='object';if(useP)g=P.gtt;
+ if(!g||typeof g!=='object'||Array.isArray(g))g={};
+ const o={v:1,races:gttInt(g.races,0,1e9,0),bets:gttInt(g.bets,0,1e9,0),wins:gttInt(g.wins,0,1e9,0),best:gttInt(g.best,0,1e9,0),long:gttInt(g.long,0,1e9,0),fav:{},rec:{},seen:g.seen?1:0,pend:null,acorn:{day:'',n:0}};
+ const fv=g.fav&&typeof g.fav==='object'&&!Array.isArray(g.fav)?g.fav:{},rc=g.rec&&typeof g.rec==='object'&&!Array.isArray(g.rec)?g.rec:{};
+ for(const r of GTT_RUN){
+  o.fav[r.id]=gttInt(fv[r.id],0,1e9,0);const q=rc[r.id]&&typeof rc[r.id]==='object'?rc[r.id]:{};
+  const last=Array.isArray(q.last)?q.last.map(x=>Math.floor(Number(x))).filter(x=>x>=1&&x<=GTT.runners).slice(-5):[];
+  o.rec[r.id]={s:gttInt(q.s,0,1e9,0),w:gttInt(q.w,0,1e9,0),p:gttInt(q.p,0,1e9,0),last}}
+ if(g.acorn&&typeof g.acorn==='object')o.acorn={day:typeof g.acorn.day==='string'?g.acorn.day.slice(0,12):'',n:gttInt(g.acorn.n,0,1e6,0)};
+ const p=g.pend;
+ if(p&&typeof p==='object'&&!Array.isArray(p)&&Number.isFinite(Number(p.cardSeed))&&Number.isFinite(Number(p.raceSeed))&&Array.isArray(p.bets)){
+  const bets=p.bets.map(gttBetOk);
+  if(bets.length>=1&&bets.length<=GTT.maxBets&&bets.every(Boolean)&&bets.reduce((s,b)=>s+b.stake,0)<=GTT.maxTotal){
+   const cash=[];if(Array.isArray(p.cash))for(const c of p.cash){if(c&&Number.isInteger(c.i)&&c.i>=0&&c.i<bets.length&&!cash.some(z=>z.i===c.i)){const pay=Number(c.pay);if(Number.isFinite(pay)&&pay>=0&&pay<=GTT.cap)cash.push({i:c.i,pay:Math.floor(pay)})}}
+   o.pend={cardSeed:Math.floor(Number(p.cardSeed))|0,raceSeed:Math.floor(Number(p.raceSeed))|0,bets,cash,t0:Number.isFinite(Number(p.t0))?Number(p.t0):0}}}
+ if(useP)P.gtt=o;return o}
+/* ===== 99u2: The Great Turkey Trot (10.5), the race model (xorshift32 stream per race, state in st.rs), odds, cash out and settling. Pure functions, no DOM; loads in plain node too. =====
+   One deterministic model: fixed 30 Hz steps over 1000 m. The result is fixed by (card, raceSeed). Odds come from Monte Carlo with other seeds.
+   Extras beyond the contract: gttOffers(st,bets[,n,salt]) (all bets' offers from ONE set of continuations, cheaper than gttOffer per bet), gttLiveAll, gttMultFor(p,kind),
+   gttFork / gttForkInto, gttReseed, gttKFor; the option {fast:true} on gttSimNew / gttRun skips the event log, ranks (pos) and run.x sync (order, times, photo stay exact). */
+const GTTM={v0:47,relax:.12,gof:.016,wxslow:{clear:1,wind:1,drizzle:.992},gl:{firm:1.012,good:1,muddy:.972},drz:.35,
+ gate:.14,gateLen:80,tilt:.03,fade:.26,fadeMud:1.5,fadeFirm:1.3,xf0:380,xf1:560,kick:.085,kickAt:667,kickRamp:150,
+ wn:.016,wnK:.97,wa:.985,df:.012,
+ ps0:.006,ps1:.022,pb0:.006,pb1:.022,pp:.020,fo:.9,evMin:50,evMax:970,
+ stm:.45,stl:.8,bum:1.25,bul:1.5,pim:.04,pil:.7,gum:.055,gul0:1.6,gul1:2.4,gp:{clear:.010,wind:.09,drizzle:.018}};
+const GTT_ROLL=Array.from({length:15},(_,ph)=>{const q=(15-ph)%15;return q%2===0&&q/2<6?q/2:-1});
+function gttMix(s){s=(s^0x9E3779B9)|0;s=Math.imul(s^(s>>>16),0x85ebca6b);s=Math.imul(s^(s>>>13),0xc2b2ae35);return(s^(s>>>16))|0}
+function gttRng(seed){let s=gttMix(seed|0);return function(){s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}}
+/* per-runner constants for a card (shared, never mutated by a race): the pace curve along the track is baked into 1 m tables */
+function gttKFor(card){
+ const M=GTTM,gv=(card.going==='firm'?-1:card.going==='muddy'?1:0)+(card.weather==='drizzle'?M.drz:0),gl=M.gl[card.going]*M.wxslow[card.weather];
+ return card.field.map(id=>{const r=GTT_RUN[GTT_IDX[id]];
+  const tl=r.style==='front'?M.tilt:r.style==='close'?-M.tilt:0,xf=M.xf0+M.xf1*r.sta,fr=M.fade*(card.going==='muddy'?M.fadeMud:card.going==='firm'?M.fadeFirm:1),
+   b=M.v0*r.spd*gl*(1+M.gof*r.mud*gv+(r.wx[card.weather]||0)),ga=(r.gate-.5)*M.gate,kk=r.kick*M.kick,A=new Float64Array(1001),Kt=new Float64Array(1001);
+  for(let m=0;m<=1000;m++){let f=b;if(m<M.gateLen)f*=1+ga*(1-m/M.gateLen);f*=1+tl*(1-m*.002);if(m>xf)f*=1-fr*(m-xf)*.001;A[m]=f;
+   Kt[m]=m>M.kickAt?kk*(m-M.kickAt>=M.kickRamp?1:(m-M.kickAt)/M.kickRamp):0}
+  return{A,Kt,wn:M.wn*1.706*(r.wild*M.wnK+(1-M.wnK)*.5),ps:M.ps0+M.ps1*r.wild,pb:M.pb0+M.pb1*r.wild,pp:M.pp,fo:r.focus*M.fo,gf:M.gum*r.gust,ke:r.kick>=.5}})}
+/* (re)start a race on an existing state object: same result as a fresh gttSimNew with that seed */
+function gttReseed(st,raceSeed){
+ let s=gttMix((raceSeed|0)^0x5bd1e995)||1;const rnd=()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return(s>>>0)*2.3283064365386963e-10};
+ const R=st.run,N=R.length;
+ for(let i=0;i<N;i++){const r=R[i];st.X[i]=0;st.V[i]=0;st.W[i]=0;st.F[i]=0;st.DF[i]=(rnd()+rnd()-1)*GTTM.df;st.KR[i]=.5+rnd();r.x=0;r.v=0;r.fin=null;r.ev=null;r.ke=null;r.pos=i+1;st.times[i]=null}
+ st.t=0;st.n=0;st.ev=[];st.done=false;st.order.length=0;st.photo=false;st.rs=s;st.gust=null;st.pc=false;return st}
+function gttSimNew(card,raceSeed,opt){
+ opt=opt||{};const N=card.field.length;
+ const run=card.field.map((id,lane)=>({lane,id,x:0,v:0,fin:null,ev:null,pos:lane+1,ke:null}));
+ const st={card,t:0,n:0,len:GTT.len,run,ev:[],done:false,order:[],times:new Array(N).fill(null),photo:false,rs:0,K:opt.K||gttKFor(card),gust:null,lg:!opt.fast,fast:!!opt.fast,need:N,pc:false,
+  X:new Float64Array(N),V:new Float64Array(N),W:new Float64Array(N),F:new Float64Array(N),DF:new Float64Array(N),KR:new Float64Array(N)};
+ return gttReseed(st,raceSeed)}
+/* advance up to maxSteps fixed steps until `need` runners are home (all the model lives here, so gttStep, gttRun and the odds share it) */
+function gttAdv(st,maxSteps,need){
+ const M=GTTM,K=st.K,R=st.run,nR=R.length,lg=st.lg,fast=st.fast,dt=1/30,ord=st.order,X=st.X,V=st.V,W=st.W,F=st.F,DF=st.DF,KR=st.KR;
+ let s=st.rs|0,n=st.n,steps=0,fc=ord.length;
+ const rnd=()=>{s^=s<<13;s^=s>>>17;s^=s<<5;return(s>>>0)*2.3283064365386963e-10};
+ const gpr=M.gp[st.card.weather],wa=M.wa*M.wa*M.wa,rl=M.relax,kat=M.kickAt;let fin=null;
+ while(steps<maxSteps&&fc<need){
+  n++;steps++;const t=n*dt;let g=st.gust;
+  if(g&&t>=g.t1){for(let i=0;i<nR;i++)if(R[i].ev===g)R[i].ev=null;st.gust=g=null}
+  if(!g&&n%30===0&&t<24&&rnd()<gpr){const d=M.gul0+rnd()*(M.gul1-M.gul0);g=st.gust={k:'gust',t0:t,t1:t+d,m:1};if(lg)st.ev.push({t,lane:-1,k:'gust',t1:t+d});for(let i=0;i<nR;i++)if(!R[i].ev&&F[i]===0)R[i].ev=g}
+  const rl_=GTT_ROLL[n%15],wm=n%3;
+  for(let i=0;i<nR;i++){
+   const r=R[i];let x=X[i],v=V[i];
+   if(F[i]===0){
+    const k=K[i];let ev=r.ev;
+    if(ev!==null&&ev.t1<=t){ev=r.ev=(x>=kat&&r.ke!==null)?r.ke:(g||null)}
+    if(i===rl_&&x>M.evMin&&x<M.evMax&&(ev===null||ev.k==='gust'||ev.k==='kick')){
+     const u=rnd();let e=null;
+     if(u<k.ps)e={k:'stumble',t0:t,t1:t+M.stl,m:M.stm};
+     else if(u<k.ps+k.pb)e={k:'burst',t0:t,t1:t+M.bul,m:M.bum};
+     else if(u<k.ps+k.pb+k.pp&&rnd()>=k.fo)e={k:'pie',t0:t,t1:t+M.pil,m:M.pim};
+     if(e!==null){ev=r.ev=e;if(lg)st.ev.push({t,lane:i,k:e.k,t1:e.t1})}}
+    if(k.ke&&x>=kat&&r.ke===null){r.ke={k:'kick',t0:t,t1:99,m:1};if(ev===null||ev.k==='gust'){ev=r.ev=r.ke}if(lg)st.ev.push({t,lane:i,k:'kick',t1:t+6})}
+    const xi=x|0;
+    let f=k.A[xi]*(1+DF[i]);
+    if(x>kat)f*=1+k.Kt[xi]*KR[i];
+    let w=W[i];if((i+wm)%3===0){w=w*wa+(rnd()-.5)*k.wn;W[i]=w}f*=1+w;
+    if(g!==null)f*=1-k.gf;
+    if(ev!==null)f*=ev.m;
+    v+=(f-v)*rl;
+    const xn=x+v*dt;
+    if(xn>=1000){const ft=(n-1)*dt+(1000-x)/(xn-x)*dt;F[i]=ft;st.times[i]=ft;r.ev=null;if(fin===null)fin=[];fin.push(i)}
+    X[i]=xn;V[i]=v}
+   else{v*=.985;V[i]=v;X[i]=x+v*dt}}
+  if(fin!==null){if(fin.length>1)fin.sort((a,b)=>F[a]-F[b]||a-b);for(const i of fin)ord.push(i);fc=ord.length;fin=null;
+   if(!st.pc&&fc>=2){st.pc=true;const a=ord[0],b=ord[1],gap=F[b]-F[a];if(gap<GTT.photoGap)st.photo={a,b,gap}}}
+  if(!fast){for(let i=0;i<nR;i++){const ka=F[i]!==0?F[i]-1e4:-X[i];let p=1;for(let j=0;j<nR;j++){if(j===i)continue;const kb=F[j]!==0?F[j]-1e4:-X[j];if(kb<ka||(kb===ka&&j<i))p++}R[i].pos=p}}}
+ st.rs=s;st.n=n;st.t=n*dt;if(fc>=nR)st.done=true;
+ if(!fast)for(let i=0;i<nR;i++){const r=R[i];r.x=X[i];r.v=V[i];r.fin=F[i]!==0?F[i]:null}
+ return st}
+function gttStep(st){return gttAdv(st,1,st.run.length)}
+function gttRun(card,raceSeed,opt){const st=gttSimNew(card,raceSeed,opt);gttAdv(st,4000,st.run.length);return st}
+/* copy a state for a continuation: only what the model reads and writes, a fresh stream, no log. gttForkInto reuses a scratch state (no allocation). */
+function gttFork(st,seed){
+ const N=st.run.length,o={card:st.card,t:0,n:0,len:st.len,run:st.run.map(r=>({lane:r.lane,id:r.id,x:0,v:0,fin:null,ev:null,pos:r.pos,ke:null})),ev:null,done:false,order:[],times:new Array(N).fill(null),photo:false,rs:1,K:st.K,gust:null,lg:false,fast:true,need:st.need,pc:false,
+  X:new Float64Array(N),V:new Float64Array(N),W:new Float64Array(N),F:new Float64Array(N),DF:st.DF,KR:st.KR};
+ return gttForkInto(o,st,seed)}
+function gttForkInto(o,st,seed){
+ const R=o.run,S=st.run,N=R.length;
+ for(let i=0;i<N;i++){R[i].ev=S[i].ev;R[i].ke=S[i].ke}
+ o.X.set(st.X);o.V.set(st.V);o.W.set(st.W);o.F.set(st.F);o.DF=st.DF;o.KR=st.KR;o.K=st.K;
+ const so=st.order,oo=o.order;oo.length=0;for(let i=0;i<so.length;i++)oo.push(so[i]);
+ for(let i=0;i<N;i++)o.times[i]=st.times[i];
+ o.t=st.t;o.n=st.n;o.done=false;o.photo=st.photo;o.pc=st.pc;o.gust=st.gust;o.rs=gttMix(seed)||1;return o}
+/* ---- odds ---- */
+function gttStepMult(m){m=m<3?Math.floor(m*20+1e-9)/20:m<10?Math.floor(m*10+1e-9)/10:m<25?Math.floor(m*2+1e-9)/2:Math.floor(m+1e-9);return Math.round(m*100)/100}
+/* kind: 'win'|'top2'|'top3'|'exact' -> multiplier or null (not offered: p under 0.6%, a sure thing over 90%, or a long shot whose capped multiplier would return under 88%) */
+function gttMultFor(p,kind){
+ if(!(p>=GTT.minP))return null;let m=GTT.rtp/p;
+ if(m<GTT.minMult){if(p>GTT.maxOfferedP)return null;return GTT.minMult}
+ m=gttStepMult(m);const mx=kind==='exact'?GTT.maxExact:GTT.maxWin;if(m>mx){if(p*mx<GTT.minRet)return null;m=mx}return m}
+function gttPriceCounts(card,n,seedBase,from,to,C,st){
+ const N=card.field.length;
+ for(let k=from;k<to;k++){
+  gttReseed(st,(seedBase+Math.imul(k,0x9E3779B1))|0);gttAdv(st,4000,3);
+  const o=st.order;C.win[o[0]]++;C.top2[o[0]]++;C.top2[o[1]]++;C.top3[o[0]]++;C.top3[o[1]]++;C.top3[o[2]]++;C.exact[o[0]*N+o[1]]++}}
+function gttPriceFin(card,n,C){
+ const N=card.field.length,al=.5,out={n,win:[],top2:[],top3:[],exact:[],mult:{win:[],top2:[],top3:[],exact:[]}};
+ for(let i=0;i<N;i++){out.win.push(C.win[i]/n);out.top2.push(C.top2[i]/n);out.top3.push(C.top3[i]/n);
+  out.mult.win.push(gttMultFor(C.win[i]/n,'win'));out.mult.top2.push(gttMultFor(C.top2[i]/n,'top2'));out.mult.top3.push(gttMultFor(C.top3[i]/n,'top3'))}
+ const cells=N*(N-1);
+ for(let i=0;i<N;i++){const pr=[],mr=[];for(let j=0;j<N;j++){const p=i===j?0:(C.exact[i*N+j]+al)/(n+al*cells);pr.push(p);mr.push(i===j?null:gttMultFor(p,'exact'))}out.exact.push(pr);out.mult.exact.push(mr)}
+ return out}
+function gttPriceBase(card){return gttMix((card.seed|0)^0x1f3d5b79)}
+function gttNewC(N){return{win:new Array(N).fill(0),top2:new Array(N).fill(0),top3:new Array(N).fill(0),exact:new Array(N*N).fill(0)}}
+function gttPriceSync(card,n){n=n||GTT.priceRuns;const C=gttNewC(card.field.length);gttPriceCounts(card,n,gttPriceBase(card),0,n,C,gttSimNew(card,0,{fast:true}));return gttPriceFin(card,n,C)}
+/* chunked over frames/timers; cb(result) at the end; returns a cancel function */
+function gttPrice(card,n,cb){
+ n=n||GTT.priceRuns;const C=gttNewC(card.field.length),K=gttSimNew(card,0,{fast:true}),base=gttPriceBase(card);let k=0,dead=false;
+ const now=()=>typeof performance!=='undefined'&&performance.now?performance.now():Date.now();
+ const tick=()=>{if(dead)return;const t0=now();while(k<n&&now()-t0<7){const to=Math.min(n,k+100);gttPriceCounts(card,n,base,k,to,C,K);k=to}
+  if(k<n)setTimeout(tick,0);else{const r=gttPriceFin(card,n,C);if(cb)cb(r)}};
+ setTimeout(tick,0);return()=>{dead=true}}
+/* ---- cash out ---- */
+function gttNeed(b){return b.k==='win'?1:b.k==='top3'?3:2}
+function gttHit(b,o){const a=o[0];return b.k==='win'?a===b.a:b.k==='top2'?(a===b.a||o[1]===b.a):b.k==='top3'?(a===b.a||o[1]===b.a||o[2]===b.a):(a===b.a&&o[1]===b.b)}
+/* P(each bet wins | the race so far) from n short continuations with fresh seeds (never the hidden seed); one set of runs serves every bet */
+function gttLiveAll(st,bets,n,salt){
+ n=n||GTT.coRuns;const need=Math.max(1,...bets.map(gttNeed)),c=new Array(bets.length).fill(0),sd=0x2c1b3c6d^Math.imul(salt|0,0x85ebca6b);let f=null;
+ for(let k=0;k<n;k++){const seed=Math.imul(k+1,0x9E3779B1)^sd;f=f?gttForkInto(f,st,seed):gttFork(st,seed);if(f.order.length<need)gttAdv(f,4000,need);
+  for(let i=0;i<bets.length;i++)if(gttHit(bets[i],f.order))c[i]++}
+ return c.map(v=>v/n)}
+function gttLiveP(st,bet,n,salt){return gttLiveAll(st,[bet],n,salt)[0]}
+/* the offer: floor(coRtp * p * stake * mult); 0 in the last 10% of the track (leader past coLast), once done, or when it would be under 1 coin */
+function gttCoOpen(st){if(st.done||st.order.length)return false;let m=0;for(const r of st.run)if(r.x>m)m=r.x;return m<GTT.len*GTT.coLast}
+function gttOffers(st,bets,n,salt){
+ if(!gttCoOpen(st))return bets.map(()=>0);const ps=gttLiveAll(st,bets,n,salt);
+ return bets.map((b,i)=>{const o=Math.floor(GTT.coRtp*ps[i]*b.stake*b.mult+1e-9);return o>=1?Math.min(o,GTT.cap):0})}
+function gttOffer(st,bet,n,salt){return gttOffers(st,[bet],n,salt)[0]}
+/* ---- settle: bets against st.order; the total is capped at GTT.cap (lines are cut in order so they add up to the total) ---- */
+function gttSettle(bets,st){
+ const o=st.order,lines=[];let tot=0;
+ for(const b of bets){const won=o.length>=gttNeed(b)&&gttHit(b,o);let pay=won?Math.floor(b.stake*b.mult+1e-9):0;
+  if(tot+pay>GTT.cap)pay=Math.max(0,GTT.cap-tot);tot+=pay;lines.push({bet:b,won,pay})}
+ return{lines,total:tot}}
+/* ===== 10.5 THE GREAT TURKEY TROT: the art (99u3, prefix gttart / GTTART; needs 99m..99o festival art for FLO, shade, flcLeaf) =====
+   Twelve turkeys with jockeys, the race scene, the podium, the photo finish and the casino tile.
+   - Every turkey is drawn once from code (body, fan tail in the runner's colours, wing, neck, head, legs, a jockey from the monster cast in
+     the runner's silks) into small canvases: an 8-frame run cycle, a 6-frame fast gallop (the kick), a 6-frame strut (paddock), stumble,
+     pie, celebrate and sad poses. Per frame the race only stamps those images.
+   - The race scene (1600 x 900 logical): sky with the harvest moon, far fair, stands with a waving crowd (two baked frames), the track
+     ribbon (firm / good / muddy tints), the inner rail with hay and pumpkins, distance posts, the start gate, the finish post, runners with
+     lane numbers and gold rings, events (hay bale, corn burst, pie on a post, gust of leaves), dust and feather puffs, weather.
+   - Public API (see the contract): gttBake, gttPortrait, gttDrawTurkey, gttDrawRace, gttCam, gttDrawPodium, gttPhoto, gttTile.
+   No shadowBlur, no ctx.filter, nothing created per frame (pools and caches). */
+const GTTART={O:'#12081f',PXM:28,HZ:478,LY:560,LD:54,OX:122,OY:166,SW:216,SH:174,K:.86,spr:{},info:{},chip:{},bdg:{},env:null,tm:{},pool:null,lt:0,seen:{}};
+const GTTART_IDS=['gravy','comet','gobbles','spice','willie','butter','maple','drum','annie','stuff','hank','duchess'];
+const GTTART_KINDS=['goblin','moss','bat','imp','slime','skel','ghost','mush','crab','wolf','frost','golem','wisp','zombie','witch'];
+const GTTART_KFB={gravy:'goblin',comet:'imp',gobbles:'skel',spice:'slime',willie:'moss',butter:'golem',maple:'bat',drum:'wisp',annie:'frost',stuff:'ghost',hank:'zombie',duchess:'witch'};
+const GTTART_KSYN={mossling:'moss',skeleton:'skel',mushroom:'mush','frost imp':'frost',frostimp:'frost',rock:'golem',stone:'golem',bone:'skel',fungus:'mush',cub:'wolf',gob:'goblin',jelly:'slime',spirit:'ghost',wisp:'ghost'};
+/* look per runner: pattern, bare-skin tone of the head, size and a little accessory */
+const GTTART_TR={gravy:{pat:'plain',skin:'#a9cbe8'},comet:{pat:'barred',skin:'#ecaabb'},gobbles:{pat:'plain',skin:'#a4c4ea',ruff:1},spice:{pat:'spot',skin:'#efb6a4'},
+ willie:{pat:'wish',skin:'#bcd4ea'},butter:{sc:1.1,pat:'plain',skin:'#efbdb4'},maple:{pat:'tuft',skin:'#eea694'},drum:{pat:'drum',skin:'#9fc2e4'},
+ annie:{sc:.88,pat:'plain',skin:'#b4d2ea',acorn:1},stuff:{pat:'herb',skin:'#aacadb'},hank:{pat:'grey',skin:'#c4cadb',beard:1},duchess:{sc:1.06,pat:'royal',skin:'#c0b0e4',crown:1}};
+const gttartCv=(w,h)=>{const c=document.createElement('canvas');c.width=Math.ceil(w);c.height=Math.ceil(h);return c};
+const gttartSh=(c,a)=>{try{return shade(c,a)}catch(e){return c}};
+const gttartRng=s=>{s=s>>>0;return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}};
+const gttartCl=(v,a,b)=>v<a?a:v>b?b:v;
+const gttartSm=x=>{x=x<0?0:x>1?1:x;return x*x*(3-2*x)};
+const gttartHex=c=>{c=String(c||'#888888');if(c.length===4)c='#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];return c.slice(0,7)};
+const gttartLum=c=>{const n=parseInt(gttartHex(c).slice(1),16);return((n>>16)*.3+(n>>8&255)*.59+(n&255)*.11)/255};
+function gttartFS(g,f,lw,sc){g.fillStyle=f;g.fill();if(lw){g.strokeStyle=sc||GTTART.O;g.lineWidth=lw;g.lineJoin='round';g.stroke()}}
+function gttartEll(g,x,y,rx,ry,f,lw,rot){g.beginPath();g.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),rot||0,0,Math.PI*2);gttartFS(g,f,lw)}
+function gttartLine(g,x0,y0,x1,y1,w,col,ow){g.lineCap='round';if(ow){g.strokeStyle=GTTART.O;g.lineWidth=w+ow;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke()}g.strokeStyle=col;g.lineWidth=w;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke()}
+function gttartKind(k,id){k=String(k||'').toLowerCase().trim();k=GTTART_KSYN[k]||k;return GTTART_KINDS.indexOf(k)>=0?k:(GTTART_KFB[id]||'goblin')}
+function gttartInfo(id){let I=GTTART.info[id];if(I)return I;let r=null;try{r=GTT_RUN.find(q=>q.id===id)}catch(e){}
+ const ix=Math.max(0,GTTART_IDS.indexOf(id));r=r||{col:['#8a5a32','#e8b04a'],silk:['#d84a3a','#fff0c0'],jockey:{kind:GTTART_KFB[id]}};
+ const tr=GTTART_TR[id]||{pat:'plain',skin:'#a9cbe8'};
+ return GTTART.info[id]={id,ix,n:r.n||id,col:[gttartHex(r.col&&r.col[0]),gttartHex(r.col&&r.col[1])],silk:[gttartHex(r.silk&&r.silk[0]),gttartHex(r.silk&&r.silk[1])],kind:gttartKind(r.jockey&&r.jockey.kind,id),tr,sc:tr.sc||1}}
+
+/* ---------- poses: every number the turkey and the jockey need for one frame ---------- */
+function gttartFoot(th,S,L){return{x:-S*Math.cos(th),y:-L*Math.max(0,Math.sin(th))}}
+function gttartPose(k,u){const th=u*Math.PI*2,s=Math.sin(th),c=Math.cos(th);
+ const P={bob:0,pitch:0,hx:0,hy:0,hp:0,fo:.7,fd:-2.2,fl:78,wing:0,eye:'o',beak:0,lean:.1,arms:'rein',aph:th,sweat:0,fn:null,ff:null,S:26,L:20,brow:0,jt:0};
+ if(k==='run'){P.bob=-Math.abs(Math.sin(th+.2))*6-2;P.pitch=.08;P.hx=s*3+4;P.hy=Math.cos(2*th)*1.6;P.fo=.7+.05*Math.sin(2*th);P.fd=-2.3;P.fl=78;P.wing=s*.5+.2;P.lean=.14;P.beak=.1;P.jt=s}
+ else if(k==='fast'){P.bob=-Math.abs(s)*3-3;P.pitch=.2;P.hx=14;P.hy=10;P.hp=.28;P.fo=.34;P.fd=-2.95;P.fl=84;P.wing=.6+s*.1;P.lean=.52;P.S=34;P.L=15;P.beak=.35;P.brow=1;P.arms='duck';P.jt=s}
+ else if(k==='strut'){P.bob=-Math.abs(s)*1.6;P.hx=s*6+2;P.fo=.68+.05*Math.sin(th*2);P.fd=-1.7;P.fl=76;P.wing=.12;P.S=13;P.L=9;P.lean=.02;P.jt=s}
+ else if(k==='stumble'){if(u<.5){P.bob=9;P.pitch=.6;P.hx=22;P.hy=26;P.hp=.55;P.fo=.95;P.fd=-1.5;P.fl=72;P.wing=1.7;P.eye='w';P.lean=1;P.arms='up';P.beak=.6;P.fn={x:34,y:0};P.ff={x:-20,y:-30}}
+  else{P.bob=-12;P.pitch=.42;P.hx=17;P.hy=16;P.hp=.35;P.fo=1;P.fd=-1.7;P.fl=74;P.wing=2.1;P.eye='x';P.lean=.8;P.arms='up';P.beak=.7;P.fn={x:28,y:-18};P.ff={x:-22,y:-24}}}
+ else if(k==='pie'){P.bob=-Math.abs(s)*1.5-1;P.pitch=-.1;P.hx=8;P.hy=-12;P.hp=-.55;P.fo=.72;P.fd=-1.9;P.fl=74;P.wing=.35;P.eye='w';P.beak=.45;P.lean=-.3;P.S=15;P.L=9;P.jt=s}
+ else if(k==='celeb'){P.bob=-Math.abs(s)*15-2;P.pitch=-.12;P.hx=3;P.hy=-5;P.hp=-.25;P.fo=1.02;P.fd=-1.57;P.fl=84;P.wing=1.95+s*.25;P.eye='c';P.beak=.5+.45*c;P.lean=-.05;P.arms='up';P.fn={x:10+s*8,y:-8-6*Math.abs(c)};P.ff={x:-10-s*8,y:-6-6*Math.abs(s)};P.jt=s}
+ else if(k==='sad'){P.bob=6;P.pitch=-.02;P.hx=2;P.hy=22;P.hp=.6;P.fo=.3;P.fd=2.35;P.fl=62;P.wing=-.35;P.eye='c';P.lean=.38;P.arms='down';P.sweat=1;P.fn={x:10,y:0};P.ff={x:-12,y:0};P.brow=-1}
+ const n=P.fn||gttartFoot(th,P.S,P.L),f=P.ff||gttartFoot(th+Math.PI,P.S,P.L);P.n=n;P.f=f;return P}
+
+/* ---------- jockeys: twelve small monsters from the game's cast, in the runner's silks (origin = the seat on the turkey's back, y down) ---------- */
+function gttartJockey(g,kind,sk,P,tr){const O=GTTART.O,c1=sk[0],c2=sk[1],lean=P.lean,up=P.arms==='up',sl=P.arms==='down';
+ g.save();g.lineJoin='round';g.lineCap='round';g.rotate(lean*.55);
+ const w=Math.sin(P.aph*2)*.5;
+ const skinOf={goblin:'#8dbe4e',moss:'#6f9440',bat:'#7a6a9e',imp:'#dc4a3c',slime:'#58d6c8',skel:'#efe9d2',ghost:'#f1edff',mush:'#f1e2c4',crab:'#ec6a3c',wolf:'#8f94a2',frost:'#92d6f2',golem:'#8e8e9c',wisp:'#7ae8d8',zombie:'#9fbc82',witch:'#86b858'}[kind];
+ const shirt=gttartSh(c1,-.0);
+ /* back arm (far side), drawn first */
+ const hand={x:23,y:-12};
+ const arm=(sx,sy,ex,ey,col)=>{gttartLine(g,sx,sy,ex,ey,5.4,col,3);gttartEll(g,ex,ey,3.5,3.5,skinOf,1.6)};
+ if(kind==='bat'){g.beginPath();g.moveTo(-6,-22);g.quadraticCurveTo(-24,-40+w*6,-30,-18+w*8);g.quadraticCurveTo(-22,-20,-18,-12);g.quadraticCurveTo(-12,-16,-8,-8);g.closePath();gttartFS(g,'#4a3a6e',2.2)}
+ if(kind==='imp'||kind==='frost'){g.beginPath();g.moveTo(-8,-6);g.quadraticCurveTo(-24,-4,-26,-18);g.lineTo(-30,-16);g.lineTo(-25,-24);g.lineTo(-21,-14);g.quadraticCurveTo(-18,-3,-8,-1);g.closePath();gttartFS(g,skinOf,2)}
+ if(kind==='wolf'){g.beginPath();g.moveTo(-8,-8);g.quadraticCurveTo(-28,-14+w*4,-30,-4+w*6);g.quadraticCurveTo(-18,-4,-8,-1);g.closePath();gttartFS(g,'#aab0be',2.2)}
+ /* boot / leg */
+ if(kind!=='slime'&&kind!=='ghost'&&kind!=='wisp'){gttartLine(g,2,-4,15,5,7,'#3d2a3e',3);gttartLine(g,15,5,12,17,6.2,'#4a3022',3);gttartEll(g,13.5,19,6,3.4,'#2a1a14',2);gttartEll(g,12,14,4,2,c2,1.4)}
+ /* torso */
+ if(kind==='slime'){g.beginPath();g.moveTo(-14,0);g.quadraticCurveTo(-18,-14,-8,-24);g.quadraticCurveTo(0,-30,9,-24);g.quadraticCurveTo(18,-14,14,0);g.quadraticCurveTo(0,4,-14,0);g.closePath();gttartFS(g,skinOf,2.6);g.fillStyle='#ffffff55';g.beginPath();g.ellipse(-6,-17,3,6,.4,0,7);g.fill();
+  g.save();g.clip();g.fillStyle=c1;g.fillRect(-20,-12,40,7);g.restore();g.strokeStyle=O;g.lineWidth=1.2;g.beginPath();g.moveTo(-17,-12);g.lineTo(17,-12);g.moveTo(-17,-5);g.lineTo(17,-5);g.stroke()}
+ else if(kind==='wisp'){g.fillStyle='rgba(122,232,216,.28)';g.beginPath();g.ellipse(0,-14,22,24,0,0,7);g.fill();g.beginPath();g.moveTo(-11,2);g.quadraticCurveTo(-17,-12,-5,-21);g.quadraticCurveTo(-9,-30,-17,-39);g.quadraticCurveTo(3,-33,8,-23);g.quadraticCurveTo(18,-12,11,2);g.quadraticCurveTo(0,6,-11,2);g.closePath();gttartFS(g,skinOf,2.4);g.save();g.clip();g.fillStyle=c1;g.fillRect(-20,-12,40,6);g.restore();g.fillStyle='#e8fffa';g.beginPath();g.ellipse(-2,-14,4,9,.2,0,7);g.globalAlpha=.5;g.fill();g.globalAlpha=1}
+ else if(kind==='ghost'){g.beginPath();g.moveTo(-12,2);g.quadraticCurveTo(-18,-16,-6,-26);g.quadraticCurveTo(2,-32,10,-24);g.quadraticCurveTo(18,-14,12,2);g.lineTo(8,-3);g.lineTo(3,3);g.lineTo(-2,-3);g.lineTo(-7,3);g.closePath();gttartFS(g,skinOf,2.4);g.save();g.clip();g.fillStyle=c1;g.fillRect(-20,-14,40,6);g.restore()}
+ else if(kind==='crab'){g.beginPath();g.ellipse(0,-9,15,11,0,0,7);gttartFS(g,skinOf,2.6);g.save();g.clip();g.fillStyle=c1;g.fillRect(-20,-12,40,7);g.restore();g.fillStyle='#ffffff40';g.beginPath();g.ellipse(-5,-14,5,2.5,-.3,0,7);g.fill()}
+ else{g.beginPath();g.moveTo(-9,2);g.quadraticCurveTo(-13,-12,-6,-22);g.quadraticCurveTo(0,-27,7,-22);g.quadraticCurveTo(12,-12,9,2);g.closePath();gttartFS(g,kind==='mush'?skinOf:shirt,2.6);
+  if(kind!=='mush'){g.save();g.clip();g.fillStyle=c2;g.fillRect(-12,-12,24,4);g.fillRect(-12,-21,24,3);g.restore();if(kind==='skel'){g.strokeStyle='#ffffff55';g.lineWidth=1}}else{g.save();g.clip();g.fillStyle=c1;g.fillRect(-12,-12,24,9);g.restore()}}
+ /* head */
+ const hy=kind==='slime'?-26:kind==='crab'?-24:kind==='mush'?-30:-31,hx=kind==='slime'?1:3;
+ g.save();g.translate(hx,hy);g.rotate(-lean*.4+(sl?.35:0));
+ if(kind==='goblin'){g.beginPath();g.moveTo(-9,-3);g.lineTo(-26,-9+w*2);g.lineTo(-9,3);g.closePath();gttartFS(g,skinOf,2);gttartEll(g,0,0,11.5,10.5,skinOf,2.6);g.beginPath();g.moveTo(9,-1);g.lineTo(20,2);g.lineTo(9,5);g.closePath();gttartFS(g,skinOf,2)}
+ else if(kind==='moss'){gttartEll(g,0,0,12,11,skinOf,2.6);g.fillStyle='#8fb050';for(const[x,y,r] of[[-6,-5,3.2],[5,-7,2.6],[-1,6,3]]){g.beginPath();g.arc(x,y,r,0,7);g.fill()}g.save();g.rotate(-.3);g.beginPath();g.ellipse(-3,-16,3.4,6.4,0,0,7);gttartFS(g,'#7fc050',2);g.restore();g.beginPath();g.ellipse(5,-15,3,5.4,.5,0,7);gttartFS(g,'#9ad060',2)}
+ else if(kind==='bat'){g.beginPath();g.moveTo(-10,-5);g.lineTo(-12,-24);g.lineTo(-2,-9);g.closePath();gttartFS(g,skinOf,2);g.beginPath();g.moveTo(10,-5);g.lineTo(13,-24);g.lineTo(3,-9);g.closePath();gttartFS(g,skinOf,2);gttartEll(g,0,0,11,10,skinOf,2.6);gttartEll(g,8,3,5,3.6,'#a898c8',1.6)}
+ else if(kind==='imp'||kind==='frost'){const hc=kind==='frost'?'#e8f8ff':'#f4e8c8';g.beginPath();g.moveTo(-7,-8);g.lineTo(-11,-22);g.lineTo(-1,-10);g.closePath();gttartFS(g,hc,2);g.beginPath();g.moveTo(5,-9);g.lineTo(11,-21);g.lineTo(9,-7);g.closePath();gttartFS(g,hc,2);gttartEll(g,0,0,11,10,skinOf,2.6);if(kind==='frost'){g.fillStyle='#ffffffcc';g.beginPath();g.arc(-6,-4,2.5,0,7);g.arc(6,-6,2,0,7);g.fill()}}
+ else if(kind==='slime'){/* the face sits on the blob */g.translate(0,8)}
+ else if(kind==='skel'){gttartEll(g,0,0,10.5,11,skinOf,2.6);gttartEll(g,3,9,6.5,3.6,skinOf,2)}
+ else if(kind==='ghost'||kind==='wisp'){g.translate(0,6)}
+ else if(kind==='zombie'){g.beginPath();g.moveTo(-8,-6);g.quadraticCurveTo(-4,-17,2,-12);g.quadraticCurveTo(6,-18,10,-8);g.closePath();gttartFS(g,'#3a4a2a',2);gttartEll(g,0,0,11.5,10.5,skinOf,2.6);g.strokeStyle='#3a4a2a';g.lineWidth=1.3;g.beginPath();g.moveTo(-9,-3);g.lineTo(-3,-7);for(let i=0;i<3;i++){g.moveTo(-8+i*2.2,-5.6+i*.6);g.lineTo(-7+i*2.2,-3.2+i*.6)}g.moveTo(5,5);g.lineTo(10,2);g.stroke()}
+ else if(kind==='witch'){gttartEll(g,0,0,11,10.2,skinOf,2.6);g.beginPath();g.moveTo(9,-1);g.quadraticCurveTo(21,1,19,9);g.quadraticCurveTo(14,5,9,5);g.closePath();gttartFS(g,skinOf,2);g.fillStyle='#5a3a1a';g.beginPath();g.arc(14,3,1.6,0,7);g.fill()}
+ else if(kind==='mush'){gttartEll(g,0,4,8,8,skinOf,2.4);g.beginPath();g.ellipse(0,-6,17,11,0,Math.PI,0);g.quadraticCurveTo(0,3,-17,-6);gttartFS(g,c2,2.8);g.fillStyle=gttartLum(c2)>.6?'#ffffffcc':'#ffffffcc';for(const[x,y,r] of[[-8,-9,2.8],[3,-14,3.2],[10,-8,2.4]]){g.beginPath();g.arc(x,y,r,0,7);g.fill()}}
+ else if(kind==='crab'){for(const sx of[-1,1]){gttartLine(g,sx*5,-2,sx*7,-12,2.4,skinOf,2.6);gttartEll(g,sx*7,-14,4.4,4.4,'#fff',2);gttartEll(g,sx*7.6,-14,1.9,2.2,O,0)}}
+ else if(kind==='wolf'){g.beginPath();g.moveTo(-9,-4);g.lineTo(-8,-21);g.lineTo(0,-10);g.closePath();gttartFS(g,skinOf,2);g.beginPath();g.moveTo(3,-9);g.lineTo(9,-21);g.lineTo(11,-5);g.closePath();gttartFS(g,skinOf,2);gttartEll(g,0,0,11,10,skinOf,2.6);g.beginPath();g.ellipse(9,3,8,5.4,.1,0,7);gttartFS(g,'#b8bcc8',2);gttartEll(g,16,1.5,2.4,2,O,0)}
+ else if(kind==='golem'){g.beginPath();g.roundRect(-11,-10,22,20,5);gttartFS(g,skinOf,2.8);g.fillStyle='#6f9440';g.beginPath();g.ellipse(-5,-9,6,3,.1,0,7);g.fill();g.strokeStyle=gttartSh(skinOf,-.35);g.lineWidth=1.3;g.beginPath();g.moveTo(2,-9);g.lineTo(-1,-2);g.lineTo(4,3);g.stroke()}
+ /* face */
+ const fc=(ex,ey,r)=>{
+  if(kind==='skel'||kind==='golem'){gttartEll(g,ex,ey,r*1.2,r*1.3,kind==='skel'?'#2a1a30':'#ffd45a',1.2);return}
+  if(kind==='ghost'){gttartEll(g,ex,ey,r*.9,r*1.3,O,0);return}
+  gttartEll(g,ex,ey,r,r*1.05,'#fff',1.4);gttartEll(g,ex+1.3,ey+.3,r*.55,r*.7,O,0)};
+ if(P.eye==='x'){g.strokeStyle=O;g.lineWidth=1.8;for(const ex of[-3,5]){g.beginPath();g.moveTo(ex-2.3,-3.3);g.lineTo(ex+2.3,1.3);g.moveTo(ex+2.3,-3.3);g.lineTo(ex-2.3,1.3);g.stroke()}}
+ else if(P.eye==='c'){g.strokeStyle=O;g.lineWidth=1.9;g.beginPath();g.arc(-3,-.5,2.4,Math.PI*1.1,Math.PI*1.9);g.stroke();g.beginPath();g.arc(5,-.5,2.4,Math.PI*1.1,Math.PI*1.9);g.stroke()}
+ else{const r=P.eye==='w'?4.2:3.4;if(kind==='crab'){}else{fc(-3.5,-2,r);fc(5.5,-2,r)}}
+ if(P.brow&&kind!=='crab'&&P.eye!=='c'){g.strokeStyle=O;g.lineWidth=2;g.beginPath();g.moveTo(-8,-7);g.lineTo(-1,-4.5);g.moveTo(11,-7);g.lineTo(3,-4.5);g.stroke()}
+ g.strokeStyle=O;g.lineWidth=1.6;g.lineCap='round';g.beginPath();
+ if(kind!=='skel'&&kind!=='ghost'&&kind!=='wolf'&&kind!=='zombie'){if(P.arms==='down'||P.brow<0){g.moveTo(-1,6.4);g.quadraticCurveTo(3,3.6,7,6.4)}else if(up||P.eye==='w'){g.ellipse(3,6,2.8,3,0,0,7)}else{g.moveTo(-1,5);g.quadraticCurveTo(3,8,7,5)}g.stroke()}
+ if(kind==='skel'){g.beginPath();g.moveTo(0,9);g.lineTo(6,9);g.stroke()}if(kind==='zombie'){g.beginPath();g.moveTo(-2,6.4);g.lineTo(0,5);g.lineTo(2,6.6);g.lineTo(4,5);g.lineTo(6,6.4);g.stroke()}
+ /* cap in the silks */
+ if(kind==='witch'){g.beginPath();g.ellipse(0,-7,19,5.4,-.06,0,7);gttartFS(g,gttartSh(c2,-.15),2.6);g.beginPath();g.moveTo(-10,-8);g.quadraticCurveTo(-6,-22,-8,-34);g.quadraticCurveTo(3,-30,10,-8);g.closePath();gttartFS(g,c2,2.6);g.beginPath();g.moveTo(-9.6,-11);g.lineTo(9,-11);g.lineTo(9.8,-8);g.lineTo(-10.3,-8);g.closePath();gttartFS(g,c1,2);g.beginPath();g.moveTo(-8,-34);g.lineTo(-13,-30);g.lineTo(-6,-31);g.closePath();gttartFS(g,c2,2)}
+ else if(kind!=='mush'){const ty=kind==='crab'?-6:kind==='bat'?-7:-8;g.beginPath();g.moveTo(-11,ty+2);g.quadraticCurveTo(-9,ty-10,2,ty-9);g.quadraticCurveTo(11,ty-8,12,ty+2);g.quadraticCurveTo(0,ty+4,-11,ty+2);g.closePath();gttartFS(g,c2,2.6);g.beginPath();g.moveTo(10,ty+1);g.quadraticCurveTo(18,ty+.5,19,ty+3);g.quadraticCurveTo(14,ty+4,9,ty+4);g.closePath();gttartFS(g,gttartSh(c2,-.25),2);
+  g.fillStyle=c1;g.beginPath();g.arc(0,ty-9.2,2.4,0,7);g.fill();g.strokeStyle=O;g.lineWidth=1.3;g.stroke()}
+ g.restore();
+ /* arms in front */
+ const sx=3,sy=-19;
+ if(kind==='crab'){const a=up?-.5:0;for(const sd of[-1,1]){gttartLine(g,sd*13,-12,sd*21,-20-(up?8:0),3.6,skinOf,3);g.beginPath();g.arc(sd*23,-24-(up?8:0),6,0,Math.PI*2);gttartFS(g,skinOf,2.2);g.fillStyle=O;g.beginPath();g.moveTo(sd*23,-24-(up?8:0));g.lineTo(sd*27,-29-(up?8:0));g.lineTo(sd*21,-30-(up?8:0));g.fill()}hand.x=21;hand.y=-12}
+ else if(up){const a=P.aph;arm(sx-4,sy,-15+Math.sin(a)*3,-42-Math.abs(Math.cos(a))*4,kind==='skel'?'#d9d2b8':shirt);arm(sx+4,sy,23+Math.cos(a)*3,-42-Math.abs(Math.sin(a))*4,kind==='skel'?'#d9d2b8':shirt);hand.x=23;hand.y=-40}
+ else if(sl){arm(sx,sy,6,-4,kind==='skel'?'#d9d2b8':shirt);hand.x=6;hand.y=-4}
+ else if(P.arms==='duck'){arm(sx,sy,21,-15,kind==='skel'?'#d9d2b8':shirt);hand.x=21;hand.y=-15}
+ else{arm(sx,sy,24,-10,kind==='skel'?'#d9d2b8':shirt);hand.x=24;hand.y=-10}
+ g.restore();return hand}
+
+/* ---------- the turkey: ground point at (0,0), facing right, design units (the caller scales) ---------- */
+function gttartLeg(g,hx,hy,fx,fy,col,thighCol){const L1=21,L2=24;let dx=fx-hx,dy=fy-hy,d=Math.hypot(dx,dy);const mx=L1+L2-.6;if(d>mx){dx*=mx/d;dy*=mx/d;d=mx}if(d<8)d=8;
+ const a=(L1*L1-L2*L2+d*d)/(2*d),h=Math.sqrt(Math.max(0,L1*L1-a*a)),ux=dx/d,uy=dy/d,kx=hx+ux*a-uy*h,ky=hy+uy*a+ux*h,ex=hx+dx,ey=hy+dy;
+ g.lineJoin='round';g.lineCap='round';g.beginPath();g.moveTo(hx,hy);g.lineTo(kx,ky);g.lineTo(ex,ey);g.strokeStyle=GTTART.O;g.lineWidth=11.8;g.stroke();g.strokeStyle=col;g.lineWidth=8;g.stroke();
+ g.strokeStyle=gttartSh(col,-.3);g.lineWidth=1.6;g.beginPath();g.moveTo(kx+(ex-kx)*.3,ky+(ey-ky)*.3);g.lineTo(kx+(ex-kx)*.36,ky+(ey-ky)*.36);g.moveTo(kx+(ex-kx)*.58,ky+(ey-ky)*.58);g.lineTo(kx+(ex-kx)*.64,ky+(ey-ky)*.64);g.stroke();
+ const tx=hx+(kx-hx)*.72,ty=hy+(ky-hy)*.72;gttartLine(g,hx,hy,tx,ty,17,thighCol,3.4);
+ const dr=fy<-4?.55:0;for(const[an,ln] of[[0+dr,13],[-.52+dr,11.5],[.5+dr+.1,11.5]]){gttartLine(g,ex,ey,ex+Math.cos(an)*ln,ey+Math.sin(an)*ln,4.6,col,3.4)}
+ gttartLine(g,ex,ey,ex-6,ey-1.5,3.4,col,3.2)}
+function gttartFeather(g,L,w,b0,b1,k,dark){const O=GTTART.O;g.beginPath();g.moveTo(9,-3.2);g.quadraticCurveTo(L*.5,-w*.78,L-w*.5,-w*.58);g.quadraticCurveTo(L+w*.28,0,L-w*.5,w*.58);g.quadraticCurveTo(L*.5,w*.78,9,3.2);g.closePath();
+ const q=g.createLinearGradient(0,0,L,0),base=gttartSh(b0,-.42+k*.1),mid=gttartSh(b0,k*.14),tip=b1;
+ q.addColorStop(0,base);q.addColorStop(.34,base);q.addColorStop(.35,mid);q.addColorStop(.66,mid);q.addColorStop(.67,tip);q.addColorStop(.88,tip);q.addColorStop(.89,'#fff2cf');q.addColorStop(1,'#fff2cf');
+ g.fillStyle=q;g.fill();g.strokeStyle=O;g.lineWidth=2.6;g.lineJoin='round';g.stroke();g.strokeStyle=gttartSh(b0,-.55)+'';g.globalAlpha=.4;g.lineWidth=1.2;g.beginPath();g.moveTo(12,0);g.lineTo(L-w*.5,0);g.stroke();g.globalAlpha=1}
+function gttartTurkey(g,I,P){const O=GTTART.O,b0=I.col[0],b1=I.col[1],tr=I.tr,lum=gttartLum(b0);g.lineJoin='round';g.lineCap='round';
+ const piv={x:0,y:-44},cs=Math.cos(P.pitch),sn=Math.sin(P.pitch);
+ const rot=(x,y)=>{const dx=x-piv.x,dy=y-piv.y;return{x:piv.x+dx*cs-dy*sn,y:piv.y+dx*sn+dy*cs+P.bob+BO}};
+ const BO=5,grp=()=>{g.translate(0,P.bob+BO);g.translate(piv.x,piv.y);g.rotate(P.pitch);g.translate(-piv.x,-piv.y)};
+ const hipF=rot(-9,-31),hipN=rot(11,-31),thc=gttartSh(b0,-.18),thF=gttartSh(b0,-.4);
+ gttartLeg(g,hipF.x,hipF.y,hipF.x+P.f.x,P.f.y,'#c98d28',thF);
+ const meta={};
+ g.save();grp();
+ /* the fan tail: eleven feathers from the rump, banded in the runner's colours */
+ {const N=11,px=-38,py=-68,span=P.fo*1.12,ord=[];for(let j=0;j<N;j++)ord.push(j);ord.sort((a,b)=>Math.abs(b-5)-Math.abs(a-5));
+  const flut=P.flut||0;
+  for(const j of ord){const f=j/(N-1)-.5,an=P.fd+f*2*span+Math.sin(P.aph*2+j)*.025,ce=1-Math.abs(f)*.5,L=P.fl*(.78+.22*ce),w=Math.max(10,P.fl*.2*(span<.6?.8:1));
+   g.save();g.translate(px,py);g.rotate(an);gttartFeather(g,L,w,b0,b1,(j%2?1:-1)*.6+(j===5?.5:0));g.restore()}}
+
+ /* neck (behind the body so the breast overlaps its base) */
+ {const nx=34,ny=-74,hx=54+P.hx,hy=-106+P.hy,cx=nx+(hx-nx)*.2+10,cy=ny+(hy-ny)*.55;
+  g.beginPath();g.moveTo(nx,ny);g.quadraticCurveTo(cx,cy,hx,hy);g.strokeStyle=O;g.lineWidth=20.5;g.stroke();g.strokeStyle=tr.skin;g.lineWidth=14.5;g.stroke();
+  g.strokeStyle='#d83a48';g.lineWidth=2.8;for(const u of[.35,.55,.75]){const x=(1-u)*(1-u)*nx+2*u*(1-u)*cx+u*u*hx,y=(1-u)*(1-u)*ny+2*u*(1-u)*cy+u*u*hy;g.beginPath();g.moveTo(x-1.5,y);g.lineTo(x+1.5,y);g.stroke()}}
+ /* body */
+ const body=()=>{g.beginPath();g.moveTo(47,-54);g.bezierCurveTo(47,-77,31,-92,6,-94);g.bezierCurveTo(-20,-96,-46,-90,-53,-67);g.bezierCurveTo(-57,-47,-37,-27,-4,-26);g.bezierCurveTo(26,-25,47,-36,47,-54);g.closePath()};
+ body();{const q=g.createLinearGradient(0,-96,0,-24);q.addColorStop(0,gttartSh(b0,.22));q.addColorStop(.55,b0);q.addColorStop(1,gttartSh(b0,-.32));g.fillStyle=q;g.fill()}
+ g.save();body();g.clip();
+ /* breast */
+ const bc=tr.pat==='grey'?'#e6e6ee':tr.pat==='royal'?'#e8c4ff':gttartSh(b0,lum>.6?.12:.34);
+ {const q=g.createRadialGradient(28,-46,2,28,-46,30);q.addColorStop(0,bc);q.addColorStop(.62,bc);q.addColorStop(1,bc+'00');g.fillStyle=q;g.fillRect(-4,-90,60,70)}
+ g.strokeStyle=gttartSh(b0,-.34);g.lineWidth=1.8;g.globalAlpha=.55;
+ for(let r=0;r<4;r++)for(let c=0;c<7;c++){const x=-40+c*14+(r%2?7:0),y=-82+r*13;if(x>8&&y>-70&&x<44)continue;g.beginPath();g.arc(x,y,5.6,.15,Math.PI-.15);g.stroke()}
+ g.globalAlpha=1;
+ if(tr.pat==='barred'){g.strokeStyle=b1;g.lineWidth=3.4;g.globalAlpha=.8;for(let i=0;i<4;i++){g.beginPath();g.moveTo(-34+i*9,-84);g.quadraticCurveTo(-26+i*9,-60,-36+i*9,-34);g.stroke()}g.globalAlpha=1}
+ else if(tr.pat==='spot'){g.fillStyle=b1;for(const[x,y] of[[-30,-76],[-14,-84],[2,-86],[-22,-60],[-6,-68],[-34,-46],[-12,-44],[14,-80],[0,-52],[18,-34]]){g.beginPath();g.arc(x,y,3.4,0,7);g.fill()}}
+ else if(tr.pat==='drum'){g.fillStyle=gttartSh(b0,-.3);g.beginPath();g.ellipse(-14,-52,22,20,.3,0,7);g.fill();g.strokeStyle=b1;g.lineWidth=2.4;g.beginPath();g.arc(24,-50,16,2.1,4.2);g.stroke()}
+ else if(tr.pat==='wish'){g.strokeStyle='#fff2cf';g.lineWidth=3.2;g.beginPath();g.moveTo(18,-62);g.quadraticCurveTo(22,-44,28,-40);g.quadraticCurveTo(34,-44,36,-62);g.stroke();g.strokeStyle=O;g.lineWidth=.8}
+ else if(tr.pat==='herb'){g.fillStyle=b1;for(const[x,y,a] of[[-30,-70,.5],[-8,-82,1.2],[-20,-48,.2],[6,-60,.9],[-36,-52,1.4],[8,-34,.4],[30,-76,.7]]){g.save();g.translate(x,y);g.rotate(a);g.beginPath();g.ellipse(0,0,4.6,2.1,0,0,7);g.fill();g.restore()}}
+ else if(tr.pat==='royal'){g.strokeStyle='#ffd45a';g.lineWidth=2.6;g.globalAlpha=.9;g.beginPath();g.arc(-6,-60,30,2.6,4.7);g.stroke();g.beginPath();g.arc(-6,-60,22,2.7,4.6);g.stroke();g.globalAlpha=1}
+ else if(tr.pat==='tuft'){g.fillStyle=b1;g.globalAlpha=.85;g.beginPath();g.moveTo(-50,-60);g.lineTo(-30,-80);g.lineTo(-34,-62);g.lineTo(-20,-72);g.lineTo(-26,-50);g.closePath();g.fill();g.globalAlpha=1}
+ else if(tr.pat==='grey'){g.fillStyle='#ffffff';g.globalAlpha=.25;g.beginPath();g.ellipse(-18,-70,30,12,-.1,0,7);g.fill();g.globalAlpha=1}
+ g.restore();
+ body();g.strokeStyle=O;g.lineWidth=3.4;g.stroke();
+ /* wing */
+ g.save();g.translate(12,-60);g.rotate(P.wing);g.beginPath();g.moveTo(0,-8);g.bezierCurveTo(14,-4,10,18,-32,26);g.bezierCurveTo(-28,16,-22,-2,-12,-12);g.closePath();
+ {const q=g.createLinearGradient(0,-8,-30,32);q.addColorStop(0,gttartSh(b0,-.2));q.addColorStop(1,gttartSh(b0,-.5));g.fillStyle=q;g.fill();g.strokeStyle=O;g.lineWidth=3.2;g.stroke()}
+ g.save();g.clip();g.fillStyle=b1;g.beginPath();g.moveTo(-36,32);g.lineTo(-30,14);g.lineTo(-2,22);g.lineTo(2,34);g.closePath();g.fill();g.restore();g.strokeStyle=O;g.lineWidth=2;g.beginPath();g.moveTo(-6,8);g.quadraticCurveTo(-14,12,-28,16);g.moveTo(0,1);g.quadraticCurveTo(-6,5,-18,7);g.stroke();g.restore();
+ /* neck and head */
+ {const nx=34,ny=-74,hx=54+P.hx,hy=-106+P.hy;
+  /* chest feathers over the neck base */
+  if(tr.ruff){g.fillStyle='#fffaf0';for(let i=0;i<6;i++){const a=-1.2+i*.42;g.beginPath();g.arc(35+Math.cos(a)*10,-77+Math.sin(a)*11,5.4,0,7);gttartFS(g,'#fffaf0',2.4)}}
+  if(tr.beard){g.fillStyle='#1c1424';g.beginPath();g.moveTo(40,-72);g.lineTo(47,-56);g.lineTo(43,-48);g.lineTo(37,-60);g.closePath();gttartFS(g,'#2a2030',2.2)}
+  g.save();g.translate(hx,hy);g.rotate(P.hp);
+  if(tr.pat==='tuft'||tr.pat==='royal'&&0){}
+  gttartEll(g,0,0,14,13.2,tr.skin,3.4);
+  const L=17,op=P.beak*7;
+  g.beginPath();g.moveTo(9,3);g.quadraticCurveTo(8,14+op*.4,13,17+op*.4);g.quadraticCurveTo(15,11,14,5);g.closePath();gttartFS(g,'#dc2a3a',2.2);
+  g.beginPath();g.moveTo(9,1.8);g.lineTo(8+L-3,3+op);g.lineTo(9,6.4);g.closePath();gttartFS(g,'#e49a22',2.2);
+  g.beginPath();g.moveTo(8,-5.2);g.quadraticCurveTo(8+L*.6,-5,8+L,.4);g.lineTo(9,2.4);g.closePath();gttartFS(g,'#f8c23c',2.4);
+  g.beginPath();g.moveTo(5,-10.5);g.quadraticCurveTo(9,-14,12,-9);g.quadraticCurveTo(9,-7,5,-8);g.closePath();gttartFS(g,'#dc2a3a',1.8);
+  if(P.eye==='x'){g.strokeStyle=O;g.lineWidth=2.2;g.beginPath();g.moveTo(-.5,-6);g.lineTo(5.6,.4);g.moveTo(5.6,-6);g.lineTo(-.5,.4);g.stroke()}
+  else if(P.eye==='c'){g.strokeStyle=O;g.lineWidth=2.4;g.beginPath();g.arc(3,0,3.4,Math.PI*1.1,Math.PI*1.9);g.stroke()}
+  else{const r=P.eye==='w'?5.6:4.5;gttartEll(g,3,-2.4,r,r*1.08,'#fffdf4',2);gttartEll(g,P.eye==='w'?3:4.4,-2.2,r*.5,r*.58,O,0);g.fillStyle='#fff';g.beginPath();g.arc(P.eye==='w'?2:3.5,-3.8,1,0,7);g.fill()}
+  if(P.brow){g.strokeStyle=O;g.lineWidth=2.6;g.beginPath();if(P.brow>0){g.moveTo(-2,-8.4);g.lineTo(8,-5.2)}else{g.moveTo(-1,-5.8);g.lineTo(8,-8.6)}g.stroke()}
+  if(tr.pat==='tuft'){for(const[a,l] of[[-2.2,13],[-1.75,16],[-1.35,12]]){g.save();g.rotate(a-Math.PI/2+Math.PI/2);g.translate(0,0);g.restore();g.strokeStyle=O;g.lineWidth=5.2;g.beginPath();g.moveTo(-1,-10);g.lineTo(-1+Math.cos(a)*l,-10+Math.sin(a)*l);g.stroke();g.strokeStyle=b1;g.lineWidth=3;g.stroke()}}
+  if(tr.acorn){g.beginPath();g.moveTo(-9,-8);g.quadraticCurveTo(-8,-19,2,-19);g.quadraticCurveTo(10,-19,10,-8);g.quadraticCurveTo(0,-5,-9,-8);g.closePath();gttartFS(g,'#9a6a34',2.6);g.strokeStyle='#6a4420';g.lineWidth=1.4;g.beginPath();g.moveTo(-6,-12);g.lineTo(7,-12);g.moveTo(-3,-16);g.lineTo(5,-16);g.stroke();g.beginPath();g.moveTo(0,-19);g.lineTo(2,-24);g.lineTo(4,-19);g.closePath();gttartFS(g,'#7a4e26',2)}
+  if(tr.crown){g.beginPath();g.moveTo(-7,-9);g.lineTo(-8,-22);g.lineTo(-3,-15);g.lineTo(1,-24);g.lineTo(5,-15);g.lineTo(10,-22);g.lineTo(9,-9);g.closePath();gttartFS(g,'#ffd45a',2.6);g.fillStyle='#e0304a';g.beginPath();g.arc(1,-12.5,1.9,0,7);g.fill()}
+  g.restore()}
+ g.restore();
+ /* near leg over the belly */
+ gttartLeg(g,hipN.x,hipN.y,hipN.x+P.n.x,P.n.y,'#f2b83c',thc);
+ gttartEll(g,hipN.x+1,hipN.y-2,12.5,13,thc,3);g.strokeStyle=gttartSh(b0,-.45);g.lineWidth=1.6;g.beginPath();g.arc(hipN.x+1,hipN.y+3,6,.3,2.8);g.stroke();
+ /* saddle cloth and the jockey on the back */
+ g.save();grp();
+ const cw=32,ch=22,clx=-12,cly=-82;
+ g.beginPath();g.roundRect(clx-cw/2,cly-3,cw,ch,5);gttartFS(g,I.silk[0],2.8);g.strokeStyle=I.silk[1];g.lineWidth=2.2;g.beginPath();g.roundRect(clx-cw/2+2.6,cly-.4,cw-5.2,ch-5.2,3);g.stroke();
+ {const m=g.getTransform();meta.cl=m.transformPoint(new DOMPoint(clx,cly+7.4))}
+ g.translate(-8,-90);g.scale(1.32,1.32);const hd=gttartJockey(g,I.kind,I.silk,P,tr);
+ {}
+ g.restore();
+ meta.hd=P.hd;return meta}
+
+/* ---------- baked frames per runner (small canvases, made on first use or by gttBake) ---------- */
+const GTTART_SETS=[['run',8],['fast',6],['strut',6],['stumble',2],['pie',2],['celeb',4],['sad',2]];
+function gttartFrame(I,kind,u){const c=gttartCv(GTTART.SW,GTTART.SH),g=c.getContext('2d');g.translate(GTTART.OX,GTTART.OY);const s=GTTART.K*I.sc;g.scale(s,s);
+ const P=gttartPose(kind,u),m=gttartTurkey(g,I,P);const T=g.getTransform();
+ c.cl=m.cl?{x:m.cl.x,y:m.cl.y}:{x:GTTART.OX-10,y:GTTART.OY-60};c.top=GTTART.OY-166*s;return c}
+function gttartRunner(id){let S=GTTART.spr[id];if(S)return S;const I=gttartInfo(id);S={I};
+ for(const[k,n] of GTTART_SETS){const a=[];for(let i=0;i<n;i++)a.push(gttartFrame(I,k,i/n));S[k]=a}
+ GTTART.spr[id]=S;for(let l=0;l<6;l++){gttartChip(id,l);gttartBadge(id,l)}
+ return S}
+/* the number chip on the saddle cloth and the lane badge above the runner (tiny sprites, cached per runner and lane) */
+function gttartChip(id,lane){const key=id+':'+lane;let c=GTTART.chip[key];if(c)return c;const I=gttartInfo(id);c=gttartCv(30,26);const g=c.getContext('2d');g.translate(15,13);
+ g.beginPath();g.roundRect(-11.5,-9.5,23,19,5.5);gttartFS(g,'#fff6dc',2.6);g.strokeStyle=I.silk[0];g.lineWidth=2;g.beginPath();g.roundRect(-9,-7,18,14,3.6);g.stroke();
+ g.fillStyle=GTTART.O;g.font='900 15px Poppins,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(lane+1),0,1);return GTTART.chip[key]=c}
+function gttartBadge(id,lane){const key=id+':'+lane;let c=GTTART.bdg[key];if(c)return c;const I=gttartInfo(id);c=gttartCv(48,48);const g=c.getContext('2d');g.translate(24,22);
+ g.beginPath();g.arc(0,0,15,0,7);gttartFS(g,I.silk[0],3.4);g.strokeStyle=I.silk[1];g.lineWidth=2;g.beginPath();g.arc(0,0,11.6,0,7);g.stroke();
+ g.beginPath();g.moveTo(-5,13);g.lineTo(0,20);g.lineTo(5,13);g.closePath();gttartFS(g,I.silk[0],2.6);
+ g.font='900 17px Poppins,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.lineWidth=4;g.strokeStyle=GTTART.O;g.fillStyle='#fff';g.strokeText(String(lane+1),0,1);g.fillText(String(lane+1),0,1);return GTTART.bdg[key]=c}
+/* pick the baked frame for a pose; ph is a cycle phase (any number, the fraction is used) */
+function gttartPick(S,pose,ph){const a=S[pose]||S.run,f=ph-Math.floor(ph);return a[Math.min(a.length-1,(f*a.length)|0)]}
+function gttartBlit(c,S,pose,ph,x,y,s,dir,lane,mine,lowChip){const f=gttartPick(S,pose,ph);c.save();c.translate(x,y);if(dir<0)c.scale(-1,1);c.scale(s,s);
+ c.drawImage(f,-GTTART.OX,-GTTART.OY);
+ if(lane!=null&&lane>=0){const ch=gttartChip(S.I.id,lane);c.drawImage(ch,f.cl.x-GTTART.OX-15,f.cl.y-GTTART.OY-13)}
+ c.restore();return f}
+
+/* ---------- public: one turkey with its jockey ---------- */
+function gttartPoseOf(opts){if(opts.pose)return opts.pose;if(opts.win)return'celeb';if(opts.sad)return'sad';const e=opts.ev;return e==='stumble'?'stumble':e==='pie'?'pie':e==='kick'?'fast':opts.idle?'strut':'run'}
+function gttartGround(c,x,y,s,mine,t){c.fillStyle='rgba(18,8,31,.30)';c.beginPath();c.ellipse(x,y+1,48*s,7.5*s,0,0,Math.PI*2);c.fill();
+ if(mine){c.lineWidth=3.6*Math.max(.8,s);c.strokeStyle=GTTART.O;c.beginPath();c.ellipse(x,y+1,60*s,11.5*s,0,0,Math.PI*2);c.stroke();c.lineWidth=2.2*Math.max(.8,s);c.strokeStyle='#ffd45a';c.stroke()}}
+function gttDrawTurkey(c,id,x,y,scale,phase,opts){opts=opts||{};const S=gttartRunner(id),s=scale||1,pose=gttartPoseOf(opts),dir=opts.dir<0?-1:1;
+ if(opts.shadow!==false)gttartGround(c,x,y,s,opts.mine,opts.t||0);
+ if(opts.ev==='burst'){c.strokeStyle='#fff6c8';c.lineCap='round';for(let i=0;i<4;i++){const yy=y-30*s-i*17*s,l=(60+i%2*30)*s;c.lineWidth=(4-i*.5)*s;c.globalAlpha=.8-i*.12;c.beginPath();c.moveTo(x-dir*70*s,yy);c.lineTo(x-dir*(70*s+l),yy);c.stroke()}c.globalAlpha=1}
+ return gttartBlit(c,S,pose,phase||0,x,y,s,dir,opts.lane,opts.mine)}
+/* the idle strut for the paddock rows: draws into a small canvas (about 120 x 96); lane (optional) puts the number on the saddle cloth */
+function gttPortrait(cv,id,t,lane){const g=cv.getContext('2d'),w=cv.width,h=cv.height;g.setTransform(1,0,0,1,0,0);g.clearRect(0,0,w,h);const S=gttartRunner(id),CX=6,CY=8,CW=204,CH=166,k=Math.min(w/CW,h/CH);
+ const f=gttartPick(S,'strut',(t||0)*.75);g.save();g.translate((w-CW*k)/2,(h-CH*k)/2);g.scale(k,k);g.translate(-CX,-CY);
+ g.fillStyle='rgba(18,8,31,.32)';g.beginPath();g.ellipse(GTTART.OX+2,GTTART.OY+2,52,8,0,0,Math.PI*2);g.fill();
+ g.drawImage(f,0,0);if(lane!=null&&lane>=0)g.drawImage(gttartChip(id,lane),f.cl.x-15,f.cl.y-13);g.restore()}/* ---------- the scene: baked layers ---------- */
+const GTTART_AUT=['#e8741c','#d8481c','#f0b030','#a83a1c','#8a9a2a','#c8601c'];
+function gttartTree(g,x,y,r,col){gttartEll(g,x,y-r*.9,r*.16,r*.9,'#4a2c1c',1.4);for(const[dx,dy,k] of[[-.5,-.9,.78],[.5,-.95,.74],[0,-1.4,.82],[0,-.9,.95]]){gttartEll(g,x+dx*r,y+dy*r,r*k,r*k*.9,gttartSh(col,dx<0?.08:dx>0?-.12:0),1.6)}}
+function gttartBakeSky(){const W=1760,H=560,c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(5);
+ const q=g.createLinearGradient(0,0,0,H);q.addColorStop(0,'#0e0726');q.addColorStop(.35,'#2a1458');q.addColorStop(.62,'#6a2c72');q.addColorStop(.82,'#d4663e');q.addColorStop(1,'#f4a24a');g.fillStyle=q;g.fillRect(0,0,W,H);
+ for(let i=0;i<110;i++){const x=R()*W,y=R()*H*.55,r=.7+R()*1.5;g.globalAlpha=.25+R()*.6;g.fillStyle=R()<.2?'#ffe9a8':'#fff';g.beginPath();g.arc(x,y,r,0,7);g.fill()}g.globalAlpha=1;
+ const mx=1280,my=190,mr=88;let h=g.createRadialGradient(mx,my,mr*.6,mx,my,mr*3.4);h.addColorStop(0,'rgba(255,190,90,.45)');h.addColorStop(1,'rgba(255,190,90,0)');g.fillStyle=h;g.fillRect(mx-mr*3.4,my-mr*3.4,mr*6.8,mr*6.8);
+ g.beginPath();g.arc(mx,my,mr,0,7);const mq=g.createRadialGradient(mx-24,my-26,10,mx,my,mr);mq.addColorStop(0,'#fff0b8');mq.addColorStop(.6,'#ffc860');mq.addColorStop(1,'#f0902c');g.fillStyle=mq;g.fill();g.strokeStyle='#ffb050';g.lineWidth=3;g.stroke();
+ g.fillStyle='rgba(214,120,30,.28)';for(const[dx,dy,r] of[[-30,-18,15],[24,-30,10],[34,16,17],[-14,30,11],[-42,18,7],[6,-2,9]]){g.beginPath();g.arc(mx+dx,my+dy,r,0,7);g.fill()}
+ g.fillStyle='rgba(255,255,230,.5)';g.beginPath();g.ellipse(mx-26,my-34,22,10,-.5,0,7);g.fill();
+ /* a turkey silhouette crossing the moon, and a bat or two */
+ return c}
+function gttartBakeClouds(){const W=1600,H=190,c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(9);
+ const cloud=(x,y,s)=>{for(const dx of[-W,0,W]){const X=x+dx;if(X<-300||X>W+300)continue;g.save();g.translate(X,y);g.scale(s,s);
+  g.beginPath();for(const[bx,by,r] of[[-60,6,26],[-28,-10,34],[10,-16,38],[48,-4,30],[80,8,22],[0,10,36]])g.arc(bx,by,r,0,7,false),g.moveTo(bx+r+0,by);
+  g.fillStyle='#3a1c62';g.fill();g.globalCompositeOperation='source-atop';g.fillStyle='rgba(244,150,80,.55)';g.beginPath();g.ellipse(0,34,120,22,0,0,7);g.fill();g.globalCompositeOperation='source-over';g.restore()}};
+ for(const[x,y,s] of[[180,60,1.1],[520,110,.8],[860,50,1.3],[1180,120,.9],[1450,70,1],[700,150,.6]])cloud(x,y,s);return c}
+function gttartBakeFar(){const W=1600,H=240,c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(21);g.lineJoin='round';
+ const hill=(base,amp,col,ph,fq)=>{g.beginPath();g.moveTo(0,H);for(let x=0;x<=W;x+=16){const a=x/W*Math.PI*2;g.lineTo(x,base-amp*(.5+.5*Math.sin(a*fq+ph))-amp*.35*Math.sin(a*fq*2+ph*2.1))}g.lineTo(W,H);g.closePath();g.fillStyle=col;g.fill()};
+ hill(122,46,'#35184f',0,2);hill(162,32,'#432063',2,3);
+ /* ferris wheel */
+ {const wx=1010,wy=122,r=96;g.strokeStyle='#12081f';g.lineWidth=7;g.beginPath();g.moveTo(wx-52,H-26);g.lineTo(wx,wy);g.lineTo(wx+52,H-26);g.stroke();g.strokeStyle='#8a5a3a';g.lineWidth=3.6;g.stroke();
+  g.strokeStyle='#12081f';g.lineWidth=7;g.beginPath();g.arc(wx,wy,r,0,7);g.stroke();g.strokeStyle='#d8c0e8';g.lineWidth=3.4;g.stroke();g.beginPath();g.arc(wx,wy,r*.55,0,7);g.lineWidth=2.4;g.stroke();
+  g.lineWidth=2.4;g.beginPath();for(let i=0;i<12;i++){const a=i/12*7;g.moveTo(wx,wy);g.lineTo(wx+Math.cos(a)*r,wy+Math.sin(a)*r)}g.stroke();
+  const cols=['#e8741c','#ffd45a','#d8481c','#8a5ad8','#58d6c8','#ec5a8a'];for(let i=0;i<12;i++){const a=i/12*7,gx=wx+Math.cos(a)*r,gy=wy+Math.sin(a)*r;g.beginPath();g.roundRect(gx-9,gy-5,18,19,4);gttartFS(g,cols[i%6],2.2);g.fillStyle='#ffe9a8';g.fillRect(gx-5,gy,10,5)}
+  g.beginPath();g.arc(wx,wy,9,0,7);gttartFS(g,'#ffd45a',2.6);g.fillStyle='#ffe9a8';for(let i=0;i<24;i++){const a=i/24*7;g.beginPath();g.arc(wx+Math.cos(a)*(r+7),wy+Math.sin(a)*(r+7),2,0,7);g.fill()}}
+ hill(200,18,'#552a6e',4,3);
+ /* barn and silo */
+ {const bx=250,by=H-26;g.beginPath();g.rect(bx-62,by-62,124,62);gttartFS(g,'#b0302a',2.6);g.beginPath();g.moveTo(bx-70,by-60);g.lineTo(bx-40,by-98);g.lineTo(bx+40,by-98);g.lineTo(bx+70,by-60);g.closePath();gttartFS(g,'#5a2a3a',2.8);
+  g.beginPath();g.rect(bx-22,by-40,44,40);gttartFS(g,'#8a2420',2.4);g.strokeStyle='#f4e4c8';g.lineWidth=3;g.beginPath();g.moveTo(bx-22,by-40);g.lineTo(bx+22,by);g.moveTo(bx+22,by-40);g.lineTo(bx-22,by);g.stroke();
+  g.fillStyle='#ffd45a';g.fillRect(bx-8,by-86,16,12);g.strokeStyle='#12081f';g.lineWidth=2;g.strokeRect(bx-8,by-86,16,12);
+  g.beginPath();g.rect(bx+78,by-96,34,96);gttartFS(g,'#9a8ab8',2.6);g.beginPath();g.ellipse(bx+95,by-96,17,11,0,Math.PI,0);gttartFS(g,'#6a5a90',2.6);g.strokeStyle='#5a4a80';g.lineWidth=1.6;for(let y=by-78;y<by;y+=22){g.beginPath();g.moveTo(bx+78,y);g.lineTo(bx+112,y);g.stroke()}}
+ /* striped tents */
+ for(const tx of[640,1390]){const ty=H-24;g.beginPath();g.moveTo(tx-56,ty);g.lineTo(tx-56,ty-34);g.lineTo(tx,ty-78);g.lineTo(tx+56,ty-34);g.lineTo(tx+56,ty);g.closePath();gttartFS(g,'#f4e4c8',2.6);
+  g.save();g.clip();for(let i=-3;i<3;i++){g.fillStyle=i%2?'#e8741c':'#6a3aa8';g.beginPath();g.moveTo(tx+i*19,ty-80);g.lineTo(tx+i*19+19,ty-80);g.lineTo(tx+i*30+30,ty);g.lineTo(tx+i*30,ty);g.closePath();g.fill()}g.restore();g.beginPath();g.moveTo(tx-56,ty);g.lineTo(tx-56,ty-34);g.lineTo(tx,ty-78);g.lineTo(tx+56,ty-34);g.lineTo(tx+56,ty);g.closePath();g.strokeStyle='#12081f';g.lineWidth=2.6;g.stroke();
+  g.beginPath();g.moveTo(tx,ty-78);g.lineTo(tx,ty-96);g.stroke();g.beginPath();g.moveTo(tx,ty-96);g.lineTo(tx+16,ty-90);g.lineTo(tx,ty-84);g.closePath();gttartFS(g,'#ffd45a',1.8);
+  g.beginPath();g.rect(tx-12,ty-30,24,30);gttartFS(g,'#2a1448',2.2)}
+ /* autumn trees along the front hill */
+ for(let i=0;i<46;i++){const x=i*W/46+R()*14,y=H-22-R()*14,r=12+R()*11,cc=GTTART_AUT[(R()*6)|0];for(const dx of[0,-W,W]){if(x+dx>-50&&x+dx<W+50)gttartTree(g,x+dx,y,r,cc)}}
+ /* lamp posts with a glow */
+ for(const lx of[120,470,820,1180,1500]){g.strokeStyle='#12081f';g.lineWidth=5;g.beginPath();g.moveTo(lx,H-24);g.lineTo(lx,H-118);g.stroke();g.strokeStyle='#5a4a70';g.lineWidth=2.4;g.stroke();
+  const q=g.createRadialGradient(lx,H-122,2,lx,H-122,44);q.addColorStop(0,'rgba(255,214,120,.7)');q.addColorStop(1,'rgba(255,214,120,0)');g.fillStyle=q;g.fillRect(lx-46,H-168,92,92);gttartEll(g,lx,H-122,6,6,'#ffe9a8',2)}
+ const hz=g.createLinearGradient(0,H-70,0,H);hz.addColorStop(0,'rgba(240,150,80,0)');hz.addColorStop(1,'rgba(240,150,80,.38)');g.fillStyle=hz;g.fillRect(0,H-70,W,70);
+ return c}
+/* the crowd: two frames of the same stand (waving monsters), 800 px period */
+function gttartBakeStands(){const W=800,H=160,out=[];for(let fr=0;fr<2;fr++){const c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(31);g.lineJoin='round';
+ /* back wall, tiers */
+ g.fillStyle='#2a1640';g.fillRect(0,26,W,H-26);const q=g.createLinearGradient(0,26,0,H);q.addColorStop(0,'#3a2058');q.addColorStop(1,'#26123e');g.fillStyle=q;g.fillRect(0,26,W,H-26);
+ const kinds=[['#8dbe4e','g'],['#7a6a9e','b'],['#dc4a3c','i'],['#58d6c8','s'],['#efe9d2','k'],['#e8741c','p'],['#8f94a2','w'],['#ec6a3c','c'],['#92d6f2','f'],['#f1e2c4','m']];
+ for(let row=0;row<2;row++){const by=74+row*38,off=row*13;
+  const RR=gttartRng(100+row),MM=[];for(let i=0;i<14;i++)MM.push({x:off+i*W/14+RR()*10-5,ki:kinds[(RR()*kinds.length)|0],y:by+(RR()*4-2),sh:(RR()*5)|0,ay:28+RR()*5});
+  for(let i=0;i<14;i++){const m=MM[i],ki=m.ki,y=m.y,up=((i+row+fr)&1)===0;for(const dx of[0,-W,W]){const x=m.x+dx;if(x<-30||x>W+30)continue;
+   if(up){const ay=y-m.ay;gttartLine(g,x-9,y+4,x-13,ay,5,ki[0],3);gttartLine(g,x+9,y+4,x+13,ay-2,5,ki[0],3)}
+   g.beginPath();g.ellipse(x,y+16,14,12,0,0,7);gttartFS(g,['#d8481c','#6a3aa8','#ffd45a','#2a8a5a','#e84a8a'][m.sh],2.4);
+   gttartEll(g,x,y,13,12,ki[0],2.6);
+   if(ki[1]==='b'||ki[1]==='w'){g.beginPath();g.moveTo(x-10,y-6);g.lineTo(x-12,y-20);g.lineTo(x-3,y-10);g.closePath();gttartFS(g,ki[0],2);g.beginPath();g.moveTo(x+10,y-6);g.lineTo(x+12,y-20);g.lineTo(x+3,y-10);g.closePath();gttartFS(g,ki[0],2)}
+   if(ki[1]==='i'){g.beginPath();g.moveTo(x-8,y-9);g.lineTo(x-10,y-19);g.lineTo(x-2,y-11);g.closePath();gttartFS(g,'#f4e8c8',1.8);g.beginPath();g.moveTo(x+8,y-9);g.lineTo(x+10,y-19);g.lineTo(x+2,y-11);g.closePath();gttartFS(g,'#f4e8c8',1.8)}
+   if(ki[1]==='g'){g.beginPath();g.moveTo(x-12,y-2);g.lineTo(x-23,y-6);g.lineTo(x-11,y+4);g.closePath();gttartFS(g,ki[0],1.8)}
+   if(ki[1]==='p'){g.strokeStyle='#4a6a24';g.lineWidth=3;g.beginPath();g.moveTo(x,y-11);g.lineTo(x+2,y-17);g.stroke()}
+   if(ki[1]==='m'){g.beginPath();g.ellipse(x,y-7,14,8,0,Math.PI,0);gttartFS(g,['#e84a3a','#6a3aa8'][i&1],2);g.fillStyle='#fff';g.beginPath();g.arc(x-5,y-12,2,0,7);g.arc(x+4,y-14,2.2,0,7);g.fill()}
+   if(ki[1]==='k'){gttartEll(g,x-4,y-1,3,3.6,'#2a1a30',0);gttartEll(g,x+5,y-1,3,3.6,'#2a1a30',0)}
+   else{const ey=y-2;gttartEll(g,x-4.5,ey,3.1,3.5,'#fff',1.4);gttartEll(g,x+4.5,ey,3.1,3.5,'#fff',1.4);g.fillStyle='#12081f';g.beginPath();g.arc(x-3.6,ey+.4,1.5,0,7);g.arc(x+5.4,ey+.4,1.5,0,7);g.fill()}
+   g.strokeStyle='#12081f';g.lineWidth=1.8;g.beginPath();g.arc(x,y+4,3.4,.2,Math.PI-.2);g.stroke()}}
+  g.fillStyle='#6a4a30';g.fillRect(0,by+28,W,12);g.strokeStyle='#12081f';g.lineWidth=2;g.strokeRect(-2,by+28,W+4,12);g.fillStyle='#8a6a44';g.fillRect(0,by+28,W,3)}
+ /* bunting */
+ const fl=['#e8741c','#ffd45a','#6a3aa8','#2aa860','#d8481c'];g.strokeStyle='#12081f';g.lineWidth=2.4;g.beginPath();g.moveTo(0,6);for(let x=0;x<=W;x+=10)g.lineTo(x,6+Math.sin(x/W*Math.PI*10)*0+14*Math.abs(Math.sin(x/100*Math.PI)));g.stroke();
+ for(let i=0;i<16;i++){const x=i*50+25,y=6+14*Math.abs(Math.sin(x/100*Math.PI));g.beginPath();g.moveTo(x-11,y);g.lineTo(x+11,y);g.lineTo(x,y+24);g.closePath();gttartFS(g,fl[i%5],2.2)}
+ out.push(c)}return out}
+function gttartBakeRail(){const W=640,H=150,c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(41);g.lineJoin='round';
+ const hay=(x,y,w,h)=>{g.beginPath();g.roundRect(x,y-h,w,h,7);const q=g.createLinearGradient(0,y-h,0,y);q.addColorStop(0,'#f4cc58');q.addColorStop(1,'#d09a30');gttartFS(g,q,2.8);g.strokeStyle='#a8741e';g.lineWidth=1.6;g.beginPath();for(let i=0;i<9;i++){const yy=y-h+6+i*(h-12)/8;g.moveTo(x+6,yy);g.lineTo(x+w-6,yy+(i%2?-2:2))}g.stroke();g.strokeStyle='#8a5a1c';g.lineWidth=3;g.beginPath();g.moveTo(x+w*.3,y-h);g.lineTo(x+w*.3,y);g.moveTo(x+w*.7,y-h);g.lineTo(x+w*.7,y);g.stroke()};
+ const gy=118;
+ /* props behind the rail: hay stacks, pumpkins, a scarecrow, corn sheaves */
+ hay(30,gy,64,40);hay(40,gy-40,50,34);hay(100,gy,56,36);
+ for(const[x,y,r,cc] of[[210,gy-2,19,'#e8741c'],[246,gy-3,22,'#d8661a'],[228,gy-30,16,'#f08a2c'],[282,gy,15,'#e8a02c']])try{flcPumpkin(g,x,y-r*.7,r,{c:cc})}catch(e){gttartEll(g,x,y-r*.7,r,r*.8,cc,2.4)}
+ try{flcScarecrow(g,380,gy+2,.5,0,0,{})}catch(e){}
+ hay(450,gy,70,44);hay(526,gy,48,30);
+ for(const[x,y,r,cc] of[[590,gy-2,17,'#e8741c'],[614,gy,12,'#f0a030']])try{flcPumpkin(g,x,y-r*.7,r,{c:cc})}catch(e){gttartEll(g,x,y-r*.7,r,r*.8,cc,2.4)}
+ /* the white rail */
+ const ry=gy-2;for(let x=-10;x<W+80;x+=80){g.beginPath();g.roundRect(x-5,ry-26,10,40,3);gttartFS(g,'#f6efe0',2.6);g.fillStyle='#ffd45a';g.beginPath();g.roundRect(x-6.5,ry-30,13,8,3);g.fill();g.strokeStyle=GTTART.O;g.lineWidth=2;g.stroke()}
+ for(const yy of[ry-16,ry+2]){g.beginPath();g.roundRect(-4,yy-4,W+8,8,3);gttartFS(g,'#f6efe0',2.6);g.fillStyle='#ffffffa0';g.fillRect(0,yy-3,W,2)}
+ return c}
+function gttartBakeFore(){const W=512,H=110,c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(55);g.lineJoin='round';
+ g.fillStyle='#2a1a30';g.fillRect(0,50,W,H-50);const q=g.createLinearGradient(0,40,0,H);q.addColorStop(0,'#4a3a2a');q.addColorStop(1,'#241418');g.fillStyle=q;g.fillRect(0,48,W,H-48);
+ g.strokeStyle='#12081f';g.lineWidth=2.4;g.beginPath();g.moveTo(0,49);g.lineTo(W,49);g.stroke();
+ for(let x=0;x<W;x+=7){g.strokeStyle=['#5a7a2a','#7a9a38','#3a5a22'][(x/7|0)%3];g.lineWidth=2.4;g.beginPath();g.moveTo(x,52);g.lineTo(x+R()*4-2,40-R()*8);g.stroke()}
+ for(const x of[40,210,380]){g.beginPath();g.roundRect(x-8,12,16,70,3);gttartFS(g,'#8a5a30',2.8);g.fillStyle='#a8743c';g.fillRect(x-5,14,4,64)}
+ for(const yy of[24,44]){g.beginPath();g.roundRect(-4,yy,W+8,9,3);gttartFS(g,'#9a6a38',2.8);g.fillStyle='#c48a4c';g.fillRect(0,yy+1,W,2)}
+ return c}
+function gttartBakeTrack(going){const W=384,H=410,c=gttartCv(W,H),g=c.getContext('2d'),R=gttartRng(going==='firm'?3:going==='muddy'?4:5);g.lineJoin='round';
+ const pal={firm:['#d2a068','#b4824a','#e8c488','#9a6a38'],good:['#b07a46','#8c5a30','#c8945a','#6e4424'],muddy:['#6e4a30','#4a301f','#8a6040','#33201a']}[going]||['#b07a46','#8c5a30','#c8945a','#6e4424'];
+ const q=g.createLinearGradient(0,0,0,H);q.addColorStop(0,pal[0]);q.addColorStop(1,pal[1]);g.fillStyle=q;g.fillRect(0,0,W,H);
+ const wrap=(x,w,f)=>{f(x);if(x<w)f(x+W);if(x>W-w)f(x-W)};
+ /* mottling, pebbles, straw */
+ for(let i=0;i<150;i++){const x=R()*W,y=R()*H,rx=5+R()*20,ry=2+R()*5;g.fillStyle=R()<.5?pal[2]:pal[3];g.globalAlpha=.1+R()*.16;wrap(x,rx,X=>{g.beginPath();g.ellipse(X,y,rx,ry,0,0,7);g.fill()})}g.globalAlpha=1;
+ for(let i=0;i<260;i++){const x=R()*W,y=R()*H,r=.8+R()*1.8;g.fillStyle=R()<.5?pal[2]:pal[3];g.globalAlpha=.5;g.beginPath();g.arc(x,y,r,0,7);g.fill()}g.globalAlpha=1;
+ g.strokeStyle='#e6c25a';g.lineWidth=1.4;for(let i=0;i<34;i++){const x=R()*W,y=R()*H,a=R()*Math.PI,l=6+R()*8;g.globalAlpha=.55;wrap(x,l,X=>{g.beginPath();g.moveTo(X,y);g.lineTo(X+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke()})}g.globalAlpha=1;
+ /* turkey tracks: little three-toed prints */
+ g.strokeStyle=pal[3];g.lineWidth=1.8;g.globalAlpha=.55;for(let i=0;i<26;i++){const x=R()*W,y=R()*H;wrap(x,10,X=>{g.beginPath();g.moveTo(X,y);g.lineTo(X+8,y);g.moveTo(X,y);g.lineTo(X+6,y-4);g.moveTo(X,y);g.lineTo(X+6,y+4);g.stroke()})}g.globalAlpha=1;
+ if(going==='firm'){g.strokeStyle=pal[3];g.lineWidth=1.4;g.globalAlpha=.5;for(let i=0;i<16;i++){let x=R()*W,y=R()*H;g.beginPath();g.moveTo(x,y);for(let k=0;k<4;k++){x+=6+R()*10;y+=R()*10-5;g.lineTo(x,y)}g.stroke()}g.globalAlpha=1}
+ if(going==='muddy'){/* ruts and puddles */
+  g.strokeStyle='#2a1810';g.lineWidth=4;g.globalAlpha=.4;for(const y of[60,160,250,330]){g.beginPath();g.moveTo(0,y);for(let x=0;x<=W;x+=24)g.lineTo(x,y+Math.sin(x/W*Math.PI*2+y)*4);g.stroke()}g.globalAlpha=1;
+  for(let i=0;i<9;i++){const x=R()*W,y=30+R()*(H-60),rx=22+R()*30,ry=6+R()*7;wrap(x,rx,X=>{g.beginPath();g.ellipse(X,y,rx,ry,0,0,7);g.fillStyle='#2e1c14';g.fill();g.beginPath();g.ellipse(X,y+1,rx-3,ry-2,0,0,7);const pq=g.createLinearGradient(0,y-ry,0,y+ry);pq.addColorStop(0,'#8aa0c0');pq.addColorStop(1,'#4a5a80');g.fillStyle=pq;g.fill();g.strokeStyle='#d8e4f4';g.globalAlpha=.7;g.lineWidth=1.6;g.beginPath();g.moveTo(X-rx*.5,y-ry*.3);g.lineTo(X+rx*.1,y-ry*.3);g.stroke();g.globalAlpha=1})}}
+ /* lane lines: chalk at the boundaries between feet rows (track top = HZ) */
+ const lines=[37,91,145,199,253,307,361];g.lineCap='round';
+ for(const y of lines){g.strokeStyle='#12081f';g.globalAlpha=.28;g.lineWidth=7;g.beginPath();g.moveTo(0,y+1.5);g.lineTo(W,y+1.5);g.stroke();g.globalAlpha=going==='muddy'?.5:.85;g.strokeStyle='#fff3da';g.lineWidth=3.2;g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}g.globalAlpha=1;
+ return c}
+function gttartBakeProps(){const P={};
+ /* distance posts */
+ P.post=[];for(let k=1;k<=9;k++){const c=gttartCv(66,96),g=c.getContext('2d');g.lineJoin='round';g.beginPath();g.roundRect(29,34,8,58,2);gttartFS(g,'#f6efe0',2.6);
+  g.beginPath();g.roundRect(5,4,56,34,7);gttartFS(g,'#2a1a5a',3);g.strokeStyle='#ffd45a';g.lineWidth=2;g.beginPath();g.roundRect(9,8,48,26,4);g.stroke();
+  g.fillStyle='#ffd45a';g.font='900 19px Poppins,Arial,sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(String(k*100),33,18);g.font='700 8px Poppins,Arial,sans-serif';g.fillStyle='#e8d8ff';g.fillText('TO GO',33,30);P.post.push(c)}
+ /* the finish post with a checkered banner */
+ {const c=gttartCv(150,330),g=c.getContext('2d');g.lineJoin='round';g.beginPath();g.roundRect(18,26,12,300,3);gttartFS(g,'#f6efe0',3);g.fillStyle='#d8c8a8';g.fillRect(24,30,5,292);
+  g.beginPath();g.arc(24,22,13,0,7);gttartFS(g,'#ffd45a',3);g.fillStyle='#fff3b0';g.beginPath();g.arc(21,18,4,0,7);g.fill();
+  const bx=30,by=46,bw=112,bh=60;g.save();g.beginPath();g.moveTo(bx,by);g.quadraticCurveTo(bx+bw*.5,by-8,bx+bw,by+4);g.lineTo(bx+bw-6,by+bh+4);g.quadraticCurveTo(bx+bw*.5,by+bh-8,bx,by+bh);g.closePath();g.clip();
+  for(let r=0;r<5;r++)for(let k=0;k<9;k++){g.fillStyle=(r+k)%2?'#12081f':'#fff8e8';g.fillRect(bx+k*13,by-10+r*14,13,14)}g.restore();
+  g.beginPath();g.moveTo(bx,by);g.quadraticCurveTo(bx+bw*.5,by-8,bx+bw,by+4);g.lineTo(bx+bw-6,by+bh+4);g.quadraticCurveTo(bx+bw*.5,by+bh-8,bx,by+bh);g.closePath();g.strokeStyle=GTTART.O;g.lineWidth=3;g.stroke();P.fin=c}
+ /* checkered finish line, a strip across the lanes */
+ {const c=gttartCv(36,364),g=c.getContext('2d');for(let r=0;r<26;r++)for(let k=0;k<3;k++){g.fillStyle=(r+k)%2?'#12081f':'#fff8e8';g.fillRect(k*12,r*14,12,14)}g.strokeStyle='#12081f';g.lineWidth=2;g.strokeRect(1,1,34,362);P.line=c}
+ /* hay bale, pie on a post, glow */
+ {const c=gttartCv(60,48),g=c.getContext('2d');g.lineJoin='round';g.beginPath();g.roundRect(4,6,52,34,8);const q=g.createLinearGradient(0,6,0,40);q.addColorStop(0,'#f8d062');q.addColorStop(1,'#d09a30');gttartFS(g,q,3);g.strokeStyle='#a8741e';g.lineWidth=1.8;g.beginPath();for(let i=0;i<7;i++){g.moveTo(9,11+i*4.2);g.lineTo(51,12+i*4.2+(i%2?-2:2))}g.stroke();g.strokeStyle='#8a5a1c';g.lineWidth=3.4;g.beginPath();g.moveTo(20,6);g.lineTo(20,40);g.moveTo(40,6);g.lineTo(40,40);g.stroke();P.bale=c}
+ {const c=gttartCv(70,92),g=c.getContext('2d');g.lineJoin='round';g.beginPath();g.roundRect(29,38,13,52,3);gttartFS(g,'#9a6a38',3);g.fillStyle='#c48a4c';g.fillRect(32,40,3,48);
+  g.beginPath();g.ellipse(35,34,30,11,0,0,7);gttartFS(g,'#c88a3c',3);g.beginPath();g.ellipse(35,30,25,8,0,0,7);gttartFS(g,'#e8761c',2.4);
+  g.beginPath();g.arc(35,24,11,Math.PI,0);g.quadraticCurveTo(46,30,35,30);g.quadraticCurveTo(24,30,24,24);g.closePath();gttartFS(g,'#fff6e0',2.4);g.beginPath();g.arc(35,13,4,0,7);gttartFS(g,'#d8283a',2);P.pie=c}
+ {const c=gttartCv(64,64),g=c.getContext('2d'),q=g.createRadialGradient(32,32,2,32,32,32);q.addColorStop(0,'rgba(255,240,170,.95)');q.addColorStop(.35,'rgba(255,200,80,.55)');q.addColorStop(1,'rgba(255,200,80,0)');g.fillStyle=q;g.fillRect(0,0,64,64);P.glow=c}
+ /* start gate: stall frame and bars are drawn live; this is the stall back wall */
+ {const c=gttartCv(60,400),g=c.getContext('2d');g.fillStyle='#3a2030';g.fillRect(0,0,60,400);for(let y=0;y<400;y+=22){g.fillStyle=y%44?'#4a2c3c':'#42263a';g.fillRect(0,y,60,22);g.strokeStyle='#12081f';g.lineWidth=2;g.strokeRect(-1,y,62,22)}g.strokeStyle='#12081f';g.lineWidth=5;g.strokeRect(0,0,60,400);P.wall=c}
+ return P}
+function gttartBakeEnv(){const t0=performance.now(),E=GTTART.env={};E.sky=gttartBakeSky();E.clouds=gttartBakeClouds();E.far=gttartBakeFar();E.stands=gttartBakeStands();E.rail=gttartBakeRail();E.fore=gttartBakeFore();E.track={};for(const k of['firm','good','muddy'])E.track[k]=gttartBakeTrack(k);E.p=gttartBakeProps();E.ms=performance.now()-t0}
+
+/* ---------- camera ---------- */
+function gttartXd(st,r){const len=st.len||1000;if(r.fin==null)return r.x;const b=gttartCl(r.x,len,len+1.5),d=Math.max(0,st.t-r.fin);return b+22*(1-Math.exp(-d/1.0))}
+/* gttCam(st, prev, fx): follows the leading group with easing, widens in the last 15% to keep the first three in shot.
+   cam.x = metres at the screen centre (x = 800), cam.zoom 0.7..1; fx (default .56) = where on the screen the lead group sits (0..1). */
+function gttCam(st,prev,fx){const len=st.len||1000,PXM=GTTART.PXM,xs=st.run.map(r=>gttartXd(st,r)).sort((a,b)=>b-a);fx=fx==null?.56:fx;
+ const lead=xs[0],x3=xs[Math.min(2,xs.length-1)],foc=(xs[0]*2+xs[Math.min(1,xs.length-1)]+x3*.6)/3.6,pr=lead/len;
+ let zt=gttartCl(1500/((lead-x3)*PXM+440),.7,1);const wide=gttartSm((pr-.85)/.15);zt=Math.min(zt,1-.16*wide);
+ let xt=foc-(fx*1600-800)/(PXM*zt);xt=Math.max(xt,lead-(1600*.9-800)/(PXM*zt));xt=Math.min(xt,len+12);
+ if(!prev||prev.t==null||st.t<prev.t-.001)return{x:xt,zoom:zt,t:st.t};
+ const dt=gttartCl(st.t-prev.t,0,.2),k=1-Math.exp(-dt*5),kz=1-Math.exp(-dt*2.2);
+ let x=prev.x+(xt-prev.x)*k,zm=prev.zoom+(zt-prev.zoom)*kz;
+ x=Math.max(x,lead-(1600*.9-800)/(PXM*zm));x=Math.min(x,len+12);return{x,zoom:zm,t:st.t}}
+
+/* ---------- particles (one fixed pool, nothing allocated per frame) ---------- */
+const GTTART_N=150;
+function gttartPool(){if(GTTART.pool)return GTTART.pool;const f=()=>new Float32Array(GTTART_N);return GTTART.pool={x:f(),y:f(),vx:f(),vy:f(),l:f(),ml:f(),sz:f(),rot:f(),vr:f(),k:new Uint8Array(GTTART_N),ln:new Int8Array(GTTART_N),ci:new Uint8Array(GTTART_N),cur:0,rs:12345,col:[],ph:new Float32Array(8),acc:new Float32Array(8)}}
+const gttartRand=P=>{P.rs=(P.rs*1664525+1013904223)>>>0;return P.rs/4294967296};
+function gttartSpawn(P,k,ln,x,y,vx,vy,l,sz,ci,sp){const i=P.cur;P.cur=(i+1)%GTTART_N;P.x[i]=x;P.y[i]=y;P.vx[i]=vx;P.vy[i]=vy;P.l[i]=l;P.ml[i]=l;P.sz[i]=sz;P.k[i]=k;P.ln[i]=ln;P.ci[i]=ci|0;P.rot[i]=gttartRand(P)*6.28;P.vr[i]=(gttartRand(P)-.5)*(sp||8)}
+const GTTART_DUST={firm:'#e6c08a',good:'#cfa06a',muddy:'#6e4a30'};
+const GTTART_LY=i=>GTTART.LY+GTTART.LD*i,GTTART_LS=i=>.94+.035*i;
+/* tile row: a baked image of width per, repeated along the world at parallax pf and zoom zl */
+/* a baked layer pre-scaled to a quantised zoom (cached) so a zoomed-out frame still stamps unscaled pixels */
+function gttartSc(img,q){let m=GTTART.sc||(GTTART.sc=new Map()),S=m.get(img);if(!S){S={cv:gttartCv(2,2),q:0};m.set(img,S)}
+ if(S.q!==q){const t=S.cv;t.width=Math.round(img.width*q);t.height=Math.round(img.height*q);const g=t.getContext('2d');g.imageSmoothingQuality='high';g.drawImage(img,0,0,t.width,t.height);S.q=q}return S.cv}
+function gttartRow(c,img,per,camPx,zl,dy){if(zl>.998){const yy=Math.round(dy);let k=Math.floor((camPx-800)/per)-1;for(;;k++){const sx=Math.round(800+k*per-camPx);if(sx>1600)break;if(sx+per<0)continue;c.drawImage(img,sx,yy)}return}
+ const q=Math.min(1,Math.ceil(zl*80)/80),tile=gttartSc(img,q),w=per*zl,yy=Math.round(GTTART.HZ+(dy-GTTART.HZ)*zl);let k=Math.floor((camPx-800/zl)/per)-1;for(;;k++){const sx=800+(k*per-camPx)*zl;if(sx>1600)break;if(sx+w<0)continue;c.drawImage(tile,Math.round(sx),yy)}}
+function gttartIsMine(o,lane){const m=o&&o.mine;return m===true?false:Array.isArray(m)?m.indexOf(lane)>=0:m===lane}
+
+/* ---------- gttDrawRace: the whole scene ---------- */
+function gttDrawRace(c,st,cam,opts){opts=opts||{};if(!GTTART.env)gttartBakeEnv();if(!cam)cam=gttCam(st,null);const E=GTTART.env,PXM=GTTART.PXM,HZ=GTTART.HZ,z=cam.zoom||1,camPx=(cam.x||0)*PXM,low=!!opts.low,card=st.card||{};
+ const going=opts.going||card.going||'good',wx=opts.weather||card.weather||'clear',t=opts.t==null?st.t:opts.t,P=gttartPool(),still=!!opts.still;
+ let dt=t-GTTART.lt;if(still)dt=0;if(dt<0||dt>.5){dt=dt<0?0:.05;if(t<GTTART.lt-.3){P.l.fill(0);P.acc.fill(0);GTTART.tm={};GTTART.seen={}}}if(!still)GTTART.lt=t;dt=gttartCl(dt,0,.08);
+ const SX=m=>800+(m-(cam.x||0))*PXM*z,SY=y=>HZ+(y-HZ)*z,zs=1+(z-1)*.15,zf=1+(z-1)*.4,zst=1+(z-1)*.6,len=st.len||1000;
+ /* sky, clouds, far fair, stands, rail with props, track */
+ c.fillStyle='#0e0726';c.fillRect(0,0,1600,HZ+4);
+ c.drawImage(E.sky,-80,HZ+24-E.sky.height);
+ gttartRow(c,E.clouds,1600,camPx*.02-t*(low?0:6),1,50);
+ gttartRow(c,E.far,1600,camPx*.1,1,HZ-370);
+ {const per=800,pf=.45,cp=camPx*pf,y0=HZ-166,zl=zst;
+  if(low){gttartRow(c,E.stands[0],per,cp,zl,y0)}
+  else{const seg=160,q=zl>.998?1:Math.min(1,Math.ceil(zl*80)/80),yy=Math.round(HZ+(y0-HZ)*zl),sw=Math.round(seg*q),F=zl>.998?E.stands:[gttartSc(E.stands[0],q),gttartSc(E.stands[1],q)],h=F[0].height;let j=Math.floor((cp-800/zl)/seg)-1;for(;;j++){const sx=800+(j*seg-cp)*zl;if(sx>1600)break;if(sx+seg*zl<0)continue;const fr=Math.sin(t*5.2-j*.9)>0?1:0,u=((j*seg)%per+per)%per;c.drawImage(F[fr],Math.round(u*q),0,sw,h,Math.round(sx),yy,sw,h)}}}
+ gttartRow(c,E.rail,640,camPx,z,HZ-128);
+ gttartRow(c,E.track[going]||E.track.good,384,camPx,z,HZ);
+ /* start wall, finish line, distance posts */
+ {const fx=SX(len);if(fx>-60&&fx<1660){c.drawImage(E.p.line,Math.round(fx-18*z),Math.round(SY(512)),Math.round(36*z),Math.round(SY(842)-SY(512)));c.drawImage(E.p.fin,fx-24*z,SY(518)-326*z,150*z,330*z)}}
+ for(let k=1;k<=9;k++){const m=len-k*len/10,x=SX(m);if(x<-60||x>1660)continue;c.drawImage(E.p.post[k-1],x-33*z,SY(528)-92*z,66*z,96*z)}
+ /* events memo and particle spawns */
+ const wind=wx==='wind',dcol=GTTART_DUST[going]||'#cfa06a',rmine=gttartIsMine;
+ const sev=st.ev||[];for(let i=sev.length-1;!still&&i>=0&&i>=sev.length-8;i--){const e=sev[i];if(e.k==='gust'&&st.t-e.t<.6&&!GTTART.seen['g'+e.t]){GTTART.seen['g'+e.t]=1;const n=low?9:22;for(let q=0;q<n;q++)gttartSpawn(P,5,-1,1700+gttartRand(P)*500,300+gttartRand(P)*560,-(1100+gttartRand(P)*700),(gttartRand(P)-.5)*160,1.6+gttartRand(P)*.8,22+gttartRand(P)*20,(gttartRand(P)*12)|0,10)}}
+ const n=st.run.length,gx=SX(2.4),gop=gttartSm((st.t-.05)/.5);let gustOn=false;
+ for(let i=0;i<n;i++){const r=st.run[i],I=gttartInfo(r.id),S=gttartRunner(r.id),ls=GTTART_LS(i),fy=GTTART_LY(i),sc=ls*z,mine=rmine(opts,i),ev=r.ev&&st.t>=r.ev.t0-.001&&(r.ev.t1==null||st.t<=r.ev.t1+.001)?r.ev:null,xd=gttartXd(st,r);
+  if(ev&&ev.k==='gust')gustOn=true;
+  const key=ev?ev.k+':'+ev.t0:'';let M=GTTART.tm[i];if(key&&(!M||M.key!==key)){M=GTTART.tm[i]={key,k:ev.k,t0:ev.t0,x:xd};if(!still)
+   if(ev.k==='stumble'){const nf=low?4:9;for(let q=0;q<nf;q++)gttartSpawn(P,2,i,(xd-.5)*PXM,fy-80*ls,(gttartRand(P)-.2)*260,-120-gttartRand(P)*220,.9+gttartRand(P)*.5,9+gttartRand(P)*6,q%3,14);for(let q=0;q<(low?2:5);q++)gttartSpawn(P,1,i,xd*PXM,fy-6,(gttartRand(P)-.2)*180,-30-gttartRand(P)*90,.7,16,0)}
+   else if(ev.k==='burst'){const nk=low?5:12;for(let q=0;q<nk;q++)gttartSpawn(P,q%3?3:4,i,xd*PXM,fy-70*ls,(gttartRand(P)-.5)*340,-140-gttartRand(P)*260,.8+gttartRand(P)*.4,q%3?7:12,0,10)}
+   else if(ev.k==='gust'){for(let q=0;q<(low?3:7);q++)gttartSpawn(P,5,-1,SX(xd)+gttartRand(P)*200,fy-120*ls+gttartRand(P)*80,-(500+gttartRand(P)*300),(gttartRand(P)-.5)*120,1.1,18+gttartRand(P)*10,(gttartRand(P)*12)|0,10)}}
+  /* cycle phase: legs follow the speed */
+  const moving=r.fin==null?r.v>1.2:(st.t-r.fin<1.3);let rate=gttartCl((r.v||0)/6.2,1.2,5);P.ph[i]+=(moving?rate:.7)*dt;
+  let pose='run',ph=P.ph[i],tilt=0,streak=0;
+  if(st.n===0||(!moving&&r.fin==null)){pose='strut';ph=t*.8+i*.3}
+  else if(r.fin!=null&&st.t-r.fin>=1.3){const rk=r.pos||99;pose=rk===1?'celeb':rk>=n-1&&n>3?'sad':'strut';ph=t*(pose==='celeb'?2.2:.8)+i*.3}
+  else if(ev){const u=(st.t-ev.t0)/Math.max(.2,(ev.t1==null?1:ev.t1-ev.t0));
+   if(ev.k==='stumble'){pose='stumble';ph=u<.5?0:.5}else if(ev.k==='pie'){pose='pie';ph=t*3}else if(ev.k==='kick'){pose='fast';ph*=.8;streak=1}else if(ev.k==='burst'){pose='run';ph*=1.2;streak=2;tilt=.05}else if(ev.k==='gust'){tilt=-.09}}
+  else if(r.fin==null&&(r.v||0)>31&&false)pose='fast';
+  const x=SX(xd-1.8),y=SY(fy);
+  /* ground shadow, gold ring */
+  c.fillStyle='rgba(18,8,31,.30)';c.beginPath();c.ellipse(x+10*sc,y+1,50*sc,7.5*sc,0,0,Math.PI*2);c.fill();
+  if(mine){c.lineWidth=4*Math.max(.8,sc);c.strokeStyle=GTTART.O;c.beginPath();c.ellipse(x+10*sc,y+1,64*sc,12*sc,0,0,Math.PI*2);c.stroke();c.lineWidth=2.4*Math.max(.8,sc);c.strokeStyle='#ffd45a';c.stroke()}
+  /* dust (behind the feet) */
+  still||gttartDrawP(c,P,i,SX,SY,z,dcol,true,going);
+  /* pie on a post, ahead of the runner */
+  if(M&&M.k==='pie'&&ev&&ev.k==='pie'){const ps=gttartSm((st.t-M.t0)/.18),px=SX(xd+4.6);if(px>-80&&px<1700){c.save();c.translate(px,y+2);c.scale(sc*ps,sc*ps);c.drawImage(E.p.pie,-35,-90);c.restore()}}
+  /* the runner */
+  c.save();c.translate(x,y);if(tilt){c.rotate(tilt)}c.translate(-x,-y);
+  if(streak===2){c.strokeStyle='#fff6c8';c.lineCap='round';for(let q=0;q<4;q++){const yy=y-(26+q*17)*sc,l=(60+q%2*34)*sc,o=(6+(t*9+q*3)%4)*sc;c.lineWidth=(4-q*.5)*sc;c.globalAlpha=.8-q*.12;c.beginPath();c.moveTo(x-70*sc-o,yy);c.lineTo(x-70*sc-l-o,yy);c.stroke()}c.globalAlpha=1}
+  gttartBlit(c,S,pose,ph,x,y,sc,1,i,mine);
+  c.restore();
+  /* lane badge, pie bubble */
+  {const b=gttartBadge(r.id,i),bs=sc*.8,by=y-(pose==='celeb'?178:150)*sc;c.drawImage(b,x+22*sc-24*bs,by-24*bs,48*bs,48*bs);
+   if(pose==='pie'){c.save();c.translate(x+62*sc,y-142*sc-12*sc);c.scale(sc,sc);c.fillStyle='#fffdf4';c.strokeStyle=GTTART.O;c.lineWidth=3;c.beginPath();c.roundRect(-18,-14,36,28,9);c.fill();c.stroke();c.beginPath();c.moveTo(-6,13);c.lineTo(-12,22);c.lineTo(2,13);c.fill();c.stroke();c.fillStyle=GTTART.O;c.font='900 20px Poppins,Arial,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('!?',0,1);c.restore()}}
+  /* start gate for this lane (the bars lift when the race begins) */
+  if(gx>-80&&gx<1700&&gop<1.01){const gs=sc,gh=64*gs;c.lineJoin='round';c.lineCap='round';c.strokeStyle=GTTART.O;c.lineWidth=11*gs;c.beginPath();c.moveTo(gx,y);c.lineTo(gx,y-gh);c.moveTo(gx+20*gs,y);c.lineTo(gx+20*gs,y-gh);c.stroke();c.strokeStyle='#f6efe0';c.lineWidth=6*gs;c.stroke();
+   const lift=gop*54*gs;c.strokeStyle=GTTART.O;c.lineWidth=11*gs;c.beginPath();c.moveTo(gx-4*gs,y-gh-lift);c.lineTo(gx+24*gs,y-gh-lift);c.stroke();c.strokeStyle='#d8283a';c.lineWidth=6*gs;c.stroke();
+   if(gop<1){c.globalAlpha=1-gop;for(const f of[.3,.62]){const yy=y-gh*f;c.strokeStyle=GTTART.O;c.lineWidth=9*gs;c.beginPath();c.moveTo(gx,yy);c.lineTo(gx+20*gs,yy);c.stroke();c.strokeStyle=f>.5?'#fff3da':'#d8283a';c.lineWidth=5*gs;c.stroke()}c.globalAlpha=1}}
+  /* tumbling hay bale on a stumble */
+  if(M&&M.k==='stumble'){const u=st.t-M.t0;if(u<1.3){const bx=SX(M.x+1.4)+u*130*z-u*u*40*z,hop=Math.abs(Math.sin(u*6.5))*46*Math.exp(-u*1.5),al=u>1?1-(u-1)/.3:1;c.save();c.globalAlpha=al;c.translate(bx,y-18*sc-hop*sc);c.rotate(u*8);c.scale(sc*.95,sc*.95);c.drawImage(E.p.bale,-30,-24);c.restore()}}
+  still||gttartDrawP(c,P,i,SX,SY,z,dcol,false,going);
+ }
+ /* near rail strip, weather */
+ {const yy=SY(842),h=E.fore.height*z;c.fillStyle='#241418';c.fillRect(0,yy+h*.5,1600,900);gttartRow(c,E.fore,512,camPx*1.15,z,842)}
+ if(wx==='drizzle'){c.fillStyle='rgba(30,36,90,.12)';c.fillRect(0,0,1600,900);const m=low?16:38;c.strokeStyle='rgba(214,226,255,.5)';c.lineWidth=1.8;c.lineCap='round';c.beginPath();for(let q=0;q<m;q++){const fx=(q*211.7+t*(260+q%5*40))%1700-40,fy2=(q*97.3+t*(780+q%4*90))%960-30;c.moveTo(fx,fy2);c.lineTo(fx-9,fy2+26)}c.stroke()}
+ if(wind){const m=low?6:13;for(let q=0;q<m;q++){const sp=140+q%4*50,fx=1700-((q*173+t*sp)%1900),fy2=200+(q*67)%640+Math.sin(t*1.7+q)*28;try{flcLeaf(c,fx,fy2,30+q%3*8,t*(1.5+q%3)+q,q,Math.cos(t*3+q))}catch(e){}}
+  c.strokeStyle='rgba(255,236,190,.3)';c.lineWidth=2.4;c.lineCap='round';c.beginPath();for(let q=0;q<(low?3:6);q++){const fx=1800-((q*331+t*620)%2000),fy2=260+q*88;c.moveTo(fx,fy2);c.lineTo(fx+70,fy2+Math.sin(q+t)*4)}c.stroke()}
+ still||gttartDrawP(c,P,-1,SX,SY,z,dcol,false,going);
+ /* step the particles */
+ const gv=520;for(let q=0;q<GTTART_N;q++){if(P.l[q]<=0)continue;P.l[q]-=dt;if(P.l[q]<=0)continue;const k=P.k[q];P.x[q]+=P.vx[q]*dt;P.y[q]+=P.vy[q]*dt;P.rot[q]+=P.vr[q]*dt;
+  if(k===2||k===3){P.vy[q]+=gv*(k===2?.28:1)*dt;P.vx[q]*=1-.8*dt}else if(k===1){P.vy[q]*=1-1.2*dt;P.vx[q]*=1-1.5*dt}else if(k===5){P.vy[q]+=Math.sin(P.rot[q]*2)*300*dt}}
+ /* a gust keeps a stream of leaves blowing across the screen for as long as it lasts */
+ if(gustOn&&!still){P.acc[7]+=dt*(low?5:15);while(P.acc[7]>=1){P.acc[7]-=1;gttartSpawn(P,5,-1,1700+gttartRand(P)*300,230+gttartRand(P)*600,-(900+gttartRand(P)*700),(gttartRand(P)-.5)*140,1.5+gttartRand(P)*.6,20+gttartRand(P)*20,(gttartRand(P)*12)|0,10)}}
+ /* dust from the feet of the runners on the move */
+ for(let i=0;i<n;i++){const r=st.run[i];if(r.fin==null?(r.v||0)<4:st.t-r.fin>1.4)continue;P.acc[i]+=dt*(low?7:16);while(P.acc[i]>=1){P.acc[i]-=1;const fy=GTTART_LY(i);gttartSpawn(P,going==='muddy'&&gttartRand(P)<.5?6:1,i,(gttartXd(st,r)-2.6)*PXM,fy-3,-30-gttartRand(P)*60,-20-gttartRand(P)*70,.45+gttartRand(P)*.4,going==='muddy'?8:9+gttartRand(P)*5,0,0)}}}
+function gttartDrawP(c,P,lane,SX,SY,z,dcol,dustPass,going){for(let q=0;q<GTTART_N;q++){if(P.l[q]<=0)continue;const k=P.k[q],ln=P.ln[q];if(ln!==lane)continue;const dust=k===1||k===6;if(dust!==dustPass)continue;
+  const u=1-P.l[q]/P.ml[q],al=u<.12?u/.12:1-(u-.12)/.88;let X,Y;if(k===5){X=P.x[q];Y=P.y[q]}else{X=SX(P.x[q]/GTTART.PXM);Y=SY(P.y[q])}
+  c.globalAlpha=Math.max(0,al);
+  if(k===1){c.fillStyle=dcol;c.globalAlpha=Math.max(0,al)*.55;c.beginPath();c.arc(X,Y,P.sz[q]*z*(.6+u*1.1),0,6.3);c.fill()}
+  else if(k===6){c.fillStyle='#4a2c1c';c.beginPath();c.arc(X,Y,P.sz[q]*.5*z,0,6.3);c.fill()}
+  else if(k===2){const col=P.ci[q]===0?'#fff2cf':P.ci[q]===1?'#e8b04a':'#c8501c';c.save();c.translate(X,Y);c.rotate(P.rot[q]);c.scale(z,z);c.beginPath();c.ellipse(0,0,P.sz[q],P.sz[q]*.36,0,0,6.3);c.fillStyle=col;c.fill();c.strokeStyle='#12081f';c.lineWidth=1.6;c.stroke();c.restore()}
+  else if(k===3){c.save();c.translate(X,Y);c.rotate(P.rot[q]);c.scale(z,z);c.beginPath();c.ellipse(0,0,P.sz[q]*.7,P.sz[q]*.5,0,0,6.3);c.fillStyle='#ffd45a';c.fill();c.strokeStyle='#12081f';c.lineWidth=1.4;c.stroke();c.restore()}
+  else if(k===4){const s=P.sz[q]*z*(1-u*.4);c.save();c.translate(X,Y);c.rotate(P.rot[q]*.3);c.beginPath();c.moveTo(0,-s);c.lineTo(s*.28,-s*.28);c.lineTo(s,0);c.lineTo(s*.28,s*.28);c.lineTo(0,s);c.lineTo(-s*.28,s*.28);c.lineTo(-s,0);c.lineTo(-s*.28,-s*.28);c.closePath();c.fillStyle='#fff6c8';c.fill();c.strokeStyle='#ffb030';c.lineWidth=1.6;c.stroke();c.restore()}
+  else if(k===5){try{flcLeaf(c,X,Y,P.sz[q],P.rot[q],P.ci[q],Math.cos(P.rot[q]*1.3))}catch(e){}}
+ }c.globalAlpha=1}
+
+
+/* ---------- the podium ---------- */
+function gttartBakePodium(){const out=[],spec=[[250,180,'#ffd45a','#f0a820','1'],[236,126,'#e4e8f4','#aab2c8','2'],[236,90,'#e8a068','#b8703a','3']];
+ for(const[w,h,m0,m1,num] of spec){const c=gttartCv(w+24,h+30),g=c.getContext('2d'),x=12,y=14;g.lineJoin='round';
+  g.beginPath();g.roundRect(x,y+16,w,h-16,8);const q=g.createLinearGradient(0,y,0,y+h);q.addColorStop(0,'#9a6a3c');q.addColorStop(1,'#5a3a22');gttartFS(g,q,4);
+  g.save();g.beginPath();g.roundRect(x,y+16,w,h-16,8);g.clip();g.strokeStyle='#3a2414';g.globalAlpha=.55;g.lineWidth=2.4;for(let yy=y+40;yy<y+h;yy+=24){g.beginPath();g.moveTo(x,yy);g.lineTo(x+w,yy);g.stroke()}for(let xx=x+46;xx<x+w;xx+=64){g.beginPath();g.moveTo(xx,y+16);g.lineTo(xx,y+h);g.stroke()}g.restore();
+  g.fillStyle='#ffffff22';g.fillRect(x+6,y+22,w-12,5);
+  g.beginPath();g.roundRect(x-8,y,w+16,20,7);const tq=g.createLinearGradient(0,y,0,y+20);tq.addColorStop(0,m0);tq.addColorStop(1,m1);gttartFS(g,tq,4);g.fillStyle='#ffffff66';g.fillRect(x,y+3,w-6,4);
+  const my=y+16+(h-16)/2+4;g.beginPath();g.arc(x+w/2,my,30,0,7);gttartFS(g,tq,4);g.beginPath();g.arc(x+w/2,my,23,0,7);g.strokeStyle='#12081f';g.lineWidth=2;g.stroke();
+  g.fillStyle='#12081f';g.font='700 38px "Pirata One",Poppins,Georgia,serif';g.textAlign='center';g.textBaseline='middle';g.fillText(num,x+w/2,my+3);out.push(c)}return out}
+function gttartBakePodDeco(){const W=1500,H=220,c=gttartCv(W,H),g=c.getContext('2d'),fl=['#e8741c','#ffd45a','#6a3aa8','#2aa860','#d8481c'];g.lineJoin='round';
+ g.strokeStyle=GTTART.O;g.lineWidth=3;g.beginPath();g.moveTo(10,10);for(let x=10;x<=W-10;x+=10)g.lineTo(x,10+60*Math.sin((x-10)/(W-20)*Math.PI));g.stroke();
+ for(let i=0;i<26;i++){const x=40+i*(W-80)/25,y=10+60*Math.sin((x-10)/(W-20)*Math.PI);g.beginPath();g.moveTo(x-12,y);g.lineTo(x+12,y);g.lineTo(x,y+30);g.closePath();gttartFS(g,fl[i%5],2.6)}
+ const P=GTTART.env.p;for(const[x,sc] of[[60,1.2],[116,.95],[1370,1.2],[1310,.95]]){g.save();g.translate(x,H-10);g.scale(sc,sc);g.drawImage(P.bale,-30,-48);g.restore()}
+ for(const[x,r,cc] of[[168,24,'#e8741c'],[1262,26,'#f08a2c'],[210,16,'#d8661a'],[1222,17,'#e8a02c']])try{flcPumpkin(g,x,H-18-r*.55,r,{c:cc})}catch(e){gttartEll(g,x,H-24,r,r*.8,cc,2.6)}
+ return c}
+function gttDrawPodium(c,st,t){if(!GTTART.env)gttartBakeEnv();t=t||0;const E=GTTART.env;if(!E.pod){E.pod=gttartBakePodium();E.podd=gttartBakePodDeco()}
+ c.drawImage(E.podd,0,0,1500,110,50,40,1500,110);c.drawImage(E.podd,0,110,1500,110,50,662,1500,110);
+ let ord=(st.order&&st.order.length>=3)?st.order.slice(0,3):st.run.slice().sort((a,b)=>b.x-a.x).slice(0,3).map(r=>r.lane);
+ const field=st.card&&st.card.field,idOf=l=>(field&&field[l])||st.run[l].id;
+ const slots=[{r:1,x:800,s:1.62,b:0},{r:0,x:480,s:1.42,b:1},{r:2,x:1120,s:1.42,b:2}],base=770;
+ /* soft floor pool and two light shafts */
+ c.fillStyle='rgba(18,8,31,.28)';c.beginPath();c.ellipse(800,base+8,560,34,0,0,Math.PI*2);c.fill();
+ c.fillStyle='rgba(255,236,170,.07)';c.beginPath();c.moveTo(560,60);c.lineTo(700,60);c.lineTo(900,base);c.lineTo(420,base);c.closePath();c.fill();c.beginPath();c.moveTo(900,60);c.lineTo(1040,60);c.lineTo(1180,base);c.lineTo(700,base);c.closePath();c.fill();
+ for(const sl of[{...slots[2]},{...slots[1]},{...slots[0]}]){const rank=sl.b,lane=ord[sl.r===1?0:sl.r===0?1:2];const delay=rank===2?0:rank===1?.18:.36;const u=gttartCl((t-delay)/.5,0,1);if(u<=0)continue;
+  const eo=1-Math.pow(1-u,3),B=E.pod[rank],h=B.height-30,hh=h*eo;
+  c.drawImage(B,0,0,B.width,B.height,sl.x-B.width/2,base-hh-14*eo,B.width,(B.height-14)*eo+14*(1-eo)*0+0);
+  const top=base-hh-8;if(u>=.85){const id=idOf(lane),S=gttartRunner(id),pu=gttartSm((u-.85)/.15),ph=t*2.3+rank*.37;
+   c.fillStyle='rgba(18,8,31,.3)';c.beginPath();c.ellipse(sl.x,top+3,70*sl.s*.55,9*sl.s*.55,0,0,Math.PI*2);c.fill();
+   gttartBlit(c,S,'celeb',ph,sl.x,top,sl.s*pu,1,lane,false)}}}
+
+/* ---------- the photo finish ---------- */
+function gttartPhotoCanvas(st){const ph=st.photo||{a:st.order&&st.order[0]||0,b:st.order&&st.order[1]||1,gap:.2},key=(st.card&&st.card.seed)+':'+ph.a+':'+ph.b+':'+ph.gap;if(GTTART.pk===key&&GTTART.pcv)return GTTART.pcv;
+ const len=st.len||1000,PXM=GTTART.PXM,d=gttartCl((ph.gap||.2)*PXM*3,10,60)/PXM;
+ if(!GTTART.pbig){GTTART.pbig=gttartCv(1600,900)}const big=GTTART.pbig,bg=big.getContext('2d');
+ const fake={card:st.card,t:st.t,n:5,len,ev:[],done:true,order:[],run:st.run.map((r,i)=>{const o={lane:i,id:r.id,x:len-6-(i%3)*2.4-((i*7)%5),v:20,fin:null,ev:null,pos:3+i%4};if(i===ph.a){o.x=len-.4;o.pos=1}else if(i===ph.b){o.x=len-.4-d;o.pos=2}return o})};
+ const camx=len-1.2;bg.setTransform(1,0,0,1,0,0);gttDrawRace(bg,fake,{x:camx,zoom:1},{t:0,still:true,low:true,mine:[]});
+ if(!GTTART.pcv){GTTART.pcv=gttartCv(1020,480)}const pc=GTTART.pcv,g=pc.getContext('2d');g.setTransform(1,0,0,1,0,0);
+ const cx=800+(len-camx)*PXM,sw=816,shh=384,sx=cx-sw*.5,sy=452;g.drawImage(big,sx,sy,sw,shh,0,0,1020,480);
+ /* sepia, contrast, vignette, grain */
+ const im=g.getImageData(0,0,1020,480),D=im.data,R=gttartRng(7);for(let i=0;i<D.length;i+=4){const l=(D[i]*.3+D[i+1]*.59+D[i+2]*.11)/255,x=((i>>2)%1020)/1020-.5,y=(((i>>2)/1020)|0)/480-.5,v=1-(x*x*1.1+y*y*1.6)*1.5,k=gttartCl(((l-.5)*1.25+.52)*v+(R()-.5)*.07,0,1);
+  D[i]=Math.min(255,k*255*1.04+14);D[i+1]=k*232+8;D[i+2]=k*188+2}g.putImageData(im,0,0);
+ /* the finish line and the two noses */
+ const lx=(cx-sx)*1020/sw;g.strokeStyle='rgba(255,246,214,.9)';g.lineWidth=3;g.setLineDash([14,8]);g.beginPath();g.moveTo(lx,0);g.lineTo(lx,480);g.stroke();g.setLineDash([]);
+ const nose=(l,x)=>{const ls=GTTART_LS(l),nx=800+(x-1.8-camx)*PXM+70*ls,ny=GTTART_LY(l)-97*ls;return[(nx-sx)*1020/sw,(ny-sy)*480/shh]};
+ for(const[l,x,col] of[[ph.a,len-.4,'#ffd45a'],[ph.b,len-.4-d,'#e8ecff']]){const[nx,ny]=nose(l,x);g.strokeStyle='rgba(18,8,31,.7)';g.lineWidth=7;g.beginPath();g.arc(nx,ny,19,0,7);g.stroke();g.strokeStyle=col;g.lineWidth=3;g.stroke()}
+ GTTART.pk=key;return pc}
+function gttPhoto(c,t,st){if(!GTTART.env)gttartBakeEnv();t=gttartCl(t||0,0,9);const pc=gttartPhotoCanvas(st),dev=gttartSm(t/2.5),X=290,Y=200;
+ c.save();const pop=1+.03*(1-gttartSm(t/.35));c.translate(800,450);c.scale(pop,pop);c.translate(-800,-450);
+ /* film strip */
+ c.fillStyle='rgba(18,8,31,.5)';c.beginPath();c.roundRect(244,158,1112,584,14);c.fill();
+ c.beginPath();c.roundRect(236,150,1112,584,12);c.fillStyle='#1c1228';c.fill();c.strokeStyle='#12081f';c.lineWidth=4;c.stroke();
+ c.fillStyle='#e8d8ac';for(let i=0;i<26;i++){const x=252+i*42.5;c.beginPath();c.roundRect(x,160,22,14,3);c.roundRect(x,710,22,14,3);c.fill()}
+ c.fillStyle='#ffb040';c.font='700 13px Poppins,Arial,sans-serif';c.textAlign='left';c.textBaseline='middle';c.fillText('GREAT TURKEY TROT  ▸  PHOTO FINISH',262,192);c.textAlign='right';c.fillText('▸ 7A',1330,192);
+ /* the print: cream paper, then the picture develops over it */
+ c.fillStyle='#d8c496';c.fillRect(X,Y,1020,480);
+ c.globalAlpha=Math.pow(dev,1.4);c.drawImage(pc,X,Y);c.globalAlpha=(1-dev)*.55;c.fillStyle='#c8b484';c.fillRect(X,Y,1020,480);c.globalAlpha=1;
+ c.strokeStyle='#12081f';c.lineWidth=4;c.strokeRect(X,Y,1020,480);
+ c.restore()}
+
+/* ---------- the casino tile (SVG like TA.pk) ---------- */
+function gttartSvgTurkey(x,y,s,col,silk,ph,k){const b0=col[0],b1=col[1],ld=Math.sin(ph)*14,L=(a,b)=>`<path d="M${a} ${b}" />`;
+ let f='';for(let i=0;i<7;i++){const a=-160+i*19,c=i%2?b1:b0;f+=`<ellipse cx="0" cy="0" rx="31" ry="8.6" transform="translate(-24 -38) rotate(${a}) translate(32 0)" fill="${c}" stroke="#12081f" stroke-width="3"/>`}
+ const leg=(dx,dy,c)=>`<path d="M${6+dx*.3} -12 L${6+dx} ${-2+dy}" stroke="#12081f" stroke-width="9" stroke-linecap="round" fill="none"/><path d="M${6+dx*.3} -12 L${6+dx} ${-2+dy}" stroke="${c}" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M${6+dx} ${-2+dy} l12 1 m-12 -1 l10 -5 m-10 5 l9 6" stroke="#12081f" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M${6+dx} ${-2+dy} l12 1 m-12 -1 l10 -5 m-10 5 l9 6" stroke="#f2b83c" stroke-width="2.4" stroke-linecap="round" fill="none"/>`;
+ return `<g transform="translate(${x} ${y}) scale(${s})">${leg(-ld,Math.min(0,-Math.cos(ph)*10),'#c98d28')}${f}
+<path d="M-34 -34C-36 -52 -10 -66 14 -60C34 -56 44 -42 38 -28C32 -14 6 -10 -14 -12C-26 -14 -32 -22 -34 -34Z" fill="${b0}" stroke="#12081f" stroke-width="3.4"/>
+<ellipse cx="18" cy="-30" rx="13" ry="14" fill="#ffffff" opacity=".22"/><path d="M-6 -42C4 -34 -2 -22 -22 -20C-20 -30 -16 -38 -6 -42Z" fill="${b1}" stroke="#12081f" stroke-width="2.6"/>
+<path d="M30 -48C40 -58 44 -70 50 -78" stroke="#12081f" stroke-width="12" stroke-linecap="round" fill="none"/><path d="M30 -48C40 -58 44 -70 50 -78" stroke="#a9cbe8" stroke-width="7.4" stroke-linecap="round" fill="none"/>
+<circle cx="52" cy="-81" r="9.6" fill="#a9cbe8" stroke="#12081f" stroke-width="3"/><path d="M60 -84l11 3.4l-11 4z" fill="#f4b030" stroke="#12081f" stroke-width="2"/><path d="M60 -77q3 9 -1 12" stroke="#d83a48" stroke-width="3.6" fill="none" stroke-linecap="round"/><circle cx="55" cy="-84" r="2.8" fill="#fff" stroke="#12081f" stroke-width="1.4"/><circle cx="56" cy="-84" r="1.3" fill="#12081f"/>
+${leg(ld,Math.min(0,Math.cos(ph)*10),'#f2b83c')}
+<g transform="translate(-6 -58) rotate(8)"><rect x="-12" y="-6" width="24" height="16" rx="4" fill="${silk[0]}" stroke="#12081f" stroke-width="2.6"/><path d="M-9 -6L-3 -22L9 -22L12 -6Z" fill="${silk[0]}" stroke="#12081f" stroke-width="2.6"/><rect x="-10" y="-16" width="21" height="4" fill="${silk[1]}"/>
+<circle cx="2" cy="-30" r="9" fill="${k}" stroke="#12081f" stroke-width="2.8"/><path d="M-7 -33a9 9 0 0 1 18 -3l5 0l-1 4z" fill="${silk[1]}" stroke="#12081f" stroke-width="2.2"/><circle cx="-1" cy="-29" r="2" fill="#fff"/><circle cx="5.4" cy="-29" r="2" fill="#fff"/><circle cx="-.6" cy="-29" r="1" fill="#12081f"/><circle cx="5.9" cy="-29" r="1" fill="#12081f"/>
+<path d="M6 -20L24 -10" stroke="#12081f" stroke-width="6" stroke-linecap="round"/><path d="M6 -20L24 -10" stroke="${silk[0]}" stroke-width="3" stroke-linecap="round"/></g></g>`}
+function gttTile(){let moon='';for(const[x,y,r] of[[-9,-6,6],[7,-11,4],[10,6,7],[-4,10,4]])moon+=`<circle cx="${x}" cy="${y}" r="${r}" fill="#d6781e" opacity=".3"/>`;
+ let stars='';for(let i=0;i<22;i++){stars+=`<circle cx="${(i*47+13)%320}" cy="${(i*29+7)%70}" r="${.6+(i%3)*.45}" fill="#fff" opacity="${.35+(i%4)*.15}"/>`}
+ let fl='';const fc=['#e8741c','#ffd45a','#6a3aa8','#2aa860','#d8481c'];for(let i=0;i<16;i++){const x=10+i*20,y=14+10*Math.abs(Math.sin(x/40*Math.PI/2*1));fl+=`<path d="M${x-6} ${y}L${x+6} ${y}L${x} ${y+13}Z" fill="${fc[i%5]}" stroke="#12081f" stroke-width="1.6"/>`}
+ let conf='';for(let i=0;i<14;i++){conf+=`<rect x="${196+(i*37)%90}" y="${30+(i*23)%60}" width="4" height="2.4" fill="${fc[i%5]}" transform="rotate(${i*41} ${198+(i*37)%90} ${31+(i*23)%60})"/>`}
+ let trees='';const tc=['#e8741c','#d8481c','#f0b030','#a83a1c','#8a9a2a'];for(let i=0;i<20;i++){trees+=`<circle cx="${i*17+6}" cy="${96+(i%3)*2}" r="${7+(i%4)*1.5}" fill="${tc[i%5]}" stroke="#12081f" stroke-width="1.6"/>`}
+ const T=[[236,166,.72,['#b8283e','#ff8a9a'],['#2a6adb','#fff'],'#dc4a3c',2.1],[142,148,.6,['#e8741c','#7a3a10'],['#2aa860','#fff'],'#f1e2c4',.6],[56,132,.5,['#5a2a8a','#ffd45a'],['#ffd45a','#5a2a8a'],'#92d6f2',4.0]];
+ let tk='';for(const[x,y,s,c,sk,kc,ph] of T.slice().sort((a,b)=>a[1]-b[1]))tk+=`<ellipse cx="${x+6}" cy="${y+3}" rx="${34*s}" ry="${5*s}" fill="#12081f" opacity=".3"/>`+gttartSvgTurkey(x,y,s,c,sk,ph,kc);
+ TA.gtt=`<svg viewBox="0 0 320 176" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg"><defs>
+<linearGradient id="gt9s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e0726"/><stop offset=".5" stop-color="#3a1860"/><stop offset=".8" stop-color="#c85a46"/><stop offset="1" stop-color="#f4a24a"/></linearGradient>
+<linearGradient id="gt9d" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c8945a"/><stop offset="1" stop-color="#8a5428"/></linearGradient>
+<radialGradient id="gt9m" cx=".4" cy=".38" r=".7"><stop offset="0" stop-color="#fff0b8"/><stop offset=".6" stop-color="#ffc860"/><stop offset="1" stop-color="#f0902c"/></radialGradient>
+<radialGradient id="gt9g" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffc060" stop-opacity=".6"/><stop offset="1" stop-color="#ffc060" stop-opacity="0"/></radialGradient></defs>
+<rect width="320" height="176" fill="url(#gt9s)"/>${stars}
+<circle cx="214" cy="42" r="60" fill="url(#gt9g)"/><g transform="translate(214 42)"><circle r="28" fill="url(#gt9m)" stroke="#ffb050" stroke-width="2"/>${moon}</g>
+<path d="M0 96Q50 62 110 84T230 76T320 90V120H0Z" fill="#35184f"/><path d="M0 104Q70 84 140 98T320 100V120H0Z" fill="#432063"/>
+<g transform="translate(292 80) scale(.8)"><rect x="-22" y="-2" width="44" height="26" fill="#b0302a" stroke="#12081f" stroke-width="2.4"/><path d="M-26 0L-14 -16H14L26 0Z" fill="#5a2a3a" stroke="#12081f" stroke-width="2.4"/><rect x="-8" y="8" width="16" height="16" fill="#8a2420" stroke="#12081f" stroke-width="1.8"/></g>
+<g transform="translate(60 62) scale(.9)"><circle r="26" fill="none" stroke="#12081f" stroke-width="5"/><circle r="26" fill="none" stroke="#d8c0e8" stroke-width="2.4"/><path d="M0 -26V26M-26 0H26M-18 -18L18 18M18 -18L-18 18" stroke="#d8c0e8" stroke-width="1.4"/><circle r="4" fill="#ffd45a" stroke="#12081f" stroke-width="2"/><path d="M-12 26L0 0L12 26" fill="none" stroke="#12081f" stroke-width="4"/></g>
+${trees}<path d="M0 110H320V176H0Z" fill="url(#gt9d)"/><path d="M0 110H320" stroke="#12081f" stroke-width="3"/>
+<path d="M0 128H320M0 148H320M0 168H320" stroke="#fff3da" stroke-width="2" opacity=".6"/>
+<path d="M0 8Q160 36 320 8" fill="none" stroke="#12081f" stroke-width="2.4"/>${fl}
+<g transform="skewX(-12)"><rect x="262" y="112" width="18" height="64" fill="#fff8e8" stroke="#12081f" stroke-width="2"/><path d="M262 120h18M262 136h18M262 152h18M262 168h18" stroke="#12081f" stroke-width="6"/></g>
+${conf}${tk}
+<path d="M12 146l14 -2l-14 -2m4 12l22 -3l-22 -3" stroke="#fff6c8" stroke-width="2.4" stroke-linecap="round" fill="none" opacity=".7"/></svg>`;return TA.gtt}
+/* ---------- gttBake: environment and (optionally) the given runners (default all twelve); idempotent ---------- */
+function gttBake(ids){if(!GTTART.env)gttartBakeEnv();for(const id of(ids||GTTART_IDS))gttartRunner(id)}
+function gttartInit(){try{if(typeof TA==='object'&&TA)gttTile()}catch(e){}}
+gttartInit();
+/* ===== UPDATE 10.5, THE GREAT TURKEY TROT: sound (99u5, prefix gttsnd; the object is gttSnd) =====
+   Synthesized with Web Audio like the other casino games (the shared context `ac` and the sound-effects bus `sg`), behind the
+   existing sound switches: nothing plays when the effects volume is 0 / muted (axOn()). Methods, all safe to call any time:
+   call() bugle for the call to the post, gate() starting-gate clang, step(lane) soft pitter-patter (rate-limited), gobble(lane),
+   crowd(level 0..1) a murmur bed that swells (call each frame), ding() commentator ding, shutter() photo finish, win(big),
+   lose(), stop() (kills the crowd bed; call on leaving). */
+const gttsndS={t:{step:0,ding:0,gob:0},bed:null,lvl:0};
+function gttsndOn(){try{return typeof axOn==='function'?axOn():!!(ac&&sg&&ST.svol>0)}catch(e){return false}}
+function gttsndTone(f,t0,d,ty,v,f2,lp){try{const o=ac.createOscillator(),g=ac.createGain();o.type=ty||'sine';o.frequency.setValueAtTime(f,t0);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t0+d);
+ g.gain.setValueAtTime(.0001,t0);g.gain.linearRampToValueAtTime(v,t0+Math.min(.02,d/3));g.gain.exponentialRampToValueAtTime(.0001,t0+d);let n=o;if(lp){const b=ac.createBiquadFilter();b.type='lowpass';b.frequency.value=lp;o.connect(b);n=b}n.connect(g);g.connect(sg);o.start(t0);o.stop(t0+d+.03)}catch(e){}}
+function gttsndNoise(t0,d,f1,f2,q,v,a){try{const s=ac.createBufferSource();s.buffer=noiseBuf();const b=ac.createBiquadFilter();b.type='bandpass';b.Q.value=q||1;b.frequency.setValueAtTime(f1,t0);b.frequency.linearRampToValueAtTime(f2||f1,t0+d);
+ const g=ac.createGain();g.gain.setValueAtTime(.0001,t0);g.gain.linearRampToValueAtTime(v,t0+(a||.01));g.gain.exponentialRampToValueAtTime(.0001,t0+d);s.connect(b);b.connect(g);g.connect(sg);s.start(t0,Math.random()*1.5);s.stop(t0+d+.03)}catch(e){}}
+const gttSnd={
+ call(){if(!gttsndOn())return;const t=ac.currentTime+.02;/* a short bugle: da da da DAAA */
+  [[392,0,.13],[392,.17,.13],[523,.34,.13],[659,.52,.2],[784,.8,.62]].forEach(([f,o,d])=>{gttsndTone(f,t+o,d,'square',.07,0,1900);gttsndTone(f*2,t+o,d,'sawtooth',.02,0,2600)})},
+ gate(){if(!gttsndOn())return;const t=ac.currentTime+.01;gttsndTone(1450,t,.22,'triangle',.12);gttsndTone(2180,t+.015,.26,'triangle',.07);gttsndTone(95,t,.2,'sine',.16,48);gttsndNoise(t,.08,2400,900,.8,.08)},
+ step(lane){if(!gttsndOn())return;const n=performance.now();if(n-gttsndS.t.step<70)return;gttsndS.t.step=n;const t=ac.currentTime+.005,l=(lane|0)%6;
+  gttsndNoise(t,.045,1500+l*150,900,1.2,.03,.004);gttsndTone(150-l*6,t,.07,'sine',.035,90)},
+ gobble(lane){if(!gttsndOn())return;const n=performance.now();if(n-gttsndS.t.gob<220)return;gttsndS.t.gob=n;const t=ac.currentTime+.01,k=.85+((lane|0)%6)*.07;
+  try{const o=ac.createOscillator(),lf=ac.createOscillator(),lg=ac.createGain(),g=ac.createGain(),b=ac.createBiquadFilter(),b2=ac.createBiquadFilter(),m=ac.createGain();
+   o.type='sawtooth';o.frequency.setValueAtTime(380*k,t);o.frequency.exponentialRampToValueAtTime(230*k,t+.42);lf.frequency.value=19;lg.gain.value=55;lf.connect(lg);lg.connect(o.frequency);
+   b.type='bandpass';b.frequency.value=900;b.Q.value=2.4;b2.type='bandpass';b2.frequency.value=2100;b2.Q.value=4;
+   g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.09,t+.04);g.gain.setValueAtTime(.09,t+.28);g.gain.exponentialRampToValueAtTime(.0001,t+.46);
+   o.connect(b);o.connect(b2);b.connect(m);b2.connect(m);m.connect(g);g.connect(sg);[o,lf].forEach(x=>{x.start(t);x.stop(t+.5)})}catch(e){}},
+ crowd(level){try{level=Math.max(0,Math.min(1,+level||0));gttsndS.lvl=level;if(!gttsndOn()){gttSnd.stop();return}
+  if(!gttsndS.bed){if(level<=.01)return;const s=ac.createBufferSource();s.buffer=noiseBuf();s.loop=true;const b=ac.createBiquadFilter();b.type='bandpass';b.frequency.value=620;b.Q.value=.7;
+   const hp=ac.createBiquadFilter();hp.type='highpass';hp.frequency.value=260;const g=ac.createGain();g.gain.value=0;s.connect(b);b.connect(hp);hp.connect(g);g.connect(sg);s.start(0,Math.random()*1.5);gttsndS.bed={s,g,b}}
+  const B=gttsndS.bed,t=ac.currentTime;B.g.gain.setTargetAtTime(level*level*.34+level*.03,t,.25);B.b.frequency.setTargetAtTime(520+level*700,t,.4)}catch(e){}},
+ ding(){if(!gttsndOn())return;const n=performance.now();if(n-gttsndS.t.ding<700)return;gttsndS.t.ding=n;const t=ac.currentTime+.01;gttsndTone(1318,t,.16,'triangle',.07);gttsndTone(1760,t+.07,.2,'triangle',.06)},
+ shutter(){if(!gttsndOn())return;const t=ac.currentTime+.01;gttsndNoise(t,.03,3200,1800,1.5,.12,.002);gttsndNoise(t+.07,.04,2600,1400,1.5,.1,.002);gttsndTone(180,t+.07,.09,'square',.05,90)},
+ win(big){if(!gttsndOn())return;const t=ac.currentTime+.02;[523,659,784,1047].forEach((f,i)=>{gttsndTone(f,t+i*.1,.3,'triangle',.09);gttsndTone(f*2,t+i*.1,.2,'sine',.03)});
+  if(big){[1047,1319,1568,2093].forEach((f,i)=>gttsndTone(f,t+.5+i*.08,.35,'triangle',.07));try{if(typeof flcGobble==='function')flcGobble(sg,t+.45,.05)}catch(e){}}},
+ lose(){if(!gttsndOn())return;const t=ac.currentTime+.01;gttsndTone(130,t,.3,'sine',.15,55);gttsndNoise(t,.12,420,160,.8,.06)},
+ stop(){try{const B=gttsndS.bed;gttsndS.bed=null;gttsndS.lvl=0;if(B){const t=ac.currentTime;B.g.gain.cancelScheduledValues(t);B.g.gain.setTargetAtTime(0,t,.05);setTimeout(()=>{try{B.s.stop();B.s.disconnect();B.g.disconnect()}catch(e){}},400)}}catch(e){}}};
+/* ===== UPDATE 10.5, THE GREAT TURKEY TROT: the game (99u4, prefix gttu / GTTU) =====
+   A casino racing game: read the race card, back a turkey (up to three bets), watch the race, cash out early if you like.
+   The data and the race model are in 99u_gtt_data / 99u2_gtt_sim, the art in 99u3_gtt_art, sound in 99u5_gtt_audio, CSS in 99u6_gtt_style.
+   Screens: the paddock (race card + bet slip), the race (full stage canvas + HUD), the photo finish, the results (podium + bet lines).
+   Money (strict): the stakes are taken through cTake together with the pending record P.gtt.pend in ONE save at Start; every payout goes
+   through cPay exactly once (a cash out for its bet, the rest when the race is settled) and the pending record is removed in the same
+   save as the last payout. The race that is shown is the sim replayed from the seeds stored in the pending record, so a reload (or
+   leaving the casino) finishes the same race instantly, pays once and shows the result screen.
+   Festival: while flOn() a race with a winning bet pays +5 acorns through fleGive (10 races = 50 acorns a day, P.gtt.acorn).
+   Keys: 1-6 pick a turkey, W / T / P / E bet type (Win / Top 2 / Top 3 "podium" / Exact 1-2; the digit 3 stays a turkey), + / - stake,
+   arrows move the pick and the tab, Enter add a bet (or race again), Space start, C cash out, N new card, Esc back. */
+const GTTU={
+ K:[['win','Win','W','Your turkey finishes first'],['top2','Top 2','T','Your turkey finishes first or second'],['top3','Top 3','P','Your turkey finishes in the first three'],['exact','Exact 1-2','E','Pick the winner and the runner-up, in order']],
+ kn:{win:'Win',top2:'Top 2',top3:'Top 3',exact:'Exact 1-2'},
+ steps:[10,25,50,100,250,500,1000,2500,5000],
+ style:{front:'Front-runner',close:'Closer',stalk:'Stalker'},going:{firm:'Firm going',good:'Good going',muddy:'Muddy going'},wx:{clear:'Clear sky',wind:'Windy',drizzle:'Drizzle'},
+ fixCard:[],fixRace:[],fast:1,hidden:0,seedCtr:1000,cur:null,
+ say:{lead:['{n} takes the lead!','{n} goes to the front!','{n} moves into the lead!'],stumble:['{n} stumbles on a hay bale!','Oh no, {n} trips!','{n} hits the hay!'],
+  burst:['{n} finds a corn kernel and bursts away!','Corn power for {n}!','{n} is flying!'],pie:['{n} stops to stare at a pie!','{n} is distracted by a pie!','A pie! {n} loses focus!'],
+  kick:['Here comes {n} on the outside!','{n} starts the big kick!','{n} is closing fast!'],gust:['A gust sweeps across the track!','The wind whips up the leaves!'],
+  half:['Halfway: {n} leads.'],last:['Into the final stretch! {n} in front.'],win:['{n} wins!','{n} takes it!','{n} is first past the post!']}};
+const gttuOrd=n=>['','1st','2nd','3rd','4th','5th','6th'][n]||n+'th';
+const gttuM=m=>m==null?'—':'×'+(+(+m).toFixed(2));
+const gttuR=id=>(typeof GTT_RUN!=='undefined'&&GTT_RUN.find(r=>r.id===id))||{id,n:id,style:'stalk',col:['#c87a2a','#ffd45a'],silk:['#ffd45a','#c87a2a'],jockey:{n:'Pip',kind:'goblin'},tip:''};
+const gttuInk=c=>{const h=String(c).replace('#',''),n=parseInt(h.length===3?h.replace(/./g,'$&$&'):h,16),r=n>>16&255,g=n>>8&255,b=n&255;return .299*r+.587*g+.114*b>150?'#12081f':'#fff8e8'};
+const gttuFmtT=t=>{const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
+function gttuSeed(kind){const q=kind==='card'?GTTU.fixCard:GTTU.fixRace;if(q.length)return q.shift()>>>0;try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]}catch(e){return (Math.random()*4294967296)>>>0}}
+/* P.gtt: repaired once per screen (gttuG(true)); gttNorm builds a new object, so it is not run on every access (the pending record must stay the same object) */
+function gttuG(fix){if(fix||!P.gtt||typeof P.gtt!=='object'||P.gtt.v!==1||!P.gtt.rec||!P.gtt.acorn){try{gttNorm()}catch(e){console.error(e)}}
+ if(!P.gtt||typeof P.gtt!=='object')P.gtt={v:1,races:0,bets:0,wins:0,best:0,long:0,fav:{},rec:{},seen:0,pend:null,acorn:{day:'',n:0}};return P.gtt}
+const gttuTotal=bets=>bets.reduce((a,b)=>a+b.stake,0);
+const gttuRet=b=>Math.min(GTT.cap,Math.floor(b.stake*b.mult));
+function gttuLbl(card,b,nl){const n=l=>'#'+(l+1)+' '+gttuR(card.field[l]).n;return b.k==='exact'?n(b.a)+(nl?'\nthen ':', then ')+n(b.b):n(b.a)}
+ICON.gtt='<svg viewBox="0 0 64 64"><path d="M32 36 14 14c6-4 12-3 18 2 6-5 12-6 18-2z" fill="#e8851a" stroke="#12081f" stroke-width="3" stroke-linejoin="round"/><ellipse cx="32" cy="40" rx="15" ry="12" fill="#a8602a" stroke="#12081f" stroke-width="3"/><circle cx="40" cy="26" r="6" fill="#d8a060" stroke="#12081f" stroke-width="2.5"/><circle cx="42" cy="25" r="1.8" fill="#12081f"/><path d="M46 27l7 2-6 2z" fill="#ffd45a" stroke="#12081f" stroke-width="2"/><path d="M26 50v8M38 50v8" stroke="#12081f" stroke-width="3" stroke-linecap="round"/></svg>';
+try{gttTile()}catch(e){console.error(e)}
+try{if(typeof FLE_SRC==='object'&&FLE_SRC&&!FLE_SRC.turkeytrot)FLE_SRC.turkeytrot='Great Turkey Trot'}catch(e){}
+{const i=GAMES.findIndex(g=>g.id==='gtt');if(i>=0)GAMES.splice(i,1);
+ GAMES.unshift({id:'gtt',n:'The Great Turkey Trot',d:'NEW · Six turkeys with tiny monster jockeys race round the harvest fair. Read the card, back a turkey, watch the race and cash out early if yours is fading. Max payout 20,000 per race.',m:(e,t)=>gttHome(e,t)})}
+/* ---------- trophies (Casino) ---------- */
+A('gtt1','Casino',0,'Off to the Races','Run your first race in The Great Turkey Trot.',1,()=>AS('gttr'),100);
+A('gtt2','Casino',1,'Backed a Winner','Win a Win bet in The Great Turkey Trot.',1,()=>AS('gttw'),150);
+A('gtt3','Casino',2,'Longshot','Win a Win bet at x15 or more in The Great Turkey Trot.',15,()=>AS('gttl'),300,1);
+A('gtt4','Casino',2,'Called It','Win an Exact 1-2 bet in The Great Turkey Trot.',1,()=>AS('gttx'),300,1);
+A('gtt5','Casino',2,'By a Beak','Back the winner of a photo finish in The Great Turkey Trot.',1,()=>AS('gttb'),250,1);
+A('gtt6','Casino',1,'Smart Money','Cash out a Turkey Trot bet for more than its stake.',1,()=>AS('gttc'),200);
+
+/* ---------- settling (pure lines + the one place that pays) ---------- */
+/* what a pending record is worth against a finished race: cashed-out bets keep what they were paid, the rest is settled; the whole race never pays more than GTT.cap */
+function gttuLines(rec,fin){
+ const cash=new Map((rec.cash||[]).map(c=>[c.i,c.pay])),rem=[],idx=[];
+ rec.bets.forEach((b,i)=>{if(!cash.has(i)){rem.push(b);idx.push(i)}});
+ const S=rem.length?gttSettle(rem,fin):{lines:[],total:0},cashPaid=[...cash.values()].reduce((a,v)=>a+v,0),allow=Math.max(0,GTT.cap-cashPaid),payRem=Math.min(S.total,allow);
+ const lines=rec.bets.map((b,i)=>{if(cash.has(i))return{i,bet:b,won:false,cashed:true,pay:cash.get(i)};const l=S.lines[idx.indexOf(i)]||{won:false,pay:0};return{i,bet:b,won:!!l.won,cashed:false,pay:l.pay|0}});
+ return{lines,cashPaid,payRem,paid:cashPaid+payRem,staked:gttuTotal(rec.bets),remStake:gttuTotal(rem),capped:cashPaid+lines.reduce((a,l)=>a+(l.won&&!l.cashed?Math.floor(l.bet.stake*l.bet.mult+1e-9):0),0)>GTT.cap,winner:fin.order[0],photo:fin.photo||false}}
+/* pays the pending race exactly once: P.gtt.pend is cleared before the single cPay, whose save writes both */
+function gttuSettle(fin){
+ const g=gttuG(),rec=g.pend;if(!rec||!Array.isArray(rec.bets))return null;
+ const card=gttCard(rec.cardSeed),R=gttuLines(rec,fin);R.card=card;R.fin=fin;R.rec=rec;
+ g.pend=null;g.races++;g.bets+=rec.bets.length;
+ let nw=0,maxWin=0,nex=0,beak=false;
+ for(const l of R.lines){if(l.cashed)continue;if(l.won){nw++;if(l.bet.k==='win')maxWin=Math.max(maxWin,l.bet.mult);if(l.bet.k==='exact')nex++}
+  if(fin.photo&&l.bet.a===fin.order[0])beak=true}
+ g.wins+=nw;if(R.paid>g.best)g.best=R.paid;if(maxWin>g.long)g.long=maxWin;
+ for(const b of rec.bets)for(const l of(b.k==='exact'?[b.a,b.b]:[b.a])){const id=card.field[l];if(id)g.fav[id]=(g.fav[id]||0)+1}
+ card.field.forEach((id,lane)=>{const r=g.rec[id]=g.rec[id]||{s:0,w:0,p:0,last:[]},pos=fin.order.indexOf(lane)+1;r.s++;if(pos===1)r.w++;if(pos>=1&&pos<=3)r.p++;r.last=(r.last||[]).concat(pos).slice(-5)});
+ R.wins=nw;R.acorns=0;
+ try{if(typeof flOn==='function'&&flOn()&&nw>0&&typeof fleGive==='function'){const day=typeof fleDay==='function'?fleDay():new Date().toISOString().slice(0,10),a=g.acorn;if(a.day!==day){a.day=day;a.n=0}
+   if(a.n<GTT.acorn.perDay){a.n++;R.acorns=fleGive(GTT.acorn.win,'turkeytrot')||0}}}catch(e){console.error(e)}
+ stat('gttr',1,'add');if(nw&&maxWin)stat('gttw',1,'add');if(maxWin)stat('gttl',Math.floor(maxWin),'max');if(nex)stat('gttx',nex,'add');if(beak)stat('gttb',1,'add');
+ if(R.remStake>0)cPay(R.remStake,R.payRem);else save();
+ try{achCheck()}catch(e){}
+ return R}
+/* one bet cashed out: recorded in the pending record and paid in the same save (once; a second call for the same bet does nothing) */
+function gttuCash(i,pay){
+ const g=gttuG(),rec=g.pend;if(!rec||!rec.bets[i]||(rec.cash||[]).some(c=>c.i===i))return 0;
+ const paid=(rec.cash||[]).reduce((a,c)=>a+c.pay,0);pay=Math.floor(Math.min(pay,GTT.cap-paid));if(!(pay>=1))return 0;
+ rec.cash=(rec.cash||[]).concat({i,pay});if(pay>rec.bets[i].stake)stat('gttc',1,'add');cPay(rec.bets[i].stake,pay);try{achCheck()}catch(e){}return pay}
+/* run a pending race to the end without showing it (reload, leaving the casino) */
+function gttuFinishNow(){const g=gttuG(),rec=g.pend;if(!rec)return null;let fin;try{fin=gttRun(gttCard(rec.cardSeed),rec.raceSeed)}catch(e){console.error(e);g.pend=null;save();return null}return gttuSettle(fin)}
+
+/* ---------- the casino mount ---------- */
+function gttHome(el,tok){
+ const alive=()=>CAS.tok===tok,rm=matchMedia('(prefers-reduced-motion: reduce)').matches,LOW=()=>rm||(typeof PFSET==='function'&&PFSET()!=='high'),STEP=1/GTT.hz;
+ try{gttBake()}catch(e){console.error(e)}
+ gttuG(true);ensureAudio();
+ let priceCancel=null,errN=0,ph='paddock',card=null,px=null,sel=null,ex1=null,kind='win',slip=[],rec=null,fin=null,st=null,R=null,cam=null,cv=null,cg=null,pcv=null,pcg=null,ccv=null,ccg=null,
+  tt=0,last=0,acc=0,gateT=0,photoT=0,resT=0,winT=-1,evI=0,lastSay=-9,lastLead=-1,said={},offers=[],offAt=[],lastCo=0,loopOn=false,overlay=null,conf=[],note='',priceId=0,cseed=0,half=0,gobT=0,stepT=0,clock=0,gateOpen=false;
+ const $q=s=>el.querySelector(s),g0=()=>gttuG();
+ const nm=l=>gttuR(card.field[l]).n,runner=l=>gttuR(card.field[l]);
+ /* ===== the card and its price ===== */
+ const newCard=(seed,keep)=>{cseed=seed==null?gttuSeed('card'):seed>>>0;card=gttCard(cseed);px=null;sel=null;ex1=null;const prev=keep?keep.map(b=>({k:b.k,a:b.a,b:b.b,stake:b.stake})):[];slip=[];priceId++;const id=priceId,c0=card;
+  if(prev.length){let tot=0;for(const b of prev){if(slip.length>=GTT.maxBets||tot+b.stake>Math.min(GTT.maxTotal,P.gold))break;tot+=b.stake;slip.push({k:b.k,a:b.a,b:b.b,stake:b.stake,mult:null})}}
+  if(ph==='paddock'&&$q('#gttcard')){paddockCards();slipRender();headRender()}
+  try{if(typeof priceStop==='function')priceStop();const cn=gttPrice(c0,4000,r=>{if(!alive()||id!==priceId||c0!==card)return;px=r;reprice();if(ph==='paddock'&&$q('#gttcard')){oddsRender();slipRender()}});priceCancel=typeof cn==='function'?cn:null}catch(e){console.error(e)}};
+ const priceStop=()=>{if(priceCancel){try{priceCancel()}catch(e){}priceCancel=null}};
+ const mOf=(k,a,b)=>{if(!px||!px.mult)return null;const M=px.mult;if(k==='exact')return M.exact&&M.exact[a]?M.exact[a][b]:null;return M[k]?M[k][a]:null};
+ const reprice=()=>{const keep=[];let dropped=0;for(const b of slip){const m=mOf(b.k,b.a,b.b);if(m){b.mult=m;keep.push(b)}else dropped++}slip=keep;if(dropped)msg('Some bets are not offered on this card and were removed.','l')};
+ /* ===== bets ===== */
+ const total=()=>gttuTotal(slip);
+ const curBet=()=>{if(sel==null)return null;if(kind==='exact'){if(ex1==null||ex1===sel)return null;return{k:'exact',a:ex1,b:sel}}return{k:kind,a:sel}};
+ const stakeNow=()=>Math.floor(CAS.bet||0);
+ const addErr=()=>{const b=curBet();
+  if(!px)return'Setting the odds... one moment.';
+  if(kind==='exact'&&(ex1==null||sel==null))return ex1==null?'Exact 1-2: tap the winner first (1st?).':'Exact 1-2: now tap the runner-up (2nd?).';
+  if(kind==='exact'&&ex1===sel)return'Exact 1-2 needs two different turkeys.';
+  if(!b)return'Tap a turkey to back it.';
+  const s=stakeNow();if(s<GTT.minBet)return`Stakes start at ${GTT.minBet}.`;if(s>GTT.maxBet)return`Table limit: ${cmn(GTT.maxBet)} per bet.`;
+  if(slip.length>=GTT.maxBets)return`Three bets per race is the limit. Remove one first.`;
+  if(total()+s>GTT.maxTotal)return`Table limit: ${cmn(GTT.maxTotal)} staked per race.`;
+  if(total()+s>P.gold)return broke()||'Not enough gold for that bet.';
+  if(!mOf(b.k,b.a,b.b))return'That bet is not offered (too long a shot).';return''};
+ const addBet=quiet=>{if(ph!=='paddock'||CAS.lock)return false;const e=addErr();if(e){msg(e,'l');return false}const b=curBet(),s=stakeNow();slip.push({k:b.k,a:b.a,b:b.b,stake:s,mult:mOf(b.k,b.a,b.b)});
+  if(!quiet)beep(880,.05,'triangle',.5);ex1=null;sel=null;oddsRender();pickRender();slipRender();markRows();msg(`Added: ${GTTU.kn[b.k]} on ${gttuLbl(card,b)}. ${slip.length<GTT.maxBets?'Add another or start the race.':'Start the race!'}`,'w');return true};
+ const rmBet=i=>{if(ph!=='paddock'||CAS.lock||!slip[i])return;slip.splice(i,1);slipRender();markRows();beep(420,.05,'triangle',.4)};
+ const setKind=k=>{if(ph!=='paddock'||CAS.lock||kind===k)return;kind=k;ex1=null;sel=null;tabsRender();oddsRender();markRows();pickRender()};
+ const pick=l=>{if(ph!=='paddock'||CAS.lock||l<0||l>5)return;try{gttSnd.gobble(l)}catch(e){}
+  if(kind==='exact'){if(ex1==null||sel!=null){ex1=l;sel=null}else if(l===ex1){ex1=null}else sel=l}else sel=l;
+  oddsRender();markRows();pickRender();strut(l)};
+ const strut=l=>{const r=$q(`.gttrow[data-l="${l}"]`);if(r&&!rm){r.classList.remove('hop');void r.offsetWidth;r.classList.add('hop')}};
+ const setStake=d=>{if(ph!=='paddock'||CAS.lock)return;const S=GTTU.steps,b=CAS.bet;const v=d>0?(S.find(x=>x>b)||S[S.length-1]):([...S].reverse().find(x=>x<b)||S[0]);CAS.bet=Math.min(P.gold,v);betRefresh();oddsRender();pickRender();slipRender()};
+ /* ===== paddock ===== */
+ const SVG={sun:'<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="5" fill="#ffd45a" stroke="#12081f" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" stroke="#ffd45a" stroke-width="2" stroke-linecap="round"/></svg>',
+  wind:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9fe8ff" stroke-width="2.4" stroke-linecap="round"><path d="M3 8h10a3 3 0 1 0-3-3M3 13h15a3 3 0 1 1-3 3M3 18h7"/></svg>',
+  rain:'<svg viewBox="0 0 24 24" width="16" height="16"><path d="M7 14a4 4 0 0 1 1-7.8A5 5 0 0 1 17.500 8 3.500 3.500 0 0 1 17 14z" fill="#b8c4e8" stroke="#12081f" stroke-width="2"/><path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3" stroke="#6ab8ff" stroke-width="2" stroke-linecap="round"/></svg>',
+  firm:'<svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="12" width="18" height="7" rx="2" fill="#d8b070" stroke="#12081f" stroke-width="2"/><path d="M7 9l2-4 2 4 2-4 2 4" stroke="#ffd45a" stroke-width="2" fill="none"/></svg>',
+  good:'<svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="12" width="18" height="7" rx="2" fill="#a8742e" stroke="#12081f" stroke-width="2"/><path d="M7 11c0-3 2-5 2-7M13 11c0-3 2-5 2-7" stroke="#7dff9a" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  muddy:'<svg viewBox="0 0 24 24" width="16" height="16"><rect x="3" y="12" width="18" height="7" rx="2" fill="#5a3a1c" stroke="#12081f" stroke-width="2"/><circle cx="8" cy="9" r="2" fill="#7a4a22"/><circle cx="14" cy="8" r="2.500" fill="#7a4a22"/><circle cx="18" cy="10" r="1.500" fill="#7a4a22"/></svg>'};
+ const wxIcon=w=>w==='wind'?SVG.wind:w==='drizzle'?SVG.rain:SVG.sun;
+ const lastRec=id=>{const r=g0().rec[id];return r&&Array.isArray(r.last)?r.last.slice(-5):[]};
+ const formHtml=id=>{const L=lastRec(id);let h='';for(let i=0;i<5;i++){const p=L[i-(5-L.length)];h+=p?`<i class="gtm m${Math.min(p,4)}" title="${gttuOrd(p)}">${p}</i>`:'<i class="gtm m0">·</i>'}return h};
+ const rowHtml=l=>{const r=runner(l),s=r.silk||[r.col[1],r.col[0]];return `<div class="gttrow" data-l="${l}" role="radio" aria-checked="false" tabindex="0" aria-label="${r.n}, number ${l+1}">
+  <i class="gttcl" style="background:${s[0]};color:${gttuInk(s[0])};--c2:${s[1]}"><b>${l+1}</b></i><canvas width="120" height="96" data-id="${r.id}"></canvas>
+  <span class="gttnm"><b>${r.n}</b><em class="gtts-${r.style}">${GTTU.style[r.style]||''}</em><small>${r.tip||''}</small></span>
+  <span class="gttform" title="Last five finishes">${formHtml(r.id)}</span><button class="gttodds" tabindex="-1" data-l="${l}">…</button><s class="gttmine">BET</s></div>`};
+ const paddockCards=()=>{const box=$q('#gttcard');if(!box)return;box.innerHTML=card.field.map((_,l)=>rowHtml(l)).join('');
+  box.querySelectorAll('.gttrow').forEach(row=>{const l=+row.dataset.l,cv=row.querySelector('canvas'),id=card.field[l];row.onclick=()=>pick(l);row.onmousedown=e=>e.preventDefault();row.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();e.stopPropagation();pick(l)}};
+   LIVE.push({cv,fn:()=>{try{gttPortrait(cv,id,performance.now()/1000+l*.37,l)}catch(e){}},slow:2,ph:l})});
+  oddsRender();markRows()};
+ const headRender=()=>{const a=$q('#gttno');if(!a)return;a.textContent='Race '+card.no;$q('#gttgo').innerHTML=(SVG[card.going]||'')+' '+(GTTU.going[card.going]||card.going);$q('#gttwx').innerHTML=wxIcon(card.weather)+' '+(GTTU.wx[card.weather]||card.weather)};
+ const oddsRender=()=>{if(ph!=='paddock')return;el.querySelectorAll('.gttrow').forEach(row=>{const l=+row.dataset.l,b=row.querySelector('.gttodds');let t,cls='';
+   if(!px){t='…';cls='wait'}else if(kind==='exact'){if(ex1==null)t='1st?';else if(l===ex1){t='1st';cls='first'}else{const m=mOf('exact',ex1,l);t=m?gttuM(m):'—'}}else{const m=mOf(kind,l);t=m?gttuM(m):'—';if(!m)cls='off'}
+   b.textContent=t;b.className='gttodds '+cls});
+  const pr=$q('#gttpricing');if(pr)pr.hidden=!!px};
+ const markRows=()=>{const mine=new Set();slip.forEach(b=>{mine.add(b.a);if(b.k==='exact')mine.add(b.b)});el.querySelectorAll('.gttrow').forEach(row=>{const l=+row.dataset.l,on=kind==='exact'?(l===ex1||l===sel):l===sel;row.classList.toggle('sel',on);row.setAttribute('aria-checked',on?'true':'false');row.classList.toggle('mine',mine.has(l));
+   row.classList.toggle('first',kind==='exact'&&l===ex1)})};
+ const tabsRender=()=>{el.querySelectorAll('.gtttab').forEach(b=>{const on=b.dataset.k===kind;b.classList.toggle('on',on);b.setAttribute('aria-selected',on?'true':'false')});const K=GTTU.K.find(x=>x[0]===kind);const d=$q('#gttdesc');if(d)d.textContent=K[3]};
+ const pickRender=()=>{const e=$q('#gttpick'),a=$q('#gttadd');if(!e)return;const b=curBet(),s=stakeNow();let h='';
+  if(kind==='exact'){if(ex1==null)h='<b class="q">1st?</b><span>Tap the turkey you think will WIN</span>';else if(sel==null)h=`<b class="q">2nd?</b><span>1st: #${ex1+1} ${nm(ex1)}. Now tap the runner-up</span>`;else h=`<span>#${ex1+1} ${nm(ex1)} then #${sel+1} ${nm(sel)}</span><b>${gttuM(mOf('exact',ex1,sel))}</b>`}
+  else if(sel==null)h='<b class="q">Tap a turkey</b><span>to back it on the race card</span>';else h=`<span>#${sel+1} ${nm(sel)}</span><b>${gttuM(mOf(kind,sel))}</b>`;
+  e.innerHTML=h;const m=b&&mOf(b.k,b.a,b.b);a.querySelector('small').textContent=m&&s>=GTT.minBet?`returns ${cmn(Math.min(GTT.cap,Math.floor(s*m)))}`:'';a.disabled=false};
+ const slipRender=()=>{const box=$q('#gttslip');if(!box)return;
+  box.innerHTML=slip.length?slip.map((b,i)=>`<div class="gttsl"><i>${GTTU.kn[b.k]}</i><span><b>${gttuLbl(card,b,1)}</b><small>${cmn(b.stake)} at ${b.mult?gttuM(b.mult):'…'}</small></span><u>${b.mult?cmn(gttuRet(b)):'…'}</u><button data-rm="${i}" aria-label="Remove this bet">✕</button></div>`).join(''):'<div class="gttempty">No bets yet. Tap a turkey, then press Start, or build up to three bets with Add to slip.</div>';
+  box.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>rmBet(+b.dataset.rm));
+  const st0=total(),pos=slip.reduce((a,b)=>a+(b.mult?Math.floor(b.stake*b.mult):0),0),cap=pos>GTT.cap;
+  $q('#gtttot').innerHTML=`<div><small>Total stake</small><b><i class="gttcn"></i>${cmn(st0)}</b></div><div><small>Possible return</small><b><i class="gttcn"></i>${cmn(Math.min(GTT.cap,pos))}</b></div>
+   <p class="${cap?'cap':''}">${cap?'Capped at '+cmn(GTT.cap)+' for the race':'Max payout '+cmn(GTT.cap)+' per race'}</p>`;
+  const go=$q('#gttgo2');if(go)go.disabled=!px};
+ const paddock=()=>{ph='paddock';overlay=null;stopLoop();
+  el.innerHTML=`<div class="gttw" id="gttw"><div class="gttl">
+   <div class="gtth"><h3>Today's race card</h3><span class="gttchip" id="gttno"></span><span class="gttchip" id="gttgo"></span><span class="gttchip" id="gttwx"></span><button class="gtthelp" id="gtthelp" aria-label="How to play" title="How to play">?</button></div>
+   <div class="gttcard" id="gttcard" role="radiogroup" aria-label="The race card"></div>
+   <div class="gttfoot"><button class="gttbtn" id="gttnew">New card <kbd>N</kbd></button><button class="gttbtn" id="gttstat">My stats</button><span id="gttpricing" class="gttpr">Setting the odds...</span><span class="gttleg">Form: last five finishes</span></div></div>
+   <div class="gtts"><h4>Bet slip</h4><div class="gtttabs" role="tablist">${GTTU.K.map(k=>`<button class="gtttab" role="tab" data-k="${k[0]}"><b>${k[1]}</b><kbd>${k[2]}</kbd></button>`).join('')}</div>
+    <p class="gttdesc" id="gttdesc"></p><div class="gttpick" id="gttpick"></div>
+    <div class="ctl gttst">${betBar('Stake')}</div>
+    <button class="gttadd" id="gttadd"><b>Add to slip</b><small></small><kbd>Enter</kbd></button>
+    <div class="gttslip" id="gttslip"></div><div class="gtttot" id="gtttot"></div>
+    <button class="bbig gttgo" id="gttgo2">Start race <kbd>Space</kbd></button><p class="cmsg" id="cm"> </p></div></div>`;
+  $q('#gtthelp').onclick=()=>howTo();$q('#gttnew').onclick=()=>userNew();$q('#gttstat').onclick=()=>statsWin();
+  el.querySelectorAll('.gtttab').forEach(b=>b.onclick=()=>setKind(b.dataset.k));$q('#gttadd').onclick=()=>addBet();$q('#gttgo2').onclick=()=>start();
+  wireBet(()=>{oddsRender();pickRender();slipRender()});headRender();paddockCards();tabsRender();pickRender();slipRender();
+  if(!px)msg('Setting the odds...')};
+ const userNew=()=>{if(ph!=='paddock'||CAS.lock)return;const had=slip.length;newCard();beep(620,.05,'triangle',.5);msg(had?'New card. Your slip was cleared.':'New card drawn. Pick your turkey.')};
+ /* ===== tutorial / stats windows ===== */
+ const closeOverlay=()=>{if(overlay){overlay.remove();overlay=null;return true}return false};
+ const howTo=done=>{closeOverlay();const w=$q('.gttw');if(!w)return;const d=document.createElement('div');d.className='gttmod gtthow';overlay=d;
+  d.innerHTML=`<h3>How to play The Great Turkey Trot</h3><div class="gtthg">
+   <div><i class="gttil il1"><span>#3</span><em>×4.2</em></i><b>1. Pick a turkey</b><p>Tap a runner on the race card. The big number is what a winning bet pays: ×4 turns 100 into 400.</p></div>
+   <div><i class="gttil il2"><u>Win</u><u>Top 2</u><u>Top 3</u><u>Exact</u></i><b>2. Choose a bet</b><p>Win is first place. Top 2 and Top 3 are safer and pay less. Exact 1-2 picks the winner and the runner-up in order. Up to three bets, then Start.</p></div>
+   <div><i class="gttil il3"><span class="gttdots"><s></s><s></s><s></s></span><em>Cash out 340</em></i><b>3. Watch and cash out</b><p>Your turkeys wear a gold ring. If one is fading, Cash out (C) takes a fair offer right now. The result is fixed when the race starts.</p></div></div>
+   <button class="bbig" id="gtthok">Got it</button>`;w.appendChild(d);g0().seen=1;save();const ok=$q('#gtthok');ok.onclick=()=>{closeOverlay();if(done)done()};try{ok.focus()}catch(e){}};
+ const statsWin=()=>{closeOverlay();const w=$q('.gttw');if(!w)return;const g=g0(),d=document.createElement('div');d.className='gttmod gttstw';overlay=d;
+  const fav=Object.entries(g.fav||{}).sort((a,b)=>b[1]-a[1])[0],favN=fav?gttuR(fav[0]).n+' ('+fav[1]+' bets)':'none yet';
+  const rows=GTT_RUN.map(r=>{const q=(g.rec||{})[r.id]||{s:0,w:0,p:0};return `<tr><td>${r.n}</td><td>${q.s}</td><td>${q.w}</td><td>${q.p}</td>${GTTU.hidden?`<td class="hid">spd ${r.spd} sta ${r.sta} kick ${r.kick} gate ${r.gate} wild ${r.wild}</td>`:''}</tr>`}).join('');
+  d.innerHTML=`<h3>Your Turkey Trot stats</h3><div class="gttstg"><div><small>Races</small><b>${cmn(g.races)}</b></div><div><small>Winning bets</small><b>${cmn(g.wins)}</b></div><div><small>Best race payout</small><b>${cmn(g.best)}</b></div><div><small>Longest winning shot</small><b>${g.long?gttuM(g.long):'none yet'}</b></div><div><small>Favourite turkey</small><b>${favN}</b></div><div><small>Bets placed</small><b>${cmn(g.bets)}</b></div></div>
+   <div class="gttstt"><table><thead><tr><th>Turkey</th><th>Starts</th><th>Wins</th><th>Top 3</th>${GTTU.hidden?'<th>Hidden stats</th>':''}</tr></thead><tbody>${rows}</tbody></table></div><button class="bbig" id="gttsok">Close</button>`;w.appendChild(d);$q('#gttsok').onclick=()=>closeOverlay();try{$q('#gttsok').focus()}catch(e){}};
+ /* ===== starting, racing ===== */
+ const cashed=i=>(rec.cash||[]).some(c=>c.i===i);
+ const mineLanes=()=>{const s=new Set();(rec?rec.bets:slip).forEach(b=>{s.add(b.a);if(b.k==='exact')s.add(b.b)});return[...s]};
+ const start=()=>{if(ph!=='paddock'||CAS.lock||overlay)return;
+  if(!px){msg('Setting the odds... one moment.');return}
+  if(!slip.length&&!addBet(true))return;
+  const tot=total();if(tot>P.gold){msg(broke()||'Not enough gold for these bets.','l');return}
+  if(tot>GTT.maxTotal||slip.length>GTT.maxBets||slip.some(b=>b.stake<GTT.minBet||b.stake>GTT.maxBet||!b.mult)){msg('Please check your slip.','l');return}
+  const r={cardSeed:cseed,raceSeed:gttuSeed('race'),bets:slip.map(b=>b.k==='exact'?{k:b.k,a:b.a,b:b.b,stake:b.stake,mult:b.mult}:{k:b.k,a:b.a,stake:b.stake,mult:b.mult}),cash:[],t0:Date.now()};
+  g0().pend=r;if(!cTake(tot)){g0().pend=null;msg(broke()||'Not enough gold for these bets.','l');return}
+  rec=r;betLock(true);ensureAudio();beginRace()};
+ const say=(txt,o)=>{if(!txt)return;o=o||{};if(!o.force&&tt-lastSay<.9)return;lastSay=tt;const b=$q('#gttsay');if(!b)return;const p=document.createElement('p');p.textContent=txt;if(o.mine)p.className='mine';b.appendChild(p);while(b.children.length>2)b.firstChild.remove();
+  try{gttSnd.ding()}catch(e){}};
+ const sayT=(k,l,m)=>{let A=GTTU.say[k];try{if(typeof GTT_SAY==='object'&&GTT_SAY&&Array.isArray(GTT_SAY[k])&&GTT_SAY[k].length&&GTT_SAY[k].every(x=>typeof x==='string'))A=GTT_SAY[k]}catch(e){}
+  if(!A)return'';const v={n:l!=null&&l>=0?nm(l):'',m:m!=null&&m>=0?nm(m):'',j:l!=null&&l>=0?((runner(l).jockey||{}).n||''):''};
+  const ok=A.filter(t=>(!/\{n\}/.test(t)||v.n)&&(!/\{m\}/.test(t)||v.m)&&(!/\{j\}/.test(t)||v.j)),L=ok.length?ok:A,t=L[(Math.random()*L.length)|0];
+  return typeof gttSayFmt==='function'?gttSayFmt(t,v):t.replace(/\{(\w)\}/g,(_,c)=>v[c]||'')};
+ const banner=t=>{const b=$q('#gttban');if(!b)return;b.textContent=t;b.classList.remove('on');void b.offsetWidth;b.classList.add('on')};
+ const beginRace=()=>{warmN=0;wcv=null;ph='gate';gateT=0;acc=0;evI=0;winT=-1;said={};lastSay=-9;lastLead=-1;offers=[];offAt=[];lastCo=0;job=null;cam=null;clock=0;gateOpen=false;photoT=0;
+  fin=gttRun(card,rec.raceSeed);st=gttSimNew(card,rec.raceSeed);raceDom();
+  try{gttSnd.call()}catch(e){}banner('Call to the post!');say('The turkeys step up to the gate...',{force:1});startLoop()};
+ let dots=[];
+ const raceDom=()=>{const mine=new Set(mineLanes());
+  el.innerHTML=`<div class="gttw gttrace" id="gttrace"><canvas id="gttrc" width="1600" height="900"></canvas>
+   <div class="gttclk"><b id="gttclkt">0:00.0</b><small>Race ${card.no} · ${GTTU.going[card.going]||''}</small></div>
+   <div class="gttps" id="gttps" aria-hidden="true"><div class="gttpsl"></div><s class="gttpsf" title="Finish"></s>${card.field.map((_,l)=>{const s=runner(l).silk||['#ffd45a','#c87a2a'];return `<i class="gttpd${mine.has(l)?' mine':''}" data-l="${l}" style="top:${l%2?27:3}px;background:${s[0]};color:${gttuInk(s[0])}"><b>${l+1}</b></i>`}).join('')}</div>
+   <div class="gttbets" id="gttbets"><h5>Your bets</h5>${rec.bets.map((b,i)=>`<div class="gttb" data-i="${i}"><span class="gttbk">${GTTU.kn[b.k]}</span><b>${gttuLbl(card,b,1)}</b><small><span>${cmn(b.stake)} at ${gttuM(b.mult)}</span><em class="now">–</em></small>
+     <button class="gttco" data-i="${i}" disabled><span>Cash out</span><u>–</u></button></div>`).join('')}<p class="gttcoh">Press <kbd>C</kbd> to cash out</p></div>
+   <div class="gttsay" id="gttsay"></div><button class="gttskip" id="gttskip">Skip to result <kbd>▸▸</kbd></button><div class="gttban" id="gttban"></div></div>`;
+  cv=$q('#gttrc');cg=cv.getContext('2d');dots=[...el.querySelectorAll('.gttpd')];
+  el.querySelectorAll('.gttco').forEach(b=>b.onclick=()=>doCash(+b.dataset.i));$q('#gttskip').onclick=()=>skipRace()};
+ const coLabel=i=>{const b=$q(`.gttb[data-i="${i}"]`);if(!b)return;const bt=b.querySelector('.gttco'),u=bt.querySelector('u'),done=cashed(i);
+  if(done){const c=rec.cash.find(c=>c.i===i);b.classList.add('done');bt.hidden=true;let e=b.querySelector('.gttdone');if(!e){e=document.createElement('em');e.className='gttdone';b.appendChild(e)}e.textContent='Cashed out '+cmn(c.pay);return}
+  const o=offers[i],closed=st&&Math.max(...st.run.map(q=>q.x))>=GTT.len*.9;
+  if(closed){bt.disabled=true;u.textContent='closed';bt.classList.add('off')}else if(o>=1){bt.disabled=false;bt.classList.remove('off');u.textContent=cmn(o)}else{bt.disabled=true;u.textContent=o===0&&offAt[i]?'–':'…'}};
+ const capLeft=()=>Math.max(0,GTT.cap-rec.cash.reduce((a,c)=>a+c.pay,0));
+ /* all live bets are priced from ONE set of continuations about once a second (gttOffers; one gttOffer per bet when it is missing) */
+ const priceBets=(idx,n,salt)=>{const bs=idx.map(i=>rec.bets[i]);let os;try{os=typeof gttOffers==='function'?gttOffers(st,bs,n,salt):bs.map(b=>gttOffer(st,b,n,salt))}catch(e){console.error(e);os=bs.map(()=>0)}return os.map(o=>Math.floor(o)||0)};
+ /* the labels are refreshed about once a second from 10 slices of 30 continuations, one slice per frame (about 2 ms each), averaged: the same estimate as one 300-run pricing without one long frame */
+ let job=null;const OJN=10,OJR=30;
+ const offerTick=now=>{if(ph!=='race'||st.t<1)return;const live=[];rec.bets.forEach((b,i)=>{if(!cashed(i))live.push(i)});if(!live.length){job=null;return}
+  if(!job){if(lastCo&&now-lastCo<800){if(!offerTick.c||now-offerTick.c>400){offerTick.c=now;live.forEach(i=>coLabel(i))}return}job={k:0,sum:new Map()}}
+  const os=priceBets(live,OJR,st.n*31+job.k);live.forEach((i,j)=>job.sum.set(i,(job.sum.get(i)||0)+os[j]));job.k++;
+  if(job.k>=OJN){const cl=capLeft();live.forEach(i=>{offers[i]=Math.min(Math.floor(job.sum.get(i)/OJN),cl);offAt[i]=now;coLabel(i)});job=null;lastCo=now}};
+ const doCash=i=>{if(ph!=='race'||!rec||!rec.bets[i]||cashed(i))return;const o=Math.min(priceBets([i])[0],capLeft());/* priced afresh at the click, never from a stale label */
+  if(!(o>=1)){msg('No cash-out offer right now.');return}
+  const b=rec.bets[i],pay=gttuCash(i,o);if(!pay)return;offers[i]=0;coLabel(i);try{gttSnd.ding()}catch(e){}
+  msg(`Cashed out ${gttuLbl(card,b)} for ${cmn(pay)} (stake ${cmn(b.stake)}).`,pay>b.stake?'w':'')};
+ const cashAny=()=>{if(ph!=='race'||!rec)return;for(let i=0;i<rec.bets.length;i++)if(!cashed(i)){doCash(i);if(cashed(i))return}msg('Nothing to cash out.')};
+ const collect=()=>{const L=st.ev;while(evI<L.length){const e=L[evI++],k=e.k,l=e.lane,mine=l!=null&&l>=0&&mineLanes().includes(l);
+   if(GTTU.say[k]){say(sayT(k,k==='gust'?null:l),{mine});if(k!=='gust'&&l>=0)try{gttSnd.gobble(l)}catch(x){}}}
+  const R2=st.run;let lead=-1,sec=-1,mx=0;for(const q of R2){if(q.x>mx){mx=q.x;lead=q.lane}}for(const q of R2)if(q.lane!==lead&&(sec<0||q.x>R2[sec].x))sec=q.lane;
+  if(lead!==lastLead&&st.t>2.5){if(lastLead>=0&&!(mx<20))say(sayT('lead',lead,lastLead),{mine:mineLanes().includes(lead)});lastLead=lead}else if(lastLead<0&&st.t>2.5)lastLead=lead;
+  if(mx>=GTT.len*.5&&!said.half){said.half=1;say(sayT('mid',lead,sec),{force:1})}
+  if(mx>=GTT.len*.82&&!said.last){said.last=1;say(sayT('final',lead,sec),{force:1})}
+  if(winT<0&&R2.some(q=>q.fin!==null)){winT=tt;const w=R2.reduce((a,q)=>q.fin!==null&&(a===null||q.fin<a.fin)?q:a,null);if(w&&!fin.photo){say(sayT('win',w.lane),{force:1,mine:mineLanes().includes(w.lane)});try{gttSnd.gobble(w.lane)}catch(x){}}}};
+ const hud=()=>{for(let l=0;l<6;l++){const q=st.run[l];dots[l].style.transform=`translateX(${(Math.min(1,q.x/GTT.len)*GTTU.dw).toFixed(1)}px)`}
+  const c=gttuFmtT(st.t);if(c!==clock){clock=c;$q('#gttclkt').textContent=c;
+   el.querySelectorAll('.gttb').forEach(b=>{const bet=rec.bets[+b.dataset.i],n=b.querySelector('.now');const p=l=>gttuOrd(st.run[l].pos);n.textContent=bet.k==='exact'?`now ${p(bet.a)} / ${p(bet.b)}`:`now ${p(bet.a)}`})}};
+ let drawMs=0,drawN=0;
+ /* a slow machine (software canvas) draws every second frame while the race itself keeps full time: drawMs is the running cost of one draw */
+ const drawRace=()=>{try{const c2=gttCam(st,cam);if(c2)cam=c2}catch(e){}if(!cam)cam={x:0,zoom:1};if(drawMs>12&&(drawN++&1))return;const a=performance.now();gttDrawRace(cg,st,cam,{t:tt,mine:mineLanes(),low:LOW(),going:card.going,weather:card.weather});{const d=Math.min(30,performance.now()-a);drawMs=drawMs?drawMs*.92+d*.08:d}};
+ const startPhoto=()=>{ph='photo';photoT=0;el.classList.add('gttph');try{gttSnd.shutter()}catch(e){}say(sayT('photo'),{force:1})};
+ const skipRace=()=>{if(ph==='over'||!st)return;if(ph==='gate'||ph==='race'||ph==='photo'){let g=0;while(!st.done&&g++<20000)gttStep(st);finishRace()}};
+ const finishRace=()=>{if(ph==='over')return;ph='over';el.classList.remove('gttph');try{gttSnd.stop()}catch(e){}
+  R=gttuSettle(fin);if(!R){R=gttuLines(rec,fin);R.card=card;R.fin=fin;R.rec=rec;R.wins=R.lines.filter(l=>l.won).length;R.acorns=0}
+  betLock(false);resultsDom();
+  setTimeout(()=>{if(!alive())return;const net=R.paid-R.staked;try{if(R.paid>0&&net>=0)gttSnd.win(net>=2000);else if(R.paid===0)gttSnd.lose()}catch(e){}},300)};
+ /* the first draw of the race scene at a new zoom, of the podium and of the photo bakes images: do those once, off screen, while the turkeys stand at the gate */
+ let wcv=null,warmN=0;
+ const warm=()=>{try{if(!wcv){wcv=document.createElement('canvas');wcv.width=1600;wcv.height=900}const g=wcv.getContext('2d'),n=++warmN;
+   if(n===1){const c2=gttCam(fin,null);gttDrawRace(g,fin,c2||{x:0,zoom:1},{t:0,mine:[],low:LOW(),going:card.going,weather:card.weather})}else if(n===2)gttDrawPodium(g,fin,0);else if(n===3&&fin.photo)gttPhoto(g,1,fin);
+   else if(n>=4||(n===3&&!fin.photo)){wcv=null;warmN=9}}catch(e){wcv=null;warmN=9}};
+ const stepFrame=dt=>{
+  if(ph==='gate'){gateT+=dt;const T=rm?1.3:2.5;drawRace();if(warmN<9)warm();
+   if(!said.u&&gateT>T-1.0){said.u=1;banner("Under starter's orders...")}
+   if(gateT>=T){ph='race';acc=0;try{gttSnd.gate()}catch(e){}banner("And they're off!");say(sayT('gate'),{force:1});if(!LOW()){const r=$q('#gttrace');if(r){r.classList.remove('shk');void r.offsetWidth;r.classList.add('shk')}}}}
+  else if(ph==='race'){acc+=dt*GTTU.fast;let n=0;while(acc>=STEP&&!st.done&&n<24){gttStep(st);acc-=STEP;n++}
+   if(n){collect();if((st.n&3)===0){let lead=0;for(const q of st.run)if(q.x>st.run[lead].x)lead=q.lane;if(st.t-stepT>.14){stepT=st.t;try{gttSnd.step(lead)}catch(e){}}}}
+   hud();drawRace();offerTick(performance.now());
+   {const mx=Math.max(...st.run.map(q=>q.x))/GTT.len,lv=Math.max(0,Math.min(1,(mx-.5)/.5));if((st.n&7)===0)try{gttSnd.crowd(.14+.86*lv*lv)}catch(e){}}
+   if(fin.photo&&st.run[fin.photo.a]&&(st.run[fin.photo.a].fin!==null||st.run[fin.photo.b].fin!==null))startPhoto();
+   else if(st.done||(winT>=0&&tt-winT>4.5))finishRace()}
+  else if(ph==='photo'){photoT+=dt;try{gttPhoto(cg,Math.min(2.5,photoT),fin)}catch(e){console.error(e)}if(photoT>=3.4)finishRace()}
+  else if(ph==='over'){resT+=dt;if(pcg){try{pcg.setTransform(1,0,0,1,0,0);pcg.clearRect(0,0,pcv.width,pcv.height);pcg.setTransform(pcv.width/1600,0,0,pcv.height/900,0,0);gttDrawPodium(pcg,fin,resT)}catch(e){console.error(e)}}/* 10.5: clear every frame (the light shafts are translucent and piled up) */confDraw(dt)}};
+ const frame=now=>{if(!alive()||!el.isConnected){loopOn=false;try{gttSnd.stop()}catch(e){}return}if(!loopOn)return;const dt=Math.min(.1,(now-last)/1000);last=now;tt+=dt;
+  try{if(!GTTU.hold)stepFrame(dt);errN=0}catch(e){console.error(e);/* a race that keeps failing is finished from its seeds instead of hanging with the stakes taken */if(++errN>30&&rec&&fin&&(ph==='race'||ph==='gate'||ph==='photo')){errN=0;try{ph='race';finishRace()}catch(x){console.error(x)}}}
+  if(loopOn)requestAnimationFrame(frame)};
+ function startLoop(){if(loopOn)return;loopOn=true;last=performance.now();requestAnimationFrame(frame)}
+ function stopLoop(){loopOn=false}
+ /* ===== results ===== */
+ const confBurst=n=>{const cols=['#ffd45a','#ff8a2a','#9fe8ff','#7dff9a','#ff6a9a','#ffffff'];n=LOW()?Math.ceil(n/3):n;for(let i=0;i<n;i++)conf.push({x:100+Math.random()*680,y:-10-Math.random()*120,vx:(Math.random()-.5)*90,vy:90+Math.random()*160,a:Math.random()*6,va:(Math.random()-.5)*9,s:4+Math.random()*4,c:cols[i%cols.length],l:3.5+Math.random()*1.5})};
+ const confDraw=dt=>{if(!ccg)return;ccg.clearRect(0,0,880,495);if(!conf.length)return;for(let i=conf.length-1;i>=0;i--){const p=conf[i];p.l-=dt;if(p.l<=0||p.y>520){conf.splice(i,1);continue}p.x+=p.vx*dt;p.y+=p.vy*dt;p.a+=p.va*dt;p.vx*=.995;
+   ccg.save();ccg.translate(p.x,p.y);ccg.rotate(p.a);ccg.fillStyle=p.c;ccg.fillRect(-p.s/2,-p.s/3,p.s,p.s*.66);ccg.restore()}};
+ const resultsDom=()=>{stopLoop();const lines=R.lines,net=R.paid-R.staked,pho=!!R.photo,order=fin.order,times=fin.times||[];
+  const tl=l=>times[l];const orderHtml=order.map((l,i)=>{const r=runner(l),s=r.silk||['#ffd45a','#c87a2a'];return `<div class="gttor${i===0?' w':''}"><i style="background:${s[0]};color:${gttuInk(s[0])}">${l+1}</i><span><b>${gttuOrd(i+1)}</b> ${r.n}</span><u>${tl(l)!=null?(i===0?tl(l).toFixed(2)+'s':'+'+(tl(l)-tl(order[0])).toFixed(2)):''}</u></div>`}).join('');
+  const lh=lines.map(l=>{const b=l.bet,cls=l.cashed?'cash':l.won?'won':'lost',mark=l.cashed?'$':l.won?'✓':'✕',amt=l.cashed?'cashed out '+cmn(l.pay):l.won?'paid '+cmn(l.pay):'lost '+cmn(b.stake);
+   return `<div class="gttrl ${cls}"><i>${mark}</i><span><b>${GTTU.kn[b.k]} · ${gttuLbl(card,b,1)}</b><small>${cmn(b.stake)} at ${gttuM(b.mult)}</small></span><u>${amt}</u></div>`}).join('');
+  el.innerHTML=`<div class="gttw gttres"><div class="gttrcl"><div class="gttrh"><h3>Race ${card.no} · the result</h3>${pho?'<span class="gttchip ph">Photo finish</span>':''}<span class="gttchip">${GTTU.going[card.going]||''}</span></div>
+   <div class="gttpod"><canvas id="gttpc" width="1600" height="900"></canvas><canvas id="gttcf" width="880" height="495"></canvas></div><div class="gttorder">${orderHtml}</div></div>
+   <div class="gttrcr"><h4>Your bets</h4>${note?`<p class="gttnote">${note}</p>`:''}<div class="gttrb">${lh}</div>
+    <div class="gttrt"><div><small>Staked</small><b>${cmn(R.staked)}</b></div><div><small>Paid</small><b>${cmn(R.paid)}</b></div><div class="${net>0?'up':net<0?'dn':''}"><small>Net</small><b>${net>0?'+':net<0?'−':''}${cmn(Math.abs(net))}</b></div></div>
+    ${R.capped?`<p class="gttcapn">Capped at ${cmn(GTT.cap)} for the race</p>`:''}${R.acorns?`<p class="gttac"><i></i>+${R.acorns} acorns from the Harvest Festival</p>`:''}
+    <div class="gttrec"><h5>Your Turkey Trot record</h5><div><span><b>${cmn(g0().races)}</b>races</span><span><b>${cmn(g0().wins)}</b>winning bets</span><span><b>${cmn(g0().best)}</b>best payout</span></div></div>
+    <p class="cmsg" id="cm"> </p>
+    <div class="gttrbtn"><button class="bbig gttagain" id="gttagain">Race again <kbd>Enter</kbd></button><div><button class="gttbtn" id="gttnew2">New card <kbd>N</kbd></button><button class="gttbtn" id="gttback">Back <kbd>Esc</kbd></button></div></div></div></div>`;
+  pcv=$q('#gttpc');pcg=pcv.getContext('2d');ccv=$q('#gttcf');ccg=ccv.getContext('2d');conf=[];resT=0;if(R.paid>0)confBurst(R.paid>=R.staked?90:30);
+  $q('#gttagain').onclick=()=>again();$q('#gttnew2').onclick=()=>newOnly();$q('#gttback').onclick=()=>{if(!CAS.lock)lobby()};
+  msg(R.paid>R.staked?`A winner! ${cmn(R.paid)} paid, ${cmn(R.paid-R.staked)} up.`:R.paid>0?`${cmn(R.paid)} paid back on ${cmn(R.staked)} staked.`:`No luck this time. ${broke()||'Race again?'}`,R.paid>R.staked?'w':R.paid>0?'':'l');
+  startLoop()};
+ const again=()=>{if(ph!=='over'||CAS.lock)return;const prev=rec?rec.bets:[];note='';newCard(undefined,prev);ph='paddock';kind='win';paddock();msg(slip.length?'Same bets on a new card. Check the odds, then press Start (Space).':'New card. Pick your turkey.')};
+ const newOnly=()=>{if(ph!=='over'||CAS.lock)return;note='';newCard();ph='paddock';kind='win';paddock();msg('New card. Pick your turkey.')};
+ /* ===== input ===== */
+ const free=()=>!overlay;
+ CAS.key={'1':()=>free()&&pick(0),'2':()=>free()&&pick(1),'3':()=>free()&&pick(2),'4':()=>free()&&pick(3),'5':()=>free()&&pick(4),'6':()=>free()&&pick(5),
+  w:()=>free()&&setKind('win'),t:()=>free()&&setKind('top2'),p:()=>free()&&setKind('top3'),e:()=>free()&&setKind('exact'),
+  '+':()=>free()&&setStake(1),'=':()=>free()&&setStake(1),'-':()=>free()&&setStake(-1),'_':()=>free()&&setStake(-1),
+  enter:()=>{if(closeOverlay())return;if(ph==='paddock')addBet();else if(ph==='over')again()},' ':()=>{if(closeOverlay())return;if(ph==='paddock')start()},
+  c:()=>cashAny(),n:()=>{if(overlay)return;if(ph==='paddock')userNew();else if(ph==='over')newOnly()},
+  arrowup:()=>{if(ph==='paddock'&&free())pick(Math.max(0,(sel==null?(ex1==null?1:ex1):sel)-1))},arrowdown:()=>{if(ph==='paddock'&&free())pick(Math.min(5,(sel==null?(ex1==null?-1:ex1):sel)+1))},
+  arrowleft:()=>{if(ph==='paddock'&&free()){const i=GTTU.K.findIndex(k=>k[0]===kind);setKind(GTTU.K[(i+3)%4][0])}},arrowright:()=>{if(ph==='paddock'&&free()){const i=GTTU.K.findIndex(k=>k[0]===kind);setKind(GTTU.K[(i+1)%4][0])}}};
+ {const b0=S.back;S.back=()=>{if(CAS.lock)return;if(closeOverlay())return;b0()};const cb=$('cb');if(cb)cb.onclick=S.back}
+ /* leaving with a race pending (the Lobby is locked during a race, so this is a safety net): finish it now, pay once */
+ CAS.flush=()=>{stopLoop();priceStop();try{gttSnd.stop()}catch(e){}if(g0().pend)GTTU.lastFlush=gttuFinishNow()};
+ GTTU.cur={ph:()=>ph,card:()=>card,px:()=>px,slip:()=>slip,fin:()=>fin,st:()=>st,R:()=>R,rec:()=>rec,sel:()=>sel,ex1:()=>ex1,kind:()=>kind,offers:()=>offers,cam:()=>cam,overlay:()=>!!overlay,
+  newCard:(s)=>{newCard(s);if(ph==='paddock'||ph==='over'){ph='paddock';kind='win';paddock()}},pick,setKind,add:addBet,start,cash:doCash,skip:skipRace,again,newOnly,rm:rmBet,stats:statsWin,help:howTo,close:closeOverlay,
+  frame:(n,dt)=>{dt=dt||1/60;for(let i=0;i<n;i++){tt+=dt;stepFrame(dt)}},tt:()=>tt};
+ /* ===== open ===== */
+ const pe=g0().pend;
+ if(pe){/* a race was pending (reload during a race): finish it now and show how it went */
+  card=gttCard(pe.cardSeed);cseed=pe.cardSeed;R=gttuFinishNow();
+  if(R){fin=R.fin;rec=R.rec;note='Your race finished while you were away. This is how it went.';ph='over';betLock(false);resultsDom();return}}
+ newCard();paddock();
+ if(!g0().seen&&!(navigator.webdriver&&!window.GTT_NEWS))setTimeout(()=>{if(alive()&&ph==='paddock'&&!overlay)howTo()},350)}
+GTTU.dw=800;
+window.GTTDBG={get cur(){return GTTU.cur},ph:()=>GTTU.cur&&GTTU.cur.ph(),card:()=>GTTU.cur&&GTTU.cur.card(),st:()=>GTTU.cur&&GTTU.cur.st(),fin:()=>GTTU.cur&&GTTU.cur.fin(),R:()=>GTTU.cur&&GTTU.cur.R(),pend:()=>P.gtt&&P.gtt.pend,
+ setCard:s=>{GTTU.fixCard.push(s>>>0)},setRace:s=>{GTTU.fixRace.push(s>>>0)},speed:n=>{GTTU.fast=n},hold:v=>{GTTU.hold=!!v},skip:()=>GTTU.cur&&GTTU.cur.skip(),hidden:v=>{GTTU.hidden=v?1:0},seeds:()=>({card:GTTU.fixCard.slice(),race:GTTU.fixRace.slice()})};
+/* ---------- DEV > Cheats ---------- */
+try{const h0=dvxHTML;dvxHTML=function(){let h=h0.apply(this,arguments);try{h+=`<div class="dvx"><h5>Turkey Trot (casino)</h5><div class="dvrow"><span>${GTTU.hidden?'hidden stats shown':'hidden stats off'} · race speed x${GTTU.fast}</span>${dvBtn('x:gtt_hid','Show hidden stats')}${dvBtn('x:gtt_fast','Fast race (x4)')}${dvBtn('x:gtt_seed','Next race seed')}</div></div>`}catch(e){}return h};
+ const a0=dvxAct;dvxAct=function(a){if(!/^gtt_/.test(a))return a0.apply(this,arguments);
+  if(a==='gtt_hid'){GTTU.hidden=GTTU.hidden?0:1;dvxMsg('Turkey Trot: hidden stats '+(GTTU.hidden?'shown in My stats.':'hidden.'))}
+  else if(a==='gtt_fast'){GTTU.fast=GTTU.fast>1?1:4;dvxMsg('Turkey Trot: races run at x'+GTTU.fast+'.')}
+  else if(a==='gtt_seed'){GTTU.fixRace.push(++GTTU.seedCtr);dvxMsg('Turkey Trot: the next race uses seed '+GTTU.seedCtr+' (the card stays random).')}}}catch(e){}
+/* ===== UPDATE 10.5, THE GREAT TURKEY TROT: styles (99u6, classes gtt*) =====
+   Chunky #12081f outlines, indigo glass panels, gold accents, Pirata One titles, Poppins UI. The game box is 1476 x 798 inside the casino
+   frame (like Penalty Kings); the stage is a fixed 1600 x 900 scaled by #wrap, so the same layout fits every window size.
+   Only transform / opacity animate; nothing blurs the backdrop and no filter or shadow is animated. */
+{const st=document.createElement('style');st.textContent=`
+.gttw{text-align:left;position:relative;width:1476px;height:798px;display:grid;grid-template-columns:884px 1fr;gap:14px;font-family:var(--ui)}
+.gttl{display:flex;flex-direction:column;gap:7px;min-height:0}
+.gtth{display:flex;align-items:center;gap:10px;height:60px;padding:0 12px 0 18px;border-radius:18px;background:linear-gradient(180deg,#2a1d66,#150e3a);border:2px solid #c99a3a;box-shadow:0 0 0 2px #12081f}
+.gtth h3{margin:0 auto 0 0;font:400 38px/1 'Pirata One',Georgia,serif;color:#ffd45a;-webkit-text-stroke:1px #12081f;letter-spacing:.02em;white-space:nowrap}
+.gttchip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:16px;background:#12081fc8;border:2px solid #6a4ab0;font:700 13.5px var(--ui);color:#fff8e8;white-space:nowrap}
+.gttchip.ph{border-color:#ffd45a;color:#ffd45a}
+.gtthelp{all:unset;box-sizing:border-box;cursor:pointer;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font:800 18px var(--ui);color:#2a1002;background:linear-gradient(180deg,#fff0a0,#f0a820);border:2px solid #12081f;transition:transform .15s}
+.gtthelp:hover{transform:scale(1.12)}
+.gttcard{display:flex;flex-direction:column;gap:6px}
+.gttrow{position:relative;display:grid;grid-template-columns:50px 126px 1fr 146px 122px;align-items:center;gap:10px;height:96px;padding:0 14px 0 10px;border-radius:18px;cursor:pointer;background:linear-gradient(180deg,#221a5c,#110b34);border:2px solid #3a3070;box-shadow:0 3px 0 #0a0620;transition:transform .16s cubic-bezier(.34,1.56,.64,1),border-color .15s,background .15s}
+.gttrow:hover{transform:translateX(3px);border-color:#8a6ad0}
+.gttrow:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.gttrow.sel{border-color:#ffd45a;background:linear-gradient(180deg,#3a2a7a,#1e1456);box-shadow:0 0 0 2px #12081f,0 0 0 4px #ffd45a55}
+.gttrow.first{border-color:#7dff9a}
+.gttrow.hop{animation:gtthop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes gtthop{0%{transform:translateY(0)}35%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+.gttcl{position:relative;display:grid;place-items:center;width:44px;height:58px;border-radius:8px 8px 14px 14px;border:3px solid #12081f;box-shadow:inset 0 -9px 0 var(--c2),0 3px 0 #0006}
+.gttcl b{font:400 30px/1 'Pirata One',Georgia,serif;margin-top:-6px}
+.gttrow canvas{width:126px;height:96px;display:block}
+.gttnm{display:flex;flex-direction:column;gap:3px;min-width:0}
+.gttnm b{font:400 28px/1.1 'Pirata One',Georgia,serif;color:#fff8e8;white-space:nowrap}
+.gttnm em{align-self:flex-start;font:800 11px var(--ui);font-style:normal;letter-spacing:.08em;text-transform:uppercase;padding:2px 9px;border-radius:9px;border:1.5px solid #12081f;color:#12081f}
+.gtts-front{background:#ffb04a}.gtts-close{background:#c8a0ff}.gtts-stalk{background:#7ae0c8}
+.gttnm small{font:500 12.5px/1.2 var(--ui);color:#b8acdc;white-space:nowrap}
+.gttform{display:flex;gap:4px;justify-content:center}
+.gtm{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;font:800 12px var(--ui);font-style:normal;border:2px solid #12081f;color:#12081f}
+.gtm.m1{background:#ffd45a}.gtm.m2{background:#d8dcea}.gtm.m3{background:#e0a070}.gtm.m4{background:#4a4278;color:#e8e0ff}.gtm.m0{background:#ffffff10;border-color:#ffffff22;color:#ffffff44}
+.gttodds{all:unset;box-sizing:border-box;cursor:pointer;display:grid;place-items:center;height:58px;border-radius:14px;font:800 28px var(--ui);color:#2a1002;background:linear-gradient(180deg,#fff0a0,#f4b020 60%,#d88a10);border:2px solid #12081f;box-shadow:0 4px 0 #7a4a08;transition:transform .12s}
+.gttrow:hover .gttodds{transform:translateY(-2px)}
+.gttodds.wait{background:linear-gradient(180deg,#4a4278,#2a2260);color:#b8acdc;box-shadow:0 4px 0 #0a0620;animation:gttpulse 1s ease-in-out infinite}
+.gttodds.off{background:#2a2260;color:#8a7eb8;box-shadow:0 4px 0 #0a0620;font-size:24px}
+.gttodds.first{background:linear-gradient(180deg,#9affb8,#22a85a);box-shadow:0 4px 0 #0e5a2a;font-size:22px}
+@keyframes gttpulse{0%,100%{opacity:1}50%{opacity:.55}}
+.gttmine{display:none;position:absolute;right:-6px;top:-8px;padding:2px 9px;border-radius:10px;border:2px solid #12081f;background:#ffd45a;font:900 11px var(--ui);letter-spacing:.12em;color:#2a1002;text-decoration:none;transform:rotate(6deg)}
+.gttrow.mine{border-color:#ffd45a}.gttrow.mine .gttmine{display:block}
+.gttfoot{display:flex;align-items:center;gap:10px;height:44px}
+.gttbtn{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 18px;border-radius:13px;font:700 15px var(--ui);color:#ffe9b0;background:linear-gradient(180deg,#8a1230,#3e0814);border:2px solid #b8861a;box-shadow:0 4px 0 #1a0408,0 6px 12px #0008;transition:transform .12s}
+.gttbtn:hover:not(:disabled){transform:translateY(-2px)}.gttbtn:active:not(:disabled){transform:translateY(2px)}.gttbtn:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.gttw kbd{display:inline-block;min-width:20px;padding:1px 6px;border-radius:6px;background:#12081f66;border:1px solid #ffffff44;font:700 11px var(--ui);text-align:center;color:inherit;letter-spacing:.02em}
+.gttpr{padding:6px 14px;border-radius:12px;background:#12081fc8;border:2px solid #ffd45a;font:700 14px var(--ui);color:#ffd45a;animation:gttpulse 1s ease-in-out infinite}.gttpr[hidden]{display:none}
+.gttleg{margin-left:auto;font:600 12.5px var(--ui);color:#a99be0}
+/* the bet slip */
+.gtts{display:flex;flex-direction:column;gap:7px;padding:12px 14px 44px;border-radius:22px;background:linear-gradient(180deg,#1e1650,#0e0a2c);border:2px solid #6a4ab0;box-shadow:0 0 0 2px #12081f;min-height:0}
+.gtts h4,.gttrcr h4{margin:0;text-align:center;font:400 32px/1 'Pirata One',Georgia,serif;color:#ffd45a;-webkit-text-stroke:1px #12081f}
+.gtttabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.gtttab{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 5px;border-radius:12px;background:#ffffff0d;border:2px solid #3a3070;color:#c4badf;transition:transform .15s}
+.gtttab b{font:800 15px var(--ui)}.gtttab:hover{transform:translateY(-2px)}.gtttab.on{background:linear-gradient(180deg,#ffe37a,#e8a018);border-color:#fff2a0;color:#3a1a04}
+.gtttab:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.gttdesc{margin:0;text-align:center;font:500 13px var(--ui);color:#b8acdc;min-height:18px}
+.gttpick{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px;padding:6px 14px;border-radius:14px;background:#12081f;border:2px solid #3a3070;font:600 14.5px/1.2 var(--ui);color:#fff8e8}
+.gttpick b{font:800 24px var(--ui);color:#ffd45a;white-space:nowrap}.gttpick b.q{font-size:22px;color:#7dff9a}.gttpick span{min-width:0}
+.gtts .ctl{padding:8px 12px;border-radius:16px;width:auto;max-width:none}
+.gtts .bet{gap:6px 10px;justify-content:space-between}
+.gtts .bv{font:700 15px var(--ui)}
+.gtts .chips{gap:5px}.gtts .chip{width:46px;height:46px;font-size:15px;border-width:3px}
+.gtts .bx{display:flex;gap:5px}.gtts .bx button{font-size:13px;padding:6px 10px;box-shadow:0 3px 0 #1a0408}
+.gttadd{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:14px;font:800 17px var(--ui);color:#06301a;background:linear-gradient(180deg,#8affa8,#22a85a);border:2px solid #12081f;box-shadow:0 4px 0 #0e5a2a,0 6px 12px #0008;transition:transform .12s}
+.gttadd small{font:700 13px var(--ui);opacity:.8}.gttadd:hover:not(:disabled){transform:translateY(-2px)}.gttadd:active{transform:translateY(2px)}.gttadd:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.gttslip{display:flex;flex-direction:column;gap:5px;min-height:0}
+.gttempty{padding:10px 14px;border-radius:12px;border:2px dashed #3a3070;font:500 13px/1.35 var(--ui);color:#a99be0;text-align:center}
+.gttsl{display:grid;grid-template-columns:70px 1fr auto 30px;align-items:center;gap:8px;min-height:48px;padding:0 8px 0 10px;border-radius:12px;background:#ffffff0d;border:2px solid #3a3070}
+.gttsl>i{font:800 11px var(--ui);font-style:normal;letter-spacing:.06em;text-transform:uppercase;text-align:center;padding:3px 0;border-radius:8px;background:#ffd45a;color:#2a1002;border:1.5px solid #12081f}
+.gttsl span{display:flex;flex-direction:column;min-width:0}.gttsl b{font:700 13px/1.2 var(--ui);color:#fff8e8;white-space:pre-line}.gttsl small{font:500 12px var(--ui);color:#b8acdc}
+.gttsl u{text-decoration:none;font:800 16px var(--ui);color:#7dff9a}
+.gttsl button{all:unset;cursor:pointer;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:800 13px var(--ui);color:#ffd0d8;background:#5a0a1a;border:1.5px solid #b8861a}.gttsl button:hover{background:#8a1230}.gttsl button:focus-visible{outline:3px solid #fff}
+.gtttot{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;padding:6px 10px;border-radius:12px;background:#12081f;border:2px solid #3a3070}
+.gtttot small{display:block;font:700 11px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#a99be0}.gtttot b{font:800 20px var(--ui);color:#fff8e8;display:flex;align-items:center;gap:5px}
+.gtttot p{grid-column:1/-1;margin:0;text-align:center;font:600 12.5px var(--ui);color:#a99be0}.gtttot p.cap{color:#ffb04a;font-weight:800}
+.gttcn{display:inline-block;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6b0,#e8a018);border:2px solid #12081f}
+.gttgo{height:60px;width:100%;font-size:26px;padding:0;display:flex;align-items:center;justify-content:center;gap:12px}.gttgo:disabled{filter:grayscale(.7) brightness(.7)}.gttgo kbd{font-size:12px}
+.gtts .cmsg{margin:0;min-height:36px;font:600 14px/1.25 var(--ui)!important;text-align:left;padding:6px 12px!important;border-radius:12px!important}
+/* windows over the game box */
+.gttmod{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:22px;background:#0a0620f0;animation:gttpop .35s ease both}
+.gttmod h3{margin:0;font:400 46px 'Pirata One',Georgia,serif;color:#ffd45a;-webkit-text-stroke:1px #12081f}
+@keyframes gttpop{0%{opacity:0;transform:scale(.96)}100%{opacity:1;transform:none}}
+.gtthg{display:grid;grid-template-columns:repeat(3,330px);gap:18px}
+.gtthg>div{padding:16px 18px 18px;border-radius:20px;background:#1e1650;border:2px solid #6a4ab0;color:#e8e0ff;box-shadow:0 0 0 2px #12081f}
+.gtthg b{display:block;margin:10px 0 6px;font:800 19px var(--ui);color:#fff8e8}.gtthg p{margin:0;font:500 14px/1.45 var(--ui)}
+.gttil{display:flex;align-items:center;justify-content:center;gap:10px;height:110px;border-radius:14px;background:linear-gradient(180deg,#3a2a7a,#1a1250);border:2px solid #12081f;font-style:normal}
+.il1 span{font:400 44px 'Pirata One',serif;color:#fff8e8;background:#c87a2a;border:3px solid #12081f;border-radius:10px;padding:0 12px;box-shadow:0 0 0 3px #ffd45a}
+.il1 em,.il3 em{font:800 28px var(--ui);font-style:normal;padding:4px 12px;border-radius:12px;color:#2a1002;background:linear-gradient(180deg,#fff0a0,#f4b020);border:2px solid #12081f}
+.il2{gap:6px;padding:10px}.il2 u{text-decoration:none;font:800 13px var(--ui);padding:5px 7px;border-radius:9px;background:#ffffff14;color:#e8e0ff;border:2px solid #3a3070}.il2 u:first-child{background:#ffd45a;color:#2a1002}
+.il3{flex-direction:column;gap:12px}.il3 em{font-size:20px;background:linear-gradient(180deg,#8affa8,#22a85a);color:#06301a}
+.gttdots{display:flex;gap:26px}.gttdots s{width:20px;height:20px;border-radius:50%;border:2px solid #12081f;background:#c8a0ff}.gttdots s:nth-child(2){background:#ffd45a;box-shadow:0 0 0 3px #ffd45a88}.gttdots s:nth-child(3){background:#7ae0c8}
+.gttstg{display:grid;grid-template-columns:repeat(3,230px);gap:12px}
+.gttstg>div{padding:10px 14px;border-radius:14px;background:#1e1650;border:2px solid #6a4ab0;text-align:center}.gttstg small{display:block;font:700 11px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:#a99be0}.gttstg b{font:800 20px var(--ui);color:#fff8e8}
+.gttstt{max-height:300px;overflow:auto;border-radius:14px;border:2px solid #3a3070;background:#12081f}
+.gttstt table{border-collapse:collapse;min-width:560px;font:500 13.5px var(--ui);color:#e8e0ff}.gttstt th,.gttstt td{padding:4px 14px;text-align:left}.gttstt th{font:700 11px var(--ui);letter-spacing:.1em;text-transform:uppercase;color:#a99be0}.gttstt tr:nth-child(even){background:#ffffff08}.gttstt .hid{color:#7dff9a;font-size:12px}
+/* the race */
+.gttrace{display:block;overflow:hidden;border-radius:22px;border:3px solid #c99a3a;box-shadow:0 0 0 3px #12081f,0 16px 30px #000a;background:#120a2a}
+.gttrace>canvas{position:absolute;left:0;top:-16px;width:1470px;height:827px;display:block}
+.gttrace.shk>canvas{animation:gttshk .35s linear}
+@keyframes gttshk{0%{transform:translate(0,0)}20%{transform:translate(-5px,3px)}40%{transform:translate(4px,-3px)}60%{transform:translate(-3px,2px)}80%{transform:translate(2px,-1px)}100%{transform:none}}
+.gttclk{position:absolute;left:14px;top:12px;display:flex;flex-direction:column;padding:6px 16px;border-radius:14px;background:#12081fd0;border:2px solid #6a4ab0;color:#fff8e8}
+.gttclk b{font:800 28px/1.25 var(--ui);font-variant-numeric:tabular-nums}.gttclk small{font:600 12px var(--ui);color:#b8acdc;white-space:nowrap}
+.gttps{position:absolute;left:50%;top:10px;margin-left:-440px;width:880px;height:56px;border-radius:16px;background:#12081fd0;border:2px solid #6a4ab0}
+.gttpsl{position:absolute;left:30px;right:50px;top:27px;height:4px;border-radius:2px;background:linear-gradient(90deg,#6a4ab0,#ffd45a)}
+.gttpsf{position:absolute;left:836px;top:8px;width:20px;height:38px;background:repeating-conic-gradient(#fff 0 25%,#12081f 0 50%) 0 0/10px 10px;border:2px solid #12081f;border-radius:3px;box-shadow:0 0 0 2px #fff8}
+.gttpd{position:absolute;left:30px;margin-left:-12px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:800 13px var(--ui);font-style:normal;border:2px solid #12081f;will-change:transform}
+.gttpd b{font-weight:800}.gttpd.mine{box-shadow:0 0 0 3px #ffd45a}
+.gttbets{position:absolute;right:14px;top:78px;width:320px;display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:16px;background:#12081fd0;border:2px solid #6a4ab0;color:#fff8e8}
+.gttbets h5{margin:0;font:400 24px/1 'Pirata One',Georgia,serif;color:#ffd45a}
+.gttb{position:relative;display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:6px 8px;border-radius:12px;background:#ffffff10;border:2px solid #ffd45a77}
+.gttb .gttbk{grid-column:1/-1;font:800 10.5px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:#ffd45a}
+.gttb b{grid-column:1/-1;font:700 13.5px/1.2 var(--ui);white-space:pre-line}
+.gttb small{grid-column:1;display:flex;flex-direction:column;font:500 12px var(--ui);color:#b8acdc}.gttb small .now{font-style:normal;color:#fff8e8;font-weight:700}
+.gttco{all:unset;box-sizing:border-box;cursor:pointer;grid-column:2;grid-row:3;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:112px;height:44px;padding:0 10px;border-radius:12px;background:linear-gradient(180deg,#8affa8,#22a85a);border:2px solid #12081f;box-shadow:0 3px 0 #0e5a2a;color:#06301a;transition:transform .12s}
+.gttco{gap:2px}.gttco span{font:800 10.5px/1.2 var(--ui);letter-spacing:.12em;text-transform:uppercase}.gttco u{text-decoration:none;font:800 17px/1.2 var(--ui)}
+.gttco:hover:not(:disabled){transform:translateY(-2px)}.gttco:disabled{cursor:default;background:#3a3070;color:#a99be0;box-shadow:0 3px 0 #0a0620}.gttco[hidden]{display:none}
+.gttb.done{border-color:#7dff9a88}.gttdone{grid-column:1/-1;font-style:normal;font:800 14px var(--ui);color:#7dff9a}
+.gttcoh{margin:0;text-align:center;font:500 11.5px var(--ui);color:#a99be0}
+.gttsay{position:absolute;left:50%;bottom:14px;width:860px;margin-left:-430px;display:flex;flex-direction:column;gap:4px;align-items:center;pointer-events:none}
+.gttsay p{margin:0;padding:6px 20px;border-radius:14px;background:#12081fd8;border:2px solid #6a4ab0;font:700 19px var(--ui);color:#fff8e8;animation:gttin .3s cubic-bezier(.34,1.56,.64,1) both}
+.gttsay p:first-child:not(:last-child){opacity:.6;font-size:15px}.gttsay p.mine{border-color:#ffd45a;color:#ffe9a8}
+@keyframes gttin{0%{opacity:0;transform:translateY(10px) scale(.95)}100%{opacity:1;transform:none}}
+.gttskip{all:unset;box-sizing:border-box;cursor:pointer;position:absolute;left:14px;bottom:14px;height:34px;padding:0 14px;border-radius:12px;font:700 13px var(--ui);color:#ffe9b0;background:#12081fd0;border:2px solid #6a4ab0}.gttskip:hover{border-color:#ffd45a}.gttskip:focus-visible{outline:3px solid #fff}
+.gttban{position:absolute;left:0;right:0;top:34%;text-align:center;font:400 84px/1 'Pirata One',Georgia,serif;color:#ffd45a;-webkit-text-stroke:3px #12081f;paint-order:stroke fill;pointer-events:none;opacity:0}
+.gttban.on{animation:gttban 1.9s ease both}
+@keyframes gttban{0%{opacity:0;transform:scale(.5)}15%{opacity:1;transform:scale(1.08)}25%{transform:scale(1)}75%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+.gttph .gttps,.gttph .gttbets,.gttph .gttclk,.gttph .gttskip{opacity:0;transition:opacity .2s}
+/* results */
+.gttrcl{display:flex;flex-direction:column;gap:8px;min-height:0}
+.gttrh{display:flex;align-items:center;gap:10px;height:58px;padding:0 14px 0 18px;border-radius:18px;background:linear-gradient(180deg,#2a1d66,#150e3a);border:2px solid #c99a3a;box-shadow:0 0 0 2px #12081f}
+.gttrh h3{margin:0 auto 0 0;font:400 36px/1 'Pirata One',Georgia,serif;color:#ffd45a;-webkit-text-stroke:1px #12081f;white-space:nowrap}
+.gttpod{position:relative;width:884px;height:497px;border-radius:20px;overflow:hidden;border:3px solid #c99a3a;box-shadow:0 0 0 3px #12081f;background:#1a1040}
+.gttpod canvas{position:absolute;left:0;top:0;width:100%;height:100%}
+.gttorder{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 12px}
+.gttor{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px 0 6px;border-radius:12px;background:#ffffff0d;border:2px solid #3a3070;font:500 14px var(--ui);color:#e8e0ff}.gttor.w{border-color:#ffd45a}
+.gttor i{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:2px solid #12081f;font:800 13px var(--ui);font-style:normal}
+.gttor span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gttor b{color:#ffd45a;margin-right:4px}.gttor u{text-decoration:none;font:700 13px var(--ui);color:#b8acdc;font-variant-numeric:tabular-nums}
+.gttrcr{display:flex;flex-direction:column;gap:8px;padding:12px 14px 0;border-radius:22px;background:linear-gradient(180deg,#1e1650,#0e0a2c);border:2px solid #6a4ab0;box-shadow:0 0 0 2px #12081f;min-height:0}
+.gttnote{margin:0;padding:6px 12px;border-radius:12px;background:#12081f;border:2px solid #ffd45a;font:600 13px/1.3 var(--ui);color:#ffe9a8;text-align:center}
+.gttrb{display:flex;flex-direction:column;gap:6px}
+.gttrl{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:10px;min-height:56px;padding:4px 12px 4px 8px;border-radius:14px;background:#ffffff0d;border:2px solid #3a3070}
+.gttrl>i{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;border:2px solid #12081f;font:900 16px var(--ui);font-style:normal}
+.gttrl.won{border-color:#3ad86a;background:linear-gradient(90deg,#1e5a3a,#163a2a)}.gttrl.won>i{background:#7dff9a;color:#06301a}
+.gttrl.lost>i{background:#ff6a7a;color:#3a0610}.gttrl.cash{border-color:#9fe8ff}.gttrl.cash>i{background:#9fe8ff;color:#06122a}
+.gttrl span{display:flex;flex-direction:column;min-width:0}.gttrl b{font:700 14px/1.2 var(--ui);color:#fff8e8;white-space:pre-line}.gttrl small{font:500 12px var(--ui);color:#b8acdc}
+.gttrl u{text-decoration:none;font:800 15px var(--ui);color:#fff8e8;white-space:nowrap}.gttrl.won u{color:#9affb8}.gttrl.lost u{color:#ff9aa6}
+.gttrt{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.gttrt>div{padding:6px 10px;border-radius:12px;background:#12081f;border:2px solid #3a3070;text-align:center}.gttrt small{display:block;font:700 11px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#a99be0}.gttrt b{font:800 22px var(--ui);color:#fff8e8}
+.gttrt .up b{color:#7dff9a}.gttrt .dn b{color:#ff9aa6}
+.gttcapn{margin:0;text-align:center;font:800 13px var(--ui);color:#ffb04a}
+.gttac{display:flex;align-items:center;justify-content:center;gap:8px;margin:0;padding:6px 12px;border-radius:12px;background:#3a2208;border:2px solid #e8851a;font:800 14px var(--ui);color:#ffc04a}.gttac i{width:16px;height:20px;border-radius:50% 50% 45% 45%;background:#a8602a;border:2px solid #12081f}
+.gttrec{margin-top:auto;padding:8px 12px;border-radius:14px;background:#12081f;border:2px solid #3a3070}.gttrec h5{margin:0 0 4px;font:700 11px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#a99be0;text-align:center}.gttrec>div{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}.gttrec span{font:600 12px var(--ui);color:#b8acdc}.gttrec b{display:block;font:800 20px var(--ui);color:#fff8e8}
+.gttrbtn{display:flex;flex-direction:column;gap:8px;padding-bottom:42px}.gttrbtn>div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gttagain{height:62px;width:100%;font-size:28px;padding:0;display:flex;align-items:center;justify-content:center;gap:12px}.gttagain kbd{font-size:12px}
+.gttrcr .cmsg{margin:0;min-height:36px;font:600 14px/1.25 var(--ui)!important;text-align:left;padding:6px 12px!important;border-radius:12px!important}
+.gttbtn{justify-content:center}
+/* the casino tile badge */
+.gdt[data-g="gtt"]{position:relative}.gdt[data-g="gtt"]::after{content:'NEW';position:absolute;left:10px;top:10px;z-index:3;padding:3px 9px 2px;border-radius:9px;background:linear-gradient(180deg,#ff5a6e,#c8203a);border:2px solid #ffd45a;box-shadow:0 0 0 2px #12081f,0 4px 10px #0008;font:900 12px/1.1 Poppins,system-ui,sans-serif;letter-spacing:.12em;color:#fff8e0;pointer-events:none;animation:gttnewb 1.6s ease-in-out infinite}
+@keyframes gttnewb{0%,100%{transform:scale(1) rotate(-6deg)}50%{transform:scale(1.1) rotate(-6deg)}}
+@media (prefers-reduced-motion:reduce){.gttrow.hop,.gttrace.shk>canvas,.gttsay p,.gttmod{animation:none}.gttodds.wait,.gttpr,.gdt[data-g="gtt"]::after{animation:none}.gttban.on{animation-duration:.01s;opacity:1}}
+`;document.head.appendChild(st)}
 /* ---------- Trick-or-Treat landing: the redesigned menu ----------
    A top bar, a painted hero scene (it takes on the colours of the street you pick), a street picker panel,
    and a row of event rewards. Everything is drawn with the game's own Halloween art. */

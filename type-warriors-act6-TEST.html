@@ -54047,6 +54047,428 @@ function pzb2Draw(g,t){const st=PZ.st,B=PZ.B,M=PZ.M;if(!st||!B||!M||M.trick||PZ.
 body.pf-low .pzballs .pzb2e8.tgt i{animation:none;opacity:.9;transform:none}
 @media (prefers-reduced-motion:reduce){.pzballs .pzb2e8.tgt i{animation:none;opacity:.9;transform:none}.pzb2g.pop{animation:none}}
 `;document.head.appendChild(st)}
+/* ===== 10.6 THE CROOKED CUE: premium ball sets, a shared material painter (97b6, prefix pzb3, after 97b5) =====
+   The premium sets (15,000 to 75,000 coins in the Cue Rack) each have their own material. 97b5's painter is one big function with a
+   branch per material; this module copies it once (pzb3Paint) with the material pulled out into a callback, so a new set is one
+   `pzb3Reg({...})` call with a small `mat(o)` function and its palette. pzbPaint hands any set registered here to pzb3Paint and
+   leaves every older set to 97b5, so classic, gem, moonstone, marble, neon, lava, galaxy and royal paint exactly as before.
+   The owner's rule for every ball set (CLAUDE.md) still holds and t_pzb102.py measures it for each set in PZ_BALLS: solids coloured
+   all over, stripes with clearly lighter caps above and below a coloured band, the 8 clearly the darkest ball with a high-contrast
+   disc, a white cue ball, readable numbers.
+   Registration: pzb3Reg({id, n, price, tag, kind (default id), pal:{col:{1..8:[r,g,b]}, white, cap, disc, num, disc8, num8, ring8,
+     spec, win, rim, gn (glowing number colour [r,g,b]; omit for dark numbers), gnd (1: keep the disc colour under glowing numbers),
+     mk, prep(P,pal,n,C,is8,stripe) (called once per ball before its pixels)}, mat(o)}).
+   mat(o) runs for every pixel of every non-cue ball (keep it cheap: no allocation, no Math.pow in the common path; pzb2Sin / pzb2Hash
+   from 97b5 are fast). Inputs on o: j (pixel index), wx,wy,wz (view-space normal; wz toward the viewer), lx,ly,lz (ball-local normal, so
+   the pattern rolls with the ball), ay = |ly|, band (1 on the coloured part, 0 on the light caps of a stripe; solids are always 1),
+   ab = 1-band, edge (1 on the band's border, stripes only), stripe, is8, C (the ball's colour [r,g,b]), W (white), CP (cap colour),
+   RA (rim amount 0..1, strongest at the silhouette), dif, spe (the shared light), hr,hg,hb (a brighter version of C). Outputs: r,g,b
+   (diffuse colour, 0-255, multiplied by the shared lighting), er,eg,eb (added light that ignores the lighting: glow, sparkle,
+   reflections), metal (1: skip the diffuse lighting), lit (diffuse lighting weight, default 1). Number discs, their rings, the 8's
+   disc and the felt bounce are done by this module for every set. */
+const PZB3={mat:{},o:{},defs:[]};
+function pzb3Paint(slot,n,M){const P=PZ_BS,pal=P.pal,K=pal.kind||'classic',d=P.img.data,stripe=n>8,is8=n===8,cue=n===0,C=cue?pal.white:pal.col[stripe?n-8:n],W=pal.white,CP=pal.cap||W,
+ DS=(is8&&pal.disc8)||pal.disc,NM=(is8&&pal.num8)||pal.num,R8=is8?(pal.ring8||null):null,RB=R8||[240,240,255],gl=n>0?P.gm[n]:null,
+ m0=M[0],m1=M[1],m2=M[2],m3=M[3],m4=M[4],m5=M[5],m6=M[6],m7=M[7],m8=M[8],sk=pal.spec,wk=pal.win,rk=pal.rim||.25,mk=pal.mk==null?.18:pal.mk;
+ if(!P.rimA||P.rimA.length!==P.n){P.rimA=new Float32Array(P.n);for(let j=0;j<P.n;j++)P.rimA[j]=Math.pow(1-P.nz[j],2.6)}const RA=P.rimA;
+ /* hot vein colour (same hue, brighter) and the stripe seam colour */
+ const MAT=PZB3.mat[K],O=PZB3.o;if(pal.prep)pal.prep(P,pal,n,C,is8,stripe);const hr=Math.min(255,C[0]*1.2+70),hg=Math.min(255,C[1]*1.2+52),hb=Math.min(255,C[2]*1.2+24);
+ for(let j=0;j<P.n;j++){const wx=P.nx[j],wy=P.ny[j],wz=P.nz[j];
+  const lx=m0*wx+m3*wy+m6*wz,ly=m1*wx+m4*wy+m7*wz,lz=m2*wx+m5*wy+m8*wz,ay=ly<0?-ly:ly;
+  /* band: 1 inside the coloured part (whole ball for solids), 0 on the light caps of a stripe; edge: 1 on the band's border */
+  let band=1,edge=0;if(stripe){band=1-Math.max(0,Math.min(1,(ay-.56)/.035+.5));const de=ay-.56;edge=Math.max(0,1-(de<0?-de:de)/.05)}
+  let r,g,b,er=0,eg=0,eb=0,lit=1,metal=0;
+  if(cue){r=W[0];g=W[1];b=W[2]}
+  else{O.j=j;O.wx=wx;O.wy=wy;O.wz=wz;O.lx=lx;O.ly=ly;O.lz=lz;O.ay=ay;O.band=band;O.edge=edge;O.ab=1-band;O.stripe=stripe;O.is8=is8;O.C=C;O.W=W;O.CP=CP;O.RA=RA[j];O.rim=rk;O.dif=P.dif[j];O.spe=P.spe[j];O.hr=hr;O.hg=hg;O.hb=hb;
+   O.r=0;O.g=0;O.b=0;O.er=0;O.eg=0;O.eb=0;O.metal=0;O.lit=1;MAT(O);r=O.r;g=O.g;b=O.b;er=O.er;eg=O.eg;eb=O.eb;metal=O.metal;lit=O.lit}
+  /* number discs on both poles, with a crisp ring round each */
+  const az=lz<0?-lz:lz;
+  if(n>0){if(az>.8){const u=lx*2,v=ly*2,q=u*u+v*v;if(q<1.3){const dk=Math.max(0,Math.min(1,(1-q)/.1+.2)),fade=Math.min(1,(az-.8)/.03);
+    const s=lz>0?1:-1,gx=((u*s*.5+.5)*64)|0,gy=((v*.5+.5)*64)|0;let gm=0;if(gx>=0&&gx<64&&gy>=0&&gy<64)gm=gl[gy*64+gx]/255;
+    const t=dk*fade;let dr=DS[0]+(NM[0]-DS[0])*gm,dg=DS[1]+(NM[1]-DS[1])*gm,db=DS[2]+(NM[2]-DS[2])*gm;
+    if(is8&&pal.disc8){er*=1-t;eg*=1-t;eb*=1-t}
+    else if(pal.gn){er*=1-t;eg*=1-t;eb*=1-t;const e=gm*t,GN=pal.gn;er+=GN[0]*e;eg+=GN[1]*e;eb+=GN[2]*e;if(pal.gnd){dr=DS[0];dg=DS[1];db=DS[2]}}
+    else{er*=1-t;eg*=1-t;eb*=1-t}
+    r+=(dr-r)*t;g+=(dg-g)*t;b+=(db-b)*t;
+    /* the ring: a dark line, or a glowing one round the 8's bright disc */
+    const rg=Math.max(0,1-Math.abs(q-1.02)/.09)*fade*.5;if(R8){const e=rg*1.6;er+=R8[0]*e;eg+=R8[1]*e;eb+=R8[2]*e;r*=1-rg;g*=1-rg;b*=1-rg}else{r*=1-rg;g*=1-rg;b*=1-rg}}}}
+  else{let dm=0;if(az>.93){const q=lx*lx+ly*ly;if(q<.026)dm=Math.min(1,(.026-q)/.006)}
+   else{const ax=lx<0?-lx:lx;if(ax>.95){const q=ly*ly+lz*lz;if(q<.018)dm=Math.min(1,(.018-q)/.005)}else if(ay>.95){const q=lx*lx+lz*lz;if(q<.018)dm=Math.min(1,(.018-q)/.005)}}
+   if(dm>0){r+=(210-r)*dm;g+=(48-g)*dm;b+=(52-b)*dm}}
+  const f=metal?1:(P.dif[j]*lit+(1-lit)*.55),sp=P.spe[j]*255*sk,o=P.idx[j]*4,bo=P.bou[j]*38,wn=P.win[j]*255*wk,rim=RA[j]*255*rk;
+  let rr=r*f+sp+wn+rim*.86+er,gg=g*f+sp+wn+bo+rim*.9+eg,bb=b*f+sp+wn+bo*.4+rim+eb;d[o]=rr>255?255:rr<0?0:rr;d[o+1]=gg>255?255:gg<0?0:gg;d[o+2]=bb>255?255:bb<0?0:bb;d[o+3]=P.al[j]*255}
+ P.ax.putImageData(P.img,slot*P.D,0)}
+
+/* pzbPaint: sets registered here use pzb3Paint, everything else the 97b5 painter */
+{const f0=pzbPaint;pzbPaint=function(slot,n,M){const P=PZ_BS,K=P&&P.pal&&P.pal.kind;if(K&&PZB3.mat[K])return pzb3Paint(slot,n,M);return f0.apply(this,arguments)}}
+/* register one premium set: palette, material, the shop entry (a price puts it in the Cue Rack shop) and the line under its name */
+function pzb3Reg(def){const kind=def.kind||def.id;PZB3.mat[kind]=def.mat;PZB3.defs.push(def);
+ PZ_BPAL[def.id]=Object.assign({kind},def.pal);
+ if(!PZ_BALLS.some(b=>b.id===def.id))PZ_BALLS.push({id:def.id,n:def.n,how:'Cue Rack: '+def.price.toLocaleString(),price:def.price,prem:1});
+ try{PZ_TAG97[def.id]=def.tag||''}catch(e){}}
+/* ===== 10.6 THE CROOKED CUE: Harvest Amber and Glacier Crystal (97b7, prefix pzb7, after 97b6) =====
+   Two premium ball sets (15,000 and 25,000 coins) made with 97b6's shared painter (pzb3Reg). Both look INTO the ball: the inclusions are
+   sampled a little below the surface along the view ray (parallax), so they slide against the surface as the ball rolls.
+   - Harvest Amber: warm resin tinted in each ball's colour all the way through, bright in the middle and deep toward the rim, with slow flow
+     lines, tiny bubbles and dark-gold autumn leaves trapped in it. Stripes: pale cream-honey resin caps. The 8: smoked black amber with a
+     warm edge glow and an ivory disc. Number discs: cream with deep brown numbers.
+   - Glacier Crystal: tinted ice with a milky core, two layers of fracture planes (a near bright one and a deep blue one), frosted patches near
+     the rim and cold star glints that flash as the ball turns. Stripes: opaque frosted white caps with tiny crystals. The 8: black ice with pale
+     cracks, a frost-white disc and an icy ring. Number discs: frosty white with deep navy numbers.
+   pzbPaint is wrapped once, only to hand the ball's orientation to the materials (the view and the half vector in ball-local space). */
+const PZB7={vx:0,vy:0,vz:1,hx:0,hy:0,hz:1,Hw:null};
+{const L=[-.42,-.58,.7],ll=Math.hypot(L[0],L[1],L[2]),H=[L[0]/ll,L[1]/ll,L[2]/ll+1],hl=Math.hypot(H[0],H[1],H[2]);PZB7.Hw=[H[0]/hl,H[1]/hl,H[2]/hl];
+ const f0=pzbPaint;pzbPaint=function(slot,n,M){const P=PZ_BS,K=P&&P.pal&&P.pal.kind;
+  if(K==='amber'||K==='glacier'){const H=PZB7.Hw;PZB7.vx=M[6];PZB7.vy=M[7];PZB7.vz=M[8];PZB7.hx=M[0]*H[0]+M[3]*H[1]+M[6]*H[2];PZB7.hy=M[1]*H[0]+M[4]*H[1]+M[7]*H[2];PZB7.hz=M[2]*H[0]+M[5]*H[1]+M[8]*H[2]}
+  return f0.apply(this,arguments)}}
+const pzb7Fr=x=>x-Math.floor(x);
+/* trig-free waves for the glacier (period 1): pzb7U is the signed distance to the nearest whole number (-.5...5), pzb7T a triangle wave (-1..1) */
+const pzb7U=x=>x-(((x+64.5)|0)-64),pzb7T=x=>{const u=pzb7U(x-.25);return 1-(u<0?-u:u)*4};
+
+/* ---------------------------------------------------------------- Harvest Amber */
+function pzb7Amber(o){const C=o.C,lx=o.lx,ly=o.ly,lz=o.lz,wx=o.wx,wy=o.wy,wz=o.wz,band=o.band,ab=o.ab,is8=o.is8,vx=PZB7.vx,vy=PZB7.vy,vz=PZB7.vz,k2=wz*wz;
+ /* slow flow: warped ridges and a broad density that makes the resin thicker and thinner */
+ const wp=pzb2Sin(ly*2.3+lz*1.7+1.1)*1.5,sA=pzb2Sin(lx*3.4+wp+ly*1.3),rd=1-(sA<0?-sA:sA),fl=rd*rd*rd,bl=.5+.5*pzb2Sin(lz*2.6+lx*1.9+pzb2Sin(ly*3.3)*1.2);
+ let r=0,g=0,b=0,er=0,eg=0,eb=0;
+ /* bubbles (sampled .3 under the surface) and leaves (.55 under it) */
+ const bx=(lx-vx*.3)*5,by=(ly-vy*.3)*5,bz=(lz-vz*.3)*5,ix=Math.floor(bx),iy=Math.floor(by),iz=Math.floor(bz),hb=pzb2Hash(ix,iy,iz);let bub=0,rin=0;
+ if(hb>.7){const cx=bx-ix-.25-.5*pzb7Fr(hb*7.31),cy=by-iy-.25-.5*pzb7Fr(hb*13.7),cz=bz-iz-.25-.5*pzb7Fr(hb*5.9),dd=cx*cx+cy*cy+cz*cz,r2=.03+.034*pzb7Fr(hb*3.7),dl=dd-r2;
+  rin=Math.max(0,1-(dl<0?-dl:dl)/(r2*.7));bub=dd<r2?(1-dd/r2)*.3:0}
+ const lx2=(lx-vx*.55)*2.1,ly2=(ly-vy*.55)*2.1,lz2=(lz-vz*.55)*2.1,jx=Math.floor(lx2),jy=Math.floor(ly2),jz=Math.floor(lz2),hl=pzb2Hash(jx+91,jy-37,jz+11);let lf=0,lr=0;
+ if(hl>.7){const cx=lx2-jx-.35-.3*pzb7Fr(hl*7.31),cy=ly2-jy-.35-.3*pzb7Fr(hl*13.7),cz=lz2-jz-.35-.3*pzb7Fr(hl*5.9),ax=pzb7Fr(hl*5.3)-.5,ay=pzb7Fr(hl*8.1)-.5,az=pzb7Fr(hl*2.9)-.5,aa=ax*ax+ay*ay+az*az+.001,
+   al=ax*cx+ay*cy+az*cz,along=al*al/aa,perp=cx*cx+cy*cy+cz*cz-along,e=along/.12+perp/.017;if(e<1){lf=e<.7?1:1-(e-.7)*3.3;lr=e>.55?(e-.55)*2.2:0}}
+ /* a caustic: the lamp's light gathers again on the far side of the resin */
+ const qx=wx-.4,qy=wy-.46,cs=1-(qx*qx+qy*qy)*7,ca=cs>0?cs*cs:0;
+ if(band>0){/* resin tinted all the way through: a darker lit body + light that scatters through the middle */
+  const wr=C[0]*.94+26,wg=C[1]*.9+10,wb=C[2]*.86,sc=(.1+.5*k2*k2+.18*k2)*(.8+.4*bl)*(1+.55*fl);
+  let dr=wr*.4,dg=wg*.4,db=wb*.4,ur=wr*sc,ug=wg*sc,ub=wb*sc;
+  if(is8){dr=C[0];dg=C[1];db=C[2];ur=(3+9*k2)*(.8+.4*bl);ug=ur*.4;ub=ur*.05}
+  /* leaves: dark gold silhouettes with a warm glow in the rim; bubbles: a bright ring and a faint filled core */
+  const lk=lf*(is8?.6:.9);dr+=((is8?70:92)-dr)*lk;dg+=((is8?36:50)-dg)*lk;db+=((is8?6:4)-db)*lk;ur*=1-lk*.9;ug*=1-lk*.9;ub*=1-lk*.9;
+  const gl=lr*lf*(is8?80:60);ur+=gl*1.2;ug+=gl*.62;ub+=gl*.1;
+  const bw=(rin*.8+bub)*(is8?.5:1);ur+=255*bw*.62;ug+=238*bw*.6;ub+=190*bw*.5;
+  if(!is8){const cc=ca*.75;ur+=(wr*.6+70)*cc;ug+=(wg*.6+50)*cc;ub+=(wb*.5+10)*cc;const dk=(1-k2)*(1-k2);dr*=1-dk*.5;dg*=1-dk*.55;db*=1-dk*.5}
+  r=dr*band;g=dg*band;b=db*band;er=ur*band;eg=ug*band;eb=ub*band;
+  if(is8){const w=o.RA*o.RA*.8+ca*.08;er+=190*w;eg+=80*w;eb+=8*w}}
+ if(ab>0){/* cream-honey resin: light like beeswax with a faint swirl, a few bubbles and a deeper line where it meets the band */
+  const CP=o.CP,s=(.93+.07*bl-.05*fl)*ab,e=o.edge,gold=(fl*.25+e*.7)*ab;
+  r+=CP[0]*s;g+=CP[1]*s;b+=CP[2]*s;g-=gold*16;b-=gold*50;
+  const cb=(rin*.5+bub*.8)*ab,gk=(.16+.2*k2)*ab;er+=255*cb*.35+CP[0]*gk;eg+=244*cb*.35+CP[1]*gk*.95;eb+=220*cb*.3+CP[2]*gk*.8;
+  if(e>0){const ge=e*e*ab;er+=60*ge;eg+=26*ge}}
+ o.r=r;o.g=g;o.b=b;o.er=er;o.eg=eg;o.eb=eb}
+
+/* ---------------------------------------------------------------- Glacier Crystal */
+function pzb7Glacier(o){const C=o.C,lx=o.lx,ly=o.ly,lz=o.lz,wx=o.wx,wy=o.wy,wz=o.wz,band=o.band,ab=o.ab,is8=o.is8,vx=PZB7.vx,vy=PZB7.vy,vz=PZB7.vz,k2=wz*wz,RA=o.RA;
+ /* fracture planes: a near layer (bright, sharp) and a deep layer (blue, dim); each family only exists where its slow mask is high */
+ const nx=lx-vx*.2,ny=ly-vy*.2,nz=lz-vz*.2,mx=lx-vx*.6,my=ly-vy*.6,mz=lz-vz*.6;
+ const K=.15915,w1=pzb7T((ny*10+nz*8)*K)*.035+pzb7T((nx*3.1+nz*2.4)*K)*.08,a1=(nx*.62+ny*.55+nz*.56)*1.75+w1,i1=((a1+64.5)|0)-64,u1=a1-i1,m1=pzb7T((nx*2.6-nz*3.1+ny*1.8)*K)*2.6+.2,
+  w2=pzb7T((mx*9+mz*7)*K)*.03+pzb7T((my*2.7+mz*3.3)*K)*.08,u2=pzb7U((mx*-.5+my*.7-mz*.51)*1.3+w2),m2=pzb7T((my*2.8+mx*2.6+mz*1.1)*K)*2.6+.3,
+  u3=pzb7U((nx*.2-ny*.6+nz*.77)*1.9+w1),m3=pzb7T((nz*2.9+nx*2.2-ny*1.9+1.7)*K)*2.6+.1;
+ let c1=0,c2=0,c3=0;if(m1>0){c1=1-(u1<0?-u1:u1)*30;if(c1>0)c1*=m1>1?1:m1;else c1=0}if(m3>0){c3=1-(u3<0?-u3:u3)*30;if(c3>0)c3*=m3>1?1:m3;else c3=0}if(m2>0){c2=1-(u2<0?-u2:u2)*24;if(c2>0)c2*=m2>1?1:m2;else c2=0}
+ const cn=c1>c3?c1:c3,sh=m1*3,shard=1+(pzb2Hash(i1,5,2)-.5)*.42*(sh>1?1:sh<0?0:sh);
+ /* frost near the rim, patchy and grainy */
+ const fm0=pzb7T((lx*4.3+pzb7T((ly*3.1+lz*2.2)*K)*1.4+ly*1.1)*K),fp=(1-k2)*(fm0*.5+.62),fr0=fp>0?(fp>1?1:fp):0;let fr=0;if(fr0>.02){const gh=pzb2Hash(Math.floor(lx*21),Math.floor(ly*21),Math.floor(lz*21));fr=fr0*(.7+.6*gh)}
+ /* a caustic on the side away from the lamp */
+ const qx=wx-.4,qy=wy-.46,cs=1-(qx*qx+qy*qy)*7,ca=cs>0?cs*cs:0;
+ /* glints: a few cold four-point stars whose flash depends on how the cell faces the light */
+ const qx2=(lx-vx*.1)*7,qy2=(ly-vy*.1)*7,qz2=(lz-vz*.1)*7,kx=Math.floor(qx2),ky=Math.floor(qy2),kz=Math.floor(qz2),hs=pzb2Hash(kx,ky,kz);let st=0;
+ if(hs>.9){const dx=qx2-kx-.5,dy=qy2-ky-.5,dz=qz2-kz-.5,dn=(pzb7Fr(hs*7.7)*2-1)*PZB7.hx+(pzb7Fr(hs*3.3)*2-1)*PZB7.hy+(pzb7Fr(hs*5.9)*2-1)*PZB7.hz,ff=(dn<0?-dn:dn)-.45;
+  if(ff>0){const dd=dx*dx+dy*dy+dz*dz,ax=dx<0?-dx:dx,ay=dy<0?-dy:dy,az=dz<0?-dz:dz,mn=ax<ay?(ax<az?ax:az):(ay<az?ay:az),
+   core=1-dd*7,spike=1-(ax+ay+az-mn)*2.6*(dd<.16?1:3);st=((core>0?core:0)+(spike>0?spike*.6:0))*ff*2.4;if(st>1.4)st=1.4}}
+ let r=0,g=0,b=0,er=0,eg=0,eb=0;
+ if(band>0){
+  if(is8){/* black ice: deep blue-black, glossy, pale cracks */
+   r=C[0];g=C[1];b=C[2];const cc=cn*.6+c2*.15;er=130*cc+10*k2;eg=170*cc+16*k2;eb=230*cc+34*k2;const rm=RA*.3;er+=60*rm;eg+=110*rm;eb+=190*rm;er+=190*st*.35;eg+=220*st*.35;eb+=255*st*.35}
+  else{/* ice tinted with the ball's colour, a milky heart, a deep blue second layer of cracks, frosted patches near the rim */
+   const mk=k2*k2*(.5+.5*(fm0*.5+.5)),sc=(.2+.46*k2*k2+.1*k2)*shard;
+   r=C[0]*.5*shard;g=C[1]*.5*shard;b=C[2]*.52*shard;
+   er=C[0]*sc+mk*(C[0]*.3+22)+fr*(C[0]*.2+22)+ca*(C[0]*.3+34);eg=C[1]*sc+mk*(C[1]*.3+36)+fr*(C[1]*.2+30)+ca*(C[1]*.3+44);eb=C[2]*sc+mk*(C[2]*.3+58)+fr*(C[2]*.2+42)+ca*(C[2]*.3+64);
+   const d2=c2*.85;er+=d2*(C[0]*.35+50);eg+=d2*(C[1]*.35+90);eb+=d2*(C[2]*.3+140);
+   er+=cn*(C[0]*.2+175)*.8;eg+=cn*(C[1]*.2+205)*.8;eb+=cn*(C[2]*.1+235)*.8;er+=215*st;eg+=235*st;eb+=255*st}
+  r*=band;g*=band;b*=band;er*=band;eg*=band;eb*=band}
+ if(ab>0){/* opaque frosted white, tiny crystals, a bright icy edge where it meets the tinted band */
+  const CP=o.CP,mx2=(lx+vx*.05)*15,my2=(ly+vy*.05)*15,mz2=(lz+vz*.05)*15,ht=pzb2Hash(Math.floor(mx2),Math.floor(my2),Math.floor(mz2)),sp=ht>.86?(ht-.86)*6:0,
+   fl2=(.9+.1*fm0)*(1-cn*.1)*ab,gk=(.2+.14*k2)*ab;r+=CP[0]*fl2;g+=CP[1]*fl2;b+=CP[2]*fl2;
+   er+=(sp*70+st*210)*ab+CP[0]*gk+cn*30*ab;eg+=(sp*80+st*230)*ab+CP[1]*gk+cn*50*ab;eb+=(sp*90+st*255)*ab+CP[2]*gk+cn*70*ab;const e=o.edge;if(e>0){const ge=e*e*ab;er+=60*ge;eg+=120*ge;eb+=160*ge}}
+ o.r=r;o.g=g;o.b=b;o.er=er;o.eg=eg;o.eb=eb}
+
+pzb3Reg({id:'amber',n:'Harvest Amber',price:15000,tag:'Autumn light trapped in resin.',
+ pal:{col:{1:[250,194,36],2:[48,92,204],3:[204,38,60],4:[126,58,176],5:[238,108,28],6:[40,148,84],7:[142,34,42],8:[20,13,9]},
+  white:[250,243,228],cap:[255,239,200],disc:[255,246,220],num:[72,36,6],disc8:[252,244,222],num8:[34,18,6],ring8:[255,170,56],spec:1.25,win:.14,rim:.2},
+ mat:pzb7Amber});
+pzb3Reg({id:'glacier',n:'Glacier Crystal',price:25000,tag:'Ice from the heart of a glacier.',
+ pal:{col:{1:[255,212,52],2:[40,106,240],3:[228,34,70],4:[136,66,236],5:[255,128,36],6:[22,184,140],7:[150,24,60],8:[6,12,30]},
+  white:[238,246,255],cap:[238,246,255],disc:[246,250,255],num:[14,30,92],disc8:[240,248,255],num8:[8,18,56],ring8:[150,212,255],spec:1.5,win:.18,rim:.34},
+ mat:pzb7Glacier});
+/* ===== 10.6 THE CROOKED CUE: Cathedral Glass and Aurora Opal (97b8, prefix pzb8, after 97b6) =====
+   Two premium ball sets for the shared painter of 97b6 (pzb3Reg: a palette and a small per-pixel material).
+   - Cathedral Glass (20,000): stained glass. Solids are a leaded mosaic of glass cells (a fixed Voronoi on the sphere, looked up through a
+     24x24x24 voxel table (only the shell the sphere passes through is filled) built on first use, so a pixel only tests the 4 or 5 seeds that can be its nearest) in the ball's colour: each
+     cell has its own shade, tint and glow, brighter in the middle and lit from behind, dark thin lead lines between the cells and a
+     bright bevel on one edge of each cell. Stripes: frosted white glass caps (pale cells, soft pewter lead lines) and the coloured
+     mosaic band between them, a lead line on the band's border. The 8: black smoked glass in a gold-leaded diamond lattice with a white
+     disc in a gold ring. Number discs: cream glass with dark numbers.
+   - Aurora Opal (50,000): precious opal. A milky body strongly tinted in the ball's colour (the body colour always wins) with play-of-colour
+     flashes: broad patches of green / magenta / orange / blue fire whose hue depends on the ball-local position AND the view normal, so
+     they slide as the ball rolls, and in places a harlequin patchwork of small angular fire cells. Stripes: white opal caps with faint
+     pastel flashes and the coloured opal band with a fire line on its border. The 8: black opal with small vivid flashes of fire, a white
+     disc in a rainbow-tinted ring. Number discs: pale opal with dark numbers.
+   The pattern lives in the ball-local normal, so it rolls with the ball. No allocation in mat(); a sine table, a fire-hue table, packed seed data and per-ball values hoisted into pal.prep keep it cheap. */
+/* the tables live in one object; each material is built by a factory that captures them in closure constants (fastest to read per pixel) */
+/* built on first use (the first paint of a Cathedral Glass ball), not at load, so players who never open the set pay nothing */
+let PZB8=null,pzb8CathF=null;
+const pzb8Build=()=>{
+/* ---------- a fixed Voronoi of PZB8.N seeds on the unit sphere, with a voxel lookup of the candidate seeds ---------- */
+const N=120,sx=new Float32Array(N),sy=new Float32Array(N),sz=new Float32Array(N);let s0=20261112;const rnd=()=>{s0=(Math.imul(s0,1664525)+1013904223)|0;return ((s0>>>8)&0xffff)/65536};
+ /* Fibonacci sphere with a jitter, then a few repulsion passes so the cells come out even (no slivers, no giants) */
+ for(let i=0;i<N;i++){const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),a=i*2.399963+rnd()*.5;sx[i]=Math.cos(a)*r;sy[i]=y;sz[i]=Math.sin(a)*r}
+ for(let it=0;it<14;it++){for(let i=0;i<N;i++){let fx=0,fy=0,fz=0;for(let j=0;j<N;j++){if(j===i)continue;const dx=sx[i]-sx[j],dy=sy[i]-sy[j],dz=sz[i]-sz[j],d2=dx*dx+dy*dy+dz*dz;if(d2<.16){const w=(.16-d2)/(d2+.02);fx+=dx*w;fy+=dy*w;fz+=dz*w}}
+   let x=sx[i]+fx*.03,y=sy[i]+fy*.03,z=sz[i]+fz*.03;const l=1/Math.sqrt(x*x+y*y+z*z);sx[i]=x*l;sy[i]=y*l;sz[i]=z*l}}
+ const ux=new Float32Array(N),uy=new Float32Array(N),uz=new Float32Array(N),us=new Float32Array(N);
+ for(let i=0;i<N;i++){let a=rnd()*2-1,b=rnd()*2-1,c=rnd()*2-1;const l=1/Math.sqrt(a*a+b*b+c*c+1e-6);a*=l;b*=l;c*=l;ux[i]=a;uy[i]=b;uz[i]=c;us[i]=a*sx[i]+b*sy[i]+c*sz[i]}
+ const GN=24,vs=2/GN,r2=vs*.8660254*2,off=new Int32Array(GN*GN*GN+1),tmp=[],DS=new Float64Array(N);
+ for(let ix=0;ix<GN;ix++)for(let iy=0;iy<GN;iy++)for(let iz=0;iz<GN;iz++){const cx=-1+(ix+.5)*vs,cy=-1+(iy+.5)*vs,cz=-1+(iz+.5)*vs,g=(ix*GN+iy)*GN+iz;off[g]=tmp.length;
+  const cr=Math.sqrt(cx*cx+cy*cy+cz*cz);if(cr<1-vs*.8660254-.03||cr>1+vs*.8660254+.03)continue;/* only the shell of voxels the sphere passes through */
+  let d1=9,d2=9;for(let i=0;i<N;i++){const dx=cx-sx[i],dy=cy-sy[i],dz=cz-sz[i],d=dx*dx+dy*dy+dz*dz;DS[i]=d;if(d<d1){d2=d1;d1=d}else if(d<d2)d2=d}
+  const th=Math.sqrt(d2)+r2,th2=th*th;for(let i=0;i<N;i++)if(DS[i]<=th2)tmp.push(i)}
+ off[GN*GN*GN]=tmp.length;
+ const SP=new Float32Array(N*4),UP=new Float32Array(N*4);for(let i=0;i<N;i++){SP[i*4]=sx[i];SP[i*4+1]=sy[i];SP[i*4+2]=sz[i];UP[i*4]=ux[i];UP[i*4+1]=uy[i];UP[i*4+2]=uz[i];UP[i*4+3]=us[i]}
+ return {N,SP,UP,off,lst:Int16Array.from(tmp),n:1,V:new Float64Array(8),K:new Float32Array(N),T:new Float32Array(N),G:new Float32Array(N),CR:new Float32Array(N),CG:new Float32Array(N),CB:new Float32Array(N),GK:new Float32Array(N),EM:new Float32Array(N),HOT:new Float32Array(N)}};
+const pzb8Ready=()=>{if(!PZB8){PZB8=pzb8Build();pzb8CathF=pzb8MakeCath(PZB8);PZB3.mat.cathedral=pzb8CathF}return PZB8};
+/* per-ball cell values (shade, tint, glow) from the integer hash, so every ball has its own mosaic colouring */
+const pzb8Cells=(n,spread,C,CP)=>{const P=pzb8Ready();P.n=n;const V=P.V;V[0]=CP[0]*.88+C[0]*.12;V[1]=CP[1]*.88+C[1]*.12;V[2]=CP[2]*.88+C[2]*.12;V[3]=C[0]*.14+4;V[4]=C[1]*.14+3;V[5]=C[2]*.16+6;for(let i=0;i<P.N;i++){const h=pzb2Hash(i,n*7+3,11),h2=pzb2Hash(i,n*5+1,29),h3=pzb2Hash(i,n*3+2,53),kc=1+(h-.5)*spread,tn=h2*2-1;P.K[i]=kc;P.T[i]=tn;P.G[i]=h3;
+  /* per-cell glass colour, brightness factor, backlight bonus and hot-cell amount, hoisted out of the pixel loop */
+  P.CR[i]=C[0]*kc*(1+.2*tn);P.CG[i]=C[1]*kc*(1+.03*tn);P.CB[i]=C[2]*kc*(1-.2*tn);P.GK[i]=.84+.3*h3*h3;P.EM[i]=.4+.18*h3;P.HOT[i]=h3>.86?(h3-.86)*5:0}};
+/* a sine table (4096 steps, error under 0.0008) and the opal's fire hue table: sine, +2.09 and +4.19, normalised so the brightest channel is 1 */
+const pzb8PS=new Float32Array(4096),pzb8NR=new Float32Array(4096),pzb8NG=new Float32Array(4096),pzb8NB=new Float32Array(4096);
+for(let i=0;i<4096;i++){const p=i/4096*6.283185307;pzb8PS[i]=Math.sin(p);const r=.5+.5*Math.sin(p),g=.5+.5*Math.sin(p+2.09),b=.5+.5*Math.sin(p+4.19),k=1/(Math.max(r,g,b)+.01);pzb8NR[i]=r*k;pzb8NG[i]=g*k;pzb8NB[i]=b*k}
+const pzb8Sn=x=>pzb8PS[((x*651.8986+65536.5)|0)&4095];
+const pzb8Sm=(a,b,x)=>{x=(x-a)/(b-a);x=x<0?0:x>1?1:x;return x*x*(3-2*x)};
+
+/* ---------- Cathedral Glass ---------- */
+const pzb8MakeCath=T=>{const {SP,UP,off:OFF,lst:LST,CR,CG,CB,GK,EM,HOT,K:KK,V}=T,PS=pzb8PS,hash=pzb2Hash,Sm=(a,b,x)=>{x=(x-a)/(b-a);x=x<0?0:x>1?1:x;return x*x*(3-2*x)},Sn=x=>PS[((x*651.8986+65536.5)|0)&4095];
+return function(o){const lx=o.lx,ly=o.ly,lz=o.lz,C=o.C,band=o.band,ab=o.ab;
+ if(o.is8){/* black smoked glass in a gold-leaded diamond lattice */
+  const u1=(lx+ly)*3.3,u2=(lx-ly)*3.3,f1=u1-Math.floor(u1+.5),f2=u2-Math.floor(u2+.5),af=Math.min(f1<0?-f1:f1,f2<0?-f2:f2),
+   ln=1-Sm(.05,.105,af),h=hash(Math.floor(u1+.5)+40,Math.floor(u2+.5)+40,5),sm=.5+.5*Sn(lx*3+ly*2.2+lz*3.4+h*6);
+  o.r=C[0];o.g=C[1];o.b=C[2];
+  /* smoke inside each pane: a deep violet-grey that stays dark; the lead is gold with a lighter edge on one side */
+  const sk=(7+9*h)*(.6+.4*sm);o.er=sk*.9;o.eg=sk*.8;o.eb=sk*1.35;
+  const hi=ln*(.75+.25*Sn((lx*2-ly*1.3)*5+lz*3));o.er+=255*hi*.92;o.eg+=196*hi*.92;o.eb+=74*hi*.92;o.r+=ln*30;o.g+=ln*22;o.b+=ln*4;return}
+ let ix=((lx+1)*12)|0,iy=((ly+1)*12)|0,iz=((lz+1)*12)|0;ix=ix>23?23:ix<0?0:ix;iy=iy>23?23:iy<0?0:iy;iz=iz>23?23:iz<0?0:iz;
+ const g=(ix*24+iy)*24+iz,a=OFF[g],b=OFF[g+1];let d1=-9,d2=-9,i1=0,e=1;
+ for(let k=a;k<b;k++){const s=LST[k],s4=s<<2,d=lx*SP[s4]+ly*SP[s4+1]+lz*SP[s4+2];if(d>d1){d2=d1;d1=d;i1=s}else if(d>d2)d2=d}e=(d1-d2)*2;
+ /* the glass of one cell: a shade and a tint of the ball's colour, lit from behind and brighter in the middle */
+ const u4=i1<<2,q=lx*UP[u4]+ly*UP[u4+1]+lz*UP[u4+2]-UP[u4+3],cen=1-(1-d1)*24,ce=cen<0?0:cen,gr=1+q*1.5,cr=CR[i1],cg=CG[i1],cb=CB[i1];
+ /* lead: thin and dark, tinted with the ball's colour; the band's border on a stripe gets one too */
+ let ld=e<.02?1-Sm(.007,.02,e):0;if(o.stripe){const ed=(o.edge-.5)*3.2;const el=ed<0?0:ed>1?1:ed;if(el>ld)ld=el}
+ const bev=e<.085&&q>0?(1-Sm(.02,.085,e))*Sm(.0,.12,q)*(1-ld):0;
+ let r=0,g2=0,b2=0,er=0,eg=0,eb=0;
+ if(band>.01){const gk=gr*(.8+.35*ce)*GK[i1],em=(.4+.3*ce+EM[i1]-.4)*(.7+.3*gk),hot=HOT[i1];
+  r=cr*.5*gr;g2=cg*.5*gr;b2=cb*.5*gr;er=cr*em;eg=cg*em;eb=cb*em;
+  /* a hot cell now and then, and the bevel highlight */
+  er+=(255-er)*hot*.35+255*bev*.34;eg+=(255-eg)*hot*.3+255*bev*.32;eb+=(255-eb)*hot*.3+255*bev*.3;
+  r*=band;g2*=band;b2*=band;er*=band;eg*=band;eb*=band}
+ if(ab>.01){/* frosted white glass: pale panes, soft pewter lead, a ripple of frost */
+  const CP=o.CP,fr=.5+.5*Sn(lx*17+ly*9+Sn(lz*13+ly*7)*2),pk=.935+.05*KK[i1],fl=e<.04?1-Sm(.012,.04,e):0,ps=.97+.03*ce,cw=pk*(.93+.07*fr),
+   pr=V[0]*cw*(1-fl*.1),pg=V[1]*cw*(1-fl*.1),pb=V[2]*cw*(1-fl*.08),ef=.1+.18*ce,k5=1-fl*.5,bv=255*bev*.1;
+  r+=pr*ab*ps;g2+=pg*ab*ps;b2+=pb*ab*ps;er+=ab*(CP[0]*ef*k5+bv);eg+=ab*(CP[1]*ef*k5+bv);eb+=ab*(CP[2]*ef*k5+bv)}
+ /* lead lines over the band only (the frosted caps carry their own soft ones) */
+ if(ld>0){const lk=ld*band;r=r*(1-lk)+V[3]*lk;g2=g2*(1-lk)+V[4]*lk;b2=b2*(1-lk)+V[5]*lk;const l2=1-lk*.95;er*=l2;eg*=l2;eb*=l2}
+ o.r=r;o.g=g2;o.b=b2;o.er=er;o.eg=eg;o.eb=eb}};
+
+/* ---------- Aurora Opal ---------- */
+const pzb8Opal=(()=>{const PS=pzb8PS,NR=pzb8NR,NG=pzb8NG,NB=pzb8NB,hash=pzb2Hash,Sm=(a,b,x)=>{x=(x-a)/(b-a);x=x<0?0:x>1?1:x;return x*x*(3-2*x)},Sn=x=>PS[((x*651.8986+65536.5)|0)&4095];
+return function(o){const lx=o.lx,ly=o.ly,lz=o.lz,wx=o.wx,wy=o.wy,wz=o.wz,C=o.C,band=o.band,ab=o.ab;
+ /* broad patches of fire (slide with the roll through lx,ly,lz and with the view through wx,wy) and a patchwork of angular cells */
+ const nb=Sn(lx*3.3+ly*2.1+Sn(lz*3.9+ly*2.6)*1.5),pm=.5+.5*Sn(lx*2.6-ly*3.4+lz*2.2+nb*1.9),mk=Sm(.28,.8,pm);
+ if(o.is8){/* black opal: small vivid soft flashes of fire */
+  const u=lx*7+ly*1.9,v=ly*7-lx*1.9,w=lz*7,fu=u-Math.floor(u)-.5,fv=v-Math.floor(v)-.5,fw=w-Math.floor(w)-.5,h=hash(Math.floor(u),Math.floor(v),Math.floor(w)),
+   dd=1-(fu*fu+fv*fv+fw*fw)*3.3,sp=dd<0?0:dd,al=sp*sp*Sm(.38,.75,h)*(.5+.5*mk)+.2*mk*mk,
+   i0=((nb*3+(lx*2.4+ly*1.8+lz*2.1)*2.2+wx*4.2+wy*3.1+h*4)*651.8986+65536.5)|0;
+  o.r=C[0];o.g=C[1];o.b=C[2];const fr=.5+.5*PS[i0&4095],fg=.5+.5*PS[(i0+1362)&4095],fb=.5+.5*PS[(i0+2732)&4095],k=al*225;
+  o.er=fr*fr*k+5;o.eg=fg*fg*k+4;o.eb=fb*fb*k+8;
+  /* the ring of the 8's disc is rainbow (the disc itself is painted by the shared painter) */
+  const q=lx*lx+ly*ly,az=lz<0?-lz:lz;if(az>.8&&q>.2&&q<.3){const dq=q>.255?q-.255:.255-q,rr=1-Sm(.0,.03,dq),j0=((Math.atan2(ly,lx)*2+lz*3)*651.8986+65536.5)|0;
+   o.er+=rr*(.35+.65*(.5+.5*PS[j0&4095]))*255;o.eg+=rr*(.35+.65*(.5+.5*PS[(j0+1362)&4095]))*255;o.eb+=rr*(.35+.65*(.5+.5*PS[(j0+2732)&4095]))*255}
+  return}
+ const gx=Math.floor(lx*4.4+ly*1.2),gy=Math.floor(ly*4.4-lx*1.2),gz=Math.floor(lz*4.4),h=hash(gx,gy,gz),
+  hq=Sm(.3,.62,.5+.5*Sn(lz*3.1-lx*2.2+ly*1.3+nb)),
+  i0=((nb*2.4+(lx*2.3+ly*1.6+lz*1.9)*1.6+wx*3.4+wy*2.5+wz*1.4+hq*(h-.5)*8)*651.8986+65536.5)&4095,
+  sr=NR[i0],sg=NG[i0],sb=NB[i0],m=mk*(.72+.28*h)+hq*(.16+.3*h)*(1-mk*.5);
+ /* the milky body: tinted strongly, a little paler in the middle where the light scatters, deeper at the edge */
+ const wz2=wz*wz,mi=.02+.06*wz2;
+ let r=0,g=0,b=0,er=0,eg=0,eb=0;
+ if(band>.01){const fa=m*.42,dk=.9-.1*wz2,dr=C[0]*dk,dg=C[1]*dk,db=C[2]*dk;/* the fire tints the colour (at most about half) and the body keeps the rest */
+  r=dr*.72;g=dg*.72;b=db*.72;
+  er=dr*.24+235*mi+(sr*225-dr*.24)*fa;eg=dg*.24+232*mi+(sg*225-dg*.24)*fa;eb=db*.24+250*mi+(sb*225-db*.24)*fa;
+  r*=band;g*=band;b*=band;er*=band;eg*=band;eb*=band}
+ if(ab>.01){/* white opal caps: milky with faint pastel flashes */
+  const CP=o.CP,pa=m*.15+.02,sh=.94+.06*wz2;
+  r+=CP[0]*.72*sh*ab;g+=CP[1]*.72*sh*ab;b+=CP[2]*.72*sh*ab;er+=(CP[0]*.18+(sr*255-CP[0]*.18)*pa)*ab;eg+=(CP[1]*.18+(sg*255-CP[1]*.18)*pa)*ab;eb+=(CP[2]*.18+(sb*255-CP[2]*.18)*pa)*ab}
+ /* a bright line of fire on a stripe's band border */
+ if(o.stripe&&o.edge>.4){const ed=(o.edge-.4)*1.67,e2=ed*ed*.55;er+=sr*210*e2;eg+=sg*210*e2;eb+=sb*210*e2}
+ o.r=r;o.g=g;o.b=b;o.er=er;o.eg=eg;o.eb=eb}})();
+
+pzb3Reg({id:'cathedral',n:'Cathedral Glass',price:20000,tag:'Light through a cathedral window.',
+ pal:{col:{1:[250,194,52],2:[58,122,236],3:[236,64,92],4:[150,84,226],5:[250,128,40],6:[34,176,128],7:[178,44,76],8:[16,14,22]},
+  white:[244,244,250],cap:[236,240,248],disc:[250,240,212],num:[44,24,16],disc8:[250,250,255],num8:[22,14,26],ring8:[255,196,60],spec:1.2,win:.12,rim:.34,
+  prep(P,pal,n,C){pzb8Cells(n,.62,C,pal.cap)}},
+ mat:o=>{pzb8Ready();pzb8CathF(o)}});
+pzb3Reg({id:'opal',n:'Aurora Opal',price:50000,tag:'Every turn flashes a new colour.',
+ pal:{col:{1:[248,196,52],2:[60,126,240],3:[238,66,104],4:[156,88,230],5:[250,134,44],6:[36,180,132],7:[186,48,84],8:[11,9,16]},
+  white:[246,244,250],cap:[242,240,246],disc:[246,242,250],num:[40,26,64],disc8:[252,250,255],num8:[24,14,40],ring8:[70,60,90],spec:.95,win:.08,rim:.3},
+ mat:pzb8Opal});
+/* ===== 10.6 THE CROOKED CUE: Dragonscale and Diamond Brilliance (97b9, prefix pzb9, after 97b6) =====
+   Two premium ball sets for the Cue Rack, painted by the shared material painter of 97b6 (pzb3Reg).
+   - Dragonscale (35,000): rows of overlapping, pointed dragon scales laid on the ball's own coordinates (so they roll with it), each scale a
+     little dome with a dark gap, a bright bevel and a fine glint along its edge; the colour drifts toward a neighbouring hue with the view
+     angle (a metallic, iridescent sheen). Stripes: ivory-pearl scales on the caps and a coloured scale band. The 8: black scales with a thin
+     molten red-gold line round every scale, an ivory disc ringed in gold. Number discs: bone ivory.
+   - Diamond Brilliance (75,000): a brilliant cut. The ball's own normal is quantised into rings and sectors round the poles (stars at the
+     table, kites, a girdle of small facets); every facet is flat and has its own brightness and its own flash, worked out once per ball from
+     the real rotation (so the glints change as it rolls), rainbow-dispersion fire on the facet edges and corners, and up to three four-point
+     star glints on the brightest facets. Solids: fancy coloured diamonds. Stripes: white diamond caps. The 8: black carbonado with white and
+     violet glints and a white disc. Number discs: white diamond.
+   The painter's own cost is the whole cost: no allocation inside the materials, tables built once. */
+const PZB9={M:null};
+/* a fast atan2 (error about 1e-5 rad); Math.atan2 was the dearest call in both materials */
+function pzb9At2(y,x){const ax=x<0?-x:x,ay=y<0?-y:y,mx=ax>ay?ax:ay;if(mx<1e-9)return 0;const a=(ax>ay?ay:ax)/mx,s=a*a;let r=((-.0464964749*s+.15931422)*s-.327622764)*s*a+a;if(ay>ax)r=1.57079637-r;if(x<0)r=3.14159274-r;return y<0?-r:r}
+/* the painter does not hand the rotation to prep(), so remember it (pzbPaint always runs first) */
+{const f0=pzbPaint;pzbPaint=function(slot,n,M){PZB9.M=M;return f0.apply(this,arguments)}}
+
+/* ---------------------------------------------------------------- Dragonscale */
+const pzb9NCOL=13,pzb9H=Math.PI/pzb9NCOL,pzb9IH=1/pzb9H,pzb9RHO=1/(1.3*1.3);
+const pzb9NC=new Int16Array(26),pzb9PW=new Float32Array(26);
+for(let i=-12;i<=12;i++){const c=Math.abs(Math.cos(i*pzb9H)),nc=Math.max(3,Math.round(pzb9NCOL*c));pzb9NC[i+12]=nc;pzb9PW[i+12]=2*Math.PI/(nc*pzb9H)}
+/* the neighbouring hue: the ball colour turned 48 degrees round the grey axis (set in prep, read in mat) */
+let pzb9n0=0,pzb9n1=0,pzb9n2=0,pzb9NS=0;
+{const a=-.8,cs=Math.cos(a),sn=Math.sin(a),k=(1-cs)/3,s3=.57735027*sn;PZB9.rot=[cs+k,k-s3,k+s3]}
+function pzb9DragPrep(P,pal,n,C,is8,stripe){const R=PZB9.rot,a=R[0],b=R[1],c=R[2];
+ pzb9n0=C[0]*a+C[1]*b+C[2]*c;pzb9n1=C[0]*c+C[1]*a+C[2]*b;pzb9n2=C[0]*b+C[1]*c+C[2]*a}
+function pzb9DragMat(o){
+ const lx=o.lx,ly=o.ly,lz=o.lz,wz=o.wz,rad=Math.sqrt(lx*lx+lz*lz),t=pzb9At2(ly,rad)*pzb9IH,i0=Math.floor(t+.5),fr=pzb9At2(lx,lz)*.15915494;
+ let dd=9,xx=0,yy=0,hs=.5;
+ /* the row above is checked first: it lies over the row below it, like roof tiles */
+ for(let k=1;k>=-1;k--){const i=i0+k,nc=pzb9NC[i+12],u=fr*nc-((i&1)?.5:0),jn=Math.floor(u+.5),du=u-jn,y=i-t,x=du*pzb9PW[i+12]*rad,yc=y>1.2?1.2:y<-1.2?-1.2:y,d=(x*x/(1-.22*yc)+y*y)*pzb9RHO;
+  if(d<1||k===-1){dd=d;xx=x;yy=y;const jw=jn<0?jn+nc:jn>=nc?jn-nc:jn;hs=pzb2Hash(jw,i,5);break}}
+ const C=o.C,CP=o.CP,band=o.band,ab=o.ab,dif=o.dif;
+ /* a raised plate: a lighter middle, a slope, a bright lip, then a dark gap to the next scale */
+ const lip0=1-(dd>.78?dd-.78:.78-dd)*7.5,lip=lip0>0?lip0:0,gap=dd>.78?(dd-.78)*4.55:0,gp=gap>1?1:gap,
+  dome=1.16-.34*dd-.06*yy+(hs-.5)*.16+lip*(.3-.12*yy),
+  ri=(1-(xx<0?-xx:xx)*1.5>0?1-(xx<0?-xx:xx)*1.5:0)*(.08-.1*dd),bv=lip;
+ let ks=(dome+ri)*(1-(.3+.34*o.band)*gp*gp)*(1+.1*o.ab);
+ /* the sheen: toward the neighbouring hue at a glancing angle, and a little on every scale */
+ let kk=.05+.4*(1-wz)+.25*(hs-.5);kk=kk<0?0:kk>.5?.5:kk;
+ const br=C[0]+(pzb9n0-C[0])*kk,bg=C[1]+(pzb9n1-C[1])*kk,bb=C[2]+(pzb9n2-C[2])*kk;
+ let r,g,b,er=0,eg=0,eb=0;
+ if(o.is8){/* black scales, a molten line round each, a faint ember in the gap */
+  r=C[0]*ks*1.8;g=C[1]*ks*1.8;b=C[2]*ks*1.8;
+  const m=Math.max(0,1-Math.abs(dd-.86)*6.5),m2=m*m,gp2=dd>.9?(dd-.9)*10:0;
+  er=255*m2*(.5+.5*hs)+70*gp2;eg=(105+75*hs)*m2+14*gp2;eb=34*m2;
+  const hi=bv*.1*(.4+dif);er+=60*hi;eg+=56*hi;eb+=50*hi}
+ else{
+  /* caps: ivory pearl with a faint rainbow; band (and solids): the coloured, shifting scale */
+  let cr=CP[0],cg=CP[1],cb=CP[2];
+  if(ab>0){const ir=ab*(1-wz)*26,a=fr*50+t*3.1;cr+=ir*pzb2Sin(a);cg+=ir*pzb2Sin(a+2.1);cb+=ir*pzb2Sin(a+4.2)}
+  r=(cr+(br-cr)*band)*ks;g=(cg+(bg-cg)*band)*ks;b=(cb+(bb-cb)*band)*ks;
+  /* a fine shine along the scale edges (strongest where the light is) and a bevel catch-light */
+  const gl=Math.max(0,1-Math.abs(dd-.82)*7),sh=gl*gl*(.3+.7*dif),cb2=bv*(.3+.5*dif);
+  const wc=ab*.7+.3;const lf=ab*38;er=(o.hr*.55+90*wc)*sh*.8+(o.hr*.3+60)*cb2*.16+lf;eg=(o.hg*.55+90*wc)*sh*.8+(o.hg*.3+60)*cb2*.16+lf*.93;eb=(o.hb*.55+90*wc)*sh*.8+(o.hb*.3+60)*cb2*.16+lf*.8;
+  /* a gold line where the band meets the caps */
+  if(o.edge>0){const e=o.edge*o.edge*.55;er+=210*e;eg+=160*e;eb+=70*e}}
+ o.r=r;o.g=g;o.b=b;o.er=er;o.eg=eg;o.eb=eb}
+
+pzb3Reg({id:'dragon',n:'Dragonscale',price:35000,tag:'Armour grown by dragons.',mat:pzb9DragMat,pal:{
+ col:{1:[238,186,40],2:[54,110,228],3:[218,44,62],4:[136,66,202],5:[240,114,34],6:[30,162,106],7:[180,50,80],8:[12,10,16]},
+ white:[246,244,236],cap:[248,242,224],disc:[240,230,202],num:[54,34,22],disc8:[252,246,226],num8:[34,20,12],ring8:[255,190,70],spec:1.25,win:.12,rim:.3,prep:pzb9DragPrep}});
+
+/* ---------------------------------------------------------------- Diamond Brilliance */
+/* rings from the pole to the equator (stars, kites, kites, kites, the girdle), sectors per ring, and the ring height as an arc */
+const pzb9RS=[8,16,16,16],pzb9RO=[0,.5,0,.5],pzb9RB=[0,8,24,40],pzb9RW=[.45,.45,.4,.28],pzb9RC=[13,39,63,82],pzb9ES=[1,.899,.616,.276,0],pzb9NR=4,pzb9HF=56;
+const pzb9KD=new Float32Array(112),pzb9FL=new Float32Array(112),pzb9FR=new Float32Array(112),pzb9FG=new Float32Array(112),pzb9FB=new Float32Array(112),pzb9FA=new Float32Array(112),pzb9GR=new Float32Array(112);
+const pzb9SX=new Float32Array(3),pzb9SY=new Float32Array(3),pzb9SS=new Float32Array(3),pzb9WX=new Float32Array(112),pzb9WY=new Float32Array(112),pzb9WZ=new Float32Array(112);
+/* four studio lights (view space) and the half vectors toward the viewer */
+const pzb9LH=(()=>{const L=[[-.42,-.58,.7,1],[.7,-.3,.64,.8],[-.15,.75,.64,.7],[.1,0,1,.5]],o=[];for(const l of L){const m=Math.hypot(l[0],l[1],l[2]);let x=l[0]/m,y=l[1]/m,z=l[2]/m+1;const h=Math.hypot(x,y,z);o.push([x/h,y/h,z/h,l[3]])}return o})();
+function pzb9DiamPrep(P,pal,n,C,is8,stripe){const M=PZB9.M;if(!M)return;
+ const m0=M[0],m1=M[1],m2=M[2],m3=M[3],m4=M[4],m5=M[5],m6=M[6],m7=M[7],m8=M[8];
+ for(let rg=0;rg<pzb9NR;rg++){const S=pzb9RS[rg],th=pzb9RC[rg]*.0174533,sn=Math.sin(th),cs=Math.cos(th);
+  for(let hm=0;hm<2;hm++){const sgn=hm?-1:1,off=pzb9RO[rg]+(hm?.5:0);
+   for(let si=0;si<S;si++){const f=pzb9RB[rg]+si+hm*pzb9HF,ph=((si+.5-off)/S-.5)*6.2831853,cx=sn*Math.sin(ph),cy=cs*sgn,cz=sn*Math.cos(ph),
+     wx=m0*cx+m1*cy+m2*cz,wy=m3*cx+m4*cy+m5*cz,wz=m6*cx+m7*cy+m8*cz;pzb9WX[f]=wx;pzb9WY[f]=wy;pzb9WZ[f]=wz;
+    const lam=wx*-.42+wy*-.58+wz*.7,hs=pzb2Hash(f,3,11);let gl=0;
+    for(let q=0;q<4;q++){const h=pzb9LH[q];let s=wx*h[0]+wy*h[1]+wz*h[2];s=s>0?s:0;const s2=s*s,s4=s2*s2,s8=s4*s4;gl+=s8*s8*s8*h[3]}
+    pzb9KD[f]=.5+.5*(lam>0?lam:0)+.36*hs;pzb9GR[f]=hs>.5?.22:-.22;pzb9FL[f]=gl>1.3?1.3:gl;
+    const p=11*wx+7*wy+4*wz;{let a=.5+.9*pzb2Sin(p),c=.5+.9*pzb2Sin(p+2.1),d=.5+.9*pzb2Sin(p+4.2);pzb9FR[f]=a<0?0:a>1?1:a;pzb9FG[f]=c<0?0:c>1?1:c;pzb9FB[f]=d<0?0:d>1?1:d}pzb9FA[f]=.3+.7*(gl>1?1:gl)}}}
+ /* the three brightest facets facing us get four-point stars */
+ pzb9NS=0;for(let k=0;k<3;k++){let best=-1,bv=.3;for(let f=0;f<2*pzb9HF;f++){if(pzb9WZ[f]<.3||pzb9FL[f]<=bv)continue;let ok=1;for(let q=0;q<pzb9NS;q++){const dx=pzb9WX[f]-pzb9SX[q],dy=pzb9WY[f]-pzb9SY[q];if(dx*dx+dy*dy<.3){ok=0;break}}if(ok){best=f;bv=pzb9FL[f]}}
+  if(best>=0){pzb9SX[pzb9NS]=pzb9WX[best];pzb9SY[pzb9NS]=pzb9WY[best];const s=(bv-.3)*1.7;pzb9SS[pzb9NS++]=s>1?1:s}}}
+function pzb9DiamMat(o){
+ const lx=o.lx,ly=o.ly,lz=o.lz,ay=o.ay,rad=Math.sqrt(lx*lx+lz*lz),south=ly<0,ph=pzb9At2(lx,lz)*.15915494+.5,q=ph*16;
+ /* the ring boundaries zigzag (a tooth per sector pair, each boundary half a tooth off the one before) so the rings break into kites and stars */
+ const q1=q-(q|0),q2=q1<.5?q1:1-q1,q3=q1>.5?q1-.5:q1+.5,q4=q3<.5?q3:1-q3,z1=(q2-.25)*4*.075,z2=(q4-.25)*4*.07,z3=(q2-.25)*4*.06;
+ const B1=.899+z1,B2=.616-z2,B3=.276+z3;let rg=0,U=1,Lo=B1;
+ if(ay<B1){rg=1;U=B1;Lo=B2;if(ay<B2){rg=2;U=B2;Lo=B3;if(ay<B3){rg=3;U=B3;Lo=0}}}
+ const fr=(U-ay)/(U-Lo),S=pzb9RS[rg];
+ let fs=ph*S+pzb9RO[rg]+(south?.5:0);let si=fs|0;fs-=si;if(si>=S)si-=S;
+ const f=pzb9RB[rg]+si+(south?pzb9HF:0),fl=pzb9FL[f],fa=pzb9FA[f],
+  dr=(fr<.5?fr:1-fr)*pzb9RW[rg],es=(fs<.5?fs:1-fs)*6.2831853*rad/S,e=dr<es?dr:es,le=1-e*34,cn=1-(dr*dr+es*es)*1200,
+  kd=pzb9KD[f]*(1+pzb9GR[f]*(fr-.5)),C=o.C,band=o.band,dif=o.dif,lt=.66+.34*dif,fR=pzb9FR[f],fG=pzb9FG[f],fB=pzb9FB[f];
+ let r,g,b,er=0,eg=0,eb=0;
+ if(o.is8){/* carbonado: black stone, white and violet flashes */
+  const k=kd*lt*2;r=C[0]*k;g=C[1]*k;b=C[2]*k;
+  const ff=fl*.5*.4;er=(140+70*fR)*ff;eg=(100+60*fG)*ff;eb=(200+50*fB)*ff;
+  if(le>0){const ee=le*(.3+.4*fl);er+=150*ee;eg+=115*ee;eb+=215*ee}
+  if(cn>0){const c=cn*fa;er+=178*c;eg+=141*c;eb+=204*c}}
+ else{
+  /* white diamond caps: cool grey-blue in the shade of a facet, white in the light; the band: the fancy colour. Flat per facet. */
+  let t=(kd-.45)*1.5;t=t<0?0:t>1?1:t;const lc=.86+.14*dif,cr=(176+79*t)*lc,cg=(200+55*t)*lc,cb=(236+19*t)*lc,k=kd*lt;
+  r=cr+(C[0]*k-cr)*band;g=cg+(C[1]*k-cg)*band;b=cb+(C[2]*k-cb)*band;
+  /* the flash: tinted by the stone on the band, white on the caps */
+  const ab=1-band,ffl=fl*(band?.5:.22),tr=band*(C[0]*.55+120)+ab*255,tg=band*(C[1]*.55+120)+ab*255,tb=band*(C[2]*.55+120)+ab*255;er=tr*ffl;eg=tg*ffl;eb=tb*ffl;
+  /* facet edges: a bright line in the stone's lightest tint (on the caps a cool grey line), rainbow fire where a facet is flashing, fire at the corners */
+  if(le>0){const eL=le*(.45+.4*kd)*.5*band,ef=le*fa*112;
+   r-=ab*le*.3*r;g-=ab*le*.22*g;b-=ab*le*.1*b;
+   er+=(o.hr*.45+100)*eL+fR*ef;eg+=(o.hg*.45+100)*eL+fG*ef;eb+=(o.hb*.45+100)*eL+fB*ef}
+  if(cn>0){const c=cn*fa;er+=(fR*230+40)*c;eg+=(fG*230+40)*c;eb+=(fB*230+40)*c}
+  if(o.edge>0){const q=o.edge*o.edge*.6;er+=235*q;eg+=240*q;eb+=255*q}}
+ /* four-point stars on the brightest facets, screen aligned, white with a hint of fire */
+ for(let q=0;q<pzb9NS;q++){const s=pzb9SS[q];const dx=o.wx-pzb9SX[q],dy=o.wy-pzb9SY[q],ax=dx<0?-dx:dx,ay2=dy<0?-dy:dy;
+  if(ax>.34||ay2>.34)continue;let a1=1-ax*3.6,a2=1-ay2*24,b1=1-ay2*3.6,b2=1-ax*24,core=1-(ax*ax+ay2*ay2)*200;a1=a1>0?a1*a1:0;b1=b1>0?b1*b1:0;a2=a2>0?a2:0;b2=b2>0?b2:0;core=core>0?core:0;
+   const st=(a1*a2+b1*b2+core)*s;if(st>0){const w=o.is8?.85:1;er+=250*st*w;eg+=240*st*w;eb+=255*st*w}}
+ o.r=r;o.g=g;o.b=b;o.er=er;o.eg=eg;o.eb=eb;o.metal=1}
+
+pzb3Reg({id:'diamond',n:'Diamond Brilliance',price:75000,tag:'Cut like the finest diamond in the vault.',mat:pzb9DiamMat,pal:{
+ col:{1:[255,206,24],2:[28,104,255],3:[244,34,64],4:[162,50,250],5:[255,120,8],6:[14,200,104],7:[138,24,50],8:[8,7,12]},
+ white:[248,250,255],cap:[250,252,255],disc:[255,255,255],num:[18,22,60],disc8:[252,252,255],num8:[14,10,30],ring8:[190,150,255],spec:1.2,win:.14,rim:.35,prep:pzb9DiamPrep}});
+/* ===== 10.6 THE CROOKED CUE: the Cue Rack's ball tab with fourteen sets (97ba, prefix pzr6, after 97b9) =====
+   96zj lays the ball sets out as one flex row of eight cards. With the six premium sets (97b7-97b9) there are fourteen, so the
+   strip scrolls: cards keep their size, arrows at both ends (and the mouse wheel or a swipe) move it, the selected card is
+   scrolled into view when the tab opens, and premium sets (price 15,000 and up) carry a small gold PREMIUM mark. */
+/* the premium sets were registered by three modules (97b7-97b9); list them cheapest first after the older sets */
+{const pr=PZ_BALLS.filter(b=>b.prem).sort((a,b)=>a.price-b.price);for(const b of pr)PZ_BALLS.splice(PZ_BALLS.indexOf(b),1);PZ_BALLS.push(...pr)}
+{const st=document.createElement('style');st.textContent=`
+.pzkbstrip{overflow-x:auto;overflow-y:hidden;scroll-behavior:smooth;scrollbar-width:none;padding:6px 2px 0}
+.pzkbstrip::-webkit-scrollbar{display:none}
+.pzrk97 .pzkbc{flex:0 0 172px;max-width:none}
+.pzkbc b{overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pzkbc.prem b{font-size:19px}
+.pzkbc.prem::before{content:'PREMIUM';position:absolute;left:50%;top:-9px;transform:translateX(-50%);padding:2px 8px;border-radius:9px;background:linear-gradient(180deg,#ffe27a,#d69a1e);color:#3a2204;font:800 10px/1.3 Poppins,sans-serif;letter-spacing:.09em;border:2px solid #12081f;z-index:2;pointer-events:none}
+.pzkbnav{position:absolute;top:50%;width:40px;height:84px;margin-top:-42px;border-radius:14px;border:3px solid #12081f;background:linear-gradient(180deg,#ffe27a,#d69a1e);color:#3a2204;font:800 38px/1 Poppins,sans-serif;cursor:pointer;z-index:5;display:none;align-items:center;justify-content:center;box-shadow:0 6px 16px #0009;transition:transform .15s}
+.pzkbnav.l{left:-10px}.pzkbnav.r{right:-10px}.pzkbnav:hover{transform:scale(1.08)}.pzkbnav.on{display:flex}
+`;document.head.appendChild(st)}
+function pzr6Nav(){const w=$('pzkwall'),s=w&&w.querySelector('.pzkbstrip');if(!w||!s)return;
+ let l=w.querySelector('.pzkbnav.l'),r=w.querySelector('.pzkbnav.r');
+ if(!l){l=document.createElement('button');l.className='pzkbnav l';l.setAttribute('aria-label','Scroll left');l.textContent='‹';l.onclick=()=>{s.scrollBy({left:-(s.clientWidth-190),behavior:'smooth'});pzFx&&pzFx('tick')};w.appendChild(l);
+  r=document.createElement('button');r.className='pzkbnav r';r.setAttribute('aria-label','Scroll right');r.textContent='›';r.onclick=()=>{s.scrollBy({left:s.clientWidth-190,behavior:'smooth'});pzFx&&pzFx('tick')};w.appendChild(r)}
+ const upd=()=>{const max=s.scrollWidth-s.clientWidth;l.classList.toggle('on',max>4&&s.scrollLeft>4);r.classList.toggle('on',max>4&&s.scrollLeft<max-4)};
+ s.onscroll=upd;s.onwheel=e=>{if(s.scrollWidth<=s.clientWidth+4)return;const dx=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;s.scrollLeft+=dx;e.preventDefault()};
+ upd();return upd}
+{const f0=pzRk97Wall;pzRk97Wall=function(){const r=f0.apply(this,arguments);try{if(PZ.rackTab==='balls'){const w=$('pzkwall'),s=w&&w.querySelector('.pzkbstrip');
+  if(s){s.querySelectorAll('.pzkbc').forEach(b=>{const it=PZ_BALLS.find(x=>x.id===b.dataset.i);if(it&&it.prem)b.classList.add('prem')});
+   /* the selected card (the equipped set when the tab opens) is brought into view without animation */
+   const sel=s.querySelector('.pzkbc.sel');if(sel){const keep=s.style.scrollBehavior;s.style.scrollBehavior='auto';const a=sel.offsetLeft-s.offsetLeft,vis0=s.scrollLeft,vis1=s.scrollLeft+s.clientWidth;if(a<vis0||a+sel.offsetWidth>vis1)s.scrollLeft=Math.max(0,a-(s.clientWidth-sel.offsetWidth)/2);s.style.scrollBehavior=keep}
+   const upd=pzr6Nav();if(upd)setTimeout(upd,60)}}}catch(e){console.error(e)}return r}}
 /* ===== RUNESTONE TOWER DEFENSE 9.9h: healers that can be out-damaged, and an endless Wonderland that stays beatable past wave 60 (97c, after 97b) =====
    Hex Shamans (95e) pulsed 8% of max health into every hurt monster in reach every 2.4 s. Three faults made late waves unwinnable:
    - pulses stacked: a monster between three shamans got 24% back per pulse;
